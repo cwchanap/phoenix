@@ -91,7 +91,6 @@ src/
   assets/
     maps/
       proof-map.json
-      proof-tileset.json
     sprites/
       proof-tiles.png
       proof-player.png
@@ -125,6 +124,8 @@ The Tiled JSON map uses:
 - one scenery object layer;
 - one collision-footprint object layer; and
 - one marker object layer.
+
+Its ground and scenery tileset definitions are embedded in `proof-map.json`, because Phaser's Tiled parser does not support external tilesets. The embedded definitions still preserve normal Tiled metadata, including the scenery tileset's bottom object alignment.
 
 The proof map contains a visible farm patch, one tree, one small building, blocked perimeter cells, and one player spawn. It deliberately omits the full farm and village.
 
