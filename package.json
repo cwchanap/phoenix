@@ -1,0 +1,34 @@
+{
+  "name": "phoenix",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "bun@1.3.1",
+  "scripts": {
+    "dev": "vite --host localhost --port 1420 --strictPort",
+    "check": "svelte-check --tsconfig ./tsconfig.json --tsgo",
+    "test": "bun test",
+    "test:e2e:install": "playwright install chromium",
+    "test:e2e": "playwright test",
+    "build": "vite build",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "assets:generate": "bun run tools/generate-proof-assets.ts",
+    "verify:clean": "bun run tools/verify-clean-checkout.ts"
+  },
+  "dependencies": {
+    "phaser": "4.2.1",
+    "svelte": "5.56.8"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "@sveltejs/vite-plugin-svelte": "7.3.0",
+    "@tauri-apps/cli": "2.11.4",
+    "@typescript/native": "npm:typescript@7.0.2",
+    "@types/bun": "1.3.14",
+    "svelte-check": "4.7.5",
+    "typescript": "6.0.3",
+    "vite": "8.2.1"
+  }
+}

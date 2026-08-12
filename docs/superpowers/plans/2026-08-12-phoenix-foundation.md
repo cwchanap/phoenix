@@ -6,7 +6,7 @@
 
 **Architecture:** Svelte owns one fitted `640×360` stage and its screen-space overlay; Phaser owns rendering, camera, asset loading, and keyboard sampling. Framework-free TypeScript owns projection, movement, collision, facing, and targeting, while the Tauri Rust crate remains a shell with no gameplay logic.
 
-**Tech Stack:** Bun 1.3.1 with `@types/bun` 1.3.14, TypeScript 7.0.2, Vite 8.2.1, Svelte 5.56.8, Phaser 4.2.1, Playwright 1.62.1, Tauri CLI 2.11.4, Tauri crate 2.11.5, Rust/Cargo 1.96, Xcode 26.6, and Tiled 1.12-compatible JSON.
+**Tech Stack:** Bun 1.3.1 with `@types/bun` 1.3.14, TypeScript 7.0.2 through the `@typescript/native` npm alias plus TypeScript 6.0.3 for `svelte-check` compatibility, Vite 8.2.1, Svelte 5.56.8, Phaser 4.2.1, Playwright 1.62.1, Tauri CLI 2.11.4, Tauri crate 2.11.5, Rust/Cargo 1.96, Xcode 26.6, and Tiled 1.12-compatible JSON.
 
 ## Global Constraints
 
@@ -14,6 +14,7 @@
 - Use Bun as the sole JavaScript package manager and script entry point.
 - Commit `bun.lock` as the only JavaScript package-manager lockfile and commit the Tauri crate's `Cargo.lock`.
 - Pin every direct JavaScript dependency exactly; pin Phaser to `4.2.1`.
+- Run static checks through `svelte-check --tsgo` with `typescript@6.0.3` installed under its normal name and `typescript@7.0.2` installed as `@typescript/native`; this is the supported `svelte-check@4.7.5` TypeScript 7 contract approved during Task 1 execution.
 - Verify desktop behavior on macOS only; keep ordinary Tauri configuration portable without claiming Windows or Linux verification.
 - Use one fixed `640×360` logical stage, integer-fit scaling, letterboxing, and an initial Tauri window of `1280×720` with a `640×360` minimum.
 - Use a finite `12×12`, `64×32`, 2:1 isometric Tiled map with embedded tileset definitions because Phaser does not support external Tiled tilesets.
@@ -135,11 +136,13 @@ describe('Phoenix scaffold', () => {
       '@playwright/test': '1.62.1',
       '@sveltejs/vite-plugin-svelte': '7.3.0',
       '@tauri-apps/cli': '2.11.4',
+      '@typescript/native': 'npm:typescript@7.0.2',
       '@types/bun': '1.3.14',
       'svelte-check': '4.7.5',
-      typescript: '7.0.2',
+      typescript: '6.0.3',
       vite: '8.2.1',
     });
+    expect(pkg.scripts.check).toBe('svelte-check --tsconfig ./tsconfig.json --tsgo');
   });
 
   test('uses only Bun and Cargo lockfiles', () => {
@@ -184,7 +187,7 @@ Expected: FAIL because `package.json`, lockfiles, and Tauri configuration do not
   "packageManager": "bun@1.3.1",
   "scripts": {
     "dev": "vite --host localhost --port 1420 --strictPort",
-    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "check": "svelte-check --tsconfig ./tsconfig.json --tsgo",
     "test": "bun test",
     "test:e2e:install": "playwright install chromium",
     "test:e2e": "playwright test",
@@ -203,9 +206,10 @@ Expected: FAIL because `package.json`, lockfiles, and Tauri configuration do not
     "@playwright/test": "1.62.1",
     "@sveltejs/vite-plugin-svelte": "7.3.0",
     "@tauri-apps/cli": "2.11.4",
+    "@typescript/native": "npm:typescript@7.0.2",
     "@types/bun": "1.3.14",
     "svelte-check": "4.7.5",
-    "typescript": "7.0.2",
+    "typescript": "6.0.3",
     "vite": "8.2.1"
   }
 }
@@ -1835,6 +1839,6 @@ Post the exact verification commands, macOS smoke result, build artifact paths, 
 | No gameplay authority in Svelte, Phaser, or Rust | File ownership in Tasks 2-5; final source-boundary audit in Task 8 |
 | macOS-only desktop acceptance claim | Global constraint, README boundary, Tauri build, and native smoke in Task 8 |
 
-Self-review found and resolved five plan-level hazards: external Tiled tilesets unsupported by the pinned Phaser parser; ambiguous Phaser render-option placement; Bun accidentally discovering Playwright's default test suffix; nondeterministic fixed-delay HMR observation; and a clean-checkout archive that could ignore uncommitted fixes. Every function referenced by a code excerpt is either defined in that task or explicitly consumed from an earlier task, direct dependencies are exact pins, command examples use the repository's RTK convention, and Markdown fences are balanced.
+Self-review found and resolved six plan-level hazards: external Tiled tilesets unsupported by the pinned Phaser parser; ambiguous Phaser render-option placement; Bun accidentally discovering Playwright's default test suffix; nondeterministic fixed-delay HMR observation; a clean-checkout archive that could ignore uncommitted fixes; and `svelte-check@4.7.5` requiring its documented dual TypeScript 6/7 installation plus `--tsgo` for TypeScript 7 diagnostics. Every function referenced by a code excerpt is either defined in that task or explicitly consumed from an earlier task, direct dependencies are exact pins, command examples use the repository's RTK convention, and Markdown fences are balanced.
 
 No approved behavior is left without a unit, browser, build, source-audit, or macOS visual-smoke evidence path. Runtime results and screenshots remain execution evidence to collect in Task 8; this planning review does not claim that the unimplemented application already passes them.
