@@ -23,8 +23,9 @@ The completed slice is the foundation for HPA-591. It contains no crop, inventor
 - Use a thin custom vertical slice instead of adapting a larger game template.
 - Initialize a Vite, Svelte 5, and TypeScript frontend with a minimal Tauri 2 shell.
 - Use Bun as the sole JavaScript package manager and script entry point.
-- Pin Phaser exactly to `4.2.1` and commit only `bun.lock`.
+- Pin Phaser exactly to `4.2.1`. `bun.lock` is the only JavaScript package-manager lockfile; the Tauri application also commits its Rust `Cargo.lock`.
 - Verify the desktop path on macOS. Keep ordinary Tauri configuration portable, but make no Windows or Linux verification claim in this slice.
+- Use `com.hapadona.phoenix` as the Tauri bundle identifier and `Phoenix` as the application and main-window title.
 - Use a fixed `640×360` logical presentation with integer scaling and letterboxing. The initial Tauri window is `1280×720`, with a minimum size of `640×360`.
 - Use a `12×12` Tiled isometric proof map with `64×32` ground diamonds.
 - Keep authoritative movement, collision, facing, targeting, and projection behavior in framework-free TypeScript.
@@ -83,6 +84,8 @@ src/
       types.ts
     phaser/
       createGame.ts
+      GameLifecycle.ts
+      ProjectionAdapter.ts
       ProofScene.ts
       loadProofMap.ts
   assets/
@@ -104,7 +107,7 @@ Files may be combined when implementation shows that a boundary would otherwise 
 
 `GameHost.svelte` constructs a lifecycle controller during `onMount`. The controller creates one Phaser game for the supplied host element and returns a cleanup function that destroys the game, canvas, scene resources, and registered handlers.
 
-Before creating a game, the controller disposes any instance it already owns. Svelte unmount and Vite hot-module disposal both invoke the same idempotent cleanup path. This prevents duplicate canvases and keyboard handlers during development reloads.
+Before creating a game, the controller disposes any instance it already owns. Svelte unmount and Vite hot-module disposal both invoke the same idempotent cleanup path. A development/test-only remount hook exercises this exact disposal-and-create sequence without reloading the page. This prevents duplicate canvases and keyboard handlers during component remounts and development reloads.
 
 `InputGate` is a small injected object with explicit lock reasons. `Overlay.svelte` uses one reason for its demonstration toggle, while window blur uses another. Phaser reads the aggregate locked state before passing input to `ProofWorld`. Locking also clears sampled held-key state so focus restoration cannot apply stale movement.
 
@@ -125,9 +128,11 @@ The Tiled JSON map uses:
 
 The proof map contains a visible farm patch, one tree, one small building, blocked perimeter cells, and one player spawn. It deliberately omits the full farm and village.
 
-Ground remains on a fixed low depth. Tall scenery is represented by independent sprites or image objects with explicit ground-contact points. Collision uses logical-grid footprints authored alongside those objects; transparent image bounds never determine collision.
+Phaser renders the ground through an isometric `TilemapLayer` at a fixed low depth. Tall scenery uses Tiled tile objects whose tileset alignment is explicitly `bottom`, giving each object a bottom-center ground-contact point. Every scenery object has a unique name and a known kind (`tree` or `building`).
 
-The loader validates the map orientation, dimensions, tile size, required layers, unique spawn, known scenery kinds, footprint dimensions, and in-bounds coordinates. It converts validated map data into a framework-free `ProofMap` consumed by `ProofWorld` and the scene renderer.
+The collision layer stores projected diamond or parallelogram polygons that visibly cover each ground footprint. A footprint has the same unique name as its scenery object. `ProjectionAdapter` inverse-projects its vertices into logical-grid coordinates, and validation requires the result to be an axis-aligned logical rectangle. The player spawn is a named Tiled point object. Map bounds provide the blocked perimeter; transparent image bounds never determine collision.
+
+The loader validates the map orientation, dimensions, tile size, required layers, unique spawn, known scenery kinds, one-to-one scenery/footprint names, bottom-aligned tile objects, footprint shape and dimensions, and in-bounds coordinates. It converts validated map data into a framework-free `ProofMap` consumed by `ProofWorld` and the scene renderer.
 
 ## Isometric coordinate contract
 
@@ -145,6 +150,8 @@ gridX = (worldX - originX) / 64 + (worldY - originY) / 32
 gridY = (worldY - originY) / 32 - (worldX - originX) / 64
 ```
 
+The Phaser-layer `ProjectionAdapter` is constructed from the map origin and tile dimensions. It delegates to these pure functions and exposes `gridToWorld`, `worldToGrid`, `gridCellAtWorld`, projected cell-diamond vertices, and projected map bounds. Phaser code uses this adapter instead of duplicating projection arithmetic.
+
 Grid-cell lookup applies `floor` only at the boundary where a continuous point becomes a tile index. Conversion helpers otherwise preserve fractional coordinates. Tests cover tile centers, boundaries with an explicit epsilon policy, and every map edge.
 
 Four screen-facing directions map to logical tile offsets as follows:
@@ -160,7 +167,7 @@ Four screen-facing directions map to logical tile offsets as follows:
 
 WASD produces a screen-space vector. Opposing keys cancel. Non-zero diagonal input is normalized before speed is applied, ensuring diagonal movement is not faster.
 
-The desired projected displacement is inverse-projected into a logical-grid displacement. `ProofWorld` resolves that displacement against map bounds and explicit static footprints. The player uses a small ground-contact footprint centered beneath the visible sprite. Resolution treats logical axes separately so the player slides along obstacles instead of sticking at corners. Large frame deltas are capped and subdivided to prevent tunneling.
+The desired projected displacement is inverse-projected into a logical-grid displacement. `ProofWorld` resolves that displacement against map bounds and explicit static axis-aligned footprint rectangles. The player uses a small axis-aligned ground-contact rectangle centered beneath the visible sprite. Resolution treats logical axes separately so the player slides along obstacles instead of sticking at corners. Large frame deltas are capped and subdivided to prevent tunneling.
 
 Facing follows the dominant non-zero screen-space component and retains the last direction while idle. The temporary player sprite has four visually distinct facing frames.
 
@@ -180,11 +187,13 @@ The targeting adapter converts the player's continuous position to its logical t
 
 ## Camera and presentation scaling
 
-The Phaser camera follows the player's projected footpoint with restrained interpolation and is constrained to bounds derived from all four projected corners of the isometric map plus the visible height of scenery. The player can reach all permitted proof-map areas without exposing unrendered space where the camera can avoid it.
+The Phaser camera keeps a fixed projection, rotation, and zoom. Only its position follows the player's projected footpoint, using restrained interpolation. It is constrained to bounds derived from all four projected corners of the isometric map plus the visible height of scenery. The player can reach all permitted proof-map areas without exposing unrendered space where the camera can avoid it.
 
 The stage's internal size is always `640×360`. For supported viewports of at least that size, Svelte selects the largest whole-number scale that fits both dimensions and centers the result. Extra space becomes letterboxing. The Phaser canvas and overlay are children of the same transformed stage, preventing independent rounding drift.
 
 Phaser uses a pixel-art configuration with texture smoothing disabled and a render resolution of one. Canvas CSS uses pixelated image rendering. The Tauri window starts at `1280×720` for a 2× scale and cannot resize below `640×360`.
+
+Vite uses `http://localhost:1420` with strict port selection. Tauri's main window uses the bundle identifier and title defined above, runs `bun run dev` before `tauri dev`, runs `bun run build` before `tauri build`, and serves the frontend production output from `../dist`.
 
 ## Failure behavior
 
@@ -192,7 +201,7 @@ Phaser uses a pixel-art configuration with texture smoothing disabled and a rend
 - Partial Phaser startup is destroyed before the error is exposed.
 - The error overlay names the failed asset or invalid map contract and offers a normal page reload, not an in-process retry system.
 - An outside target is represented explicitly as `null`.
-- Unknown map objects and malformed footprints fail validation instead of being ignored or guessed.
+- Unknown map objects, missing scenery/footprint pairs, and malformed footprints fail validation instead of being ignored or guessed.
 - Window blur locks input and clears held keys.
 
 There is no telemetry, backend reporting, recovery registry, or plugin framework in this slice.
@@ -204,12 +213,13 @@ The root package exposes Bun entry points for:
 - `bun run dev` — browser development;
 - `bun run check` — TypeScript and Svelte static checks;
 - `bun test` — framework-free and lifecycle unit tests;
+- `bun run test:e2e:install` — install Playwright's pinned Chromium build;
 - `bun run test:e2e` — browser acceptance tests;
 - `bun run build` — frontend production build;
 - `bun run tauri:dev` — Tauri development; and
 - `bun run tauri:build` — macOS Tauri production build.
 
-Direct dependencies are installed as exact versions. Phaser is fixed at `4.2.1`. The implementation plan will record the exact versions resolved for the remaining current stable dependencies when the scaffold is created. Bun generates the only JavaScript lockfile.
+Direct dependencies are installed as exact versions. Phaser is fixed at `4.2.1`. The implementation plan will record the exact versions resolved for the remaining current stable dependencies when the scaffold is created. `bun install` installs JavaScript packages, while the explicit Bun script above provisions the Playwright browser binary required by a clean machine. Bun generates the only JavaScript package-manager lockfile; Cargo retains its normal application lockfile for the Tauri shell.
 
 ## Verification strategy
 
@@ -232,16 +242,18 @@ Bun tests cover:
 
 Playwright runs against the Vite application and verifies:
 
-- exactly one canvas exists after load and reload;
+- exactly one canvas exists after initial load and after a test-only destroy/remount cycle;
 - deterministic key input changes the player snapshot;
 - the player cannot enter static footprints or leave bounds;
+- deterministic routes pass around the tree, building, and farm patch and reach their expected endpoints without sticking;
 - the overlay and window blur lock movement;
 - the visible target matches the adapter's logical target;
 - outside-map targets hide the diamond;
-- canvas and overlay rectangles remain aligned at supported viewport sizes; and
+- player and scenery depth keys change ordering at designated behind/in-front checkpoints;
+- canvas and overlay rectangles remain aligned at `640×360`, `1024×768`, and `1280×720`; and
 - the stage selects the expected integer scale and letterbox offset.
 
-A read-only debug snapshot is available only in development/test builds for deterministic browser assertions. Production builds do not expose it.
+A read-only debug snapshot and the remount hook are available only in development/test builds for deterministic browser assertions. Production builds expose neither.
 
 ### Build and visual smoke evidence
 
@@ -254,20 +266,20 @@ Browser and `tauri dev` smoke checks additionally confirm:
 - camera follow respects projected bounds;
 - movement does not become stuck around the tree, building, or farm patch;
 - the player passes visibly behind and in front of the tree and building without depth flicker; and
-- development reload does not duplicate the game or input response.
+- one actual Vite hot-module replacement cycle leaves exactly one canvas and does not double the measured movement rate for a fixed held-key interval.
 
 ## Acceptance mapping
 
 | HPA-588 requirement | Primary evidence |
 | --- | --- |
-| Bun-only clean checkout | lockfile inspection plus documented clean install and scripts |
+| Bun-only clean checkout | JavaScript lockfile inspection, `bun install`, Playwright provisioning script, and documented Bun commands |
 | Same browser and Tauri world | browser and macOS Tauri smoke checks |
 | Navigable proof map | browser tests plus visual smoke |
 | Explicit ground footprints | map validation and collision unit/browser tests |
 | Correct depth behavior | depth unit tests plus visual smoke |
 | Correct target diamond at edges | projection/target unit tests plus browser assertions |
 | Crisp aligned resize behavior | browser viewport tests plus visual smoke |
-| No duplicate Phaser instances | lifecycle unit tests plus reload browser test |
+| No duplicate Phaser instances | lifecycle unit tests, browser destroy/remount test, and Vite HMR smoke |
 | Frontend and Tauri builds | fresh build command output |
 | No misplaced gameplay rules | source review against ownership boundaries |
 
