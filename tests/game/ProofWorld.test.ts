@@ -78,6 +78,18 @@ test('caps a large delta before it can tunnel through the tree', () => {
   expect(player.y).toBeGreaterThan(4.4);
 });
 
+test('subdivides a capped frame before resolving a corner collision', () => {
+  const world = new ProofWorld({
+    width: 12,
+    height: 12,
+    spawn: { x: 0.7, y: 0.8 },
+    footprints: [{ id: 'post', x: 1, y: 1, width: 0.1, height: 0.1 }],
+  }, metrics);
+  world.step({ screenX: 0.2, screenY: 0.2 }, 50);
+
+  expect(world.snapshot().player.position.x).toBeCloseTo(0.82, 10);
+});
+
 test('slides along the building footprint instead of entering it', () => {
   const world = new ProofWorld({ ...map, spawn: { x: 6.5, y: 7.5 } }, metrics);
   for (let i = 0; i < 30; i++) world.step({ screenX: 1, screenY: 0.3 }, 16);
