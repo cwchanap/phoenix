@@ -13,3 +13,30 @@ export interface DepthEntry {
   groundY: number;
   stableOrder: number;
 }
+
+export type Facing = 'up' | 'right' | 'down' | 'left';
+
+export interface Footprint {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface ProofMap {
+  width: number;
+  height: number;
+  spawn: GridPoint;
+  footprints: Footprint[];
+}
+
+export interface MovementInput {
+  screenX: number;
+  screenY: number;
+}
+
+export interface WorldSnapshot {
+  player: { position: GridPoint; facing: Facing };
+  target: GridCell | null;
+}
