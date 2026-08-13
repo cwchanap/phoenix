@@ -18,6 +18,12 @@
 
   const lifecycle = new GameLifecycle<ProofSceneDependencies>(createGame);
   const stop = () => lifecycle.stop();
+  const restart = () => {
+    if (!host || !dependencies) return;
+    latestSnapshot = null;
+    onStatus('World loading…');
+    lifecycle.start(host, dependencies);
+  };
 
   function cloneSnapshot(snapshot: DebugSnapshot): DebugSnapshot {
     return {
@@ -50,7 +56,7 @@
         return cloneSnapshot(latestSnapshot);
       },
       remount: () => {
-        if (host && dependencies) lifecycle.start(host, dependencies);
+        restart();
       },
     };
   }
@@ -80,7 +86,7 @@
     };
 
     try {
-      lifecycle.start(host, dependencies);
+      restart();
       publishDevelopmentHook();
     } catch (error) {
       queueMicrotask(stop);
