@@ -21,9 +21,9 @@ Branch: `codex/hpa-588-foundation`
   the archived tar has no `.git` directory, so the scaffold's required
   `git check-ignore` assertion returned exit 128. A focused regression now
   requires `run(['git', 'init'], checkout)` after extraction; the minimal fix
-  is pending its separate defect-fix commit and a fresh committed verifier run.
+  was committed separately as `e8a75b0` before further committed verifier runs.
 
-## Fresh automated matrix
+## Fresh local automated matrix
 
 Ran in the approved order from this checkout:
 
@@ -49,6 +49,56 @@ Artifacts:
   `CFBundleExecutable=phoenix`, arm64 Mach-O, ad-hoc linker signature.
 - `src-tauri/target/release/bundle/dmg/Phoenix_0.1.0_aarch64.dmg` — 3,163,632
   bytes; UDZO read-only compressed image, CRC32 checksum.
+
+These are local/development artifacts, not distribution-ready packages. The
+native smoke below proves that the app launches, and both the local and clean
+archive Tauri build acceptance passed. The retained `.app` is nevertheless
+only ad-hoc linker-signed: it has no Team ID or valid signing identity,
+`Info.plist` is unbound, and sealed resources are absent. Strict
+`codesign --verify --deep --strict` exits 1 with
+`code has no resources but signature indicates they must be present`.
+Gatekeeper assessment is likewise not valid: an observed `spctl` path reported
+an internal error, while a fresh explicit execute assessment exited 1 with the
+same missing-resources signature diagnostic. HPA-588 does not claim Developer
+ID signing, notarization, or distribution readiness, so no signing-policy
+change was made in this foundation task.
+
+## Decisive committed archive verification
+
+At exact committed `HEAD` `ea4dc71a4a5359f0bf6fcc15d4cd8091481342e9`,
+one host-boundary `rtk bun run verify:clean` run completed GREEN. There was no
+retry or test/config edit between preflight and completion. Its exact seven
+stages ran in order:
+
+1. `bun install --frozen-lockfile` — PASS (62 packages installed).
+2. `bun run test:e2e:install` — PASS (Chromium installed/resolved).
+3. `bun run check` — PASS (0 errors, 0 warnings).
+4. `bun test` — PASS (74 tests, 0 failures, 181 expectations across 9 files).
+5. `bun run test:e2e` — PASS (14 tests, 0 failures in 1.1 minutes on private
+   port 1422).
+6. `bun run build` — PASS with the existing >500 kB Vite chunk advisory.
+7. `bun run tauri:build` — PASS; the optimized release compile completed in
+   2 minutes 22 seconds and Tauri finished both `Phoenix.app` and the DMG.
+
+The archived bundle paths were
+`/private/var/folders/_k/lkrpcd8516s5x5szmkq1mbvc0000gn/T/phoenix-clean-4qGzpk/src-tauri/target/release/bundle/macos/Phoenix.app`
+and
+`/private/var/folders/_k/lkrpcd8516s5x5szmkq1mbvc0000gn/T/phoenix-clean-4qGzpk/src-tauri/target/release/bundle/dmg/Phoenix_0.1.0_aarch64.dmg`.
+The verifier then removed both the exact temporary checkout and its `.tar` in
+`finally`; post-run `stat` confirmed both paths absent.
+
+The retained worktree artifacts audited after the decisive run were:
+
+- `Phoenix.app`: 8,524 KiB directory payload; 8,660,464-byte arm64 Mach-O;
+  `CFBundleIdentifier=com.hapadona.phoenix`, version `0.1.0`, minimum macOS
+  `10.13`, with the development-only signing classification above.
+- `Phoenix_0.1.0_aarch64.dmg`: 3,163,632 bytes; UDZO/zlib, GUID/HFS+ image,
+  CRC32 `$3DC82AB5`; `hdiutil verify` reported the checksum `VALID`.
+
+The post-run repository audit remained at exact `ea4dc71`, clean, with
+`rtk git diff --check` passing. No Task 8 Phoenix, archived-checkout,
+Playwright/Vite-1422 process or port-1422 listener remained. Unrelated Lyra on
+ports 1420/1421 and old global Playwright/MCP browsers were not touched.
 
 ## Browser visual smoke
 
@@ -111,9 +161,9 @@ files are `README.md`, `tools/verify-clean-checkout.ts`, and
 removes only its exact temporary checkout and tar paths in `finally`.
 
 The handoff commit is `b7795fa`; the archive Git bootstrap fix is `e8a75b0`.
-After `e8a75b0`, `rtk bun run verify:clean` reached the archived install,
-static checks, and 74/74 unit tests, but did not complete because the clean
-checkout's browser acceptance was timing-sensitive:
+After `e8a75b0`, the first two browser-bearing clean-checkout runs preserved
+below reached archived install, static checks, and 74/74 unit tests, then
+exposed timing-sensitive browser acceptance:
 
 - First run: 11/14 passed; HMR movement, farm traversal, and map-edge route
   timed out.
@@ -121,6 +171,17 @@ checkout's browser acceptance was timing-sensitive:
   test timed out (`x=8.3257`, `y=11.52`, facing right, target still visible).
 
 An immediate standalone `rtk bun run test:e2e` outside the archive passed 14/14.
-Per Task 8 scope, no retry policy, timeout, or test/config change was added.
-The exact clean-verifier E2E failures remain reported rather than claimed as a
-green clean-checkout proof; the worktree is clean at `e8a75b0`.
+Per Task 8 scope, no retry policy was added. Later committed archive runs also
+remained recorded rather than overwritten by the final success:
+
+- At `e87e168`, 13/14 passed; the tree-detour test timed out just before its
+  x-axis threshold (`x=5.98365`, required `>=6.1`).
+- At `f7bf939`, 12/14 passed; the HMR movement-ratio assertion and the
+  reachable-map-edge route timed out.
+
+The final reviewed Task 7 acceptance commits are `f7bf939` (shorter tree
+acceptance setup route), `1709011` (hardened HMR and edge acceptance proof),
+and `ea4dc71` (corrected the HMR acceptance oracle). The decisive single clean
+archive run at `ea4dc71` then passed all seven stages as recorded above. The
+historical failures remain part of this report; the final verified repository
+state before this report-only update was clean at `ea4dc71`.
