@@ -31,6 +31,16 @@ export interface ProofMap {
   footprints: Footprint[];
 }
 
+export type SceneryKind = 'tree' | 'building';
+
+export interface SceneryPlacement {
+  id: string;
+  kind: SceneryKind;
+  frame: number;
+  world: WorldPoint;
+  stableOrder: number;
+}
+
 export interface MovementInput {
   screenX: number;
   screenY: number;
