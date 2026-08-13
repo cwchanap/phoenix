@@ -10,8 +10,8 @@ function outsideFootprint(position: { x: number; y: number }, footprint: { x: nu
 
 test('stops at the tree, then detours down and right', async ({ page }) => {
   await waitForWorld(page);
-  await moveUntilPlayerAxis(page, ['d'], 'x', 'gte', 6.1);
-  await moveUntilPlayerAxis(page, ['w', 'd'], 'y', 'lte', 4.05);
+  await moveUntilPlayerAxis(page, ['d'], 'x', 'gte', 5.8);
+  await moveUntilPlayerAxis(page, ['w', 'd'], 'y', 'lte', 3.8);
   const approachKeys = ['d', 's'];
   for (const key of approachKeys) await page.keyboard.down(key);
   try {
