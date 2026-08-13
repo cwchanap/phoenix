@@ -63,13 +63,17 @@ test('synthetic window blur prevents movement until focus returns', async ({ pag
 
 test('keeps the overlay and canvas aligned at supported sizes', async ({ page }) => {
   await waitForWorld(page);
-  for (const [width, height, scale] of [[640, 360, 1], [1024, 768, 1], [1280, 720, 2]] as const) {
+  for (const [width, height, scale, left, top] of [
+    [640, 360, 1, 0, 0],
+    [1024, 768, 1, 192, 204],
+    [1280, 720, 2, 0, 0],
+  ] as const) {
     await page.setViewportSize({ width, height });
     await expect(page.locator('[data-stage-frame]')).toHaveAttribute('data-stage-scale', String(scale));
     const [host, overlay, frame] = await page.locator('[data-game-host], [data-overlay], [data-stage-frame]')
       .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().toJSON()));
     expect(host).toEqual(overlay);
-    expect(frame).toMatchObject({ width: 640 * scale, height: 360 * scale });
+    expect(frame).toMatchObject({ x: left, y: top, width: 640 * scale, height: 360 * scale });
   }
 });
 
