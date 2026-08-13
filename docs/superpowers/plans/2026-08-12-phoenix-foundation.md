@@ -1630,10 +1630,18 @@ Use the exact depth thresholds implied by the authored footpoints: tree ground Y
 
 - [ ] **Step 6: Add a real Vite HMR lifecycle test**
 
-In `lifecycle.pw.ts`, record displacement from a `250 ms` key hold, append one valid Svelte comment to `src/App.svelte`, wait until the Vite HMR event counter increases, assert `World ready` and one canvas, then repeat the same key hold. Require the second displacement to remain between `0.6×` and `1.4×` the first, proving no doubled input handler. Restore the exact original bytes and timestamps, then wait for the restoration HMR event before the test returns.
+In `lifecycle.pw.ts`, install a test-only `page.addInitScript` listener census before `waitForWorld` by patching `window.addEventListener`/`removeEventListener` for `keydown` and `keyup`. Assert exactly one active callback of each type before and after HMR, append the valid Svelte probe expression `{@html '<!-- playwright-hmr-probe -->'}` to `src/App.svelte`, wait until the Vite HMR event counter increases, assert `World ready` and one canvas, then perform a real `250 ms` movement hold after HMR and require displacement greater than `0.1`. The listener census is the duplicate-handler oracle because `KeyboardController` samples Phaser key booleans; wall-clock displacement is frame-scheduling-sensitive and is not proportional to handler count. Restore the exact original bytes, wait for the restoration HMR event, and then restore the original timestamps before the test returns.
 
 ```ts
 const appPath = fileURLToPath(new URL('../../src/App.svelte', import.meta.url));
+await page.addInitScript(() => {
+  // Wrap window key listener registration and expose active keydown/keyup counts
+  // to this Playwright page only.
+});
+await waitForWorld(page);
+const listenerCensus = () => page.evaluate(() => (
+  window as Window & { __PHOENIX_LISTENER_CENSUS__: () => { keydown: number; keyup: number } }
+).__PHOENIX_LISTENER_CENSUS__());
 const original = statSync(appPath);
 const originalSource = readFileSync(appPath, 'utf8');
 const measure = async () => {
@@ -1645,21 +1653,21 @@ const measure = async () => {
     after.player.world.y - before.player.world.y,
   );
 };
-const beforeHmr = await measure();
+expect(await listenerCensus(page)).toEqual({ keydown: 1, keyup: 1 });
+expect(await measure()).toBeGreaterThan(0.1);
 try {
   const updateCount = await page.evaluate(() => window.__PHOENIX_HMR_COUNT__ ?? 0);
-  writeFileSync(appPath, `${originalSource}\n<!-- playwright-hmr-probe -->\n`);
+  writeFileSync(appPath, `${originalSource}\n{@html '<!-- playwright-hmr-probe -->'}\n`);
   await page.waitForFunction((count) => (window.__PHOENIX_HMR_COUNT__ ?? 0) > count, updateCount);
   await expect(page.locator('canvas')).toHaveCount(1);
   await expect(page.getByText('World ready')).toBeVisible();
-  const afterHmr = await measure();
-  expect(afterHmr).toBeGreaterThan(beforeHmr * 0.6);
-  expect(afterHmr).toBeLessThan(beforeHmr * 1.4);
+  expect(await listenerCensus(page)).toEqual({ keydown: 1, keyup: 1 });
+  expect(await measure()).toBeGreaterThan(0.1);
 } finally {
   const restoreCount = await page.evaluate(() => window.__PHOENIX_HMR_COUNT__ ?? 0);
   writeFileSync(appPath, originalSource);
-  utimesSync(appPath, original.atime, original.mtime);
   await page.waitForFunction((count) => (window.__PHOENIX_HMR_COUNT__ ?? 0) > count, restoreCount);
+  utimesSync(appPath, original.atime, original.mtime);
 }
 ```
 
