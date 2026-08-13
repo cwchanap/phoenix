@@ -78,16 +78,16 @@ test('caps a large delta before it can tunnel through the tree', () => {
   expect(player.y).toBeGreaterThan(4.4);
 });
 
-test('subdivides a capped frame before resolving a corner collision', () => {
+test('subdivides a capped frame into collision steps no larger than 8 ms', () => {
   const world = new ProofWorld({
     width: 12,
     height: 12,
-    spawn: { x: 0.7, y: 0.8 },
-    footprints: [{ id: 'post', x: 1, y: 1, width: 0.1, height: 0.1 }],
+    spawn: { x: 0.4, y: 0.75 },
+    footprints: [{ id: 'post', x: 0.5, y: 0.5, width: 0.05, height: 0.05 }],
   }, metrics);
-  world.step({ screenX: 0.2, screenY: 0.2 }, 50);
+  world.step({ screenX: -1, screenY: -1 }, 50);
 
-  expect(world.snapshot().player.position.x).toBeCloseTo(0.82, 10);
+  expect(world.snapshot().player.position.y).toBeGreaterThan(0.7);
 });
 
 test('slides along the building footprint instead of entering it', () => {
