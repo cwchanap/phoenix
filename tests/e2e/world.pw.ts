@@ -74,39 +74,36 @@ test('slides along the building edge and routes around its corner', async ({ pag
 
 test('crosses and leaves the nine-cell farm patch', async ({ page }) => {
   await waitForWorld(page);
-  const entered = await moveUntil(page, 'd', (value) => (
-    value.player.position.x >= 2.8
-    && value.player.position.x <= 4
-    && value.player.position.y >= 8
-    && value.player.position.y <= 9.2
-  ));
+  const entered = await moveUntilPlayerAxis(page, ['d'], 'x', 'gte', 2.8);
   expect(entered.player.position.x).toBeGreaterThanOrEqual(2.8);
   expect(entered.player.position.x).toBeLessThanOrEqual(4);
   expect(entered.player.position.y).toBeGreaterThanOrEqual(8);
   expect(entered.player.position.y).toBeLessThanOrEqual(9.2);
-  const left = await moveUntil(page, 'd', (value) => value.player.position.x >= 5.2);
+  const left = await moveUntilPlayerAxis(page, ['d'], 'x', 'gte', 5.2);
   expect(left.player.position.x).toBeGreaterThan(4);
   expect(left.player.position.y).toBeLessThan(8);
 });
 
 test('keeps the player rectangle within each reachable map edge', async ({ page }) => {
-  for (const [key, axis, edge] of [
-    ['a', 'x', 'left'],
-    ['d', 'x', 'right'],
-    ['w', 'y', 'top'],
-    ['s', 'y', 'bottom'],
+  for (const [key] of [
+    ['a'],
+    ['d'],
+    ['w'],
+    ['s'],
   ] as const) {
     await waitForWorld(page);
+    let result: Awaited<ReturnType<typeof moveUntilPlayerAxis>>;
     if (key === 'd') {
-      await moveUntil(page, 's', (value) => value.player.position.y >= 11.8);
-      await moveUntilKeys(page, ['d', 's'], (value) => value.player.position.x >= 11.8);
+      await moveUntilPlayerAxis(page, ['s'], 'y', 'gte', 11.8);
+      result = await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 11.8);
     } else if (key === 'w') {
-      await moveUntil(page, 'w', (value) => value.player.position.y <= 7);
-      await moveUntilKeys(page, ['w', 'd'], (value) => value.player.position.y <= 0.2);
+      await moveUntilPlayerAxis(page, ['w'], 'y', 'lte', 7);
+      result = await moveUntilPlayerAxis(page, ['w', 'd'], 'y', 'lte', 0.2);
+    } else if (key === 'a') {
+      result = await moveUntilPlayerAxis(page, ['a'], 'x', 'lte', 0.2);
+    } else {
+      result = await moveUntilPlayerAxis(page, ['s'], 'y', 'gte', 11.8);
     }
-    const result = await moveUntil(page, key, (value) => axis === 'x'
-      ? edge === 'left' ? value.player.position.x <= 0.2 : value.player.position.x >= 11.8
-      : edge === 'top' ? value.player.position.y <= 0.2 : value.player.position.y >= 11.8);
     expect(result.player.position.x).toBeGreaterThanOrEqual(0.18);
     expect(result.player.position.y).toBeGreaterThanOrEqual(0.18);
     expect(result.player.position.x).toBeLessThanOrEqual(11.82);
@@ -116,10 +113,10 @@ test('keeps the player rectangle within each reachable map edge', async ({ page 
 
 test('hides targets when facing outward at both perimeter corners', async ({ page }) => {
   await waitForWorld(page);
-  await moveUntil(page, 'w', (value) => value.player.position.y <= 7);
-  await moveUntil(page, 'w', (value) => value.player.position.y <= 4.5);
-  await moveUntil(page, 'w', (value) => value.player.position.y <= 2);
-  await moveUntil(page, 'w', (value) => value.player.position.y <= 0.2);
+  await moveUntilPlayerAxis(page, ['w'], 'y', 'lte', 7);
+  await moveUntilPlayerAxis(page, ['w'], 'y', 'lte', 4.5);
+  await moveUntilPlayerAxis(page, ['w'], 'y', 'lte', 2);
+  await moveUntilPlayerAxis(page, ['w'], 'y', 'lte', 0.2);
   await holdKey(page, 'w', 50);
   const topLeft = await snapshot(page);
   expect(topLeft.player.position.x).toBeGreaterThanOrEqual(0.18);
@@ -129,8 +126,8 @@ test('hides targets when facing outward at both perimeter corners', async ({ pag
   expect(topLeft.visibleTarget).toBe(false);
 
   await waitForWorld(page);
-  await moveUntil(page, 's', (value) => value.player.position.y >= 11.2);
-  await moveUntilKeys(page, ['d', 's'], (value) => value.player.position.x >= 11.8);
+  await moveUntilPlayerAxis(page, ['s'], 'y', 'gte', 11.2);
+  await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 11.8);
   await holdKey(page, 's', 50);
   const bottomRight = await snapshot(page);
   expect(bottomRight.player.position.x).toBeLessThanOrEqual(11.82);

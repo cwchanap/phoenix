@@ -70,6 +70,13 @@ test('keeps the overlay and canvas aligned at supported sizes', async ({ page })
   ] as const) {
     await page.setViewportSize({ width, height });
     await expect(page.locator('[data-stage-frame]')).toHaveAttribute('data-stage-scale', String(scale));
+    await expect.poll(
+      () => page.locator('[data-stage-frame]').evaluate((node) => {
+        const rect = node.getBoundingClientRect();
+        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+      }),
+      { timeout: 3_000, intervals: [16] },
+    ).toEqual({ x: left, y: top, width: 640 * scale, height: 360 * scale });
     const [host, overlay, frame] = await page.locator('[data-game-host], [data-overlay], [data-stage-frame]')
       .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().toJSON()));
     expect(host).toEqual(overlay);
