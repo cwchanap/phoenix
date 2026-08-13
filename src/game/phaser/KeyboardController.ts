@@ -38,7 +38,7 @@ export class KeyboardController {
     for (const key of Object.values(this.keys)) {
       const plugin = key.plugin;
       if (plugin) plugin.removeKey(key, true, true);
-      else key.destroy();
+      else key.destroy?.();
     }
   }
 
