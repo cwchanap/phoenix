@@ -10,6 +10,7 @@ function outsideFootprint(position: { x: number; y: number }, footprint: { x: nu
 
 test('stops at the tree, then detours down and right', async ({ page }) => {
   await waitForWorld(page);
+  await moveUntilPlayerAxis(page, ['d'], 'x', 'gte', 4);
   await moveUntilPlayerAxis(page, ['d'], 'x', 'gte', 5.8);
   await moveUntilPlayerAxis(page, ['w', 'd'], 'y', 'lte', 3.8);
   const approachKeys = ['d', 's'];
@@ -95,6 +96,8 @@ test('keeps the player rectangle within each reachable map edge', async ({ page 
     let result: Awaited<ReturnType<typeof moveUntilPlayerAxis>>;
     if (key === 'd') {
       await moveUntilPlayerAxis(page, ['s'], 'y', 'gte', 11.8);
+      await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 7);
+      await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 9.4);
       result = await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 11.8);
     } else if (key === 'w') {
       await moveUntilPlayerAxis(page, ['w'], 'y', 'lte', 7);

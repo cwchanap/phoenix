@@ -5,6 +5,13 @@ import { holdKey, snapshot, waitForWorld } from './helpers';
 
 const appPath = fileURLToPath(new URL('../../src/App.svelte', import.meta.url));
 
+type ListenerCensus = { keydown: number; keyup: number };
+type ListenerCensusWindow = Window & { __PHOENIX_LISTENER_CENSUS__: () => ListenerCensus };
+
+async function listenerCensus(page: Parameters<typeof waitForWorld>[0]): Promise<ListenerCensus> {
+  return page.evaluate(() => (window as unknown as ListenerCensusWindow).__PHOENIX_LISTENER_CENSUS__());
+}
+
 function displacement(before: Awaited<ReturnType<typeof snapshot>>, after: Awaited<ReturnType<typeof snapshot>>): number {
   return Math.hypot(
     after.player.world.x - before.player.world.x,
@@ -86,6 +93,36 @@ test('keeps the overlay and canvas aligned at supported sizes', async ({ page })
 
 test('keeps one input handler across a real Vite HMR update', async ({ page }) => {
   test.setTimeout(60_000);
+  await page.addInitScript(() => {
+    const active = new Map<string, Array<{ listener: EventListenerOrEventListenerObject; capture: boolean }>>();
+    type ListenerOptions = boolean | AddEventListenerOptions;
+    const originalAdd = window.addEventListener.bind(window) as (type: string, listener: EventListenerOrEventListenerObject | null, options?: ListenerOptions) => void;
+    const originalRemove = window.removeEventListener.bind(window) as (type: string, listener: EventListenerOrEventListenerObject | null, options?: ListenerOptions) => void;
+    const captureOf = (options?: ListenerOptions) => typeof options === 'boolean' ? options : Boolean(options?.capture);
+    const tracked = (type: string) => type === 'keydown' || type === 'keyup';
+    window.addEventListener = ((type: string, listener: EventListenerOrEventListenerObject | null, options?: boolean | AddEventListenerOptions) => {
+      if (listener && tracked(type)) {
+        const records = active.get(type) ?? [];
+        const capture = captureOf(options);
+        if (!records.some((record) => record.listener === listener && record.capture === capture)) records.push({ listener, capture });
+        active.set(type, records);
+      }
+      return originalAdd(type, listener, options);
+    }) as typeof window.addEventListener;
+    window.removeEventListener = ((type: string, listener: EventListenerOrEventListenerObject | null, options?: ListenerOptions) => {
+      if (listener && tracked(type)) {
+        const records = active.get(type) ?? [];
+        const capture = captureOf(options);
+        const index = records.findIndex((record) => record.listener === listener && record.capture === capture);
+        if (index >= 0) records.splice(index, 1);
+      }
+      return originalRemove(type, listener, options);
+    }) as typeof window.removeEventListener;
+    (window as unknown as ListenerCensusWindow).__PHOENIX_LISTENER_CENSUS__ = () => ({
+      keydown: active.get('keydown')?.length ?? 0,
+      keyup: active.get('keyup')?.length ?? 0,
+    });
+  });
   await waitForWorld(page);
   const original = statSync(appPath);
   const originalSource = readFileSync(appPath, 'utf8');
@@ -96,7 +133,10 @@ test('keeps one input handler across a real Vite HMR update', async ({ page }) =
     return displacement(before, after);
   };
 
+  const beforeListeners = await listenerCensus(page);
+  expect(beforeListeners).toEqual({ keydown: 1, keyup: 1 });
   const beforeHmr = await measure();
+  expect(beforeHmr).toBeGreaterThan(0.1);
   let primaryFailure: unknown;
   try {
     const updateCount = await page.evaluate(() => window.__PHOENIX_HMR_COUNT__ ?? 0);
@@ -108,9 +148,10 @@ test('keeps one input handler across a real Vite HMR update', async ({ page }) =
     );
     await expect(page.locator('canvas')).toHaveCount(1);
     await expect(page.getByText('World ready')).toBeVisible();
+    const afterListeners = await listenerCensus(page);
+    expect(afterListeners).toEqual({ keydown: 1, keyup: 1 });
     const afterHmr = await measure();
-    expect(afterHmr).toBeGreaterThan(beforeHmr * 0.6);
-    expect(afterHmr).toBeLessThan(beforeHmr * 1.4);
+    expect(afterHmr).toBeGreaterThan(0.1);
   } catch (error) {
     primaryFailure = error;
     throw error;
