@@ -55,6 +55,19 @@ function boolean(value: unknown, context: string): boolean {
   return value;
 }
 
+function validateLayerMetadata(layer: RecordValue, name: string, objectLayer: boolean): void {
+  if (number(layer.opacity, `${name}.opacity`) !== 1) fail(`${name} opacity must be 1`);
+  if (!boolean(layer.visible, `${name}.visible`)) fail(`${name} visible must be true`);
+  if (objectLayer && string(layer.draworder, `${name}.draworder`) !== 'topdown') {
+    fail(`${name} draworder must be topdown`);
+  }
+}
+
+function validateTilesetSpacing(tileset: RecordValue, name: string): void {
+  if (integer(tileset.margin, `${name}.margin`) !== 0) fail(`${name} margin must be 0`);
+  if (integer(tileset.spacing, `${name}.spacing`) !== 0) fail(`${name} spacing must be 0`);
+}
+
 function findLayer(raw: RecordValue, name: string): RecordValue {
   const layers = array(raw.layers, 'layers').map((value, index) => record(value, `layers[${index}]`));
   const layer = layers.find((candidate) => candidate.name === name);
@@ -96,6 +109,13 @@ function validateTileset(value: unknown, expected: {
 
 function validateMapHeader(raw: RecordValue, projection: ProjectionAdapter): void {
   if (string(raw.type, 'type') !== 'map') fail('type must be map');
+  if (integer(raw.compressionlevel, 'compressionlevel') !== -1) {
+    fail('compressionlevel must be -1');
+  }
+  if (string(raw.tiledversion, 'tiledversion') !== '1.12.2') {
+    fail('tiledversion must be 1.12.2');
+  }
+  if (string(raw.version, 'version') !== '1.10') fail('version must be 1.10');
   if (string(raw.orientation, 'orientation') !== 'isometric') {
     fail('orientation must be isometric');
   }
@@ -134,13 +154,14 @@ function validateMapHeader(raw: RecordValue, projection: ProjectionAdapter): voi
     if (integer(layer.id, `${name}.id`) !== id) {
       fail(`${name} layer id must be ${id}`);
     }
+    validateLayerMetadata(layer, name, name !== 'Ground');
   }
 }
 
 function validateTilesets(raw: RecordValue): void {
   const tilesets = array(raw.tilesets, 'tilesets');
   if (tilesets.length !== 2) fail('expected proof-ground and proof-scenery tilesets');
-  validateTileset(tilesets[0], {
+  const ground = validateTileset(tilesets[0], {
     name: 'proof-ground',
     firstgid: 1,
     columns: 2,
@@ -151,6 +172,7 @@ function validateTilesets(raw: RecordValue): void {
     tileheight: 32,
     tilewidth: 64,
   });
+  validateTilesetSpacing(ground, 'proof-ground');
   const scenery = validateTileset(tilesets[1], {
     name: 'proof-scenery',
     firstgid: 3,
@@ -162,10 +184,7 @@ function validateTilesets(raw: RecordValue): void {
     tileheight: 96,
     tilewidth: 96,
   });
-  if (integer(scenery.margin, 'proof-scenery.margin') !== 0
-    || integer(scenery.spacing, 'proof-scenery.spacing') !== 0) {
-    fail('proof-scenery margin and spacing must be 0');
-  }
+  validateTilesetSpacing(scenery, 'proof-scenery');
   if (string(scenery.objectalignment, 'proof-scenery.objectalignment') !== 'bottom') {
     fail('proof-scenery objectalignment must be bottom');
   }

@@ -74,6 +74,43 @@ describe('proof-map contract validation', () => {
     expect(() => parseProofMap(value, projection)).toThrow(/proof-map: map must be an object/);
   });
 
+  type MetadataMutation = [string, (raw: Record<string, unknown>) => void, RegExp];
+  const metadataMutation = (
+    name: string,
+    mutate: MetadataMutation[1],
+    message: RegExp,
+  ): MetadataMutation => [name, mutate, message];
+  const metadataMutations: MetadataMutation[] = [
+    metadataMutation('compressionlevel', (raw) => { raw.compressionlevel = 0; }, /proof-map: compressionlevel must be -1/),
+    metadataMutation('tiledversion', (raw) => { raw.tiledversion = '1.11.2'; }, /proof-map: tiledversion must be 1\.12\.2/),
+    metadataMutation('version', (raw) => { raw.version = '1.9'; }, /proof-map: version must be 1\.10/),
+    metadataMutation('proof-ground margin', (raw) => {
+      (raw.tilesets as Array<Record<string, unknown>>)[0].margin = 1;
+    }, /proof-map: proof-ground margin must be 0/),
+    metadataMutation('proof-ground spacing', (raw) => {
+      (raw.tilesets as Array<Record<string, unknown>>)[0].spacing = 1;
+    }, /proof-map: proof-ground spacing must be 0/),
+    ...(['Ground', 'Scenery', 'Collision', 'Markers'] as const).flatMap((layerName) => [
+      metadataMutation(`${layerName} opacity`, (raw) => {
+        withLayer(raw, layerName).opacity = 0;
+      }, new RegExp(`proof-map: ${layerName} opacity must be 1`)),
+      metadataMutation(`${layerName} visibility`, (raw) => {
+        withLayer(raw, layerName).visible = false;
+      }, new RegExp(`proof-map: ${layerName} visible must be true`)),
+    ]),
+    ...(['Scenery', 'Collision', 'Markers'] as const).map((layerName) => metadataMutation(
+      `${layerName} draw order`,
+      (raw) => { withLayer(raw, layerName).draworder = 'bottomup'; },
+      new RegExp(`proof-map: ${layerName} draworder must be topdown`),
+    )),
+  ];
+
+  test.each(metadataMutations)('rejects invalid %s metadata', async (_name, mutate, message) => {
+    const raw = clone(await validRaw());
+    mutate(raw);
+    expect(() => parseProofMap(raw, projection)).toThrow(message);
+  });
+
   test.each([
     ['orthogonal orientation', (raw: Record<string, unknown>) => { raw.orientation = 'orthogonal'; }, /proof-map: orientation must be isometric/],
     ['missing Markers layer', (raw: Record<string, unknown>) => { raw.layers = (raw.layers as Array<{ name: string }>).filter(({ name }) => name !== 'Markers'); }, /proof-map: missing Markers layer/],
