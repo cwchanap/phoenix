@@ -73,6 +73,11 @@ describe('Task 8 handoff contract', () => {
     expect(verifier).not.toContain("['git', 'archive', '--format=tar', 'HEAD'] as const");
   });
 
+  test('initializes Git metadata in the archive checkout for ignore checks', async () => {
+    const verifier = await Bun.file(resolve(root, 'tools/verify-clean-checkout.ts')).text();
+    expect(verifier).toContain("run(['git', 'init'], checkout)");
+  });
+
   test('exposes the committed clean-checkout verifier through Bun', async () => {
     const pkg = await Bun.file(resolve(root, 'package.json')).json();
     expect(pkg.scripts?.['verify:clean']).toBe('bun run tools/verify-clean-checkout.ts');

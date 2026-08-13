@@ -37,6 +37,7 @@ try {
   await Bun.write(archive, archiveBytes);
 
   await run(['tar', '-xf', archive, '-C', checkout], process.cwd());
+  await run(['git', 'init'], checkout);
   for (const command of commands) await run(command, checkout);
 } finally {
   await rm(archive, { force: true });

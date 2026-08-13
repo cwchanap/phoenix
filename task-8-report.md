@@ -17,6 +17,11 @@ Branch: `codex/hpa-588-foundation`
   `Bun.spawn` requires mutable `string[]` argv. A focused contract assertion
   reproduced the readonly-array defect; changing only the verifier argv types
   made the regression pass and restored `svelte-check` to 0 errors/0 warnings.
+- The first committed `verify:clean` run exposed one clean-checkout defect:
+  the archived tar has no `.git` directory, so the scaffold's required
+  `git check-ignore` assertion returned exit 128. A focused regression now
+  requires `run(['git', 'init'], checkout)` after extraction; the minimal fix
+  is pending its separate defect-fix commit and a fresh committed verifier run.
 
 ## Fresh automated matrix
 
@@ -105,5 +110,6 @@ files are `README.md`, `tools/verify-clean-checkout.ts`, and
 `tests/config/handoff.test.ts`; the verifier archives committed `HEAD` and
 removes only its exact temporary checkout and tar paths in `finally`.
 
-Final commit and `verify:clean` results are recorded after the handoff commit;
-the working tree must be clean before Task 8 is handed back for review.
+The handoff commit is `b7795fa`. The follow-up verifier defect fix and fresh
+`verify:clean` result must be recorded after that fix commit; the working tree
+must be clean before Task 8 is handed back for review.
