@@ -142,6 +142,38 @@ unobserved claims are made for native WASD, overlay lock, edge targeting,
 depth, resize, or native HMR interactions. The exact Task 8-created native
 dev processes were stopped; no Phoenix or 1423 listener remains.
 
+A later focused release smoke used only PID-targeted CoreGraphics/AppKit
+events, with temporary tooling and captures under `/private/tmp`. The release
+app was exact PID 98359; CoreGraphics identified Phoenix window 115762 at
+1280×720 bounds `(x=116, y=91)`. `NSRunningApplication.activate` returned true
+and directly reported Phoenix active and frontmost at PID 98359. The exact
+window captures were:
+
+- `/private/tmp/phoenix-native-p98359-w115762-focus-before.png` — directly
+  shows the release world and overlay text `World input: Active` after focus.
+- `/private/tmp/phoenix-native-p98359-w115762-after-d500.png` — directly shows
+  substantial player displacement after a D key (virtual keycode 2) was posted
+  only to PID 98359 for 500 ms.
+
+This focused smoke therefore adds direct native release evidence for activation
+and real WASD movement. A PID-targeted lock-button click was attempted, but its
+exact-window capture
+`/private/tmp/phoenix-native-p98359-w115762-after-lock-click.png` contained
+blank WebView content, so it is excluded from acceptance evidence. Lock/block/
+unlock, outward-edge target hiding, both sides of tree/building depth, resize,
+and HMR remain not directly native-observed. The 14/14 Playwright acceptance
+suite covers those behaviors in the identical frontend; this does not turn
+them into native-observed claims. PID 98359 had no direct children, received
+SIGTERM only, and both PID/child checks were empty afterward. No port-1422 or
+port-1423 listener remained, the branch was clean, and `rtk git diff --check`
+passed.
+
+After reassessing this focused release evidence together with the identical-
+frontend browser coverage, the independent Task 8 reviewer cleared the
+HPA-588 native-evidence blocker under the brief's fallback. Human replay is
+not required for Task 8 acceptance; the direct-native limitations above remain
+explicitly retained.
+
 ## Source and repository audit
 
 - `ProofWorld`, collision, targeting, and facing matches are confined to the
