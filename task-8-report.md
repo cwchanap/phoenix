@@ -110,6 +110,17 @@ files are `README.md`, `tools/verify-clean-checkout.ts`, and
 `tests/config/handoff.test.ts`; the verifier archives committed `HEAD` and
 removes only its exact temporary checkout and tar paths in `finally`.
 
-The handoff commit is `b7795fa`. The follow-up verifier defect fix and fresh
-`verify:clean` result must be recorded after that fix commit; the working tree
-must be clean before Task 8 is handed back for review.
+The handoff commit is `b7795fa`; the archive Git bootstrap fix is `e8a75b0`.
+After `e8a75b0`, `rtk bun run verify:clean` reached the archived install,
+static checks, and 74/74 unit tests, but did not complete because the clean
+checkout's browser acceptance was timing-sensitive:
+
+- First run: 11/14 passed; HMR movement, farm traversal, and map-edge route
+  timed out.
+- Second unchanged run: 13/14 passed; only the bottom-right target-route
+  test timed out (`x=8.3257`, `y=11.52`, facing right, target still visible).
+
+An immediate standalone `rtk bun run test:e2e` outside the archive passed 14/14.
+Per Task 8 scope, no retry policy, timeout, or test/config change was added.
+The exact clean-verifier E2E failures remain reported rather than claimed as a
+green clean-checkout proof; the worktree is clean at `e8a75b0`.
