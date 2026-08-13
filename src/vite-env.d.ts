@@ -8,6 +8,7 @@ declare global {
       snapshot(): DebugSnapshot;
       remount(): void;
     };
+    __PHOENIX_HMR_COUNT__?: number;
   }
 }
 

@@ -7,6 +7,9 @@ export default defineConfig({
     host: 'localhost',
     port: 1420,
     strictPort: true,
-    watch: { ignored: ['**/src-tauri/**'] },
+    watch: {
+      ignored: ['**/src-tauri/**'],
+      ...(process.env.CHOKIDAR_USEPOLLING === 'true' ? { usePolling: true } : {}),
+    },
   },
 });
