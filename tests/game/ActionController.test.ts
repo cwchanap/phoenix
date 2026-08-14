@@ -77,17 +77,43 @@ test('returns no action edges when all action keys are up', () => {
   controller.destroy();
 });
 
-test('maps numeric keys to their farming actions in order', () => {
+test('emits each numeric action only on press edges', () => {
   const gate = new InputGate();
   const { keys, raw } = makeKeys();
   const controller = new ActionController(keys, gate);
   const actions: FarmingAction[] = ['hoe', 'turnipSeeds', 'wateringCan', 'hands'];
 
   actions.forEach((action) => {
-    keyFor(raw, action).isDown = true;
-    expect(controller.sample().selectedAction).toBe(action);
-    keyFor(raw, action).isDown = false;
-    expect(controller.sample().selectedAction).toBeNull();
+    const key = keyFor(raw, action);
+    key.isDown = true;
+    expect(controller.sample()).toEqual({
+      selectedAction: action,
+      useSelected: false,
+      sleep: false,
+    });
+    expect(controller.sample()).toEqual({
+      selectedAction: null,
+      useSelected: false,
+      sleep: false,
+    });
+    key.isDown = false;
+    expect(controller.sample()).toEqual({
+      selectedAction: null,
+      useSelected: false,
+      sleep: false,
+    });
+    key.isDown = true;
+    expect(controller.sample()).toEqual({
+      selectedAction: action,
+      useSelected: false,
+      sleep: false,
+    });
+    key.isDown = false;
+    expect(controller.sample()).toEqual({
+      selectedAction: null,
+      useSelected: false,
+      sleep: false,
+    });
   });
   controller.destroy();
 });

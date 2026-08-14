@@ -47,7 +47,9 @@ type BaseEntityId = 'player' | 'tree' | 'building';
 type CropEntityId = `crop:${number},${number}`;
 type EntityId = BaseEntityId | CropEntityId;
 
-export type DebugDepths = Record<BaseEntityId, number> & Record<CropEntityId, number>;
+export type DebugDepths = Record<BaseEntityId, number> & Partial<Record<CropEntityId, number>>;
+
+const debugDepthsCropMayBeMissing: DebugDepths['crop:3,8'] = undefined;
 
 export interface DebugSnapshot {
   player: { position: GridPoint; facing: Facing; world: WorldPoint };
@@ -101,7 +103,7 @@ export class ProofScene extends Phaser.Scene {
     player: PLAYER_DEPTH,
     tree: PLAYER_DEPTH + 1,
     building: PLAYER_DEPTH + 2,
-  } as DebugDepths;
+  };
 
   constructor(dependencies: ProofSceneDependencies) {
     super({ key: 'ProofScene' });
@@ -392,11 +394,11 @@ export class ProofScene extends Phaser.Scene {
       });
     });
 
-    const result = {
+    const result: DebugDepths = {
       player: this.depths.player,
       tree: this.depths.tree,
       building: this.depths.building,
-    } as DebugDepths;
+    };
     const sortedEntries = sortDepthEntries(entries) as Array<DepthEntry & { sprite: Phaser.GameObjects.Sprite }>;
     sortedEntries.forEach((entry, index) => {
       const depth = PLAYER_DEPTH + index;

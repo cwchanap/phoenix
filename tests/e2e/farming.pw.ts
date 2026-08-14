@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { Buffer } from 'node:buffer';
+import type { DebugSnapshot } from '../../src/game/phaser/ProofScene';
 import type {
   FarmingAction,
   FarmTileSnapshot,
@@ -53,6 +54,12 @@ function cropTile(state: GameSnapshot): FarmTileSnapshot {
   ));
   if (!tile) throw new Error(`Missing farm tile ${CROP_CELL.x},${CROP_CELL.y}`);
   return tile;
+}
+
+function cropDepth(state: DebugSnapshot): number {
+  const depth = state.depths['crop:3,8'];
+  if (depth === undefined) throw new Error('Missing crop depth for 3,8');
+  return depth;
 }
 
 async function expectFeedback(page: Page, text: string): Promise<void> {
@@ -379,13 +386,13 @@ test('reverses crop and player depth while retaining foundation scenery depth ke
   await useSelected(page, CROP_CELL, FEEDBACK.turnipPlanted);
 
   const farSide = await moveUntil(page, 'w', (value) => value.player.world.y <= 188.8);
-  expect(farSide.depths.player).toBeLessThan(farSide.depths['crop:3,8']);
+  expect(farSide.depths.player).toBeLessThan(cropDepth(farSide));
   expect(farSide.depths).toHaveProperty('tree');
   expect(farSide.depths).toHaveProperty('building');
   expect(farSide.depths).toHaveProperty('crop:3,8');
 
   const nearSide = await moveUntil(page, 's', (value) => value.player.world.y >= 195.2);
-  expect(nearSide.depths.player).toBeGreaterThan(nearSide.depths['crop:3,8']);
+  expect(nearSide.depths.player).toBeGreaterThan(cropDepth(nearSide));
   expect(nearSide.depths).toHaveProperty('tree');
   expect(nearSide.depths).toHaveProperty('building');
   expect(nearSide.depths).toHaveProperty('crop:3,8');

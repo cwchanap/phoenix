@@ -99,6 +99,17 @@ describe('GameSession', () => {
     expect(session.snapshot().inventory).toEqual({ turnipSeeds: 2, turnips: 1 });
   });
 
+  test('rejects hoeing an already-tilled empty tile without mutation', () => {
+    const session = new GameSession(config());
+    const cell = farmCells[0];
+
+    expect(session.hoe(cell)).toEqual({ ok: true, code: 'soil-tilled' });
+    const before = session.snapshot();
+
+    expect(session.hoe(cell)).toEqual({ ok: false, code: 'already-tilled' });
+    expect(session.snapshot()).toEqual(before);
+  });
+
   describe('rejection prefixes and precedence', () => {
     const commands = [
       ['hoe', (session: GameSession, position: GridCell | null) => session.hoe(position)],

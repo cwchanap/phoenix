@@ -1,8 +1,10 @@
 # Phoenix
 
-Phoenix is the HPA-588 foundation slice: a browser and Tauri proof world for
-the macOS-first farming MVP. This slice is verified on macOS only; it does not
-claim acceptance for Windows or Linux.
+Phoenix combines the HPA-588 foundation slice with the HPA-591 turnip day-loop
+slice: a browser and Tauri proof world where you can move through the authored
+map, hoe and plant a turnip, water it through three nights, and harvest it.
+This macOS-first farming MVP is verified on macOS only; it does not claim
+acceptance for Windows or Linux.
 
 ## Prerequisites
 
