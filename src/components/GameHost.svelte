@@ -1,19 +1,37 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { InputGate } from '../game/core/InputGate';
+  import type { CommandResult, GameSnapshot } from '../game/core/types';
   import { GameLifecycle } from '../game/phaser/GameLifecycle';
   import { createGame } from '../game/phaser/createGame';
-  import type { DebugSnapshot, ProofSceneDependencies } from '../game/phaser/ProofScene';
+  import type {
+    DebugSnapshot,
+    ProofSceneDependencies,
+    SceneCommands,
+  } from '../game/phaser/ProofScene';
 
   interface Props {
     inputGate: InputGate;
     onStatus: (status: string) => void;
     onError: (error: Error) => void;
+    onReady: (commands: SceneCommands) => void;
+    onGameSnapshot: (snapshot: GameSnapshot) => void;
+    onCommandResult: (result: CommandResult) => void;
+    onSleepPrompt: () => void;
   }
 
-  let { inputGate, onStatus, onError }: Props = $props();
+  let {
+    inputGate,
+    onStatus,
+    onError,
+    onReady,
+    onGameSnapshot,
+    onCommandResult,
+    onSleepPrompt,
+  }: Props = $props();
   let host = $state<HTMLDivElement>();
   let latestSnapshot: DebugSnapshot | null = null;
+  let latestGameSnapshot: GameSnapshot | null = null;
   let dependencies: ProofSceneDependencies | null = null;
 
   const lifecycle = new GameLifecycle<ProofSceneDependencies>(createGame);
@@ -21,6 +39,7 @@
   const restart = () => {
     if (!host || !dependencies) return;
     latestSnapshot = null;
+    latestGameSnapshot = null;
     onStatus('World loading…');
     lifecycle.start(host, dependencies);
   };
@@ -55,6 +74,10 @@
         if (!latestSnapshot) throw new Error('world is not ready');
         return cloneSnapshot(latestSnapshot);
       },
+      gameSnapshot: () => {
+        if (!latestGameSnapshot) throw new Error('game world is not ready');
+        return structuredClone(latestGameSnapshot);
+      },
       remount: () => {
         restart();
       },
@@ -63,6 +86,8 @@
 
   const cleanup = () => {
     stop();
+    latestSnapshot = null;
+    latestGameSnapshot = null;
     removeDevelopmentHook();
   };
 
@@ -75,14 +100,25 @@
 
     dependencies = {
       inputGate,
-      onReady: () => onStatus('World ready'),
+      onReady: (commands) => {
+        onStatus('World ready');
+        onReady(commands);
+      },
       onError: (error) => {
+        latestSnapshot = null;
+        latestGameSnapshot = null;
         queueMicrotask(stop);
         onError(error);
       },
       onSnapshot: (snapshot) => {
         latestSnapshot = cloneSnapshot(snapshot);
       },
+      onGameSnapshot: (snapshot) => {
+        latestGameSnapshot = structuredClone(snapshot);
+        onGameSnapshot(snapshot);
+      },
+      onCommandResult,
+      onSleepPrompt,
     };
 
     try {

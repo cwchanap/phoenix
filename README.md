@@ -32,8 +32,17 @@ Run the desktop shell with:
 bun run tauri:dev
 ```
 
-Use WASD for screen-relative movement. The overlay input lock prevents
-keyboard movement while it is enabled; unlock it to resume movement.
+Controls are keyboard-first: WASD moves in screen-relative directions; keys
+1–4 select Hoe, Seeds, Water, and Hands respectively. Press Space to apply the
+selected action to the highlighted farm cell. Press E when the bed is
+highlighted to request sleep. The overlay input lock prevents keyboard
+movement while it is enabled; unlock it to resume movement.
+
+The new session starts with three starter seeds for turnips. A planted turnip
+advances one growth stage after each of three watered nights; harvest it with
+Hands after the third night. Pressing E at the bed opens a Svelte confirmation
+panel that locks world input. Confirm advances the authoritative session once
+and releases the lock; Cancel releases the lock without changing the farm.
 
 ## Verification and builds
 
@@ -53,12 +62,13 @@ and macOS Tauri build matrix there.
 ## Architecture and authored map contract
 
 - Framework-free TypeScript owns projection, movement, collision, facing, and
-  targeting rules.
+  targeting rules. `GameSession` is the authority for the day, selected
+  action, farm tiles, crop growth, and inventory.
 - Phaser owns the world/render adapter, camera, assets, and keyboard sampling.
-- Svelte owns the fitted stage and screen-space overlay, including the input
-  lock.
-- Tauri owns the macOS desktop shell only; gameplay authority stays in the
-  frontend rules layer.
+- Svelte owns the fitted stage and screen-space overlay, including the HUD,
+  action buttons, feedback, sleep confirmation, and input lock presentation.
+- Tauri remains the unchanged macOS-only desktop shell; gameplay authority
+  stays in the frontend rules layer.
 
 The authored proof map is a finite 12×12 (12x12) logical grid using 64×32
 (64x32) 2:1 isometric tiles and embedded Tiled tilesets.
