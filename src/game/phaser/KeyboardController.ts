@@ -1,6 +1,7 @@
 import type Phaser from 'phaser';
 import type { InputGate } from '../core/InputGate';
 import type { MovementInput } from '../core/types';
+import { GateBoundKeys } from './GateBoundKeys';
 
 export interface KeyboardKeys {
   w: Phaser.Input.Keyboard.Key;
@@ -10,21 +11,17 @@ export interface KeyboardKeys {
 }
 
 export class KeyboardController {
-  private readonly unsubscribe: () => void;
-  private destroyed = false;
+  private readonly gateBoundKeys: GateBoundKeys;
 
   constructor(
     private readonly keys: KeyboardKeys,
-    private readonly inputGate: InputGate,
+    inputGate: InputGate,
   ) {
-    this.unsubscribe = inputGate.subscribe((locked) => {
-      if (locked) this.resetKeys();
-    });
-    if (inputGate.isLocked) this.resetKeys();
+    this.gateBoundKeys = new GateBoundKeys(inputGate, Object.values(keys), () => {});
   }
 
   sample(): MovementInput {
-    if (this.inputGate.isLocked) return { screenX: 0, screenY: 0 };
+    if (this.gateBoundKeys.isLocked()) return { screenX: 0, screenY: 0 };
     return {
       screenX: Number(this.keys.d.isDown) - Number(this.keys.a.isDown),
       screenY: Number(this.keys.s.isDown) - Number(this.keys.w.isDown),
@@ -32,17 +29,6 @@ export class KeyboardController {
   }
 
   destroy(): void {
-    if (this.destroyed) return;
-    this.destroyed = true;
-    this.unsubscribe();
-    for (const key of Object.values(this.keys)) {
-      const plugin = key.plugin;
-      if (plugin) plugin.removeKey(key, true, true);
-      else key.destroy?.();
-    }
-  }
-
-  private resetKeys(): void {
-    for (const key of Object.values(this.keys)) key.reset();
+    this.gateBoundKeys.destroy();
   }
 }

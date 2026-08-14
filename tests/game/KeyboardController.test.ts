@@ -83,6 +83,19 @@ test('aggregate locking resets all keys and returns zero input', () => {
   controller.destroy();
 });
 
+test('locked construction resets held WASD keys before the first sample', () => {
+  const gate = new InputGate();
+  gate.set('modal', true);
+  const { keys, raw } = makeKeys();
+  for (const key of Object.values(raw)) key.isDown = true;
+
+  const controller = new KeyboardController(keys, gate);
+
+  expect(controller.sample()).toEqual({ screenX: 0, screenY: 0 });
+  expect(Object.values(raw).map((key) => key.resetCalls)).toEqual([1, 1, 1, 1]);
+  controller.destroy();
+});
+
 test('destroy unsubscribes from future gate transitions', () => {
   const gate = new InputGate();
   const { keys, raw } = makeKeys();
