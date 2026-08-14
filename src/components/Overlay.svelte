@@ -46,7 +46,14 @@
   }: Props = $props();
   let overlayLocked = $state(false);
   let locked = $state(false);
-  const actionsReady = $derived(status === 'ready' && commands !== null && snapshot !== null);
+  let confirmButton = $state<HTMLButtonElement | null>(null);
+  const actionsReady = $derived(
+    status === 'ready' && commands !== null && snapshot !== null && !sleepPromptVisible,
+  );
+
+  $effect(() => {
+    if (sleepPromptVisible) confirmButton?.focus();
+  });
 
   function actionLabel(action: FarmingAction): string {
     switch (action) {
@@ -98,6 +105,7 @@
   });
 
   const toggle = () => {
+    if (sleepPromptVisible) return;
     const nextLocked = !overlayLocked;
     overlayLocked = nextLocked;
     inputGate.set('overlay', nextLocked);
@@ -126,7 +134,9 @@
             type="button"
             aria-pressed={Boolean(snapshot && snapshot.selectedAction === action.action)}
             disabled={!actionsReady}
-            onclick={() => commands?.selectAction(action.action)}
+            onclick={() => {
+              if (actionsReady) commands?.selectAction(action.action);
+            }}
           >
             {action.key} {action.label}
           </button>
@@ -139,7 +149,7 @@
     <p>Move: WASD</p>
     <p>Use selected: Space · Sleep at bed: E</p>
     <p>World input: {locked ? 'Locked' : 'Active'}</p>
-    <button type="button" aria-pressed={overlayLocked} onclick={toggle}>
+    <button type="button" aria-pressed={overlayLocked} disabled={sleepPromptVisible} onclick={toggle}>
       {overlayLocked ? 'Unlock world input' : 'Lock world input'}
     </button>
   {/if}
@@ -156,7 +166,7 @@
         <h2 id="sleep-dialog-title">Sleep until tomorrow?</h2>
         <p>Watered crops grow overnight.</p>
         <div class="sleep-dialog-actions">
-          <button type="button" onclick={onConfirmSleep} disabled={commands === null}>Confirm</button>
+          <button bind:this={confirmButton} type="button" onclick={onConfirmSleep} disabled={commands === null}>Confirm</button>
           <button type="button" onclick={onCancelSleep}>Cancel</button>
         </div>
       </div>
