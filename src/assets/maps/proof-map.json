@@ -3,7 +3,7 @@
   "height": 12,
   "infinite": false,
   "nextlayerid": 5,
-  "nextobjectid": 6,
+  "nextobjectid": 7,
   "orientation": "isometric",
   "renderorder": "right-down",
   "tiledversion": "1.12.2",
@@ -317,6 +317,16 @@
           "point": true,
           "x": 160,
           "y": 192,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 6,
+          "name": "bed-interaction",
+          "type": "",
+          "point": true,
+          "x": 320,
+          "y": 240,
           "rotation": 0,
           "visible": true
         }

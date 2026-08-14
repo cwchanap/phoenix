@@ -11,7 +11,17 @@ const projection = new ProjectionAdapter(
 );
 
 test('loads the authored proof-map contract', async () => {
-  const parsed = parseProofMap(await Bun.file(mapPath).json(), projection);
+  const raw = await Bun.file(mapPath).json() as Record<string, unknown>;
+  const markers = withLayer(raw, 'Markers') as unknown as {
+    objects: Array<Record<string, unknown>>;
+  };
+  expect(raw.nextobjectid).toBe(7);
+  expect(markers.objects).toEqual(expect.arrayContaining([
+    expect.objectContaining({ id: 5, name: 'player-spawn' }),
+    expect.objectContaining({ id: 6, name: 'bed-interaction' }),
+  ]));
+
+  const parsed = parseProofMap(raw, projection);
 
   expect(parsed.world.spawn).toEqual({ x: 2.5, y: 9.5 });
   expect(parsed.world.footprints).toEqual([
@@ -32,6 +42,7 @@ test('loads the authored proof-map contract', async () => {
     { x: 2, y: 8 }, { x: 3, y: 8 }, { x: 4, y: 8 },
     { x: 2, y: 9 }, { x: 3, y: 9 }, { x: 4, y: 9 },
   ]);
+  expect(parsed.bedCell).toEqual({ x: 6, y: 8 });
   expect(parsed.groundTilesetName).toBe('proof-ground');
 });
 
@@ -39,6 +50,8 @@ test.each([
   ['proof-tiles.png', 128, 32],
   ['proof-player.png', 128, 48],
   ['proof-scenery.png', 192, 96],
+  ['proof-soil.png', 128, 32],
+  ['proof-turnip.png', 128, 48],
 ])('writes %s with exact PNG dimensions', async (name, width, height) => {
   const bytes = new Uint8Array(await Bun.file(resolve(assetRoot, 'sprites', name)).arrayBuffer());
 
@@ -118,6 +131,28 @@ describe('proof-map contract validation', () => {
       const markers = withLayer(raw, 'Markers') as unknown as { objects: Array<Record<string, unknown>> };
       markers.objects.push({ ...markers.objects[0], id: 6 });
     }, /proof-map: expected exactly one player-spawn marker/],
+    ['missing bed marker', (raw: Record<string, unknown>) => {
+      const markers = withLayer(raw, 'Markers') as unknown as { objects: Array<Record<string, unknown>> };
+      markers.objects = markers.objects.filter(({ name }) => name !== 'bed-interaction');
+    }, /proof-map: expected exactly one bed-interaction marker/],
+    ['duplicate bed marker', (raw: Record<string, unknown>) => {
+      const markers = withLayer(raw, 'Markers') as unknown as { objects: Array<Record<string, unknown>> };
+      const bed = markers.objects.find(({ name }) => name === 'bed-interaction');
+      if (!bed) throw new Error('missing bed marker in test fixture');
+      markers.objects.push({ ...bed, id: 7 });
+    }, /proof-map: expected exactly one bed-interaction marker/],
+    ['renamed bed marker', (raw: Record<string, unknown>) => {
+      withObject(raw, 'Markers', 'bed-interaction').name = 'bed';
+    }, /proof-map: unknown marker name bed/],
+    ['unknown marker name', (raw: Record<string, unknown>) => {
+      const markers = withLayer(raw, 'Markers') as unknown as { objects: Array<Record<string, unknown>> };
+      markers.objects.push({ id: 7, name: 'mystery', type: '', point: true, x: 320, y: 240, rotation: 0, visible: true });
+    }, /proof-map: unknown marker name mystery/],
+    ['wrong bed coordinates', (raw: Record<string, unknown>) => {
+      const bed = withObject(raw, 'Markers', 'bed-interaction');
+      bed.x = 288;
+    }, /proof-map: bed-interaction marker must be at logical cell 6,8/],
+    ['stale nextobjectid', (raw: Record<string, unknown>) => { raw.nextobjectid = 6; }, /proof-map: nextobjectid must be 7/],
     ['missing building footprint', (raw: Record<string, unknown>) => {
       const collision = withLayer(raw, 'Collision') as unknown as { objects: Array<{ name: string }> };
       collision.objects = collision.objects.filter(({ name }) => name !== 'building');

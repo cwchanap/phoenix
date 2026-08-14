@@ -2,6 +2,7 @@ import type { ProjectionAdapter } from './ProjectionAdapter';
 import type {
   Footprint,
   GridCell,
+  GridPoint,
   ProofMap,
   SceneryKind,
   SceneryPlacement,
@@ -11,10 +12,18 @@ export interface ParsedProofMap {
   world: ProofMap;
   scenery: SceneryPlacement[];
   farmCells: GridCell[];
+  bedCell: GridCell;
   groundTilesetName: 'proof-ground';
 }
 
 type RecordValue = Record<string, unknown>;
+
+interface ParsedMarkers {
+  spawn: GridPoint;
+  bedCell: GridCell;
+}
+
+const allowedMarkerNames = new Set(['player-spawn', 'bed-interaction']);
 
 const snap = (value: number) => Math.round(value * 1_000_000_000) / 1_000_000_000;
 
@@ -136,7 +145,7 @@ function validateMapHeader(raw: RecordValue, projection: ProjectionAdapter): voi
     fail(`tileheight must be ${projection.metrics.tileHeight}`);
   }
   if (integer(raw.nextlayerid, 'nextlayerid') !== 5) fail('nextlayerid must be 5');
-  if (integer(raw.nextobjectid, 'nextobjectid') !== 6) fail('nextobjectid must be 6');
+  if (integer(raw.nextobjectid, 'nextobjectid') !== 7) fail('nextobjectid must be 7');
   const layers = array(raw.layers, 'layers').map((value, index) => record(value, `layers[${index}]`));
   const layerNames = new Set(layers.map((layer) => string(layer.name, 'layer.name')));
   for (const name of ['Ground', 'Scenery', 'Collision', 'Markers']) {
@@ -350,23 +359,36 @@ function parseCollision(raw: RecordValue, projection: ProjectionAdapter, scenery
   return scenery.map(({ id }) => byId.get(id) as Footprint);
 }
 
-function parseSpawn(raw: RecordValue, projection: ProjectionAdapter): { x: number; y: number } {
+function parseMarkers(raw: RecordValue, projection: ProjectionAdapter): ParsedMarkers {
   const layer = findLayer(raw, 'Markers');
   if (integer(layer.id, 'Markers.id') !== 4) fail('Markers layer id must be 4');
   if (string(layer.type, 'Markers.type') !== 'objectgroup') fail('Markers must be an object layer');
   const objects = array(layer.objects, 'Markers.objects').map((value, index) => record(value, `Markers.objects[${index}]`));
-  const spawns = objects.filter((object) => object.name === 'player-spawn');
-  if (spawns.length !== 1) fail('expected exactly one player-spawn marker');
-  const marker = spawns[0];
-  if (integer(marker.id, 'player-spawn.id') !== 5) fail('player-spawn id must be 5');
-  if (marker.point !== true) fail('player-spawn marker must be a point');
-  if (string(marker.type, 'player-spawn.type') !== ''
-    || number(marker.rotation, 'player-spawn.rotation') !== 0
-    || !boolean(marker.visible, 'player-spawn.visible')) {
-    fail('player-spawn marker must be visible with zero rotation and empty type');
+  const markers = new Map<string, RecordValue>();
+  for (const object of objects) {
+    const name = string(object.name, 'Markers object.name');
+    if (!allowedMarkerNames.has(name)) fail(`unknown marker name ${name}`);
+    if (markers.has(name)) fail(`expected exactly one ${name} marker`);
+    markers.set(name, object);
   }
-  const world = { x: number(marker.x, 'player-spawn.x'), y: number(marker.y, 'player-spawn.y') };
-  const spawn = projection.worldToGrid(world);
+
+  const marker = markers.get('player-spawn');
+  if (!marker) fail('expected exactly one player-spawn marker');
+  const bedMarker = markers.get('bed-interaction');
+  if (!bedMarker) fail('expected exactly one bed-interaction marker');
+  if (integer(marker.id, 'player-spawn.id') !== 5) fail('player-spawn id must be 5');
+  if (integer(bedMarker.id, 'bed-interaction.id') !== 6) fail('bed-interaction id must be 6');
+  for (const [name, candidate] of [['player-spawn', marker], ['bed-interaction', bedMarker]] as const) {
+    if (candidate.point !== true) fail(`${name} marker must be a point`);
+    if (string(candidate.type, `${name}.type`) !== ''
+      || number(candidate.rotation, `${name}.rotation`) !== 0
+      || !boolean(candidate.visible, `${name}.visible`)) {
+      fail(`${name} marker must be visible with zero rotation and empty type`);
+    }
+  }
+
+  const spawnWorld = { x: number(marker.x, 'player-spawn.x'), y: number(marker.y, 'player-spawn.y') };
+  const spawn = projection.worldToGrid(spawnWorld);
   if (!Number.isFinite(spawn.x) || !Number.isFinite(spawn.y)
     || spawn.x < 0 || spawn.y < 0
     || spawn.x > projection.mapSize.width || spawn.y > projection.mapSize.height) {
@@ -374,7 +396,11 @@ function parseSpawn(raw: RecordValue, projection: ProjectionAdapter): { x: numbe
   }
   const snapped = { x: snap(spawn.x), y: snap(spawn.y) };
   if (snapped.x !== 2.5 || snapped.y !== 9.5) fail('player spawn is not at its authored position');
-  return snapped;
+
+  const bedWorld = { x: number(bedMarker.x, 'bed-interaction.x'), y: number(bedMarker.y, 'bed-interaction.y') };
+  const bedCell = projection.gridCellAtWorld(bedWorld);
+  if (bedCell.x !== 6 || bedCell.y !== 8) fail('bed-interaction marker must be at logical cell 6,8');
+  return { spawn: snapped, bedCell };
 }
 
 export function parseProofMap(raw: unknown, projection: ProjectionAdapter): ParsedProofMap {
@@ -384,7 +410,7 @@ export function parseProofMap(raw: unknown, projection: ProjectionAdapter): Pars
   const farmCells = parseGroundLayer(map, projection);
   const { scenery } = parseScenery(map, projection);
   const footprints = parseCollision(map, projection, scenery);
-  const spawn = parseSpawn(map, projection);
+  const { spawn, bedCell } = parseMarkers(map, projection);
   return {
     world: {
       width: projection.mapSize.width,
@@ -394,6 +420,7 @@ export function parseProofMap(raw: unknown, projection: ProjectionAdapter): Pars
     },
     scenery,
     farmCells,
+    bedCell,
     groundTilesetName: 'proof-ground',
   };
 }

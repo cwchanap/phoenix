@@ -159,6 +159,43 @@ fillRect(scenery, 138, 66, 14, 30, '#624331');
 fillRect(scenery, 118, 62, 12, 12, '#8bc0cf');
 fillRect(scenery, 160, 62, 12, 12, '#8bc0cf');
 
+const soil = createSurface(128, 32);
+fillDiamond(soil, 32, 16, 32, 16, '#8a5a3b', '#5a3828');
+fillDiamond(soil, 96, 16, 32, 16, '#526f54', '#334936');
+fillRect(soil, 74, 12, 4, 2, '#7c9a77');
+fillRect(soil, 106, 19, 5, 2, '#405c45');
+
+const turnip = createSurface(128, 48);
+const drawTurnipFrame = (frame: number): void => {
+  const x = frame * 32;
+  if (frame === 0) {
+    fillRect(turnip, x + 14, 34, 4, 4, '#ad7042');
+    return;
+  }
+  if (frame === 1) {
+    fillRect(turnip, x + 14, 23, 4, 13, '#4d8a49');
+    fillRect(turnip, x + 8, 24, 8, 4, '#6eaa58');
+    fillRect(turnip, x + 16, 20, 8, 4, '#85bd66');
+    fillDiamond(turnip, x + 16, 37, 4, 5, '#c79559', '#865a35');
+    return;
+  }
+  if (frame === 2) {
+    fillRect(turnip, x + 14, 16, 4, 19, '#3f7d42');
+    fillRect(turnip, x + 5, 18, 11, 6, '#5caa51');
+    fillRect(turnip, x + 17, 13, 11, 6, '#74bd5c');
+    fillRect(turnip, x + 9, 25, 8, 5, '#4e974a');
+    fillDiamond(turnip, x + 16, 37, 7, 8, '#d7a961', '#895b36');
+    return;
+  }
+  fillRect(turnip, x + 14, 10, 5, 22, '#356e3b');
+  fillRect(turnip, x + 2, 13, 14, 7, '#4f9c47');
+  fillRect(turnip, x + 18, 9, 13, 7, '#68b454');
+  fillRect(turnip, x + 5, 23, 12, 7, '#438b43');
+  fillRect(turnip, x + 17, 20, 11, 7, '#5ca94e');
+  fillDiamond(turnip, x + 16, 37, 9, 10, '#e5b86b', '#855531');
+};
+for (let frame = 0; frame < 4; frame++) drawTurnipFrame(frame);
+
 const ground = Array.from({ length: 144 }, (_, index) => {
   const x = index % 12;
   const y = Math.floor(index / 12);
@@ -271,6 +308,15 @@ const markerLayer = {
     y: spawn.y,
     rotation: 0,
     visible: true,
+  }, {
+    id: 6,
+    name: 'bed-interaction',
+    type: '',
+    point: true,
+    x: 320,
+    y: 240,
+    rotation: 0,
+    visible: true,
   }],
 };
 
@@ -279,7 +325,7 @@ const map = {
   height: 12,
   infinite: false,
   nextlayerid: 5,
-  nextobjectid: 6,
+  nextobjectid: 7,
   orientation: 'isometric',
   renderorder: 'right-down',
   tiledversion: '1.12.2',
@@ -295,4 +341,6 @@ const map = {
 await writePng('src/assets/sprites/proof-tiles.png', tiles);
 await writePng('src/assets/sprites/proof-player.png', player);
 await writePng('src/assets/sprites/proof-scenery.png', scenery);
+await writePng('src/assets/sprites/proof-soil.png', soil);
+await writePng('src/assets/sprites/proof-turnip.png', turnip);
 await Bun.write('src/assets/maps/proof-map.json', `${JSON.stringify(map, null, 2)}\n`);
