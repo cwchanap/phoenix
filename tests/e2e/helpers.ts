@@ -1,5 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import type { DebugSnapshot } from '../../src/game/phaser/ProofScene';
+import type { GameSnapshot } from '../../src/game/core/types';
 
 export async function waitForWorld(page: Page): Promise<void> {
   await page.goto('/');
@@ -9,6 +10,14 @@ export async function waitForWorld(page: Page): Promise<void> {
 
 export const snapshot = (page: Page): Promise<DebugSnapshot> =>
   page.evaluate(() => window.__PHOENIX_TEST__!.snapshot());
+
+export async function gameSnapshot(page: Page): Promise<GameSnapshot> {
+  return page.evaluate(() => {
+    const snapshot = window.__PHOENIX_TEST__?.gameSnapshot();
+    if (!snapshot) throw new Error('Phoenix game snapshot is not ready');
+    return snapshot;
+  });
+}
 
 export async function holdKey(page: Page, key: string, ms: number): Promise<void> {
   return holdKeys(page, [key], ms);

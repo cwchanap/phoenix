@@ -18,9 +18,13 @@ test('sleep confirmation focuses the dialog and blocks background action activat
   const before = await readGameSnapshot();
   expect(before.selectedAction).toBe('hoe');
 
-  await page.keyboard.press('e');
   const dialog = page.getByRole('dialog', { name: 'Sleep until tomorrow?' });
-  await expect(dialog).toBeVisible();
+  await page.keyboard.down('e');
+  try {
+    await expect(dialog).toBeVisible();
+  } finally {
+    await page.keyboard.up('e');
+  }
   await expect(page.getByRole('button', { name: 'Confirm' })).toBeFocused();
 
   const seedsButton = page.getByRole('button', { name: '2 Seeds' });
