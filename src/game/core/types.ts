@@ -50,3 +50,56 @@ export interface WorldSnapshot {
   player: { position: GridPoint; facing: Facing };
   target: GridCell | null;
 }
+
+export type FarmingAction = 'hoe' | 'turnipSeeds' | 'wateringCan' | 'hands';
+export type GrowthLevel = 0 | 1 | 2 | 3;
+
+export interface TurnipCropSnapshot {
+  kind: 'turnip';
+  growth: GrowthLevel;
+  wateredToday: boolean;
+}
+
+export interface FarmTileSnapshot {
+  position: GridCell;
+  soil: 'untilled' | 'tilled';
+  crop: TurnipCropSnapshot | null;
+}
+
+export interface InventorySnapshot {
+  turnipSeeds: number;
+  turnips: number;
+}
+
+export interface GameSnapshot extends WorldSnapshot {
+  day: number;
+  selectedAction: FarmingAction;
+  inventory: InventorySnapshot;
+  farmTiles: FarmTileSnapshot[];
+  bedCell: GridCell;
+}
+
+export type SuccessCode =
+  | 'action-selected'
+  | 'soil-tilled'
+  | 'turnip-planted'
+  | 'crop-watered'
+  | 'turnip-harvested'
+  | 'day-advanced';
+
+export type FailureCode =
+  | 'no-target'
+  | 'not-farm-cell'
+  | 'already-tilled'
+  | 'soil-untilled'
+  | 'crop-present'
+  | 'no-turnip-seeds'
+  | 'no-crop'
+  | 'already-watered'
+  | 'crop-mature'
+  | 'crop-immature'
+  | 'not-at-bed';
+
+export type CommandResult =
+  | { ok: true; code: SuccessCode }
+  | { ok: false; code: FailureCode };
