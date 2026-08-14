@@ -51,6 +51,19 @@ It does not add distribution signing or notarization. The native acceptance targ
 - the farm state for the nine authored logical cells; and
 - the authored logical bed-interaction cell.
 
+`ParsedProofMap` gains `bedCell: GridCell` alongside its existing row-major `farmCells`. `ProofMap` remains unchanged and movement-only. `ProofScene` constructs the session through this exact framework-free boundary:
+
+```ts
+new GameSession({
+  world: parsed.world,
+  metrics: projection.metrics,
+  farmCells: parsed.farmCells,
+  bedCell: parsed.bedCell,
+});
+```
+
+`metrics` is explicit because the composed `ProofWorld` requires `ProjectionMetrics` for movement conversion. Construction defensively clones its inputs and throws if there are not exactly nine farm cells, if a farm cell repeats, if the bed cell is a farm cell, or if the bed cell overlaps a `world.footprints` collision rectangle. For collision validation, the bed cell is a unit logical rectangle and reuses the foundation's strict edge-touching-is-clear intersection policy. These are configuration failures, not expected gameplay failures, and are directly testable without a Tiled fixture.
+
 `GameSession` exposes direct commands for selection, applying the selected action, hoeing, planting, watering, harvesting, and sleeping. It returns fresh JSON-serializable snapshots and never imports Phaser or Svelte.
 
 `ProofWorld` remains a focused movement unit. `GameSession.stepMovement()` delegates to it and includes the resulting player and target state in the complete game snapshot. Collision, projection, facing, and target-offset behavior therefore keep their existing tested contracts.
@@ -59,13 +72,15 @@ It does not add distribution signing or notarization. The native acceptance targ
 
 `ProofScene` parses the map, constructs the `GameSession`, samples movement and action keys, invokes session commands, and reconciles visible Phaser objects from session snapshots. Space passes the current `GridCell | null` to `GameSession.applySelectedAction()`; Phaser never switches from the selected action to a farming rule itself. Phaser owns asset loading, sprites, graphics, camera follow, keyboard integration, and render-object lifecycles. It does not implement farming rules.
 
-The scene publishes snapshots, command results, and a narrow UI command facade through explicit dependencies. `ProofSceneDependencies` gains explicit `onGameSnapshot`, `onCommandResult`, `onCommandsReady`, and `onSleepPrompt` callbacks alongside the existing lifecycle and debug-snapshot callbacks. The facade has exactly two methods, `selectAction(action: FarmingAction): CommandResult` and `sleep(): CommandResult`, for the Svelte-owned interactions that must enter the domain. It does not expose the session object or create a generic message bus.
+The scene publishes snapshots, command results, and a narrow UI command facade through explicit dependencies. The existing `onReady()` becomes `onReady(commands: SceneCommands)`, eliminating a separate command-readiness callback and its ordering ambiguity. `ProofSceneDependencies` otherwise gains explicit `onGameSnapshot`, `onCommandResult`, and `onSleepPrompt` callbacks alongside the existing error and debug-snapshot callbacks. `SceneCommands` has exactly two methods, `selectAction(action: FarmingAction): CommandResult` and `sleep(): CommandResult`, for the Svelte-owned interactions that must enter the domain. It does not expose the session object or create a generic message bus.
+
+The scene publishes the initial `onGameSnapshot` before calling `onReady(commands)`, then publishes once after every selection, farming, or sleep command, whether that command succeeds or fails. It does not publish fresh Svelte state on movement-only frames. Per-frame work remains player rendering, target rendering, camera/debug publication, and entity depth sorting. This keeps rejected-command snapshots stable and avoids driving the HUD at 60 frames per second.
 
 ### Svelte
 
 Svelte owns the fitted stage, HUD, action-selection buttons, sleep-confirmation panel, feedback text, lifecycle status, and fatal-error presentation. It displays values from the latest immutable session snapshot and does not maintain a second inventory, day counter, farm model, or selected-action authority.
 
-`App.svelte` owns presentation-only state: the latest immutable game-snapshot reference, the latest command result, whether the sleep panel is open, and the current two-method scene command facade. `GameHost.svelte` continues to own Phaser creation and teardown, keeps the existing debug snapshot private for the development hook, and forwards the game snapshot and command results through explicit callbacks.
+`App.svelte` owns presentation-only state: the latest immutable game-snapshot reference, the latest command result, whether the sleep panel is open, and the current two-method scene command facade received with readiness. `GameHost.svelte` continues to own Phaser creation and teardown, keeps the existing per-frame debug snapshot private for the development hook, and forwards change-driven game snapshots and command results through explicit callbacks.
 
 ### Tauri and Rust
 
@@ -163,11 +178,11 @@ This order is part of the public command contract and determines the exact code 
 
 ### Select action
 
-`selectAction(action)` stores the supplied valid `FarmingAction` and succeeds. Device-specific key mapping and button events remain outside the domain.
+`selectAction(action)` stores the supplied valid `FarmingAction` and always returns `{ ok: true, code: 'action-selected' }`. Its `CommandResult` return type is intentionally uniform with the two-method scene facade even though the typed input leaves no reachable failure branch; no invalid-action failure code is added. Device-specific key mapping and button events remain outside the domain.
 
 ### Apply selected action
 
-`applySelectedAction(position)` delegates inside `GameSession` according to the authoritative `selectedAction`: Hoe to `hoe`, Seeds to `plant`, Water to `water`, and Hands to `harvest`. It returns the delegated result unchanged. This is the only selected-action dispatch switch.
+`applySelectedAction(position)` delegates inside `GameSession` according to the authoritative `selectedAction`: Hoe to `hoe`, Seeds to `plant`, Water to `water`, and Hands to `harvest`. It returns the delegated result unchanged. This is the only selected-action dispatch switch. The switch is exhaustive and routes its impossible default through a `never`-typed assertion that throws, so adding a fifth `FarmingAction` cannot silently no-op.
 
 ### Hoe
 
@@ -222,7 +237,7 @@ The controls are:
 | Space | Apply the selected action to the highlighted farm cell |
 | E | Request sleep while the bed interaction is highlighted |
 
-Action keys are edge-triggered. Holding Space or E cannot repeat a command across frames. A Phaser-specific action controller owns these keys and resets their held state whenever `InputGate` becomes locked.
+Action keys are edge-triggered. Holding Space or E cannot repeat a command across frames. Movement and action input use separate sampling controllers but share one small Phaser-layer `GateBoundKeys` lifecycle helper. That helper owns the `InputGate` subscription, initial-lock reset, reset-on-lock behavior, idempotent unsubscribe, and plugin-aware key destruction currently implemented by `KeyboardController`. `KeyboardController` keeps analog WASD sampling; its action sibling adds only edge sampling for 1–4, Space, and E. There is one teardown implementation for remount and HMR to exercise.
 
 Space reads the target from the same session snapshot used to draw the diamond and passes it unchanged to `GameSession.applySelectedAction()`. If the target is null or not a farm cell, the domain returns the ordered failure code.
 
@@ -246,14 +261,13 @@ The map remains a `12×12`, `64×32`, one-elevation isometric proof map. Its exi
 
 The Markers layer gains one point object with ID 6 and name `bed-interaction`. Its logical cell center `{ x: 6.5, y: 8.5 }` projects to the authored Tiled world position `{ x: 320, y: 240 }`; the parser converts that point with `ProjectionAdapter.gridCellAtWorld()` to logical `GridCell { x: 6, y: 8 }`. That cell sits immediately beside the existing farmhouse's left footprint edge and is targetable from the walkable cell `{ x: 5, y: 9 }`.
 
-Adding object ID 6 changes the map header and generator together from `nextobjectid: 6` to `nextobjectid: 7`. The parser accepts only the exact marker names `player-spawn` and `bed-interaction` and rejects unknown marker objects instead of ignoring them. It also validates:
+Adding object ID 6 changes `tools/generate-proof-assets.ts`, committed `proof-map.json`, `validateMapHeader`, and `tests/game/loadProofMap.test.ts` atomically from `nextobjectid: 6` to `nextobjectid: 7`. None of those four files lands independently. The parser accepts only the exact marker names `player-spawn` and `bed-interaction` and rejects unknown marker objects instead of ignoring them. It validates:
 
 - exactly one bed-interaction marker;
-- integer logical coordinates;
-- in-bounds placement;
-- placement outside collision footprints;
-- placement outside the nine farm cells; and
+- exact conversion to logical cell `{ x: 6, y: 8 }`; and
 - continued presence and uniqueness of the player spawn.
+
+Farm-count, duplicate-farm, bed/farm-overlap, and bed/collision-overlap invariants belong to the pure `GameSession` constructor rather than permanently unreachable parser branches around one exact generated cell.
 
 The deterministic asset generator adds two regular-frame spritesheets:
 
@@ -272,7 +286,7 @@ Soil overlays occupy a fixed band immediately above ground depth 0 and below tar
 
 A small pure core mapper converts one `FarmTileSnapshot` into `{ soilFrame: null | 0 | 1, cropFrame: null | 0 | 1 | 2 | 3 }`. Phaser uses that result to select frames instead of embedding dry/wet/growth branching only in `ProofScene`. Unit tests cover every tile-state mapping.
 
-`ProofScene` keeps render objects in keyed maps, creates or removes them to match the latest snapshot, and updates every frame and depth from snapshot data. Clearing all farm render objects and reconciling a fresh snapshot must reproduce the same soil and crop visuals; no hidden Phaser-only farming state is allowed.
+`ProofScene` keeps render objects in keyed maps and creates, updates, or removes farm objects after creation and each command to match the latest game snapshot. Movement-only frames update player/target rendering and all entity depths without republishing or rebuilding unchanged farm sprites. Clearing all farm render objects and reconciling a fresh snapshot must reproduce the same soil and crop visuals; no hidden Phaser-only farming state is allowed.
 
 The target outline remains the existing projected `64×32` diamond. The exact `GridCell` used to render it is the position passed to the farming command.
 
@@ -306,7 +320,8 @@ Scene or Svelte teardown destroys Phaser objects, keyboard handlers, action hand
 
 The existing `bun test` suite provides the unit coverage. It must prove:
 
-- new-game day, selection, farm, and inventory defaults;
+- the exact constructor boundary, defensive cloning, nine-cell count, duplicate-cell rejection, and bed overlap invariants;
+- new-game day, `hoe` selection, farm, and inventory defaults;
 - each successful command and its exact result code;
 - selected-action dispatch for all four actions without a Phaser-side rule switch;
 - shared `no-target` and `not-farm-cell` precedence plus every command-specific failure-order overlap;
@@ -329,10 +344,10 @@ Existing `ProofWorld`, collision, projection, lifecycle, and input tests remain 
 
 Focused tests must prove:
 
-- the parser returns the exact nine farm positions and one bed position;
+- the parser returns the exact nine farm positions and one bed position through `ParsedProofMap` while leaving `ProofMap` unchanged;
 - the marker header uses `nextobjectid: 7`, spawn ID 5, and bed ID 6;
 - unknown marker names are rejected;
-- malformed, duplicate, colliding, out-of-bounds, or farm-overlapping bed markers are rejected;
+- missing, duplicate, wrong-cell, or unknown-name markers are rejected;
 - generated farming PNG dimensions and frame count are exact;
 - farming assets regenerate deterministically;
 - every snapshot tile maps through the pure visual mapper to the expected soil and crop frame;
@@ -353,7 +368,9 @@ Playwright uses real movement, number keys, Space, E, and confirmation buttons t
 
 Additional acceptance checks cover clickable action selection, sleep-panel input locking, target-to-command identity, visible dry/wet/growth frames, remount/HMR lifecycle behavior, and the unchanged foundation movement, collision, depth, map-edge, camera, and stage-scaling contracts.
 
-The development hook keeps `snapshot(): DebugSnapshot` unchanged so all foundation helpers and E2E field paths remain valid. It additively exposes `gameSnapshot(): GameSnapshot` for immutable domain assertions. It must not expose hoe, plant, water, sleep, harvest, selection, or confirmation commands.
+One crop-depth acceptance test plants a turnip and moves the player across its projected footpoint, asserting that the player/crop depth relation reverses in both directions. It follows the existing tree/building depth-test pattern rather than asserting absolute Phaser depth values.
+
+The development hook keeps `snapshot(): DebugSnapshot` unchanged so all foundation helpers and E2E field paths remain valid. It additively exposes `gameSnapshot(): GameSnapshot`, updated on creation and after each command, for stable immutable domain assertions. Movement routes continue to use the existing debug snapshot and helpers; farming assertions use `gameSnapshot()` after real keyboard or button actions. The hook must not expose hoe, plant, water, sleep, harvest, selection, or confirmation commands.
 
 ### Final macOS gate
 
@@ -371,6 +388,6 @@ A focused native smoke launches the built Tauri application and confirms that th
 
 ## Delivery boundary
 
-HPA-591 is complete when the normal player controls can carry one turnip through untilled, tilled, planted, watered, three growth transitions, mature, and harvested states; all authoritative state is rebuildable from a serializable snapshot; browser and macOS build verification is green; and the HPA-588 foundation behavior remains intact.
+HPA-591 is complete when the normal player controls can carry one turnip through untilled, tilled, planted, watered, three growth transitions, mature, and harvested states; `GameSession.snapshot()` returns a fresh, fully JSON-round-trippable value containing no live references; browser and macOS build verification is green; and the HPA-588 foundation behavior remains intact.
 
 HPA-592, not this slice, will extend the direct sleep transition with action-driven time, stamina, weather, and the full repeatable daily rhythm.
