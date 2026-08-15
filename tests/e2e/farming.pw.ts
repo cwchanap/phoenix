@@ -8,9 +8,11 @@ import type {
   GridCell,
   Weather,
 } from '../../src/game/core/types';
+import { CROP_DEFINITIONS, CROP_KINDS } from '../../src/game/core/cropDefinitions';
 import { formatTime } from '../../src/game/core/dailyRhythm';
 import {
   confirmAndStartDay,
+  acquireTarget,
   gameSnapshot,
   assertCameraWithinBounds,
   moveUntil,
@@ -29,16 +31,16 @@ const CROP_WORLD_FOOTPOINT = {
 
 const ACTION_BY_KEY = {
   '1': 'hoe',
-  '2': 'turnipSeeds',
+  '2': 'seeds',
   '3': 'wateringCan',
   '4': 'hands',
 } as const satisfies Record<string, FarmingAction>;
 
 const ACTION_LABEL: Record<FarmingAction, string> = {
   hoe: 'Hoe',
-  turnipSeeds: 'Seeds',
   wateringCan: 'Water',
   hands: 'Hands',
+  seeds: 'Seeds',
 };
 
 const FEEDBACK = {
@@ -48,9 +50,9 @@ const FEEDBACK = {
   cropWatered: 'Crop watered',
   rainWatersCrops: 'Rain is watering the crops',
   dayStarted: 'Day started',
-  turnipHarvested: 'Turnip harvested',
+  turnipHarvested: 'Crop harvested',
   noCrop: 'No crop here',
-  notAtBed: 'You must be at the bed',
+  notAtBed: 'Nothing to interact with',
 } as const;
 
 const WEATHER_LABEL: Record<Weather, string> = {
@@ -77,14 +79,20 @@ async function expectFeedback(page: Page, text: string): Promise<void> {
 }
 
 async function expectHud(page: Page, state: GameSnapshot): Promise<void> {
+  const selectedAction = state.selectedAction === 'seeds'
+    ? `Seeds: ${CROP_DEFINITIONS[state.selectedSeed].displayName}`
+    : ACTION_LABEL[state.selectedAction];
   await expect(page.locator('.hud-stats p')).toHaveText([
     `Day ${state.day}`,
     `Time: ${formatTime(state.timeMinutes)}`,
     `Stamina: ${state.stamina} / ${state.maxStamina}`,
     `Weather: ${WEATHER_LABEL[state.weather]}`,
-    `Selected: ${ACTION_LABEL[state.selectedAction]}`,
-    `Seeds: ${state.inventory.turnipSeeds}`,
-    `Turnips: ${state.inventory.turnips}`,
+    `Selected: ${selectedAction}`,
+    `Selected seed: ${CROP_DEFINITIONS[state.selectedSeed].displayName}`,
+    `Money: ${state.money}`,
+    ...CROP_KINDS.map((kind) => `${CROP_DEFINITIONS[kind].displayName} seeds: ${state.inventory.seeds[kind]}`),
+    ...CROP_KINDS.map((kind) => `${CROP_DEFINITIONS[kind].displayName} crops: ${state.inventory.crops[kind]}`),
+    `Pending shipment: ${CROP_KINDS.reduce((total, kind) => total + state.pendingShipment[kind], 0)}`,
   ]);
 }
 
@@ -96,43 +104,6 @@ async function expectPublishedTarget(page: Page, target: GridCell): Promise<Game
   const state = await gameSnapshot(page);
   expect(state.target).toEqual(target);
   return state;
-}
-
-async function acquireTarget(page: Page, key: string, target: GridCell): Promise<void> {
-  const initial = await snapshot(page);
-  if (initial.visibleTarget
-    && initial.target?.x === target.x
-    && initial.target?.y === target.y) {
-    assertCameraWithinBounds(initial);
-    return;
-  }
-
-  let waitError: unknown;
-  try {
-    await page.keyboard.down(key);
-    try {
-      await page.waitForFunction(
-        ({ x, y }) => {
-          const current = window.__PHOENIX_TEST__!.snapshot();
-          return current.target?.x === x && current.target?.y === y;
-        },
-        target,
-        { timeout: 3_000, polling: 'raf' },
-      );
-    } catch (error) {
-      waitError = error;
-    }
-  } finally {
-    await page.keyboard.up(key);
-  }
-
-  const released = await snapshot(page);
-  if (waitError) {
-    throw new Error(`${waitError instanceof Error ? waitError.message : String(waitError)}; last snapshot after release: ${JSON.stringify(released)}`);
-  }
-  expect(released.target).toEqual(target);
-  expect(released.visibleTarget).toBe(true);
-  assertCameraWithinBounds(released);
 }
 
 async function selectWithKey(
@@ -274,7 +245,10 @@ test('selects hands, keeps a rejected empty-crop command stable, and supports cl
   await acquireTarget(page, 'd', CROP_CELL);
 
   const hands = await selectWithKey(page, '4', CROP_CELL);
-  expect(hands.inventory).toEqual({ turnipSeeds: 3, turnips: 0 });
+  expect(hands.inventory).toEqual({
+    seeds: { turnip: 3, potato: 0, pumpkin: 0 },
+    crops: { turnip: 0, potato: 0, pumpkin: 0 },
+  });
   await expectHud(page, hands);
 
   const beforeRejected = await gameSnapshot(page);
@@ -468,7 +442,10 @@ test('completes three real-control nights from tilling through turnip harvest', 
   await expectHud(page, state);
   state = await useSelected(page, CROP_CELL, FEEDBACK.turnipHarvested);
   expect(cropTile(state)).toEqual({ position: CROP_CELL, soil: 'tilled', crop: null });
-  expect(state.inventory).toEqual({ turnipSeeds: 2, turnips: 1 });
+  expect(state.inventory).toEqual({
+    seeds: { turnip: 2, potato: 0, pumpkin: 0 },
+    crops: { turnip: 1, potato: 0, pumpkin: 0 },
+  });
   await expectPublishedTarget(page, CROP_CELL);
   await expectHud(page, state);
 });

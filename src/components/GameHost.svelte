@@ -9,6 +9,7 @@
     ProofSceneDependencies,
     SceneCommands,
   } from '../game/phaser/ProofScene';
+  import type { InteractionIntent } from '../game/phaser/interactionIntent';
 
   interface Props {
     inputGate: InputGate;
@@ -17,7 +18,7 @@
     onReady: (commands: SceneCommands) => void;
     onGameSnapshot: (snapshot: GameSnapshot) => void;
     onCommandResult: (result: CommandResult) => void;
-    onSleepPrompt: () => void;
+    onInteractIntent: (intent: InteractionIntent) => void;
   }
 
   let {
@@ -27,7 +28,7 @@
     onReady,
     onGameSnapshot,
     onCommandResult,
-    onSleepPrompt,
+    onInteractIntent,
   }: Props = $props();
   let host = $state<HTMLDivElement>();
   let latestSnapshot: DebugSnapshot | null = null;
@@ -118,7 +119,7 @@
         onGameSnapshot(snapshot);
       },
       onCommandResult,
-      onSleepPrompt,
+      onInteractIntent,
     };
 
     try {

@@ -6,6 +6,7 @@
   import { InputGate } from './game/core/InputGate';
   import type { CommandResult, GameSnapshot } from './game/core/types';
   import type { SceneCommands } from './game/phaser/ProofScene';
+  import type { InteractionIntent } from './game/phaser/interactionIntent';
 
   type LifecycleStatus = 'loading' | 'ready' | 'error';
 
@@ -19,6 +20,8 @@
   let sleepSubmitting = $state(false);
   let summarySubmitting = $state(false);
   let dayTransitionActive = $state(false);
+  type EconomyPanel = Exclude<InteractionIntent, 'sleep'> | null;
+  let economyPanel = $state<EconomyPanel>(null);
 
   function syncDayTransition(): void {
     dayTransitionActive = (
@@ -30,6 +33,10 @@
     inputGate.set('day-transition', dayTransitionActive);
   }
 
+  function syncEconomyPanel(): void {
+    inputGate.set('economy-panel', economyPanel !== null);
+  }
+
   function resetGamePresentation(): void {
     gameSnapshot = null;
     commandResult = null;
@@ -37,8 +44,9 @@
     sleepPromptVisible = false;
     sleepSubmitting = false;
     summarySubmitting = false;
+    economyPanel = null;
     syncDayTransition();
-    inputGate.set('day-transition', false);
+    syncEconomyPanel();
   }
 
   function handleStatus(nextStatus: string): void {
@@ -74,10 +82,20 @@
     commandResult = nextResult;
   }
 
-  function handleSleepPrompt(): void {
-    if (dayTransitionActive) return;
-    sleepPromptVisible = true;
-    syncDayTransition();
+  function handleInteractIntent(intent: InteractionIntent): void {
+    if (dayTransitionActive || economyPanel !== null) return;
+    if (intent === 'sleep') {
+      sleepPromptVisible = true;
+      syncDayTransition();
+      return;
+    }
+    economyPanel = intent;
+    syncEconomyPanel();
+  }
+
+  function closeEconomyPanel(): void {
+    economyPanel = null;
+    syncEconomyPanel();
   }
 
   function confirmSleep(): void {
@@ -127,6 +145,7 @@
     resetGamePresentation();
     handleFocus();
     inputGate.set('day-transition', false);
+    inputGate.set('economy-panel', false);
   });
 </script>
 
@@ -141,7 +160,7 @@
       onReady={handleReady}
       onGameSnapshot={handleGameSnapshot}
       onCommandResult={handleCommandResult}
-      onSleepPrompt={handleSleepPrompt}
+      onInteractIntent={handleInteractIntent}
     />
     <Overlay
       {inputGate}
@@ -154,9 +173,11 @@
       {sleepSubmitting}
       {summarySubmitting}
       {dayTransitionActive}
+      {economyPanel}
       onConfirmSleep={confirmSleep}
       onCancelSleep={cancelSleep}
       onStartDay={startDay}
+      onCloseEconomyPanel={closeEconomyPanel}
     />
   </StageFrame>
 </main>

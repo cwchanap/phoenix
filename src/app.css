@@ -191,6 +191,36 @@ body {
   width: min(320px, calc(100% - 40px));
 }
 
+.economy-dialog {
+  width: min(430px, calc(100% - 32px));
+  max-height: calc(100% - 32px);
+  overflow: auto;
+}
+
+.economy-crop-rows,
+.seed-selection,
+.quantity-stepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.economy-crop-rows button[aria-pressed="true"],
+.seed-selection button[aria-pressed="true"] {
+  background: #365f4d;
+}
+
+.quantity-stepper {
+  align-items: center;
+  margin-top: 10px;
+}
+
+.quantity-stepper output {
+  min-width: 2.5ch;
+  text-align: center;
+  font-weight: 700;
+}
+
 .sleep-dialog h2 {
   margin: 0 0 8px;
   font-size: 18px;

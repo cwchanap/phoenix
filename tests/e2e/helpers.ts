@@ -1,11 +1,14 @@
 import { expect, type Page } from '@playwright/test';
 import type { DebugSnapshot } from '../../src/game/phaser/ProofScene';
-import type { GameSnapshot } from '../../src/game/core/types';
+import type { DaySummary, GameSnapshot, GridCell } from '../../src/game/core/types';
 
 interface ExpectedDayTransition {
   completedDay: number;
   cropsAdvanced: number;
   staminaRestored: number;
+  shipments?: DaySummary['shipments'];
+  shippingIncome?: number;
+  moneyAfterShipping?: number;
 }
 
 export async function waitForWorld(page: Page): Promise<void> {
@@ -16,6 +19,43 @@ export async function waitForWorld(page: Page): Promise<void> {
 
 export const snapshot = (page: Page): Promise<DebugSnapshot> =>
   page.evaluate(() => window.__PHOENIX_TEST__!.snapshot());
+
+export async function acquireTarget(page: Page, key: string, target: GridCell): Promise<void> {
+  const initial = await snapshot(page);
+  if (initial.visibleTarget
+    && initial.target?.x === target.x
+    && initial.target?.y === target.y) {
+    assertCameraWithinBounds(initial);
+    return;
+  }
+
+  let waitError: unknown;
+  try {
+    await page.keyboard.down(key);
+    try {
+      await page.waitForFunction(
+        ({ x, y }) => {
+          const current = window.__PHOENIX_TEST__!.snapshot();
+          return current.target?.x === x && current.target?.y === y;
+        },
+        target,
+        { timeout: 3_000, polling: 'raf' },
+      );
+    } catch (error) {
+      waitError = error;
+    }
+  } finally {
+    await page.keyboard.up(key);
+  }
+
+  const released = await snapshot(page);
+  if (waitError) {
+    throw new Error(`${waitError instanceof Error ? waitError.message : String(waitError)}; last snapshot after release: ${JSON.stringify(released)}`);
+  }
+  expect(released.target).toEqual(target);
+  expect(released.visibleTarget).toBe(true);
+  assertCameraWithinBounds(released);
+}
 
 export async function gameSnapshot(page: Page): Promise<GameSnapshot> {
   return page.evaluate(() => {
@@ -42,6 +82,9 @@ export async function confirmAndStartDay(
     cropsAdvanced: expected.cropsAdvanced,
     nextWeather: pending.weather,
     staminaRestored: expected.staminaRestored,
+    shipments: expected.shipments ?? [],
+    shippingIncome: expected.shippingIncome ?? 0,
+    moneyAfterShipping: expected.moneyAfterShipping ?? pending.money,
   });
   await expect(dialog).toContainText('Day ' + expected.completedDay + ' complete');
   await expect(dialog).toContainText('Crops advanced: ' + expected.cropsAdvanced);
