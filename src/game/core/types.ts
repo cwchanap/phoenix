@@ -54,6 +54,16 @@ export interface WorldSnapshot {
 export type FarmingAction = 'hoe' | 'turnipSeeds' | 'wateringCan' | 'hands';
 export type GrowthLevel = 0 | 1 | 2 | 3;
 
+export type CropKind = 'turnip' | 'potato' | 'pumpkin';
+export type CropCounts = Record<CropKind, number>;
+
+export interface ShipmentLine {
+  crop: CropKind;
+  quantity: number;
+  unitValue: number;
+  lineTotal: number;
+}
+
 export type Weather = 'sunny' | 'rainy';
 
 export interface DaySummary {
