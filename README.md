@@ -1,10 +1,11 @@
 # Phoenix
 
-Phoenix combines the HPA-588 foundation slice with the HPA-591 turnip day-loop
-slice: a browser and Tauri proof world where you can move through the authored
-map, hoe and plant a turnip, water it through three nights, and harvest it.
-This macOS-first farming MVP is verified on macOS only; it does not claim
-acceptance for Windows or Linux.
+Phoenix combines the HPA-588 foundation slice, the HPA-591 turnip day-loop
+slice, and the HPA-592 daily-rhythm slice: a browser and Tauri proof world
+where you can move through the authored map, hoe and plant a turnip, water it
+through three nights, and harvest it. HPA-592 adds an action-driven clock and
+stamina, sunny and rainy days, and a blocking morning summary. This macOS-first
+farming MVP is verified on macOS only; it does not claim acceptance for Windows or Linux.
 
 ## Prerequisites
 
@@ -43,8 +44,37 @@ movement while it is enabled; unlock it to resume movement.
 The new session starts with three starter seeds for turnips. A planted turnip
 advances one growth stage after each of three watered nights; harvest it with
 Hands after the third night. Pressing E at the bed opens a Svelte confirmation
-panel that locks world input. Confirm advances the authoritative session once
-and releases the lock; Cancel releases the lock without changing the farm.
+panel that locks world input.
+
+## Daily rhythm (HPA-592)
+
+Each new session starts on Day 1 at 06:00 with 20 stamina and Sunny weather.
+Successful farming actions drive the clock and consume stamina; walking, action
+selection, sleep confirmation, and summary acknowledgment are free. An action
+must finish by 22:00, and a valid action that is short on both time and stamina
+reports the time cutoff first. The exact farming costs are:
+
+| Action | Time | Stamina |
+| --- | ---: | ---: |
+| Hoe | 30 minutes | 3 |
+| Plant | 20 minutes | 1 |
+| Water | 20 minutes | 2 |
+| Harvest | 20 minutes | 1 |
+
+Rainy days automatically water planted crops and render tilled farm soil wet.
+Manual watering on a rainy day is rejected without spending time or stamina;
+Sunny days use the Water cost above.
+
+Sleep is a two-stage flow. Press E at the bed to open the confirmation panel;
+Confirm advances the authoritative session once and keeps world input locked
+while the blocking Morning summary is shown. The summary reports the completed
+day, crops advanced, next day, next weather, and stamina restored. Select
+`Start Day N` to acknowledge it; only then does world input resume. Canceling
+the confirmation releases the lock without changing the farm.
+
+Day 14 is fully playable, but sleeping there returns the temporary final-day
+result instead of advancing to Day 15. HPA-597 will replace this boundary with
+the finale.
 
 ## Verification and builds
 

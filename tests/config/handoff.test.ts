@@ -38,6 +38,19 @@ describe('Task 8 handoff contract', () => {
     ]) {
       expect(readme.toLowerCase()).toContain(prerequisite.toLowerCase());
     }
+    for (const dailyRhythmText of [
+      'HPA-592',
+      '06:00',
+      '22:00',
+      '20 stamina',
+      'Sunny',
+      'Rainy',
+      'Morning summary',
+      'Start Day',
+      'Day 14',
+    ]) {
+      expect(readme.toLowerCase()).toContain(dailyRhythmText.toLowerCase());
+    }
   });
 
   test('verifies an exact committed archive with the approved seven-command matrix', async () => {
