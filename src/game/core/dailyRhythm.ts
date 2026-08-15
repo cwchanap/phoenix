@@ -22,7 +22,7 @@ export type ActionBudgetResult =
 
 export const ACTION_COSTS = {
   hoe: { minutes: 30, stamina: 3 },
-  turnipSeeds: { minutes: 20, stamina: 1 },
+  seeds: { minutes: 20, stamina: 1 },
   wateringCan: { minutes: 20, stamina: 2 },
   hands: { minutes: 20, stamina: 1 },
 } as const satisfies Readonly<Record<FarmingAction, ActionCost>>;

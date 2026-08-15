@@ -1,5 +1,10 @@
 import { intersects } from './collision';
 import {
+  CROP_DEFINITIONS,
+  isMature,
+  shipmentPayout,
+} from './cropDefinitions';
+import {
   DAY_START_MINUTES,
   defaultNextWeather,
   evaluateActionBudget,
@@ -10,13 +15,14 @@ import { ProofWorld } from './ProofWorld';
 import type { ActionBudgetResult } from './dailyRhythm';
 import type {
   CommandResult,
+  CropCounts,
+  CropKind,
   DaySummary,
   FarmTileSnapshot,
   FarmingAction,
   Footprint,
   GameSnapshot,
   GridCell,
-  GrowthLevel,
   InventorySnapshot,
   MovementInput,
   ProjectionMetrics,
@@ -30,24 +36,27 @@ export interface GameSessionConfig {
   metrics: ProjectionMetrics;
   farmCells: GridCell[];
   bedCell: GridCell;
+  shopCell: GridCell;
+  shippingCell: GridCell;
   nextWeather?: () => Weather;
 }
 
-interface MutableTurnipCrop {
-  kind: 'turnip';
-  growth: GrowthLevel;
+interface MutableCrop {
+  kind: CropKind;
+  growth: number;
   wateredToday: boolean;
 }
 
 interface MutableFarmTile {
   position: GridCell;
   soil: 'untilled' | 'tilled';
-  crop: MutableTurnipCrop | null;
+  crop: MutableCrop | null;
 }
 
 type LookupResult = MutableFarmTile | { ok: false; code: 'no-target' | 'not-farm-cell' };
 
-const STARTING_SEEDS = 3;
+const STARTING_MONEY = 150;
+const STARTING_SEEDS: CropCounts = { turnip: 3, potato: 0, pumpkin: 0 };
 const REQUIRED_FARM_TILE_COUNT = 9;
 
 export class GameSession {
@@ -55,6 +64,8 @@ export class GameSession {
   private readonly farmTiles: MutableFarmTile[];
   private readonly farmTilesByKey: Map<string, MutableFarmTile>;
   private readonly bedCell: GridCell;
+  private readonly shopCell: GridCell;
+  private readonly shippingCell: GridCell;
   private readonly nextWeather: () => Weather;
   private day = 1;
   private timeMinutes = DAY_START_MINUTES;
@@ -63,7 +74,13 @@ export class GameSession {
   private weather: Weather = 'sunny';
   private pendingDaySummary: DaySummary | null = null;
   private selectedAction: FarmingAction = 'hoe';
-  private inventory: InventorySnapshot = { turnipSeeds: STARTING_SEEDS, turnips: 0 };
+  private selectedSeed: CropKind = 'turnip';
+  private money = STARTING_MONEY;
+  private inventory: InventorySnapshot = {
+    seeds: cloneCounts(STARTING_SEEDS),
+    crops: { turnip: 0, potato: 0, pumpkin: 0 },
+  };
+  private pendingShipment: CropCounts = { turnip: 0, potato: 0, pumpkin: 0 };
 
   constructor(config: GameSessionConfig) {
     this.nextWeather = config.nextWeather ?? defaultNextWeather;
@@ -71,6 +88,8 @@ export class GameSession {
     const metrics = cloneProjectionMetrics(config.metrics);
     const farmCells = config.farmCells.map((cell) => ({ ...cell }));
     const bedCell = { ...config.bedCell };
+    const shopCell = { ...config.shopCell };
+    const shippingCell = { ...config.shippingCell };
 
     if (farmCells.length !== REQUIRED_FARM_TILE_COUNT) {
       throw new Error(`GameSession: expected exactly ${REQUIRED_FARM_TILE_COUNT} farm cells`);
@@ -87,6 +106,18 @@ export class GameSession {
       throw new Error('GameSession: bed cell cannot also be a farm cell');
     }
 
+    const interactionCells = [bedCell, shopCell, shippingCell];
+    for (const cell of interactionCells) {
+      if (!Number.isInteger(cell.x) || !Number.isInteger(cell.y)
+        || cell.x < 0 || cell.x >= world.width
+        || cell.y < 0 || cell.y >= world.height) {
+        throw new Error('GameSession: interaction cells must be integer cells in bounds');
+      }
+    }
+    if (new Set(interactionCells.map(cellKey)).size !== interactionCells.length) {
+      throw new Error('GameSession: bed, shop, and shipping cells must be distinct');
+    }
+
     const bedFootprint: Footprint = {
       id: 'bed-interaction',
       x: bedCell.x,
@@ -100,6 +131,8 @@ export class GameSession {
 
     this.world = new ProofWorld(world, metrics);
     this.bedCell = bedCell;
+    this.shopCell = shopCell;
+    this.shippingCell = shippingCell;
     this.farmTiles = farmCells
       .sort((a, b) => a.y - b.y || a.x - b.x)
       .map((position) => ({ position, soil: 'untilled', crop: null }));
@@ -120,15 +153,26 @@ export class GameSession {
       stamina: this.stamina,
       maxStamina: this.maxStamina,
       weather: this.weather,
-      pendingDaySummary: this.pendingDaySummary ? { ...this.pendingDaySummary } : null,
+      pendingDaySummary: this.pendingDaySummary ? {
+        ...this.pendingDaySummary,
+        shipments: this.pendingDaySummary.shipments.map((line) => ({ ...line })),
+      } : null,
       selectedAction: this.selectedAction,
-      inventory: { ...this.inventory },
+      selectedSeed: this.selectedSeed,
+      money: this.money,
+      inventory: {
+        seeds: cloneCounts(this.inventory.seeds),
+        crops: cloneCounts(this.inventory.crops),
+      },
+      pendingShipment: cloneCounts(this.pendingShipment),
       farmTiles: this.farmTiles.map((tile): FarmTileSnapshot => ({
         position: { ...tile.position },
         soil: tile.soil,
         crop: tile.crop ? { ...tile.crop } : null,
       })),
       bedCell: { ...this.bedCell },
+      shopCell: { ...this.shopCell },
+      shippingCell: { ...this.shippingCell },
     };
   }
 
@@ -139,12 +183,53 @@ export class GameSession {
     return { ok: true, code: 'action-selected' };
   }
 
+  selectSeed(kind: CropKind): CommandResult {
+    const activeFailure = this.activeDayFailure();
+    if (activeFailure) return activeFailure;
+    this.selectedSeed = kind;
+    return { ok: true, code: 'seed-selected' };
+  }
+
+  buySeeds(kind: CropKind, quantity: number): CommandResult {
+    const activeFailure = this.activeDayFailure();
+    if (activeFailure) return activeFailure;
+    if (!sameCell(this.world.snapshot().target, this.shopCell)) {
+      return { ok: false, code: 'not-at-shop' };
+    }
+    const total = CROP_DEFINITIONS[kind].seedPrice * quantity;
+    if (!Number.isSafeInteger(quantity) || quantity <= 0 || !Number.isSafeInteger(total)) {
+      return { ok: false, code: 'invalid-quantity' };
+    }
+    if (this.money < total) return { ok: false, code: 'insufficient-funds' };
+    this.money -= total;
+    this.inventory.seeds[kind] += quantity;
+    return { ok: true, code: 'seeds-purchased' };
+  }
+
+  depositCrop(kind: CropKind, quantity: number): CommandResult {
+    const activeFailure = this.activeDayFailure();
+    if (activeFailure) return activeFailure;
+    if (!sameCell(this.world.snapshot().target, this.shippingCell)) {
+      return { ok: false, code: 'not-at-shipping-bin' };
+    }
+    const pendingAfter = this.pendingShipment[kind] + quantity;
+    if (!Number.isSafeInteger(quantity) || quantity <= 0 || !Number.isSafeInteger(pendingAfter)) {
+      return { ok: false, code: 'invalid-quantity' };
+    }
+    if (this.inventory.crops[kind] < quantity) {
+      return { ok: false, code: 'insufficient-crops' };
+    }
+    this.inventory.crops[kind] -= quantity;
+    this.pendingShipment[kind] = pendingAfter;
+    return { ok: true, code: 'crop-deposited' };
+  }
+
   applySelectedAction(position: GridCell | null): CommandResult {
     const activeFailure = this.activeDayFailure();
     if (activeFailure) return activeFailure;
     switch (this.selectedAction) {
       case 'hoe': return this.hoe(position);
-      case 'turnipSeeds': return this.plant(position);
+      case 'seeds': return this.plant(position);
       case 'wateringCan': return this.water(position);
       case 'hands': return this.harvest(position);
       default: return assertNever(this.selectedAction);
@@ -173,14 +258,16 @@ export class GameSession {
     if (isLookupFailure(tile)) return tile;
     if (tile.soil === 'untilled') return { ok: false, code: 'soil-untilled' };
     if (tile.crop) return { ok: false, code: 'crop-present' };
-    if (this.inventory.turnipSeeds <= 0) return { ok: false, code: 'no-turnip-seeds' };
+    if (this.inventory.seeds[this.selectedSeed] <= 0) {
+      return { ok: false, code: 'no-selected-seeds' };
+    }
 
-    const budget = this.evaluateBudget('turnipSeeds');
+    const budget = this.evaluateBudget('seeds');
     if (!budget.ok) return budget;
-    tile.crop = { kind: 'turnip', growth: 0, wateredToday: false };
-    this.inventory.turnipSeeds -= 1;
+    tile.crop = { kind: this.selectedSeed, growth: 0, wateredToday: false };
+    this.inventory.seeds[this.selectedSeed] -= 1;
     this.commitBudget(budget);
-    return { ok: true, code: 'turnip-planted' };
+    return { ok: true, code: 'crop-planted' };
   }
 
   water(position: GridCell | null): CommandResult {
@@ -189,7 +276,7 @@ export class GameSession {
     const tile = this.lookupTile(position);
     if (isLookupFailure(tile)) return tile;
     if (!tile.crop) return { ok: false, code: 'no-crop' };
-    if (tile.crop.growth === 3) return { ok: false, code: 'crop-mature' };
+    if (isMature(tile.crop.kind, tile.crop.growth)) return { ok: false, code: 'crop-mature' };
     if (this.weather === 'rainy') return { ok: false, code: 'rain-waters-crops' };
     if (tile.crop.wateredToday) return { ok: false, code: 'already-watered' };
 
@@ -206,14 +293,15 @@ export class GameSession {
     const tile = this.lookupTile(position);
     if (isLookupFailure(tile)) return tile;
     if (!tile.crop) return { ok: false, code: 'no-crop' };
-    if (tile.crop.growth < 3) return { ok: false, code: 'crop-immature' };
+    if (!isMature(tile.crop.kind, tile.crop.growth)) return { ok: false, code: 'crop-immature' };
 
     const budget = this.evaluateBudget('hands');
     if (!budget.ok) return budget;
+    const kind = tile.crop.kind;
     tile.crop = null;
-    this.inventory.turnips += 1;
+    this.inventory.crops[kind] += 1;
     this.commitBudget(budget);
-    return { ok: true, code: 'turnip-harvested' };
+    return { ok: true, code: 'crop-harvested' };
   }
 
   sleep(): CommandResult {
@@ -230,13 +318,14 @@ export class GameSession {
     if (nextWeather !== 'sunny' && nextWeather !== 'rainy') {
       throw new Error('GameSession: nextWeather returned an unsupported value');
     }
+    const payout = shipmentPayout(this.pendingShipment);
 
     let cropsAdvanced = 0;
     for (const tile of this.farmTiles) {
       if (!tile.crop) continue;
       const watered = tile.crop.wateredToday || completedWeather === 'rainy';
-      if (watered && tile.crop.growth < 3) {
-        tile.crop.growth = (tile.crop.growth + 1) as GrowthLevel;
+      if (watered && !isMature(tile.crop.kind, tile.crop.growth)) {
+        tile.crop.growth += 1;
         cropsAdvanced += 1;
       }
       tile.crop.wateredToday = false;
@@ -245,12 +334,17 @@ export class GameSession {
     this.timeMinutes = DAY_START_MINUTES;
     this.stamina = this.maxStamina;
     this.weather = nextWeather;
+    this.money += payout.total;
+    this.pendingShipment = { turnip: 0, potato: 0, pumpkin: 0 };
     this.pendingDaySummary = {
       completedDay,
       nextDay: this.day,
       cropsAdvanced,
       nextWeather,
       staminaRestored,
+      shipments: payout.lines.map((line) => ({ ...line })),
+      shippingIncome: payout.total,
+      moneyAfterShipping: this.money,
     };
     return { ok: true, code: 'day-advanced' };
   }
@@ -292,6 +386,10 @@ function cloneProofMap(map: ProofMap): ProofMap {
 
 function cloneProjectionMetrics(metrics: ProjectionMetrics): ProjectionMetrics {
   return { ...metrics, origin: { ...metrics.origin } };
+}
+
+function cloneCounts(counts: CropCounts): CropCounts {
+  return { turnip: counts.turnip, potato: counts.potato, pumpkin: counts.pumpkin };
 }
 
 function cellKey(cell: GridCell): string {

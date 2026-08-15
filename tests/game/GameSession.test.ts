@@ -1,12 +1,21 @@
 import { describe, expect, test } from 'bun:test';
 import { GameSession, type GameSessionConfig } from '../../src/game/core/GameSession';
-import type { FarmingAction, GridCell, Weather } from '../../src/game/core/types';
+import {
+  CROP_DEFINITIONS,
+  CROP_KINDS,
+  isMature,
+} from '../../src/game/core/cropDefinitions';
+import type { CropKind, FarmingAction, GridCell, Weather } from '../../src/game/core/types';
 
 const farmCells = [
   { x: 2, y: 7 }, { x: 3, y: 7 }, { x: 4, y: 7 },
   { x: 2, y: 8 }, { x: 3, y: 8 }, { x: 4, y: 8 },
   { x: 2, y: 9 }, { x: 3, y: 9 }, { x: 4, y: 9 },
 ];
+
+const bedCell = { x: 6, y: 8 };
+const shopCell = { x: 6, y: 10 };
+const shippingCell = { x: 4, y: 10 };
 
 function config(overrides: Partial<GameSessionConfig> = {}): GameSessionConfig {
   return {
@@ -21,7 +30,9 @@ function config(overrides: Partial<GameSessionConfig> = {}): GameSessionConfig {
     },
     metrics: { tileWidth: 64, tileHeight: 32, origin: { x: 384, y: 0 } },
     farmCells,
-    bedCell: { x: 6, y: 8 },
+    bedCell,
+    shopCell,
+    shippingCell,
     nextWeather: () => 'sunny',
     ...overrides,
   };
@@ -33,11 +44,32 @@ function sessionWithConfig(overrides: Partial<GameSessionConfig> = {}): GameSess
 
 function faceBed(session: GameSession): void {
   session.stepMovement({ screenX: 1, screenY: 0 }, 0);
+  expect(session.snapshot().target).toEqual(bedCell);
+}
+
+function faceShop(session: GameSession): void {
+  session.stepMovement({ screenX: 0, screenY: 1 }, 0);
+  expect(session.snapshot().target).toEqual(shopCell);
+}
+
+function faceShipping(session: GameSession): void {
+  session.stepMovement({ screenX: -1, screenY: 0 }, 0);
+  expect(session.snapshot().target).toEqual(shippingCell);
 }
 
 function preparePlanted(session: GameSession, cell: GridCell = farmCells[0]): void {
   expect(session.hoe(cell)).toEqual({ ok: true, code: 'soil-tilled' });
-  expect(session.plant(cell)).toEqual({ ok: true, code: 'turnip-planted' });
+  expect(session.plant(cell)).toEqual({ ok: true, code: 'crop-planted' });
+}
+
+function prepareCrop(session: GameSession, kind: CropKind, cell: GridCell): void {
+  if (kind !== 'turnip') {
+    faceShop(session);
+    expect(session.buySeeds(kind, 1)).toEqual({ ok: true, code: 'seeds-purchased' });
+  }
+  expect(session.selectSeed(kind)).toEqual({ ok: true, code: 'seed-selected' });
+  expect(session.hoe(cell)).toEqual({ ok: true, code: 'soil-tilled' });
+  expect(session.plant(cell)).toEqual({ ok: true, code: 'crop-planted' });
 }
 
 function advanceDayAtBed(session: GameSession): void {
@@ -49,7 +81,9 @@ function advanceDayAtBed(session: GameSession): void {
 }
 
 function growToMaturity(session: GameSession, cell: GridCell = farmCells[0]): void {
-  for (let growth = 0; growth < 3; growth += 1) {
+  const kind = session.snapshot().farmTiles.find((tile) => tile.position.x === cell.x && tile.position.y === cell.y)?.crop?.kind;
+  if (!kind) throw new Error('test crop is missing');
+  for (let growth = 0; growth < CROP_DEFINITIONS[kind].growthDays; growth += 1) {
     expect(session.water(cell)).toEqual({ ok: true, code: 'crop-watered' });
     advanceDayAtBed(session);
   }
@@ -71,10 +105,15 @@ describe('GameSession', () => {
       pendingDaySummary: null,
     });
     expect(first.selectedAction).toBe('hoe');
-    expect(first.inventory).toEqual({ turnipSeeds: 3, turnips: 0 });
+    expect(first.inventory).toEqual({
+      seeds: { turnip: 3, potato: 0, pumpkin: 0 },
+      crops: { turnip: 0, potato: 0, pumpkin: 0 },
+    });
     expect(first.farmTiles.map((tile) => tile.position)).toEqual(farmCells);
     expect(first.farmTiles.every((tile) => tile.soil === 'untilled' && tile.crop === null)).toBe(true);
-    expect(first.bedCell).toEqual({ x: 6, y: 8 });
+    expect(first.bedCell).toEqual(bedCell);
+    expect(first.shopCell).toEqual(shopCell);
+    expect(first.shippingCell).toEqual(shippingCell);
     expect(second).toEqual(first);
     expect(second).not.toBe(first);
     expect(second.farmTiles).not.toBe(first.farmTiles);
@@ -97,7 +136,7 @@ describe('GameSession', () => {
     expect(session.hoe(farmCells[0])).toEqual({ ok: true, code: 'soil-tilled' });
     const before = session.snapshot();
 
-    expect(session.plant(farmCells[0])).toEqual({ ok: true, code: 'turnip-planted' });
+    expect(session.plant(farmCells[0])).toEqual({ ok: true, code: 'crop-planted' });
 
     const after = session.snapshot();
     expect(after.timeMinutes).toBe(before.timeMinutes + 20);
@@ -122,7 +161,7 @@ describe('GameSession', () => {
     growToMaturity(session);
     const before = session.snapshot();
 
-    expect(session.harvest(farmCells[0])).toEqual({ ok: true, code: 'turnip-harvested' });
+    expect(session.harvest(farmCells[0])).toEqual({ ok: true, code: 'crop-harvested' });
 
     const after = session.snapshot();
     expect(after.timeMinutes).toBe(before.timeMinutes + 20);
@@ -175,8 +214,8 @@ describe('GameSession', () => {
     const cell = farmCells[0];
 
     expect(session.hoe(cell)).toEqual({ ok: true, code: 'soil-tilled' });
-    expect(session.plant(cell)).toEqual({ ok: true, code: 'turnip-planted' });
-    expect(session.snapshot().inventory.turnipSeeds).toBe(2);
+    expect(session.plant(cell)).toEqual({ ok: true, code: 'crop-planted' });
+    expect(session.snapshot().inventory.seeds.turnip).toBe(2);
 
     for (const growth of [1, 2, 3] as const) {
       expect(session.water(cell)).toEqual({ ok: true, code: 'crop-watered' });
@@ -191,13 +230,195 @@ describe('GameSession', () => {
     }
 
     expect(session.snapshot().day).toBe(4);
-    expect(session.harvest(cell)).toEqual({ ok: true, code: 'turnip-harvested' });
+    expect(session.harvest(cell)).toEqual({ ok: true, code: 'crop-harvested' });
     expect(session.snapshot().farmTiles[0]).toEqual({
       position: cell,
       soil: 'tilled',
       crop: null,
     });
-    expect(session.snapshot().inventory).toEqual({ turnipSeeds: 2, turnips: 1 });
+    expect(session.snapshot().inventory).toEqual({
+      seeds: { turnip: 2, potato: 0, pumpkin: 0 },
+      crops: { turnip: 1, potato: 0, pumpkin: 0 },
+    });
+  });
+
+  test('starts with the exact forgiving economy', () => {
+    expect(sessionWithConfig().snapshot()).toMatchObject({
+      money: 150,
+      selectedSeed: 'turnip',
+      inventory: {
+        seeds: { turnip: 3, potato: 0, pumpkin: 0 },
+        crops: { turnip: 0, potato: 0, pumpkin: 0 },
+      },
+      pendingShipment: { turnip: 0, potato: 0, pumpkin: 0 },
+      shopCell,
+      shippingCell,
+    });
+  });
+
+  test.each(CROP_KINDS)('grows and harvests %s only at configured maturity', (kind) => {
+    const session = sessionWithConfig();
+    const cell = farmCells[0];
+    prepareCrop(session, kind, cell);
+
+    for (let progress = 0; progress < CROP_DEFINITIONS[kind].growthDays; progress += 1) {
+      expect(session.harvest(cell)).toEqual({ ok: false, code: 'crop-immature' });
+      expect(session.water(cell)).toEqual({ ok: true, code: 'crop-watered' });
+      faceBed(session);
+      expect(session.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+      expect(session.snapshot().farmTiles[0].crop).toEqual({
+        kind,
+        growth: progress + 1,
+        wateredToday: false,
+      });
+      expect(session.acknowledgeDaySummary()).toEqual({ ok: true, code: 'day-started' });
+    }
+
+    expect(isMature(kind, CROP_DEFINITIONS[kind].growthDays)).toBe(true);
+    expect(session.water(cell)).toEqual({ ok: false, code: 'crop-mature' });
+    expect(session.harvest(cell)).toEqual({ ok: true, code: 'crop-harvested' });
+    expect(session.snapshot().inventory.crops[kind]).toBe(1);
+  });
+
+  test('buys exact quantities atomically and preserves failures', () => {
+    const session = sessionWithConfig();
+    faceShop(session);
+    expect(session.buySeeds('potato', 2)).toEqual({ ok: true, code: 'seeds-purchased' });
+    expect(session.snapshot()).toMatchObject({
+      money: 70,
+      inventory: { seeds: { turnip: 3, potato: 2, pumpkin: 0 } },
+    });
+
+    const beforeUnaffordable = session.snapshot();
+    expect(session.buySeeds('pumpkin', 2)).toEqual({ ok: false, code: 'insufficient-funds' });
+    expect(session.snapshot()).toEqual(beforeUnaffordable);
+
+    for (const quantity of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+      const beforeInvalid = session.snapshot();
+      expect(session.buySeeds('turnip', quantity)).toEqual({ ok: false, code: 'invalid-quantity' });
+      expect(session.snapshot()).toEqual(beforeInvalid);
+    }
+  });
+
+  test('deposits immediately, pays once at sleep, and clears shipment before summary', () => {
+    const session = sessionWithConfig();
+    const cell = farmCells[0];
+    prepareCrop(session, 'turnip', cell);
+    for (let night = 0; night < 3; night += 1) {
+      expect(session.water(cell)).toEqual({ ok: true, code: 'crop-watered' });
+      faceBed(session);
+      expect(session.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+      expect(session.acknowledgeDaySummary()).toEqual({ ok: true, code: 'day-started' });
+    }
+    expect(session.harvest(cell)).toEqual({ ok: true, code: 'crop-harvested' });
+
+    faceShipping(session);
+    expect(session.depositCrop('turnip', 1)).toEqual({ ok: true, code: 'crop-deposited' });
+    expect(session.snapshot().inventory.crops.turnip).toBe(0);
+    expect(session.snapshot().pendingShipment.turnip).toBe(1);
+
+    faceBed(session);
+    expect(session.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+    const paid = session.snapshot();
+    expect(paid.money).toBe(185);
+    expect(paid.pendingShipment).toEqual({ turnip: 0, potato: 0, pumpkin: 0 });
+    expect(paid.pendingDaySummary).toMatchObject({
+      shipments: [{ crop: 'turnip', quantity: 1, unitValue: 35, lineTotal: 35 }],
+      shippingIncome: 35,
+      moneyAfterShipping: 185,
+    });
+    const beforeDuplicate = session.snapshot();
+    expect(session.sleep()).toEqual({ ok: false, code: 'day-summary-pending' });
+    expect(session.snapshot()).toEqual(beforeDuplicate);
+  });
+
+  test('deep-clones nested economy and summary snapshots', () => {
+    const session = sessionWithConfig();
+    const first = session.snapshot();
+    const second = session.snapshot();
+    expect(second.inventory).not.toBe(first.inventory);
+    expect(second.inventory.seeds).not.toBe(first.inventory.seeds);
+    expect(second.inventory.crops).not.toBe(first.inventory.crops);
+    expect(second.pendingShipment).not.toBe(first.pendingShipment);
+    expect(second.bedCell).not.toBe(first.bedCell);
+    expect(second.shopCell).not.toBe(first.shopCell);
+    expect(second.shippingCell).not.toBe(first.shippingCell);
+
+    prepareCrop(session, 'turnip', farmCells[0]);
+    for (let night = 0; night < 3; night += 1) {
+      session.water(farmCells[0]);
+      faceBed(session);
+      session.sleep();
+      session.acknowledgeDaySummary();
+    }
+    session.harvest(farmCells[0]);
+    faceShipping(session);
+    session.depositCrop('turnip', 1);
+    faceBed(session);
+    session.sleep();
+    const summaryA = session.snapshot().pendingDaySummary!;
+    const summaryB = session.snapshot().pendingDaySummary!;
+    expect(summaryB).not.toBe(summaryA);
+    expect(summaryB.shipments).not.toBe(summaryA.shipments);
+    expect(summaryB.shipments[0]).not.toBe(summaryA.shipments[0]);
+    summaryA.shipments[0].quantity = 999;
+    expect(session.snapshot().pendingDaySummary?.shipments[0].quantity).toBe(1);
+  });
+
+  test('location and deposit failures preserve the complete snapshot', () => {
+    const session = sessionWithConfig();
+    faceBed(session);
+    const awayFromShop = session.snapshot();
+    expect(session.buySeeds('turnip', 1)).toEqual({ ok: false, code: 'not-at-shop' });
+    expect(session.snapshot()).toEqual(awayFromShop);
+
+    faceShipping(session);
+    for (const quantity of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+      const before = session.snapshot();
+      expect(session.depositCrop('turnip', quantity)).toEqual({ ok: false, code: 'invalid-quantity' });
+      expect(session.snapshot()).toEqual(before);
+    }
+    const beforeMissing = session.snapshot();
+    expect(session.depositCrop('turnip', 1)).toEqual({ ok: false, code: 'insufficient-crops' });
+    expect(session.snapshot()).toEqual(beforeMissing);
+  });
+
+  test('empty shipment produces a zero-income summary', () => {
+    const session = sessionWithConfig();
+    faceBed(session);
+    expect(session.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+    expect(session.snapshot()).toMatchObject({
+      money: 150,
+      pendingShipment: { turnip: 0, potato: 0, pumpkin: 0 },
+      pendingDaySummary: {
+        shipments: [],
+        shippingIncome: 0,
+        moneyAfterShipping: 150,
+      },
+    });
+  });
+
+  test('supports partial then full deposit and rejects a double deposit', () => {
+    const session = sessionWithConfig();
+    const cells = farmCells.slice(0, 2);
+    for (const cell of cells) prepareCrop(session, 'turnip', cell);
+    for (let night = 0; night < 3; night += 1) {
+      for (const cell of cells) expect(session.water(cell).ok).toBe(true);
+      faceBed(session);
+      expect(session.sleep().ok).toBe(true);
+      expect(session.acknowledgeDaySummary().ok).toBe(true);
+    }
+    for (const cell of cells) expect(session.harvest(cell).ok).toBe(true);
+    faceShipping(session);
+    expect(session.depositCrop('turnip', 1)).toEqual({ ok: true, code: 'crop-deposited' });
+    expect(session.snapshot().inventory.crops.turnip).toBe(1);
+    expect(session.snapshot().pendingShipment.turnip).toBe(1);
+    expect(session.depositCrop('turnip', 1)).toEqual({ ok: true, code: 'crop-deposited' });
+    expect(session.snapshot().inventory.crops.turnip).toBe(0);
+    expect(session.snapshot().pendingShipment.turnip).toBe(2);
+    const beforeDouble = session.snapshot();
+    expect(session.depositCrop('turnip', 1)).toEqual({ ok: false, code: 'insufficient-crops' });
+    expect(session.snapshot()).toEqual(beforeDouble);
   });
 
   test('rejects hoeing an already-tilled empty tile without mutation', () => {
@@ -266,7 +487,7 @@ describe('GameSession', () => {
       const noSeedsCell = farmCells[3];
       expect(noSeeds.hoe(noSeedsCell)).toEqual({ ok: true, code: 'soil-tilled' });
       const noSeedsBefore = noSeeds.snapshot();
-      expect(noSeeds.plant(noSeedsCell)).toEqual({ ok: false, code: 'no-turnip-seeds' });
+      expect(noSeeds.plant(noSeedsCell)).toEqual({ ok: false, code: 'no-selected-seeds' });
       expect(noSeeds.snapshot()).toEqual(noSeedsBefore);
     });
 
@@ -437,6 +658,9 @@ describe('GameSession', () => {
 
     const blockedCommands = [
       ['selectAction', () => session.selectAction('wateringCan')],
+      ['selectSeed', () => session.selectSeed('potato')],
+      ['buySeeds', () => session.buySeeds('turnip', 1)],
+      ['depositCrop', () => session.depositCrop('turnip', 1)],
       ['applySelectedAction', () => session.applySelectedAction(farmCells[0])],
       ['hoe', () => session.hoe(farmCells[0])],
       ['plant', () => session.plant(farmCells[0])],
@@ -509,7 +733,7 @@ describe('GameSession', () => {
   describe('selected action dispatch', () => {
     test('selects every farming action', () => {
       const session = new GameSession(config());
-      const actions: FarmingAction[] = ['hoe', 'turnipSeeds', 'wateringCan', 'hands'];
+      const actions: FarmingAction[] = ['hoe', 'seeds', 'wateringCan', 'hands'];
 
       for (const action of actions) {
         expect(session.selectAction(action)).toEqual({ ok: true, code: 'action-selected' });
@@ -524,8 +748,8 @@ describe('GameSession', () => {
 
       const plant = new GameSession(config());
       expect(plant.hoe(farmCells[0])).toEqual({ ok: true, code: 'soil-tilled' });
-      expect(plant.selectAction('turnipSeeds')).toEqual({ ok: true, code: 'action-selected' });
-      expect(plant.applySelectedAction(farmCells[0])).toEqual({ ok: true, code: 'turnip-planted' });
+      expect(plant.selectAction('seeds')).toEqual({ ok: true, code: 'action-selected' });
+      expect(plant.applySelectedAction(farmCells[0])).toEqual({ ok: true, code: 'crop-planted' });
 
       const water = new GameSession(config());
       preparePlanted(water);
@@ -536,7 +760,7 @@ describe('GameSession', () => {
       preparePlanted(harvest);
       growToMaturity(harvest);
       expect(harvest.selectAction('hands')).toEqual({ ok: true, code: 'action-selected' });
-      expect(harvest.applySelectedAction(farmCells[0])).toEqual({ ok: true, code: 'turnip-harvested' });
+      expect(harvest.applySelectedAction(farmCells[0])).toEqual({ ok: true, code: 'crop-harvested' });
     });
 
     test('round-trips a nontrivial snapshot through JSON', () => {
@@ -565,6 +789,12 @@ describe('GameSession', () => {
 
     test('rejects a bed cell that is also a farm cell', () => {
       expect(() => new GameSession(config({ bedCell: farmCells[0] }))).toThrow();
+    });
+
+    test('requires distinct in-bounds integer interaction cells', () => {
+      expect(() => new GameSession(config({ shopCell: bedCell }))).toThrow();
+      expect(() => new GameSession(config({ shippingCell: { x: 12, y: 10 } }))).toThrow();
+      expect(() => new GameSession(config({ shippingCell: { x: 4.5, y: 10 } }))).toThrow();
     });
 
     test('rejects a bed unit rectangle overlapping a footprint', () => {
@@ -600,6 +830,8 @@ describe('GameSession', () => {
 
       source.farmCells[0].x = 99;
       source.bedCell.x = 99;
+      source.shopCell.x = 99;
+      source.shippingCell.x = 99;
       source.world.spawn.x = 99;
       source.world.footprints[0].x = 99;
       source.metrics.origin.x = 99;

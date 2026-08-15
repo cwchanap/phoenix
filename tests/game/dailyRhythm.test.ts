@@ -10,7 +10,7 @@ describe('dailyRhythm', () => {
   test('uses the exact exhaustive farming costs', () => {
     expect(ACTION_COSTS).toEqual({
       hoe: { minutes: 30, stamina: 3 },
-      turnipSeeds: { minutes: 20, stamina: 1 },
+      seeds: { minutes: 20, stamina: 1 },
       wateringCan: { minutes: 20, stamina: 2 },
       hands: { minutes: 20, stamina: 1 },
     });

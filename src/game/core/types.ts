@@ -51,8 +51,7 @@ export interface WorldSnapshot {
   target: GridCell | null;
 }
 
-export type FarmingAction = 'hoe' | 'turnipSeeds' | 'wateringCan' | 'hands';
-export type GrowthLevel = 0 | 1 | 2 | 3;
+export type FarmingAction = 'hoe' | 'seeds' | 'wateringCan' | 'hands';
 
 export type CropKind = 'turnip' | 'potato' | 'pumpkin';
 export type CropCounts = Record<CropKind, number>;
@@ -72,23 +71,26 @@ export interface DaySummary {
   cropsAdvanced: number;
   nextWeather: Weather;
   staminaRestored: number;
+  shipments: ShipmentLine[];
+  shippingIncome: number;
+  moneyAfterShipping: number;
 }
 
-export interface TurnipCropSnapshot {
-  kind: 'turnip';
-  growth: GrowthLevel;
+export interface CropSnapshot {
+  kind: CropKind;
+  growth: number;
   wateredToday: boolean;
 }
 
 export interface FarmTileSnapshot {
   position: GridCell;
   soil: 'untilled' | 'tilled';
-  crop: TurnipCropSnapshot | null;
+  crop: CropSnapshot | null;
 }
 
 export interface InventorySnapshot {
-  turnipSeeds: number;
-  turnips: number;
+  seeds: CropCounts;
+  crops: CropCounts;
 }
 
 export interface GameSnapshot extends WorldSnapshot {
@@ -99,17 +101,25 @@ export interface GameSnapshot extends WorldSnapshot {
   weather: Weather;
   pendingDaySummary: DaySummary | null;
   selectedAction: FarmingAction;
+  selectedSeed: CropKind;
+  money: number;
   inventory: InventorySnapshot;
+  pendingShipment: CropCounts;
   farmTiles: FarmTileSnapshot[];
   bedCell: GridCell;
+  shopCell: GridCell;
+  shippingCell: GridCell;
 }
 
 export type SuccessCode =
   | 'action-selected'
+  | 'seed-selected'
   | 'soil-tilled'
-  | 'turnip-planted'
+  | 'crop-planted'
   | 'crop-watered'
-  | 'turnip-harvested'
+  | 'crop-harvested'
+  | 'seeds-purchased'
+  | 'crop-deposited'
   | 'day-advanced'
   | 'day-started';
 
@@ -119,12 +129,18 @@ export type FailureCode =
   | 'already-tilled'
   | 'soil-untilled'
   | 'crop-present'
-  | 'no-turnip-seeds'
+  | 'no-selected-seeds'
   | 'no-crop'
   | 'already-watered'
   | 'crop-mature'
   | 'crop-immature'
+  | 'nothing-to-interact'
   | 'not-at-bed'
+  | 'not-at-shop'
+  | 'not-at-shipping-bin'
+  | 'invalid-quantity'
+  | 'insufficient-funds'
+  | 'insufficient-crops'
   | 'action-too-late'
   | 'insufficient-stamina'
   | 'day-summary-pending'
