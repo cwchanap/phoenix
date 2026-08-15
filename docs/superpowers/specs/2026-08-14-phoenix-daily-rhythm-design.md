@@ -1,6 +1,6 @@
 # Phoenix Daily Rhythm Design (HPA-592)
 
-**Status:** Design approved; written-spec review pending
+**Status:** Approved for implementation planning
 
 **Date:** 2026-08-14
 
