@@ -58,6 +58,14 @@ describe('GameSession', () => {
     const second = session.snapshot();
 
     expect(first.day).toBe(1);
+    expect(first).toMatchObject({
+      day: 1,
+      timeMinutes: 360,
+      stamina: 20,
+      maxStamina: 20,
+      weather: 'sunny',
+      pendingDaySummary: null,
+    });
     expect(first.selectedAction).toBe('hoe');
     expect(first.inventory).toEqual({ turnipSeeds: 3, turnips: 0 });
     expect(first.farmTiles.map((tile) => tile.position)).toEqual(farmCells);
@@ -67,6 +75,97 @@ describe('GameSession', () => {
     expect(second).not.toBe(first);
     expect(second.farmTiles).not.toBe(first.farmTiles);
     expect(second.inventory).not.toBe(first.inventory);
+  });
+
+  test('charges 30 minutes and 3 stamina for a successful hoe', () => {
+    const session = new GameSession(config());
+    const before = session.snapshot();
+
+    expect(session.hoe(farmCells[0])).toEqual({ ok: true, code: 'soil-tilled' });
+
+    const after = session.snapshot();
+    expect(after.timeMinutes).toBe(before.timeMinutes + 30);
+    expect(after.stamina).toBe(before.stamina - 3);
+  });
+
+  test('charges 20 minutes and 1 stamina for a successful plant', () => {
+    const session = new GameSession(config());
+    expect(session.hoe(farmCells[0])).toEqual({ ok: true, code: 'soil-tilled' });
+    const before = session.snapshot();
+
+    expect(session.plant(farmCells[0])).toEqual({ ok: true, code: 'turnip-planted' });
+
+    const after = session.snapshot();
+    expect(after.timeMinutes).toBe(before.timeMinutes + 20);
+    expect(after.stamina).toBe(before.stamina - 1);
+  });
+
+  test('charges 20 minutes and 2 stamina for a successful water', () => {
+    const session = new GameSession(config());
+    preparePlanted(session);
+    const before = session.snapshot();
+
+    expect(session.water(farmCells[0])).toEqual({ ok: true, code: 'crop-watered' });
+
+    const after = session.snapshot();
+    expect(after.timeMinutes).toBe(before.timeMinutes + 20);
+    expect(after.stamina).toBe(before.stamina - 2);
+  });
+
+  test('charges 20 minutes and 1 stamina for a successful harvest', () => {
+    const session = new GameSession(config());
+    preparePlanted(session);
+    growToMaturity(session);
+    const before = session.snapshot();
+
+    expect(session.harvest(farmCells[0])).toEqual({ ok: true, code: 'turnip-harvested' });
+
+    const after = session.snapshot();
+    expect(after.timeMinutes).toBe(before.timeMinutes + 20);
+    expect(after.stamina).toBe(before.stamina - 1);
+  });
+
+  test('rejects a seventh valid hoe when stamina is exhausted without mutation', () => {
+    const session = new GameSession(config());
+    for (const cell of farmCells.slice(0, 6)) {
+      expect(session.hoe(cell)).toEqual({ ok: true, code: 'soil-tilled' });
+    }
+    expect(session.snapshot()).toMatchObject({ timeMinutes: 540, stamina: 2 });
+    const beforeSeventhHoe = session.snapshot();
+
+    expect(session.hoe(farmCells[6])).toEqual({ ok: false, code: 'insufficient-stamina' });
+    expect(session.snapshot()).toEqual(beforeSeventhHoe);
+  });
+
+  test('does not charge action selection or movement', () => {
+    const session = new GameSession(config());
+    const beforeSelection = session.snapshot();
+
+    expect(session.selectAction('wateringCan')).toEqual({ ok: true, code: 'action-selected' });
+
+    const afterSelection = session.snapshot();
+    expect(afterSelection.timeMinutes).toBe(beforeSelection.timeMinutes);
+    expect(afterSelection.stamina).toBe(beforeSelection.stamina);
+
+    session.stepMovement({ screenX: 1, screenY: 0 }, 16);
+
+    const afterMovement = session.snapshot();
+    expect(afterMovement.timeMinutes).toBe(afterSelection.timeMinutes);
+    expect(afterMovement.stamina).toBe(afterSelection.stamina);
+  });
+
+  test('resets time and stamina after the current direct sleep transition', () => {
+    const session = new GameSession(config());
+    expect(session.hoe(farmCells[0])).toEqual({ ok: true, code: 'soil-tilled' });
+    faceBed(session);
+
+    expect(session.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+    expect(session.snapshot()).toMatchObject({
+      day: 2,
+      timeMinutes: 360,
+      stamina: 20,
+      maxStamina: 20,
+    });
   });
 
   test('grows and harvests one turnip after three watered nights', () => {

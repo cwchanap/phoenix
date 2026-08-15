@@ -1,7 +1,10 @@
 import { intersects } from './collision';
+import { DAY_START_MINUTES, evaluateActionBudget, MAX_STAMINA } from './dailyRhythm';
 import { ProofWorld } from './ProofWorld';
+import type { ActionBudgetResult } from './dailyRhythm';
 import type {
   CommandResult,
+  DaySummary,
   FarmTileSnapshot,
   FarmingAction,
   Footprint,
@@ -12,6 +15,7 @@ import type {
   MovementInput,
   ProjectionMetrics,
   ProofMap,
+  Weather,
   WorldSnapshot,
 } from './types';
 
@@ -45,6 +49,11 @@ export class GameSession {
   private readonly farmTilesByKey: Map<string, MutableFarmTile>;
   private readonly bedCell: GridCell;
   private day = 1;
+  private timeMinutes = DAY_START_MINUTES;
+  private stamina = MAX_STAMINA;
+  private readonly maxStamina = MAX_STAMINA;
+  private weather: Weather = 'sunny';
+  private pendingDaySummary: DaySummary | null = null;
   private selectedAction: FarmingAction = 'hoe';
   private inventory: InventorySnapshot = { turnipSeeds: STARTING_SEEDS, turnips: 0 };
 
@@ -97,6 +106,11 @@ export class GameSession {
     return {
       ...worldSnapshot,
       day: this.day,
+      timeMinutes: this.timeMinutes,
+      stamina: this.stamina,
+      maxStamina: this.maxStamina,
+      weather: this.weather,
+      pendingDaySummary: this.pendingDaySummary ? { ...this.pendingDaySummary } : null,
       selectedAction: this.selectedAction,
       inventory: { ...this.inventory },
       farmTiles: this.farmTiles.map((tile): FarmTileSnapshot => ({
@@ -129,7 +143,10 @@ export class GameSession {
     if (tile.crop) return { ok: false, code: 'crop-present' };
     if (tile.soil === 'tilled') return { ok: false, code: 'already-tilled' };
 
+    const budget = this.evaluateBudget('hoe');
+    if (!budget.ok) return budget;
     tile.soil = 'tilled';
+    this.commitBudget(budget);
     return { ok: true, code: 'soil-tilled' };
   }
 
@@ -140,8 +157,11 @@ export class GameSession {
     if (tile.crop) return { ok: false, code: 'crop-present' };
     if (this.inventory.turnipSeeds <= 0) return { ok: false, code: 'no-turnip-seeds' };
 
+    const budget = this.evaluateBudget('turnipSeeds');
+    if (!budget.ok) return budget;
     tile.crop = { kind: 'turnip', growth: 0, wateredToday: false };
     this.inventory.turnipSeeds -= 1;
+    this.commitBudget(budget);
     return { ok: true, code: 'turnip-planted' };
   }
 
@@ -152,7 +172,10 @@ export class GameSession {
     if (tile.crop.growth === 3) return { ok: false, code: 'crop-mature' };
     if (tile.crop.wateredToday) return { ok: false, code: 'already-watered' };
 
+    const budget = this.evaluateBudget('wateringCan');
+    if (!budget.ok) return budget;
     tile.crop.wateredToday = true;
+    this.commitBudget(budget);
     return { ok: true, code: 'crop-watered' };
   }
 
@@ -162,8 +185,11 @@ export class GameSession {
     if (!tile.crop) return { ok: false, code: 'no-crop' };
     if (tile.crop.growth < 3) return { ok: false, code: 'crop-immature' };
 
+    const budget = this.evaluateBudget('hands');
+    if (!budget.ok) return budget;
     tile.crop = null;
     this.inventory.turnips += 1;
+    this.commitBudget(budget);
     return { ok: true, code: 'turnip-harvested' };
   }
 
@@ -179,7 +205,18 @@ export class GameSession {
       }
       tile.crop.wateredToday = false;
     }
+    this.timeMinutes = DAY_START_MINUTES;
+    this.stamina = this.maxStamina;
     return { ok: true, code: 'day-advanced' };
+  }
+
+  private evaluateBudget(action: FarmingAction): ActionBudgetResult {
+    return evaluateActionBudget({ timeMinutes: this.timeMinutes, stamina: this.stamina }, action);
+  }
+
+  private commitBudget(result: Extract<ActionBudgetResult, { ok: true }>): void {
+    this.timeMinutes = result.timeMinutes;
+    this.stamina = result.stamina;
   }
 
   private lookupTile(position: GridCell | null): LookupResult {

@@ -84,6 +84,8 @@
       case 'crop-mature': return 'This turnip is already mature';
       case 'crop-immature': return 'This turnip is not ready';
       case 'not-at-bed': return 'You must be at the bed';
+      case 'action-too-late': return 'Not enough time before 22:00';
+      case 'insufficient-stamina': return 'Not enough stamina';
       default: return assertNever(commandResult);
     }
   }

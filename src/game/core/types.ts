@@ -83,6 +83,11 @@ export interface InventorySnapshot {
 
 export interface GameSnapshot extends WorldSnapshot {
   day: number;
+  timeMinutes: number;
+  stamina: number;
+  maxStamina: number;
+  weather: Weather;
+  pendingDaySummary: DaySummary | null;
   selectedAction: FarmingAction;
   inventory: InventorySnapshot;
   farmTiles: FarmTileSnapshot[];
@@ -108,7 +113,9 @@ export type FailureCode =
   | 'already-watered'
   | 'crop-mature'
   | 'crop-immature'
-  | 'not-at-bed';
+  | 'not-at-bed'
+  | 'action-too-late'
+  | 'insufficient-stamina';
 
 export type CommandResult =
   | { ok: true; code: SuccessCode }
