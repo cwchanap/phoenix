@@ -2,6 +2,12 @@ import { expect, type Page } from '@playwright/test';
 import type { DebugSnapshot } from '../../src/game/phaser/ProofScene';
 import type { GameSnapshot } from '../../src/game/core/types';
 
+interface ExpectedDayTransition {
+  completedDay: number;
+  cropsAdvanced: number;
+  staminaRestored: number;
+}
+
 export async function waitForWorld(page: Page): Promise<void> {
   await page.goto('/');
   await expect(page.getByText('World ready')).toBeVisible();
@@ -17,6 +23,44 @@ export async function gameSnapshot(page: Page): Promise<GameSnapshot> {
     if (!snapshot) throw new Error('Phoenix game snapshot is not ready');
     return snapshot;
   });
+}
+
+export async function confirmAndStartDay(
+  page: Page,
+  expected: ExpectedDayTransition,
+): Promise<GameSnapshot> {
+  await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Morning summary' });
+  await expect(dialog).toBeVisible();
+
+  const pending = await gameSnapshot(page);
+  const nextDay = expected.completedDay + 1;
+  expect(pending.day).toBe(nextDay);
+  expect(pending.pendingDaySummary).toEqual({
+    completedDay: expected.completedDay,
+    nextDay,
+    cropsAdvanced: expected.cropsAdvanced,
+    nextWeather: pending.weather,
+    staminaRestored: expected.staminaRestored,
+  });
+  await expect(dialog).toContainText('Day ' + expected.completedDay + ' complete');
+  await expect(dialog).toContainText('Crops advanced: ' + expected.cropsAdvanced);
+  await expect(dialog).toContainText('Next day: Day ' + nextDay);
+  await expect(dialog).toContainText(
+    'Weather: ' + (pending.weather === 'sunny' ? 'Sunny' : 'Rainy'),
+  );
+  await expect(dialog).toContainText(
+    'Stamina restored: ' + expected.staminaRestored,
+  );
+  expect((await snapshot(page)).locked).toBe(true);
+
+  const start = page.getByRole('button', { name: 'Start Day ' + nextDay });
+  await expect(start).toBeFocused();
+  await start.click();
+  await expect(dialog).toBeHidden();
+  await expect.poll(async () => (await gameSnapshot(page)).pendingDaySummary).toBeNull();
+  expect((await snapshot(page)).locked).toBe(false);
+  return gameSnapshot(page);
 }
 
 export async function holdKey(page: Page, key: string, ms: number): Promise<void> {

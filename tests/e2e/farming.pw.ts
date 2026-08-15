@@ -6,8 +6,11 @@ import type {
   FarmTileSnapshot,
   GameSnapshot,
   GridCell,
+  Weather,
 } from '../../src/game/core/types';
+import { formatTime } from '../../src/game/core/dailyRhythm';
 import {
+  confirmAndStartDay,
   gameSnapshot,
   moveUntil,
   moveUntilPlayerAxis,
@@ -42,11 +45,17 @@ const FEEDBACK = {
   soilTilled: 'Soil tilled',
   turnipPlanted: 'Turnip planted',
   cropWatered: 'Crop watered',
-  dayAdvanced: 'Day advanced',
+  rainWatersCrops: 'Rain is watering the crops',
+  dayStarted: 'Day started',
   turnipHarvested: 'Turnip harvested',
   noCrop: 'No crop here',
   notAtBed: 'You must be at the bed',
 } as const;
+
+const WEATHER_LABEL: Record<Weather, string> = {
+  sunny: 'Sunny',
+  rainy: 'Rainy',
+};
 
 function cropTile(state: GameSnapshot): FarmTileSnapshot {
   const tile = state.farmTiles.find(({ position }) => (
@@ -69,6 +78,9 @@ async function expectFeedback(page: Page, text: string): Promise<void> {
 async function expectHud(page: Page, state: GameSnapshot): Promise<void> {
   await expect(page.locator('.hud-stats p')).toHaveText([
     `Day ${state.day}`,
+    `Time: ${formatTime(state.timeMinutes)}`,
+    `Stamina: ${state.stamina} / ${state.maxStamina}`,
+    `Weather: ${WEATHER_LABEL[state.weather]}`,
     `Selected: ${ACTION_LABEL[state.selectedAction]}`,
     `Seeds: ${state.inventory.turnipSeeds}`,
     `Turnips: ${state.inventory.turnips}`,
@@ -130,6 +142,20 @@ async function useSelected(page: Page, target: GridCell, feedback: string): Prom
     await page.keyboard.up('Space');
   }
   return expectPublishedTarget(page, target);
+}
+
+async function waterForCurrentWeather(page: Page): Promise<GameSnapshot> {
+  const before = await gameSnapshot(page);
+  if (before.weather === 'sunny') {
+    const watered = await useSelected(page, CROP_CELL, FEEDBACK.cropWatered);
+    expect(watered.timeMinutes).toBe(before.timeMinutes + 20);
+    expect(watered.stamina).toBe(before.stamina - 2);
+    return watered;
+  }
+
+  const rejected = await useSelected(page, CROP_CELL, FEEDBACK.rainWatersCrops);
+  expect(rejected).toEqual(before);
+  return rejected;
 }
 
 async function moveToBed(page: Page): Promise<void> {
@@ -234,6 +260,8 @@ test('selects hands, keeps a rejected empty-crop command stable, and supports cl
   const beforeRejected = await gameSnapshot(page);
   const rejected = await useSelected(page, CROP_CELL, FEEDBACK.noCrop);
   expect(rejected).toEqual(beforeRejected);
+  expect(rejected.timeMinutes).toBe(beforeRejected.timeMinutes);
+  expect(rejected.stamina).toBe(beforeRejected.stamina);
   await expectHud(page, beforeRejected);
 
   await expectDebugTarget(page, CROP_CELL);
@@ -266,6 +294,8 @@ test('completes three real-control nights from tilling through turnip harvest', 
   await expectHud(page, state);
   state = await useSelected(page, CROP_CELL, FEEDBACK.soilTilled);
   expect(cropTile(state)).toMatchObject({ soil: 'tilled', crop: null });
+  expect(state.timeMinutes).toBe(390);
+  expect(state.stamina).toBe(17);
   await expectHud(page, state);
 
   state = await selectWithKey(page, '2', CROP_CELL);
@@ -275,16 +305,21 @@ test('completes three real-control nights from tilling through turnip harvest', 
     soil: 'tilled',
     crop: { kind: 'turnip', growth: 0, wateredToday: false },
   });
+  expect(state.timeMinutes).toBe(410);
+  expect(state.stamina).toBe(16);
   await expectHud(page, state);
   let previousFrame = await captureCropSprite(page);
 
   state = await selectWithKey(page, '3', CROP_CELL);
   await expectHud(page, state);
-  state = await useSelected(page, CROP_CELL, FEEDBACK.cropWatered);
+  expect(state.weather).toBe('sunny');
+  state = await waterForCurrentWeather(page);
   expect(cropTile(state)).toMatchObject({
     soil: 'tilled',
     crop: { kind: 'turnip', growth: 0, wateredToday: true },
   });
+  expect(state.timeMinutes).toBe(430);
+  expect(state.stamina).toBe(14);
   await expectHud(page, state);
   let currentFrame = await captureCropSprite(page);
   expectDistinctFrame(previousFrame, currentFrame);
@@ -308,14 +343,19 @@ test('completes three real-control nights from tilling through turnip harvest', 
   expect(await gameSnapshot(page)).toEqual(beforeCancel);
   await expectFeedback(page, FEEDBACK.cropWatered);
 
-  const reopenedDialog = await openSleepDialog(page);
-  await page.getByRole('button', { name: 'Confirm', exact: true }).click();
-  await expect(reopenedDialog).toBeHidden();
-  await expect.poll(async () => (await gameSnapshot(page)).day, { timeout: 3_000 }).toBe(2);
-  state = await expectPublishedTarget(page, BED_CELL);
+  await openSleepDialog(page);
+  state = await confirmAndStartDay(page, {
+    completedDay: 1,
+    cropsAdvanced: 1,
+    staminaRestored: 6,
+  });
+  await expectFeedback(page, FEEDBACK.dayStarted);
+  await expectPublishedTarget(page, BED_CELL);
   expect(state.day).toBe(2);
+  expect(state.timeMinutes).toBe(360);
+  expect(state.stamina).toBe(20);
+  expect(state.pendingDaySummary).toBeNull();
   expect(cropTile(state)).toMatchObject({ crop: { growth: 1, wateredToday: false } });
-  await expectFeedback(page, FEEDBACK.dayAdvanced);
   await expectHud(page, state);
 
   await moveToCrop(page);
@@ -325,20 +365,38 @@ test('completes three real-control nights from tilling through turnip harvest', 
 
   state = await selectWithKey(page, '3', CROP_CELL);
   await expectHud(page, state);
-  state = await useSelected(page, CROP_CELL, FEEDBACK.cropWatered);
-  expect(cropTile(state)).toMatchObject({ crop: { growth: 1, wateredToday: true } });
+  const day2Weather = state.weather;
+  state = await waterForCurrentWeather(page);
+  if (day2Weather === 'sunny') {
+    expect(cropTile(state)).toMatchObject({ crop: { growth: 1, wateredToday: true } });
+    expect(state.timeMinutes).toBe(380);
+    expect(state.stamina).toBe(18);
+  } else {
+    expect(cropTile(state)).toMatchObject({ crop: { growth: 1, wateredToday: false } });
+    expect(state.timeMinutes).toBe(360);
+    expect(state.stamina).toBe(20);
+  }
   await expectHud(page, state);
-  currentFrame = await captureCropSprite(page);
-  expectDistinctFrame(previousFrame, currentFrame);
-  previousFrame = currentFrame;
+  if (day2Weather === 'sunny') {
+    currentFrame = await captureCropSprite(page);
+    expectDistinctFrame(previousFrame, currentFrame);
+    previousFrame = currentFrame;
+  }
 
   await moveToBed(page);
   await openSleepDialog(page);
-  await page.getByRole('button', { name: 'Confirm', exact: true }).click();
-  await expect.poll(async () => (await gameSnapshot(page)).day, { timeout: 3_000 }).toBe(3);
-  state = await expectPublishedTarget(page, BED_CELL);
+  state = await confirmAndStartDay(page, {
+    completedDay: 2,
+    cropsAdvanced: 1,
+    staminaRestored: day2Weather === 'sunny' ? 2 : 0,
+  });
+  await expectFeedback(page, FEEDBACK.dayStarted);
+  await expectPublishedTarget(page, BED_CELL);
+  expect(state.day).toBe(3);
+  expect(state.timeMinutes).toBe(360);
+  expect(state.stamina).toBe(20);
+  expect(state.pendingDaySummary).toBeNull();
   expect(cropTile(state)).toMatchObject({ crop: { growth: 2, wateredToday: false } });
-  await expectFeedback(page, FEEDBACK.dayAdvanced);
   await expectHud(page, state);
 
   await moveToCrop(page);
@@ -348,20 +406,38 @@ test('completes three real-control nights from tilling through turnip harvest', 
 
   state = await selectWithKey(page, '3', CROP_CELL);
   await expectHud(page, state);
-  state = await useSelected(page, CROP_CELL, FEEDBACK.cropWatered);
-  expect(cropTile(state)).toMatchObject({ crop: { growth: 2, wateredToday: true } });
+  const day3Weather = state.weather;
+  state = await waterForCurrentWeather(page);
+  if (day3Weather === 'sunny') {
+    expect(cropTile(state)).toMatchObject({ crop: { growth: 2, wateredToday: true } });
+    expect(state.timeMinutes).toBe(380);
+    expect(state.stamina).toBe(18);
+  } else {
+    expect(cropTile(state)).toMatchObject({ crop: { growth: 2, wateredToday: false } });
+    expect(state.timeMinutes).toBe(360);
+    expect(state.stamina).toBe(20);
+  }
   await expectHud(page, state);
-  currentFrame = await captureCropSprite(page);
-  expectDistinctFrame(previousFrame, currentFrame);
-  previousFrame = currentFrame;
+  if (day3Weather === 'sunny') {
+    currentFrame = await captureCropSprite(page);
+    expectDistinctFrame(previousFrame, currentFrame);
+    previousFrame = currentFrame;
+  }
 
   await moveToBed(page);
   await openSleepDialog(page);
-  await page.getByRole('button', { name: 'Confirm', exact: true }).click();
-  await expect.poll(async () => (await gameSnapshot(page)).day, { timeout: 3_000 }).toBe(4);
-  state = await expectPublishedTarget(page, BED_CELL);
+  state = await confirmAndStartDay(page, {
+    completedDay: 3,
+    cropsAdvanced: 1,
+    staminaRestored: day3Weather === 'sunny' ? 2 : 0,
+  });
+  await expectFeedback(page, FEEDBACK.dayStarted);
+  await expectPublishedTarget(page, BED_CELL);
+  expect(state.day).toBe(4);
+  expect(state.timeMinutes).toBe(360);
+  expect(state.stamina).toBe(20);
+  expect(state.pendingDaySummary).toBeNull();
   expect(cropTile(state)).toMatchObject({ crop: { growth: 3, wateredToday: false } });
-  await expectFeedback(page, FEEDBACK.dayAdvanced);
   await expectHud(page, state);
 
   await moveToCrop(page);
