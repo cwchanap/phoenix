@@ -256,7 +256,7 @@ describe('GameSession', () => {
     });
   });
 
-  test.each(CROP_KINDS)('grows and harvests %s only at configured maturity', (kind) => {
+  test.each([...CROP_KINDS] as CropKind[])('grows and harvests %s only at configured maturity', (kind) => {
     const session = sessionWithConfig();
     const cell = farmCells[0];
     prepareCrop(session, kind, cell);
