@@ -5,17 +5,23 @@ import { GameSession } from '../core/GameSession';
 import type { InputGate } from '../core/InputGate';
 import type {
   CommandResult,
+  CropKind,
   DepthEntry,
   Facing,
   FarmingAction,
   GameSnapshot,
   GridCell,
   GridPoint,
+  SceneryKind,
   WorldPoint,
   WorldRect,
 } from '../core/types';
 import { sortDepthEntries } from '../core/isometric';
 import { ActionController, type ActionKeys } from './ActionController';
+import {
+  interactionIntentForTarget,
+  type InteractionIntent,
+} from './interactionIntent';
 import { KeyboardController, type KeyboardKeys } from './KeyboardController';
 import { ProjectionAdapter } from './ProjectionAdapter';
 import { parseProofMap, type ParsedProofMap } from './loadProofMap';
@@ -25,7 +31,7 @@ const GROUND_KEY = 'proof-tiles';
 const PLAYER_KEY = 'proof-player';
 const SCENERY_KEY = 'proof-scenery';
 const SOIL_KEY = 'proof-soil';
-const TURNIP_KEY = 'proof-turnip';
+const CROPS_KEY = 'proof-crops';
 const PLAYER_DEPTH = 100;
 const TARGET_DEPTH = 10;
 const GROUND_DEPTH = 0;
@@ -43,7 +49,7 @@ const PLAYER_FRAMES: Record<Facing, number> = {
   left: 3,
 };
 
-type BaseEntityId = 'player' | 'tree' | 'building';
+type BaseEntityId = 'player' | 'tree' | 'building' | 'shipping-bin';
 type CropEntityId = `crop:${number},${number}`;
 type EntityId = BaseEntityId | CropEntityId;
 
@@ -62,6 +68,9 @@ export interface DebugSnapshot {
 
 export interface SceneCommands {
   selectAction(action: FarmingAction): CommandResult;
+  selectSeed(kind: CropKind): CommandResult;
+  buySeeds(kind: CropKind, quantity: number): CommandResult;
+  depositCrop(kind: CropKind, quantity: number): CommandResult;
   sleep(): CommandResult;
   acknowledgeDaySummary(): CommandResult;
 }
@@ -73,15 +82,11 @@ export interface ProofSceneDependencies {
   onSnapshot(snapshot: DebugSnapshot): void;
   onGameSnapshot(snapshot: GameSnapshot): void;
   onCommandResult(result: CommandResult): void;
-  onSleepPrompt(): void;
+  onInteractIntent(intent: InteractionIntent): void;
 }
 
 function cellKey(cell: GridCell): string {
   return `${cell.x},${cell.y}`;
-}
-
-function sameCell(a: GridCell | null, b: GridCell): boolean {
-  return a !== null && a.x === b.x && a.y === b.y;
 }
 
 export class ProofScene extends Phaser.Scene {
@@ -96,7 +101,7 @@ export class ProofScene extends Phaser.Scene {
   private keyboard: KeyboardController | null = null;
   private actionController: ActionController | null = null;
   private commands: SceneCommands | null = null;
-  private readonly scenery = new Map<'tree' | 'building', Phaser.GameObjects.Sprite>();
+  private readonly scenery = new Map<SceneryKind, Phaser.GameObjects.Sprite>();
   private readonly soilSprites = new Map<string, Phaser.GameObjects.Sprite>();
   private readonly cropSprites = new Map<string, Phaser.GameObjects.Sprite>();
   private readonly cameraBounds = projection.projectedBounds(96);
@@ -104,6 +109,7 @@ export class ProofScene extends Phaser.Scene {
     player: PLAYER_DEPTH,
     tree: PLAYER_DEPTH + 1,
     building: PLAYER_DEPTH + 2,
+    'shipping-bin': PLAYER_DEPTH + 3,
   };
 
   constructor(dependencies: ProofSceneDependencies) {
@@ -144,8 +150,8 @@ export class ProofScene extends Phaser.Scene {
       { frameWidth: 64, frameHeight: 32 },
     );
     this.load.spritesheet(
-      TURNIP_KEY,
-      new URL('../../assets/sprites/proof-turnip.png', import.meta.url).href,
+      CROPS_KEY,
+      new URL('../../assets/sprites/proof-crops.png', import.meta.url).href,
       { frameWidth: 32, frameHeight: 48 },
     );
   }
@@ -171,12 +177,14 @@ export class ProofScene extends Phaser.Scene {
         metrics: projection.metrics,
         farmCells: parsed.farmCells,
         bedCell: parsed.bedCell,
+        shopCell: parsed.shopCell,
+        shippingCell: parsed.shippingCell,
       });
       for (const placement of parsed.scenery) {
         const sprite = this.add
           .sprite(placement.world.x, placement.world.y, SCENERY_KEY, placement.frame)
           .setOrigin(0.5, 1);
-        this.scenery.set(placement.id as 'tree' | 'building', sprite);
+        this.scenery.set(placement.kind, sprite);
       }
 
       const initial = this.session.snapshot();
@@ -214,6 +222,9 @@ export class ProofScene extends Phaser.Scene {
       this.actionController = new ActionController(actionKeys, this.dependencies.inputGate);
       const commands: SceneCommands = {
         selectAction: (action) => this.selectAction(action),
+        selectSeed: (kind) => this.selectSeed(kind),
+        buySeeds: (kind, quantity) => this.buySeeds(kind, quantity),
+        depositCrop: (kind, quantity) => this.depositCrop(kind, quantity),
         sleep: () => this.sleep(),
         acknowledgeDaySummary: () => this.acknowledgeDaySummary(),
       };
@@ -239,12 +250,13 @@ export class ProofScene extends Phaser.Scene {
     if (action.useSelected) {
       this.publishCommand(this.session.applySelectedAction(this.session.snapshot().target));
     }
-    if (action.sleep) {
+    if (action.interact) {
       const snapshot = this.session.snapshot();
-      if (sameCell(snapshot.target, snapshot.bedCell)) {
-        this.dependencies.onSleepPrompt();
+      const intent = interactionIntentForTarget(snapshot.target, snapshot);
+      if (intent === null) {
+        this.publishCommand({ ok: false, code: 'nothing-to-interact' });
       } else {
-        this.publishCommand(this.session.sleep());
+        this.dependencies.onInteractIntent(intent);
       }
     }
 
@@ -254,6 +266,21 @@ export class ProofScene extends Phaser.Scene {
   private selectAction(action: FarmingAction): CommandResult {
     const session = this.requireSession();
     return this.publishCommand(session.selectAction(action));
+  }
+
+  private selectSeed(kind: CropKind): CommandResult {
+    const session = this.requireSession();
+    return this.publishCommand(session.selectSeed(kind));
+  }
+
+  private buySeeds(kind: CropKind, quantity: number): CommandResult {
+    const session = this.requireSession();
+    return this.publishCommand(session.buySeeds(kind, quantity));
+  }
+
+  private depositCrop(kind: CropKind, quantity: number): CommandResult {
+    const session = this.requireSession();
+    return this.publishCommand(session.depositCrop(kind, quantity));
   }
 
   private sleep(): CommandResult {
@@ -305,7 +332,7 @@ export class ProofScene extends Phaser.Scene {
       } else {
         visibleCrops.add(key);
         const existing = this.cropSprites.get(key);
-        const sprite = existing ?? this.add.sprite(center.x, center.y, TURNIP_KEY, frames.cropFrame)
+        const sprite = existing ?? this.add.sprite(center.x, center.y, CROPS_KEY, frames.cropFrame)
           .setOrigin(0.5, 1);
         sprite.setPosition(center.x, center.y).setFrame(frames.cropFrame);
         if (!existing) this.cropSprites.set(key, sprite);
@@ -378,12 +405,14 @@ export class ProofScene extends Phaser.Scene {
     const player = this.player;
     const tree = this.scenery.get('tree');
     const building = this.scenery.get('building');
-    if (!player || !tree || !building) return this.depths;
+    const shippingBin = this.scenery.get('shipping-bin');
+    if (!player || !tree || !building || !shippingBin) return { ...this.depths };
 
     const entries: Array<DepthEntry & { sprite: Phaser.GameObjects.Sprite }> = [
       { id: 'player', groundY: playerGroundY, stableOrder: 0, sprite: player },
       { id: 'tree', groundY: tree.y, stableOrder: 1, sprite: tree },
       { id: 'building', groundY: building.y, stableOrder: 2, sprite: building },
+      { id: 'shipping-bin', groundY: shippingBin.y, stableOrder: 3, sprite: shippingBin },
     ];
     snapshot.farmTiles.forEach((tile, index) => {
       const crop = this.cropSprites.get(cellKey(tile.position));
@@ -404,6 +433,7 @@ export class ProofScene extends Phaser.Scene {
       player: this.depths.player,
       tree: this.depths.tree,
       building: this.depths.building,
+      'shipping-bin': this.depths['shipping-bin'],
     };
     const sortedEntries = sortDepthEntries(entries) as Array<DepthEntry & { sprite: Phaser.GameObjects.Sprite }>;
     sortedEntries.forEach((entry, index) => {

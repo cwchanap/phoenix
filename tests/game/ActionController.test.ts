@@ -55,7 +55,7 @@ function keyFor(raw: Record<keyof ActionKeys, FakeKey>, action: FarmingAction): 
   switch (action) {
     case 'hoe':
       return raw.one;
-    case 'turnipSeeds':
+    case 'seeds':
       return raw.two;
     case 'wateringCan':
       return raw.three;
@@ -72,7 +72,7 @@ test('returns no action edges when all action keys are up', () => {
   expect(controller.sample()).toEqual({
     selectedAction: null,
     useSelected: false,
-    sleep: false,
+    interact: false,
   });
   controller.destroy();
 });
@@ -81,7 +81,7 @@ test('emits each numeric action only on press edges', () => {
   const gate = new InputGate();
   const { keys, raw } = makeKeys();
   const controller = new ActionController(keys, gate);
-  const actions: FarmingAction[] = ['hoe', 'turnipSeeds', 'wateringCan', 'hands'];
+  const actions: FarmingAction[] = ['hoe', 'seeds', 'wateringCan', 'hands'];
 
   actions.forEach((action) => {
     const key = keyFor(raw, action);
@@ -89,30 +89,30 @@ test('emits each numeric action only on press edges', () => {
     expect(controller.sample()).toEqual({
       selectedAction: action,
       useSelected: false,
-      sleep: false,
+      interact: false,
     });
     expect(controller.sample()).toEqual({
       selectedAction: null,
       useSelected: false,
-      sleep: false,
+      interact: false,
     });
     key.isDown = false;
     expect(controller.sample()).toEqual({
       selectedAction: null,
       useSelected: false,
-      sleep: false,
+      interact: false,
     });
     key.isDown = true;
     expect(controller.sample()).toEqual({
       selectedAction: action,
       useSelected: false,
-      sleep: false,
+      interact: false,
     });
     key.isDown = false;
     expect(controller.sample()).toEqual({
       selectedAction: null,
       useSelected: false,
-      sleep: false,
+      interact: false,
     });
   });
   controller.destroy();
@@ -129,7 +129,7 @@ test('selects the first numeric rising edge when multiple keys press together', 
   controller.destroy();
 });
 
-test('emits held Space and E keys only once until released', () => {
+test('emits E interact only once until release and again after repress', () => {
   const gate = new InputGate();
   const { keys, raw } = makeKeys();
   const controller = new ActionController(keys, gate);
@@ -144,8 +144,12 @@ test('emits held Space and E keys only once until released', () => {
 
   raw.space.isDown = false;
   raw.e.isDown = true;
-  expect(controller.sample().sleep).toBe(true);
-  expect(controller.sample().sleep).toBe(false);
+  expect(controller.sample().interact).toBe(true);
+  expect(controller.sample().interact).toBe(false);
+  raw.e.isDown = false;
+  expect(controller.sample().interact).toBe(false);
+  raw.e.isDown = true;
+  expect(controller.sample().interact).toBe(true);
   controller.destroy();
 });
 
@@ -156,15 +160,15 @@ test('locking resets held key state and remembered edges before unlock', () => {
 
   raw.space.isDown = true;
   raw.e.isDown = true;
-  expect(controller.sample()).toEqual({ selectedAction: null, useSelected: true, sleep: true });
+  expect(controller.sample()).toEqual({ selectedAction: null, useSelected: true, interact: true });
 
   gate.set('modal', true);
   expect(Object.values(raw).map((key) => key.resetCalls)).toEqual([1, 1, 1, 1, 1, 1]);
   expect(Object.values(raw).every((key) => !key.isDown)).toBe(true);
-  expect(controller.sample()).toEqual({ selectedAction: null, useSelected: false, sleep: false });
+  expect(controller.sample()).toEqual({ selectedAction: null, useSelected: false, interact: false });
 
   gate.set('modal', false);
-  expect(controller.sample()).toEqual({ selectedAction: null, useSelected: false, sleep: false });
+  expect(controller.sample()).toEqual({ selectedAction: null, useSelected: false, interact: false });
   controller.destroy();
 });
 

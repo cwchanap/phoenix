@@ -1,4 +1,9 @@
 import { expect, test } from 'bun:test';
+import {
+  CROP_DEFINITIONS,
+  CROP_KINDS,
+  visualStage,
+} from '../../src/game/core/cropDefinitions';
 import { farmStableOrder, farmVisuals } from '../../src/game/core/farmVisuals';
 
 test('keeps untilled soil hidden in sunny weather', () => {
@@ -11,38 +16,28 @@ test('renders rainy empty soil as wet', () => {
     .toEqual({ soilFrame: 1, cropFrame: null });
 });
 
-test('renders rainy dry crops on wet soil', () => {
-  expect(farmVisuals({
-    position: { x: 2, y: 7 },
-    soil: 'tilled',
-    crop: { kind: 'turnip', growth: 1, wateredToday: false },
-  }, 'rainy')).toEqual({ soilFrame: 1, cropFrame: 1 });
-});
-
-test('renders sunny dry crops on dry soil', () => {
-  expect(farmVisuals({
-    position: { x: 2, y: 7 },
-    soil: 'tilled',
-    crop: { kind: 'turnip', growth: 2, wateredToday: false },
-  }, 'sunny')).toEqual({ soilFrame: 0, cropFrame: 2 });
-});
-
-test('renders sunny watered crops on wet soil', () => {
-  expect(farmVisuals({
-    position: { x: 2, y: 7 },
-    soil: 'tilled',
-    crop: { kind: 'turnip', growth: 3, wateredToday: true },
-  }, 'sunny')).toEqual({ soilFrame: 1, cropFrame: 3 });
-});
-
-test('preserves every crop-growth frame', () => {
-  for (const growth of [0, 1, 2, 3] as const) {
-    expect(farmVisuals({
-      position: { x: 2, y: 7 },
-      soil: 'tilled',
-      crop: { kind: 'turnip', growth, wateredToday: false },
-    }, 'sunny')).toEqual({ soilFrame: 0, cropFrame: growth });
+test('maps every crop progress to its row-major sheet frame', () => {
+  for (const kind of CROP_KINDS) {
+    const growthDays = CROP_DEFINITIONS[kind].growthDays;
+    for (let growth = 0; growth <= growthDays; growth += 1) {
+      expect(farmVisuals({
+        position: { x: 2, y: 7 },
+        soil: 'tilled',
+        crop: { kind, growth, wateredToday: false },
+      }, 'sunny')).toEqual({
+        soilFrame: 0,
+        cropFrame: CROP_KINDS.indexOf(kind) * 4 + visualStage(kind, growth),
+      });
+    }
   }
+});
+
+test('does not confuse slow-crop progress with a sheet frame', () => {
+  expect(farmVisuals({
+    position: { x: 2, y: 7 },
+    soil: 'tilled',
+    crop: { kind: 'pumpkin', growth: 5, wateredToday: false },
+  }, 'sunny')).toEqual({ soilFrame: 0, cropFrame: 10 });
 });
 
 test('maps a watered sunny tile to deterministic frames', () => {

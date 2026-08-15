@@ -1,15 +1,20 @@
-import type { FarmTileSnapshot, GrowthLevel, Weather } from './types';
+import { CROP_KINDS, visualStage } from './cropDefinitions';
+import type { FarmTileSnapshot, Weather } from './types';
 
 export interface FarmVisualFrames {
-  soilFrame: 0 | 1 | null;
-  cropFrame: GrowthLevel | null;
+  soilFrame: number | null;
+  cropFrame: number | null;
 }
 
 export function farmVisuals(tile: FarmTileSnapshot, weather: Weather): FarmVisualFrames {
   const wet = weather === 'rainy' || tile.crop?.wateredToday === true;
+  const cropFrame = tile.crop === null
+    ? null
+    : CROP_KINDS.indexOf(tile.crop.kind) * 4
+      + visualStage(tile.crop.kind, tile.crop.growth);
   return {
     soilFrame: tile.soil === 'untilled' ? null : wet ? 1 : 0,
-    cropFrame: tile.crop?.growth ?? null,
+    cropFrame,
   };
 }
 

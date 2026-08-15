@@ -15,7 +15,7 @@ export interface ActionKeys {
 export interface ActionSample {
   selectedAction: FarmingAction | null;
   useSelected: boolean;
-  sleep: boolean;
+  interact: boolean;
 }
 
 export class ActionController {
@@ -25,7 +25,7 @@ export class ActionController {
   private previousThreeDown = false;
   private previousFourDown = false;
   private previousSpaceDown = false;
-  private previousEDown = false;
+  private previousInteractDown = false;
 
   constructor(
     private readonly keys: ActionKeys,
@@ -40,7 +40,7 @@ export class ActionController {
 
   sample(): ActionSample {
     if (this.gateBoundKeys.isLocked()) {
-      return { selectedAction: null, useSelected: false, sleep: false };
+      return { selectedAction: null, useSelected: false, interact: false };
     }
 
     const oneDown = this.keys.one.isDown;
@@ -55,25 +55,25 @@ export class ActionController {
     const threePressed = threeDown && !this.previousThreeDown;
     const fourPressed = fourDown && !this.previousFourDown;
     const spacePressed = spaceDown && !this.previousSpaceDown;
-    const ePressed = eDown && !this.previousEDown;
+    const ePressed = eDown && !this.previousInteractDown;
 
     this.previousOneDown = oneDown;
     this.previousTwoDown = twoDown;
     this.previousThreeDown = threeDown;
     this.previousFourDown = fourDown;
     this.previousSpaceDown = spaceDown;
-    this.previousEDown = eDown;
+    this.previousInteractDown = eDown;
 
     let selectedAction: FarmingAction | null = null;
     if (onePressed) selectedAction = 'hoe';
-    else if (twoPressed) selectedAction = 'turnipSeeds';
+    else if (twoPressed) selectedAction = 'seeds';
     else if (threePressed) selectedAction = 'wateringCan';
     else if (fourPressed) selectedAction = 'hands';
 
     return {
       selectedAction,
       useSelected: spacePressed,
-      sleep: ePressed,
+      interact: ePressed,
     };
   }
 
@@ -87,6 +87,6 @@ export class ActionController {
     this.previousThreeDown = false;
     this.previousFourDown = false;
     this.previousSpaceDown = false;
-    this.previousEDown = false;
+    this.previousInteractDown = false;
   }
 }
