@@ -189,8 +189,8 @@ The map remains 12 by 12.
 - The existing three-by-three farm remains at logical cells x 2 through 4 and y 7 through 9.
 - The existing building footprint remains x 7 through 9 and y 7 through 9. Its sprite gains a seed-shop sign.
 - `shop-counter` is authored at logical cell 6,7 on the building's farm-facing edge.
-- `shipping-bin` is authored at logical cell 5,10 beside the farm and bed path.
-- The shipping bin gains one visible scenery object and the exact authored collision footprint `{ id: 'shipping-bin', x: 5.2, y: 10.2, width: 0.6, height: 0.6 }` within cell 5,10.
+- `shipping-bin` is authored at logical cell 6,10 beside the farm and bed path.
+- The shipping bin gains one visible scenery object and the exact authored collision footprint `{ id: 'shipping-bin', x: 6.2, y: 10.2, width: 0.6, height: 0.6 }` within cell 6,10.
 - The existing bed remains at 6,8, the player spawn at 2.5,9.5, and the tree and building at their established positions.
 
 The generated `proof-scenery.png` becomes exactly 288 by 96 pixels: three 96 by 96 tiles in one row. Its Tiled tileset remains `firstgid: 3` and becomes `columns: 3`, `tilecount: 3`, with global IDs `3` tree, `4` shop building, and `5` shipping bin.
@@ -200,7 +200,7 @@ The existing authored objects keep IDs 1 through 6. The generator adds these exa
 - object 7: visible shipping-bin scenery using global tile ID 5;
 - object 8: the `shipping-bin` collision rectangle with the exact footprint above;
 - object 9: the `shop-counter` interaction marker at cell 6,7; and
-- object 10: the `shipping-bin` interaction marker at cell 5,10.
+- object 10: the `shipping-bin` interaction marker at cell 6,10.
 
 The generated map sets `nextobjectid` to 11. The marker layer permits exactly `player-spawn`, `bed-interaction`, `shop-counter`, and `shipping-bin`. The parser requires one of each, the exact IDs above, zero rotation, visibility, valid isometric coordinates, and the exact authored logical cells. It rejects missing, duplicate, renamed, misplaced, out-of-bounds, footprint-conflicting, or unexpected markers. Generator, PNG, JSON fixture, parser, and fixture tests change as one task so no intermediate contract is accepted.
 
@@ -208,7 +208,7 @@ The shop marker must not overlap collision. The shipping marker must correspond 
 
 `SceneryKind` becomes exactly `'tree' | 'building' | 'shipping-bin'`. `ProofScene` adds `shipping-bin` to its scenery sprite map, base depth IDs, debug depths, and footpoint-depth reconciliation. The shop stays the existing building plus its seed sign; it does not gain another scenery entity.
 
-The shipping footprint is deliberately south of the current y 9.5 spawn corridor. Map and movement tests prove the footprint blocks entry into its own 0.6 by 0.6 rectangle while preserving reachable routes in both directions among spawn, all farm edges, bed, shop counter, and shipping interaction cell.
+The shipping footprint is deliberately southeast of the current y 9.5 spawn corridor and east of the existing diagonal route toward the bed. Its scenery anchor is the footprint center at logical point 6.5,10.5, which projects to world point 256,272. Map and movement tests prove the footprint blocks entry into its own 0.6 by 0.6 rectangle while preserving reachable routes in both directions among spawn, all farm edges, bed, shop counter, and shipping interaction cell.
 
 `ParsedProofMap` returns `shopCell` and `shippingCell` with the existing world, scenery, farm cells, and bed cell. These cells are the only map-owned economy configuration passed into `GameSession`.
 
@@ -405,10 +405,10 @@ Mutation evidence must cover at least one affordability guard, one immediate inv
 
 Parser and generator tests prove:
 
-- exact shop cell 6,7 and shipping cell 5,10;
+- exact shop cell 6,7 and shipping cell 6,10;
 - one marker of each permitted name;
 - exact 288 by 96 scenery metadata, three tiles, global IDs 3 through 5, object IDs 7 through 10, and `nextobjectid: 11`;
-- the exact `{ x: 5.2, y: 10.2, width: 0.6, height: 0.6 }` shipping footprint and valid marker relationship;
+- the exact `{ x: 6.2, y: 10.2, width: 0.6, height: 0.6 }` shipping footprint and valid marker relationship;
 - unchanged farm, bed, building, tree, spawn, projection, and camera contracts;
 - exact deterministic PNG dimensions;
 - distinct four-stage frames for each crop;
