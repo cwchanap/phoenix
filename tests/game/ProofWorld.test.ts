@@ -1,8 +1,11 @@
 import { expect, test } from 'bun:test';
+import { resolve } from 'node:path';
 import { gridToWorld } from '../../src/game/core/isometric';
 import { intersects, moveWithCollisions, playerRect } from '../../src/game/core/collision';
 import { ProofWorld } from '../../src/game/core/ProofWorld';
-import type { ProofMap, WorldPoint } from '../../src/game/core/types';
+import { ProjectionAdapter } from '../../src/game/phaser/ProjectionAdapter';
+import { parseProofMap } from '../../src/game/phaser/loadProofMap';
+import type { MovementInput, ProofMap, WorldPoint, WorldSnapshot } from '../../src/game/core/types';
 
 const map: ProofMap = {
   width: 12,
@@ -14,6 +17,19 @@ const map: ProofMap = {
   ],
 };
 const metrics = { tileWidth: 64, tileHeight: 32, origin: { x: 384, y: 0 } };
+
+function stepUntil(
+  world: ProofWorld,
+  input: MovementInput,
+  predicate: (snapshot: WorldSnapshot) => boolean,
+): WorldSnapshot {
+  for (let frame = 0; frame < 300; frame += 1) {
+    world.step(input, 16);
+    const current = world.snapshot();
+    if (predicate(current)) return current;
+  }
+  throw new Error(`route did not settle: ${JSON.stringify(world.snapshot())}`);
+}
 
 test('normalizes diagonal screen input', () => {
   const cardinal = new ProofWorld(map, metrics);
@@ -149,4 +165,48 @@ test('returns fresh snapshots', () => {
   first.player.position.x = 99;
 
   expect(world.snapshot().player.position.x).toBe(map.spawn.x);
+});
+
+test('keeps farm, bed, shop, and shipping routes clear around the authored bin', async () => {
+  const raw = await Bun.file(resolve(import.meta.dir, '../../src/assets/maps/proof-map.json')).json();
+  const projection = new ProjectionAdapter(
+    { tileWidth: 64, tileHeight: 32, origin: { x: 384, y: 0 } },
+    { width: 12, height: 12 },
+  );
+  const parsed = parseProofMap(raw, projection);
+  const world = new ProofWorld(parsed.world, projection.metrics);
+
+  world.step({ screenX: 1, screenY: 0 }, 0);
+  expect(world.snapshot().target).toEqual({ x: 3, y: 8 });
+  stepUntil(world, { screenX: 1, screenY: 1 }, ({ player }) => player.position.x >= 5.1);
+  stepUntil(world, { screenX: 0, screenY: -1 }, ({ player }) => player.position.y <= 9.8);
+  stepUntil(world, { screenX: 1, screenY: 1 }, ({ player }) => player.position.x >= 5.1);
+  world.step({ screenX: 1, screenY: 0 }, 0);
+  expect(world.snapshot().target).toEqual(parsed.bedCell);
+
+  stepUntil(world, { screenX: 0, screenY: -1 }, ({ player }) => player.position.x <= 4.5);
+  expect(stepUntil(world, { screenX: 1, screenY: 0 }, ({ target }) => (
+    target?.x === 6 && target.y === 7
+  )).target).toEqual(parsed.shopCell);
+  expect(stepUntil(world, { screenX: 0, screenY: 1 }, ({ target }) => (
+    target?.x === 6 && target.y === 10
+  )).target).toEqual(parsed.shippingCell);
+
+  const atShipping = world.snapshot().player.position;
+  expect(atShipping.x + 0.18).toBeLessThan(6.2);
+  let pushed = atShipping;
+  for (let step = 0; step < 50; step += 1) {
+    pushed = moveWithCollisions(pushed, { x: 0.02, y: 0.02 }, parsed.world, 0.18);
+  }
+  expect(pushed.y).toBeLessThanOrEqual(10.02 + 1e-9);
+  expect(intersects(
+    { id: 'player', x: pushed.x - 0.18, y: pushed.y - 0.18, width: 0.36, height: 0.36 },
+    parsed.world.footprints.find(({ id }) => id === 'shipping-bin')!,
+  )).toBe(false);
+  world.step({ screenX: 1, screenY: 0 }, 0);
+  expect(world.snapshot().target).toEqual(parsed.bedCell);
+  stepUntil(world, { screenX: 0, screenY: -1 }, ({ player }) => player.position.x <= 4.8);
+  expect(stepUntil(world, { screenX: 1, screenY: 0 }, ({ target }) => (
+    target?.x === 6 && target.y === 7
+  )).target).toEqual(parsed.shopCell);
 });

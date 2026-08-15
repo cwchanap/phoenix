@@ -3,7 +3,7 @@
   "height": 12,
   "infinite": false,
   "nextlayerid": 5,
-  "nextobjectid": 7,
+  "nextobjectid": 11,
   "orientation": "isometric",
   "renderorder": "right-down",
   "tiledversion": "1.12.2",
@@ -28,15 +28,15 @@
     },
     {
       "firstgid": 3,
-      "columns": 2,
+      "columns": 3,
       "image": "../sprites/proof-scenery.png",
       "imageheight": 96,
-      "imagewidth": 192,
+      "imagewidth": 288,
       "margin": 0,
       "name": "proof-scenery",
       "objectalignment": "bottom",
       "spacing": 0,
-      "tilecount": 2,
+      "tilecount": 3,
       "tileheight": 96,
       "tilewidth": 96,
       "grid": {
@@ -235,6 +235,18 @@
           "height": 96,
           "rotation": 0,
           "visible": true
+        },
+        {
+          "id": 7,
+          "name": "shipping-bin",
+          "type": "shipping-bin",
+          "gid": 5,
+          "x": 256,
+          "y": 272,
+          "width": 96,
+          "height": 96,
+          "rotation": 0,
+          "visible": true
         }
       ]
     },
@@ -299,6 +311,33 @@
           ],
           "rotation": 0,
           "visible": true
+        },
+        {
+          "id": 8,
+          "name": "shipping-bin",
+          "type": "",
+          "x": 256,
+          "y": 262.4,
+          "polygon": [
+            {
+              "x": 0,
+              "y": 0
+            },
+            {
+              "x": 19.200000000000045,
+              "y": 9.600000000000023
+            },
+            {
+              "x": -2.842170943040401e-14,
+              "y": 19.200000000000045
+            },
+            {
+              "x": -19.200000000000017,
+              "y": 9.600000000000023
+            }
+          ],
+          "rotation": 0,
+          "visible": true
         }
       ]
     },
@@ -327,6 +366,26 @@
           "point": true,
           "x": 320,
           "y": 240,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 9,
+          "name": "shop-counter",
+          "type": "",
+          "point": true,
+          "x": 352,
+          "y": 224,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 10,
+          "name": "shipping-bin",
+          "type": "",
+          "point": true,
+          "x": 256,
+          "y": 272,
           "rotation": 0,
           "visible": true
         }

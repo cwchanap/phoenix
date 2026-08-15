@@ -31,7 +31,7 @@ export interface ProofMap {
   footprints: Footprint[];
 }
 
-export type SceneryKind = 'tree' | 'building';
+export type SceneryKind = 'tree' | 'building' | 'shipping-bin';
 
 export interface SceneryPlacement {
   id: string;

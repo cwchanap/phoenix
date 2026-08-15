@@ -15,10 +15,12 @@ test('loads the authored proof-map contract', async () => {
   const markers = withLayer(raw, 'Markers') as unknown as {
     objects: Array<Record<string, unknown>>;
   };
-  expect(raw.nextobjectid).toBe(7);
+  expect(raw.nextobjectid).toBe(11);
   expect(markers.objects).toEqual(expect.arrayContaining([
     expect.objectContaining({ id: 5, name: 'player-spawn' }),
     expect.objectContaining({ id: 6, name: 'bed-interaction' }),
+    expect.objectContaining({ id: 9, name: 'shop-counter' }),
+    expect.objectContaining({ id: 10, name: 'shipping-bin' }),
   ]));
 
   const parsed = parseProofMap(raw, projection);
@@ -27,14 +29,14 @@ test('loads the authored proof-map contract', async () => {
   expect(parsed.world.footprints).toEqual([
     { id: 'tree', x: 7.2, y: 4.2, width: 0.6, height: 0.6 },
     { id: 'building', x: 7, y: 7, width: 2, height: 2 },
+    { id: 'shipping-bin', x: 6.2, y: 10.2, width: 0.6, height: 0.6 },
   ]);
-  expect(parsed.scenery.map(({ id, kind }) => [id, kind])).toEqual([
-    ['tree', 'tree'],
-    ['building', 'building'],
-  ]);
-  expect(parsed.scenery.map(({ id, frame, world, stableOrder }) => [id, frame, world, stableOrder])).toEqual([
-    ['tree', 0, { x: 480, y: 192 }, 1],
-    ['building', 1, { x: 384, y: 288 }, 2],
+  expect(parsed.scenery.map(({ id, kind, frame, world, stableOrder }) => (
+    [id, kind, frame, world, stableOrder]
+  ))).toEqual([
+    ['tree', 'tree', 0, { x: 480, y: 192 }, 1],
+    ['building', 'building', 1, { x: 384, y: 288 }, 2],
+    ['shipping-bin', 'shipping-bin', 2, { x: 256, y: 272 }, 7],
   ]);
   expect(parsed.farmCells).toHaveLength(9);
   expect(parsed.farmCells).toEqual([
@@ -43,15 +45,17 @@ test('loads the authored proof-map contract', async () => {
     { x: 2, y: 9 }, { x: 3, y: 9 }, { x: 4, y: 9 },
   ]);
   expect(parsed.bedCell).toEqual({ x: 6, y: 8 });
+  expect(parsed.shopCell).toEqual({ x: 6, y: 7 });
+  expect(parsed.shippingCell).toEqual({ x: 6, y: 10 });
   expect(parsed.groundTilesetName).toBe('proof-ground');
 });
 
 test.each([
   ['proof-tiles.png', 128, 32],
   ['proof-player.png', 128, 48],
-  ['proof-scenery.png', 192, 96],
+  ['proof-scenery.png', 288, 96],
   ['proof-soil.png', 128, 32],
-  ['proof-turnip.png', 128, 48],
+  ['proof-crops.png', 128, 144],
 ])('writes %s with exact PNG dimensions', async (name, width, height) => {
   const bytes = new Uint8Array(await Bun.file(resolve(assetRoot, 'sprites', name)).arrayBuffer());
 
@@ -152,7 +156,33 @@ describe('proof-map contract validation', () => {
       const bed = withObject(raw, 'Markers', 'bed-interaction');
       bed.x = 288;
     }, /proof-map: bed-interaction marker must be at logical cell 6,8/],
-    ['stale nextobjectid', (raw: Record<string, unknown>) => { raw.nextobjectid = 6; }, /proof-map: nextobjectid must be 7/],
+    ['stale nextobjectid', (raw: Record<string, unknown>) => { raw.nextobjectid = 10; }, /proof-map: nextobjectid must be 11/],
+    ['missing shipping scenery', (raw: Record<string, unknown>) => {
+      const layer = withLayer(raw, 'Scenery') as unknown as { objects: Array<{ name: string }> };
+      layer.objects = layer.objects.filter(({ name }) => name !== 'shipping-bin');
+    }, /proof-map: expected tree, building, and shipping-bin scenery objects/],
+    ['wrong shipping scenery id', (raw: Record<string, unknown>) => {
+      withObject(raw, 'Scenery', 'shipping-bin').id = 8;
+    }, /proof-map: scenery shipping-bin.id must be 7/],
+    ['wrong shipping gid', (raw: Record<string, unknown>) => {
+      withObject(raw, 'Scenery', 'shipping-bin').gid = 4;
+    }, /proof-map: scenery shipping-bin.gid must be 5/],
+    ['wrong shipping footprint id', (raw: Record<string, unknown>) => {
+      withObject(raw, 'Collision', 'shipping-bin').id = 7;
+    }, /proof-map: footprint shipping-bin.id must be 8/],
+    ['wrong shipping footprint position', (raw: Record<string, unknown>) => {
+      withObject(raw, 'Collision', 'shipping-bin').x = 0;
+    }, /proof-map: footprint shipping-bin is not at its authored logical position/],
+    ['missing shop marker', (raw: Record<string, unknown>) => {
+      const layer = withLayer(raw, 'Markers') as unknown as { objects: Array<{ name: string }> };
+      layer.objects = layer.objects.filter(({ name }) => name !== 'shop-counter');
+    }, /proof-map: expected exactly one shop-counter marker/],
+    ['wrong shop marker id', (raw: Record<string, unknown>) => {
+      withObject(raw, 'Markers', 'shop-counter').id = 10;
+    }, /proof-map: shop-counter.id must be 9/],
+    ['wrong shipping marker cell', (raw: Record<string, unknown>) => {
+      withObject(raw, 'Markers', 'shipping-bin').x = 0;
+    }, /proof-map: shipping-bin marker must be at logical cell 6,10/],
     ['missing building footprint', (raw: Record<string, unknown>) => {
       const collision = withLayer(raw, 'Collision') as unknown as { objects: Array<{ name: string }> };
       collision.objects = collision.objects.filter(({ name }) => name !== 'building');

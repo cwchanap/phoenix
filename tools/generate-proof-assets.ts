@@ -146,7 +146,7 @@ for (const [frame, marker] of ['#9fd8ff', '#ffd36b', '#f49c83', '#b7e48f'].entri
   fillRect(player, x + 18, 34, 3, 10, '#4a352d');
 }
 
-const scenery = createSurface(192, 96);
+const scenery = createSurface(288, 96);
 fillRect(scenery, 43, 60, 10, 36, '#6d432b');
 fillRect(scenery, 24, 24, 48, 36, '#315f3b');
 fillRect(scenery, 32, 12, 32, 20, '#3f7847');
@@ -158,6 +158,13 @@ fillRect(scenery, 118, 22, 52, 10, '#704638');
 fillRect(scenery, 138, 66, 14, 30, '#624331');
 fillRect(scenery, 118, 62, 12, 12, '#8bc0cf');
 fillRect(scenery, 160, 62, 12, 12, '#8bc0cf');
+fillRect(scenery, 128, 50, 32, 12, '#f6d365');
+fillRect(scenery, 134, 53, 20, 3, '#3f7847');
+fillRect(scenery, 208, 58, 64, 30, '#8f5f3d');
+fillRect(scenery, 204, 52, 72, 8, '#5d3d2b');
+fillRect(scenery, 214, 64, 52, 8, '#b98552');
+fillRect(scenery, 220, 88, 8, 8, '#4a352d');
+fillRect(scenery, 252, 88, 8, 8, '#4a352d');
 
 const soil = createSurface(128, 32);
 fillDiamond(soil, 32, 16, 32, 16, '#8a5a3b', '#5a3828');
@@ -165,36 +172,35 @@ fillDiamond(soil, 96, 16, 32, 16, '#526f54', '#334936');
 fillRect(soil, 74, 12, 4, 2, '#7c9a77');
 fillRect(soil, 106, 19, 5, 2, '#405c45');
 
-const turnip = createSurface(128, 48);
-const drawTurnipFrame = (frame: number): void => {
-  const x = frame * 32;
-  if (frame === 0) {
-    fillRect(turnip, x + 14, 34, 4, 4, '#ad7042');
-    return;
+const crops = createSurface(128, 144);
+const cropPalettes = [
+  { leaf: '#4f9c47', leafLight: '#68b454', root: '#e5b86b', outline: '#855531' },
+  { leaf: '#4b8e43', leafLight: '#7ab45b', root: '#c99a58', outline: '#79502f' },
+  { leaf: '#3f8041', leafLight: '#66a94c', root: '#e88738', outline: '#8a4c24' },
+] as const;
+
+cropPalettes.forEach((palette, cropIndex) => {
+  const rowY = cropIndex * 48;
+  for (let stage = 0; stage < 4; stage += 1) {
+    const x = stage * 32;
+    if (stage === 0) {
+      fillRect(crops, x + 14, rowY + 34, 4 + cropIndex, 4, palette.root);
+      continue;
+    }
+    fillRect(crops, x + 14, rowY + 25 - stage * 4, 4, 11 + stage * 4, palette.leaf);
+    fillRect(crops, x + 7 - stage, rowY + 26 - stage * 3, 9 + stage * 2, 4 + stage, palette.leafLight);
+    fillRect(crops, x + 17, rowY + 22 - stage * 4, 7 + stage * 2, 4 + stage, palette.leaf);
+    fillDiamond(
+      crops,
+      x + 16,
+      rowY + 38,
+      3 + stage * 2 + cropIndex,
+      4 + stage * 2,
+      palette.root,
+      palette.outline,
+    );
   }
-  if (frame === 1) {
-    fillRect(turnip, x + 14, 23, 4, 13, '#4d8a49');
-    fillRect(turnip, x + 8, 24, 8, 4, '#6eaa58');
-    fillRect(turnip, x + 16, 20, 8, 4, '#85bd66');
-    fillDiamond(turnip, x + 16, 37, 4, 5, '#c79559', '#865a35');
-    return;
-  }
-  if (frame === 2) {
-    fillRect(turnip, x + 14, 16, 4, 19, '#3f7d42');
-    fillRect(turnip, x + 5, 18, 11, 6, '#5caa51');
-    fillRect(turnip, x + 17, 13, 11, 6, '#74bd5c');
-    fillRect(turnip, x + 9, 25, 8, 5, '#4e974a');
-    fillDiamond(turnip, x + 16, 37, 7, 8, '#d7a961', '#895b36');
-    return;
-  }
-  fillRect(turnip, x + 14, 10, 5, 22, '#356e3b');
-  fillRect(turnip, x + 2, 13, 14, 7, '#4f9c47');
-  fillRect(turnip, x + 18, 9, 13, 7, '#68b454');
-  fillRect(turnip, x + 5, 23, 12, 7, '#438b43');
-  fillRect(turnip, x + 17, 20, 11, 7, '#5ca94e');
-  fillDiamond(turnip, x + 16, 37, 9, 10, '#e5b86b', '#855531');
-};
-for (let frame = 0; frame < 4; frame++) drawTurnipFrame(frame);
+});
 
 const ground = Array.from({ length: 144 }, (_, index) => {
   const x = index % 12;
@@ -205,8 +211,12 @@ const ground = Array.from({ length: 144 }, (_, index) => {
 const tree = project({ x: 7.5, y: 4.5 });
 const building = project({ x: 9, y: 9 });
 const spawn = project({ x: 2.5, y: 9.5 });
+const shippingBin = project({ x: 6.5, y: 10.5 });
+const shopCounter = project({ x: 6.5, y: 7.5 });
+const shippingMarker = project({ x: 6.5, y: 10.5 });
 const treeRect = logicalPolygon(3, 'tree', 7.2, 4.2, 7.8, 4.8);
 const buildingRect = logicalPolygon(4, 'building', 7, 7, 9, 9);
+const shippingRect = logicalPolygon(8, 'shipping-bin', 6.2, 10.2, 6.8, 10.8);
 
 const groundTileset = {
   firstgid: 1,
@@ -223,15 +233,15 @@ const groundTileset = {
 };
 const sceneryTileset = {
   firstgid: 3,
-  columns: 2,
+  columns: 3,
   image: '../sprites/proof-scenery.png',
   imageheight: 96,
-  imagewidth: 192,
+  imagewidth: 288,
   margin: 0,
   name: 'proof-scenery',
   objectalignment: 'bottom',
   spacing: 0,
-  tilecount: 2,
+  tilecount: 3,
   tileheight: 96,
   tilewidth: 96,
   grid: { height: 32, orientation: 'isometric', width: 64 },
@@ -281,6 +291,18 @@ const sceneryLayer = {
       rotation: 0,
       visible: true,
     },
+    {
+      id: 7,
+      name: 'shipping-bin',
+      type: 'shipping-bin',
+      gid: 5,
+      x: shippingBin.x,
+      y: shippingBin.y,
+      width: 96,
+      height: 96,
+      rotation: 0,
+      visible: true,
+    },
   ],
 };
 const collisionLayer = {
@@ -290,7 +312,7 @@ const collisionLayer = {
   draworder: 'topdown',
   opacity: 1,
   visible: true,
-  objects: [treeRect, buildingRect],
+  objects: [treeRect, buildingRect, shippingRect],
 };
 const markerLayer = {
   id: 4,
@@ -317,6 +339,24 @@ const markerLayer = {
     y: 240,
     rotation: 0,
     visible: true,
+  }, {
+    id: 9,
+    name: 'shop-counter',
+    type: '',
+    point: true,
+    x: shopCounter.x,
+    y: shopCounter.y,
+    rotation: 0,
+    visible: true,
+  }, {
+    id: 10,
+    name: 'shipping-bin',
+    type: '',
+    point: true,
+    x: shippingMarker.x,
+    y: shippingMarker.y,
+    rotation: 0,
+    visible: true,
   }],
 };
 
@@ -325,7 +365,7 @@ const map = {
   height: 12,
   infinite: false,
   nextlayerid: 5,
-  nextobjectid: 7,
+  nextobjectid: 11,
   orientation: 'isometric',
   renderorder: 'right-down',
   tiledversion: '1.12.2',
@@ -342,5 +382,5 @@ await writePng('src/assets/sprites/proof-tiles.png', tiles);
 await writePng('src/assets/sprites/proof-player.png', player);
 await writePng('src/assets/sprites/proof-scenery.png', scenery);
 await writePng('src/assets/sprites/proof-soil.png', soil);
-await writePng('src/assets/sprites/proof-turnip.png', turnip);
+await writePng('src/assets/sprites/proof-crops.png', crops);
 await Bun.write('src/assets/maps/proof-map.json', `${JSON.stringify(map, null, 2)}\n`);
