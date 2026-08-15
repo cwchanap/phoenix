@@ -63,6 +63,7 @@ export interface DebugSnapshot {
 export interface SceneCommands {
   selectAction(action: FarmingAction): CommandResult;
   sleep(): CommandResult;
+  acknowledgeDaySummary(): CommandResult;
 }
 
 export interface ProofSceneDependencies {
@@ -214,6 +215,7 @@ export class ProofScene extends Phaser.Scene {
       const commands: SceneCommands = {
         selectAction: (action) => this.selectAction(action),
         sleep: () => this.sleep(),
+        acknowledgeDaySummary: () => this.acknowledgeDaySummary(),
       };
       this.commands = commands;
 
@@ -259,6 +261,10 @@ export class ProofScene extends Phaser.Scene {
     return this.publishCommand(session.sleep());
   }
 
+  private acknowledgeDaySummary(): CommandResult {
+    return this.publishCommand(this.requireSession().acknowledgeDaySummary());
+  }
+
   private requireSession(): GameSession {
     if (!this.session) throw new Error('ProofScene session is not active');
     return this.session;
@@ -277,7 +283,7 @@ export class ProofScene extends Phaser.Scene {
     const visibleCrops = new Set<string>();
     for (const tile of snapshot.farmTiles) {
       const key = cellKey(tile.position);
-      const frames = farmVisuals(tile);
+      const frames = farmVisuals(tile, snapshot.weather);
       const center = projection.gridToWorld({
         x: tile.position.x + 0.5,
         y: tile.position.y + 0.5,
