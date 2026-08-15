@@ -73,6 +73,7 @@
       case 'crop-watered': return 'Crop watered';
       case 'turnip-harvested': return 'Turnip harvested';
       case 'day-advanced': return 'Day advanced';
+      case 'day-started': return 'Day started';
       case 'no-target': return 'No target highlighted';
       case 'not-farm-cell': return 'That is not a farm cell';
       case 'already-tilled': return 'That soil is already tilled';
@@ -86,6 +87,10 @@
       case 'not-at-bed': return 'You must be at the bed';
       case 'action-too-late': return 'Not enough time before 22:00';
       case 'insufficient-stamina': return 'Not enough stamina';
+      case 'day-summary-pending': return 'Start the new day first';
+      case 'rain-waters-crops': return 'Rain is watering the crops';
+      case 'day-limit-reached': return 'Day 14 is the final playable day for now';
+      case 'no-day-summary': return 'No morning summary to close';
       default: return assertNever(commandResult);
     }
   }

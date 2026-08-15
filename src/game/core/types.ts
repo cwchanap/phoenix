@@ -100,7 +100,8 @@ export type SuccessCode =
   | 'turnip-planted'
   | 'crop-watered'
   | 'turnip-harvested'
-  | 'day-advanced';
+  | 'day-advanced'
+  | 'day-started';
 
 export type FailureCode =
   | 'no-target'
@@ -115,7 +116,11 @@ export type FailureCode =
   | 'crop-immature'
   | 'not-at-bed'
   | 'action-too-late'
-  | 'insufficient-stamina';
+  | 'insufficient-stamina'
+  | 'day-summary-pending'
+  | 'rain-waters-crops'
+  | 'day-limit-reached'
+  | 'no-day-summary';
 
 export type CommandResult =
   | { ok: true; code: SuccessCode }

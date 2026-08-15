@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { GameSession, type GameSessionConfig } from '../../src/game/core/GameSession';
-import type { FarmingAction, GridCell } from '../../src/game/core/types';
+import type { FarmingAction, GridCell, Weather } from '../../src/game/core/types';
 
 const farmCells = [
   { x: 2, y: 7 }, { x: 3, y: 7 }, { x: 4, y: 7 },
@@ -22,6 +22,7 @@ function config(overrides: Partial<GameSessionConfig> = {}): GameSessionConfig {
     metrics: { tileWidth: 64, tileHeight: 32, origin: { x: 384, y: 0 } },
     farmCells,
     bedCell: { x: 6, y: 8 },
+    nextWeather: () => 'sunny',
     ...overrides,
   };
 }
@@ -39,15 +40,18 @@ function preparePlanted(session: GameSession, cell: GridCell = farmCells[0]): vo
   expect(session.plant(cell)).toEqual({ ok: true, code: 'turnip-planted' });
 }
 
-function sleepAtBed(session: GameSession): void {
+function advanceDayAtBed(session: GameSession): void {
   faceBed(session);
   expect(session.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+  expect(session.snapshot().pendingDaySummary).not.toBeNull();
+  expect(session.acknowledgeDaySummary()).toEqual({ ok: true, code: 'day-started' });
+  expect(session.snapshot().pendingDaySummary).toBeNull();
 }
 
 function growToMaturity(session: GameSession, cell: GridCell = farmCells[0]): void {
   for (let growth = 0; growth < 3; growth += 1) {
     expect(session.water(cell)).toEqual({ ok: true, code: 'crop-watered' });
-    sleepAtBed(session);
+    advanceDayAtBed(session);
   }
 }
 
@@ -154,12 +158,10 @@ describe('GameSession', () => {
     expect(afterMovement.stamina).toBe(afterSelection.stamina);
   });
 
-  test('resets time and stamina after the current direct sleep transition', () => {
+  test('resets time and stamina after a completed day transition', () => {
     const session = new GameSession(config());
     expect(session.hoe(farmCells[0])).toEqual({ ok: true, code: 'soil-tilled' });
-    faceBed(session);
-
-    expect(session.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+    advanceDayAtBed(session);
     expect(session.snapshot()).toMatchObject({
       day: 2,
       timeMinutes: 360,
@@ -180,7 +182,7 @@ describe('GameSession', () => {
       expect(session.water(cell)).toEqual({ ok: true, code: 'crop-watered' });
       session.stepMovement({ screenX: 1, screenY: 0 }, 0);
       expect(session.snapshot().target).toEqual({ x: 6, y: 8 });
-      expect(session.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+      advanceDayAtBed(session);
       expect(session.snapshot().farmTiles[0].crop).toEqual({
         kind: 'turnip',
         growth,
@@ -321,7 +323,7 @@ describe('GameSession', () => {
     preparePlanted(session, dry);
     expect(session.water(watered)).toEqual({ ok: true, code: 'crop-watered' });
 
-    sleepAtBed(session);
+    advanceDayAtBed(session);
     expect(session.snapshot().day).toBe(2);
     expect(session.snapshot().farmTiles[0].crop).toEqual({
       kind: 'turnip', growth: 1, wateredToday: false,
@@ -331,23 +333,177 @@ describe('GameSession', () => {
     });
 
     expect(session.water(watered)).toEqual({ ok: true, code: 'crop-watered' });
-    sleepAtBed(session);
+    advanceDayAtBed(session);
     expect(session.snapshot().farmTiles[0].crop?.growth).toBe(2);
 
     expect(session.water(watered)).toEqual({ ok: true, code: 'crop-watered' });
-    sleepAtBed(session);
+    advanceDayAtBed(session);
     expect(session.snapshot().farmTiles[0].crop).toEqual({
       kind: 'turnip', growth: 3, wateredToday: false,
     });
     expect(session.snapshot().day).toBe(4);
 
     const beforeUnwateredSleep = session.snapshot();
-    sleepAtBed(session);
+    advanceDayAtBed(session);
     expect(session.snapshot().day).toBe(5);
     expect(session.snapshot().farmTiles[0].crop).toEqual({
       kind: 'turnip', growth: 3, wateredToday: false,
     });
     expect(session.snapshot().farmTiles[1].crop).toEqual(beforeUnwateredSleep.farmTiles[1].crop);
+  });
+
+  test('uses the provider once and leaves a complete morning summary pending', () => {
+    let weatherCalls = 0;
+    const session = sessionWithConfig({
+      nextWeather: () => {
+        weatherCalls += 1;
+        return 'rainy';
+      },
+    });
+    const cell = farmCells[0];
+    preparePlanted(session, cell);
+    expect(session.water(cell)).toEqual({ ok: true, code: 'crop-watered' });
+    faceBed(session);
+
+    expect(session.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+    expect(weatherCalls).toBe(1);
+    expect(session.snapshot()).toMatchObject({
+      day: 2,
+      timeMinutes: 360,
+      stamina: 20,
+      weather: 'rainy',
+      pendingDaySummary: {
+        completedDay: 1,
+        nextDay: 2,
+        cropsAdvanced: 1,
+        nextWeather: 'rainy',
+        staminaRestored: 6,
+      },
+    });
+
+    const beforeDuplicateSleep = session.snapshot();
+    expect(session.sleep()).toEqual({ ok: false, code: 'day-summary-pending' });
+    expect(session.snapshot()).toEqual(beforeDuplicateSleep);
+    expect(weatherCalls).toBe(1);
+
+    expect(session.acknowledgeDaySummary()).toEqual({ ok: true, code: 'day-started' });
+    const afterAcknowledgment = session.snapshot();
+    expect(afterAcknowledgment.pendingDaySummary).toBeNull();
+    expect(session.acknowledgeDaySummary()).toEqual({ ok: false, code: 'no-day-summary' });
+    expect(session.snapshot()).toEqual(afterAcknowledgment);
+  });
+
+  test('lets rainy days grow crops without manual watering', () => {
+    let weatherCalls = 0;
+    const session = sessionWithConfig({
+      nextWeather: () => {
+        weatherCalls += 1;
+        return weatherCalls === 1 ? 'rainy' : 'sunny';
+      },
+    });
+    const cell = farmCells[0];
+    preparePlanted(session, cell);
+
+    advanceDayAtBed(session);
+    const afterFirstRainyNight = session.snapshot();
+    expect(afterFirstRainyNight.day).toBe(2);
+    expect(afterFirstRainyNight.weather).toBe('rainy');
+    expect(afterFirstRainyNight.farmTiles[0].crop).toEqual({
+      kind: 'turnip',
+      growth: 0,
+      wateredToday: false,
+    });
+
+    const beforeRainWater = session.snapshot();
+    expect(session.water(cell)).toEqual({ ok: false, code: 'rain-waters-crops' });
+    expect(session.snapshot()).toEqual(beforeRainWater);
+
+    advanceDayAtBed(session);
+    const afterSecondRainyNight = session.snapshot();
+    expect(afterSecondRainyNight.day).toBe(3);
+    expect(afterSecondRainyNight.weather).toBe('sunny');
+    expect(afterSecondRainyNight.farmTiles[0].crop).toEqual({
+      kind: 'turnip',
+      growth: 1,
+      wateredToday: false,
+    });
+  });
+
+  test('blocks every active-day command and movement while a summary is pending', () => {
+    const session = new GameSession(config());
+    faceBed(session);
+    expect(session.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+    const beforeBlockedCommands = session.snapshot();
+
+    const blockedCommands = [
+      ['selectAction', () => session.selectAction('wateringCan')],
+      ['applySelectedAction', () => session.applySelectedAction(farmCells[0])],
+      ['hoe', () => session.hoe(farmCells[0])],
+      ['plant', () => session.plant(farmCells[0])],
+      ['water', () => session.water(farmCells[0])],
+      ['harvest', () => session.harvest(farmCells[0])],
+      ['sleep', () => session.sleep()],
+    ] as const;
+
+    for (const [name, command] of blockedCommands) {
+      expect(command(), name).toEqual({ ok: false, code: 'day-summary-pending' });
+      expect(session.snapshot(), name).toEqual(beforeBlockedCommands);
+    }
+
+    const beforeBlockedMovement = session.snapshot();
+    session.stepMovement({ screenX: -1, screenY: 1 }, 16);
+    const afterBlockedMovement = session.snapshot();
+    expect(afterBlockedMovement.player).toEqual(beforeBlockedMovement.player);
+    expect(afterBlockedMovement.target).toEqual(beforeBlockedMovement.target);
+    expect(afterBlockedMovement).toEqual(beforeBlockedMovement);
+  });
+
+  test('rejects Day 14 sleep without consuming weather or mutating state', () => {
+    let weatherCalls = 0;
+    const session = sessionWithConfig({
+      nextWeather: () => {
+        weatherCalls += 1;
+        return 'sunny';
+      },
+    });
+
+    for (let transition = 0; transition < 13; transition += 1) {
+      advanceDayAtBed(session);
+    }
+    expect(session.snapshot().day).toBe(14);
+    expect(session.selectAction('hands')).toEqual({ ok: true, code: 'action-selected' });
+
+    faceBed(session);
+    const beforeFinalSleep = session.snapshot();
+    expect(session.sleep()).toEqual({ ok: false, code: 'day-limit-reached' });
+    expect(session.snapshot()).toEqual(beforeFinalSleep);
+    expect(weatherCalls).toBe(13);
+  });
+
+  test('does not consume weather for sleep away from the bed', () => {
+    let weatherCalls = 0;
+    const session = sessionWithConfig({
+      nextWeather: () => {
+        weatherCalls += 1;
+        return 'sunny';
+      },
+    });
+    const before = session.snapshot();
+
+    expect(session.sleep()).toEqual({ ok: false, code: 'not-at-bed' });
+    expect(session.snapshot()).toEqual(before);
+    expect(weatherCalls).toBe(0);
+  });
+
+  test('validates provider weather before mutating a transition', () => {
+    const session = sessionWithConfig({
+      nextWeather: () => 'stormy' as Weather,
+    });
+    faceBed(session);
+    const before = session.snapshot();
+
+    expect(() => session.sleep()).toThrow('GameSession: nextWeather returned an unsupported value');
+    expect(session.snapshot()).toEqual(before);
   });
 
   describe('selected action dispatch', () => {

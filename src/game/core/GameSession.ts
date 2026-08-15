@@ -1,5 +1,11 @@
 import { intersects } from './collision';
-import { DAY_START_MINUTES, evaluateActionBudget, MAX_STAMINA } from './dailyRhythm';
+import {
+  DAY_START_MINUTES,
+  defaultNextWeather,
+  evaluateActionBudget,
+  MAX_DAY,
+  MAX_STAMINA,
+} from './dailyRhythm';
 import { ProofWorld } from './ProofWorld';
 import type { ActionBudgetResult } from './dailyRhythm';
 import type {
@@ -24,6 +30,7 @@ export interface GameSessionConfig {
   metrics: ProjectionMetrics;
   farmCells: GridCell[];
   bedCell: GridCell;
+  nextWeather?: () => Weather;
 }
 
 interface MutableTurnipCrop {
@@ -48,6 +55,7 @@ export class GameSession {
   private readonly farmTiles: MutableFarmTile[];
   private readonly farmTilesByKey: Map<string, MutableFarmTile>;
   private readonly bedCell: GridCell;
+  private readonly nextWeather: () => Weather;
   private day = 1;
   private timeMinutes = DAY_START_MINUTES;
   private stamina = MAX_STAMINA;
@@ -58,6 +66,7 @@ export class GameSession {
   private inventory: InventorySnapshot = { turnipSeeds: STARTING_SEEDS, turnips: 0 };
 
   constructor(config: GameSessionConfig) {
+    this.nextWeather = config.nextWeather ?? defaultNextWeather;
     const world = cloneProofMap(config.world);
     const metrics = cloneProjectionMetrics(config.metrics);
     const farmCells = config.farmCells.map((cell) => ({ ...cell }));
@@ -98,6 +107,7 @@ export class GameSession {
   }
 
   stepMovement(input: MovementInput, deltaMs: number): void {
+    if (this.pendingDaySummary) return;
     this.world.step(input, deltaMs);
   }
 
@@ -123,11 +133,15 @@ export class GameSession {
   }
 
   selectAction(action: FarmingAction): CommandResult {
+    const activeFailure = this.activeDayFailure();
+    if (activeFailure) return activeFailure;
     this.selectedAction = action;
     return { ok: true, code: 'action-selected' };
   }
 
   applySelectedAction(position: GridCell | null): CommandResult {
+    const activeFailure = this.activeDayFailure();
+    if (activeFailure) return activeFailure;
     switch (this.selectedAction) {
       case 'hoe': return this.hoe(position);
       case 'turnipSeeds': return this.plant(position);
@@ -138,6 +152,8 @@ export class GameSession {
   }
 
   hoe(position: GridCell | null): CommandResult {
+    const activeFailure = this.activeDayFailure();
+    if (activeFailure) return activeFailure;
     const tile = this.lookupTile(position);
     if (isLookupFailure(tile)) return tile;
     if (tile.crop) return { ok: false, code: 'crop-present' };
@@ -151,6 +167,8 @@ export class GameSession {
   }
 
   plant(position: GridCell | null): CommandResult {
+    const activeFailure = this.activeDayFailure();
+    if (activeFailure) return activeFailure;
     const tile = this.lookupTile(position);
     if (isLookupFailure(tile)) return tile;
     if (tile.soil === 'untilled') return { ok: false, code: 'soil-untilled' };
@@ -166,10 +184,13 @@ export class GameSession {
   }
 
   water(position: GridCell | null): CommandResult {
+    const activeFailure = this.activeDayFailure();
+    if (activeFailure) return activeFailure;
     const tile = this.lookupTile(position);
     if (isLookupFailure(tile)) return tile;
     if (!tile.crop) return { ok: false, code: 'no-crop' };
     if (tile.crop.growth === 3) return { ok: false, code: 'crop-mature' };
+    if (this.weather === 'rainy') return { ok: false, code: 'rain-waters-crops' };
     if (tile.crop.wateredToday) return { ok: false, code: 'already-watered' };
 
     const budget = this.evaluateBudget('wateringCan');
@@ -180,6 +201,8 @@ export class GameSession {
   }
 
   harvest(position: GridCell | null): CommandResult {
+    const activeFailure = this.activeDayFailure();
+    if (activeFailure) return activeFailure;
     const tile = this.lookupTile(position);
     if (isLookupFailure(tile)) return tile;
     if (!tile.crop) return { ok: false, code: 'no-crop' };
@@ -194,20 +217,54 @@ export class GameSession {
   }
 
   sleep(): CommandResult {
+    const activeFailure = this.activeDayFailure();
+    if (activeFailure) return activeFailure;
     const target = this.world.snapshot().target;
     if (!sameCell(target, this.bedCell)) return { ok: false, code: 'not-at-bed' };
+    if (this.day >= MAX_DAY) return { ok: false, code: 'day-limit-reached' };
 
-    this.day += 1;
+    const completedDay = this.day;
+    const completedWeather = this.weather;
+    const staminaRestored = this.maxStamina - this.stamina;
+    const nextWeather = this.nextWeather();
+    if (nextWeather !== 'sunny' && nextWeather !== 'rainy') {
+      throw new Error('GameSession: nextWeather returned an unsupported value');
+    }
+
+    let cropsAdvanced = 0;
     for (const tile of this.farmTiles) {
       if (!tile.crop) continue;
-      if (tile.crop.wateredToday && tile.crop.growth < 3) {
+      const watered = tile.crop.wateredToday || completedWeather === 'rainy';
+      if (watered && tile.crop.growth < 3) {
         tile.crop.growth = (tile.crop.growth + 1) as GrowthLevel;
+        cropsAdvanced += 1;
       }
       tile.crop.wateredToday = false;
     }
+    this.day += 1;
     this.timeMinutes = DAY_START_MINUTES;
     this.stamina = this.maxStamina;
+    this.weather = nextWeather;
+    this.pendingDaySummary = {
+      completedDay,
+      nextDay: this.day,
+      cropsAdvanced,
+      nextWeather,
+      staminaRestored,
+    };
     return { ok: true, code: 'day-advanced' };
+  }
+
+  acknowledgeDaySummary(): CommandResult {
+    if (!this.pendingDaySummary) return { ok: false, code: 'no-day-summary' };
+    this.pendingDaySummary = null;
+    return { ok: true, code: 'day-started' };
+  }
+
+  private activeDayFailure(): CommandResult | null {
+    return this.pendingDaySummary
+      ? { ok: false, code: 'day-summary-pending' }
+      : null;
   }
 
   private evaluateBudget(action: FarmingAction): ActionBudgetResult {
