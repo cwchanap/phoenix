@@ -54,6 +54,16 @@ export interface WorldSnapshot {
 export type FarmingAction = 'hoe' | 'turnipSeeds' | 'wateringCan' | 'hands';
 export type GrowthLevel = 0 | 1 | 2 | 3;
 
+export type Weather = 'sunny' | 'rainy';
+
+export interface DaySummary {
+  completedDay: number;
+  nextDay: number;
+  cropsAdvanced: number;
+  nextWeather: Weather;
+  staminaRestored: number;
+}
+
 export interface TurnipCropSnapshot {
   kind: 'turnip';
   growth: GrowthLevel;
