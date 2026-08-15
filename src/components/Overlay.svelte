@@ -204,7 +204,7 @@
     }
   }
 
-  function handleWindowKeydown(event: KeyboardEvent): void {
+  function handleEconomyKeydown(event: KeyboardEvent): void {
     if (event.key !== 'Escape' || economyPanel === null) return;
     event.preventDefault();
     onCloseEconomyPanel();
@@ -229,8 +229,6 @@
     inputGate.set('overlay', nextLocked);
   };
 </script>
-
-<svelte:window onkeydown={handleWindowKeydown} />
 
 <aside data-overlay aria-live="polite">
   <h1>Phoenix — Isometric Proof</h1>
@@ -311,6 +309,7 @@
         tabindex="-1"
         aria-modal="true"
         aria-labelledby="economy-dialog-title"
+        onkeydown={handleEconomyKeydown}
         bind:this={economyDialog}
       >
         <h2 id="economy-dialog-title">{economyPanel === 'shop' ? 'Seed shop' : 'Shipping bin'}</h2>

@@ -30,7 +30,7 @@ test('sleep confirmation focuses the dialog and blocks background action activat
   }
   await expect(page.getByRole('button', { name: 'Confirm' })).toBeFocused();
 
-  const seedsButton = page.getByRole('button', { name: '2 Seeds' });
+  const seedsButton = page.getByRole('button', { name: '2 Seeds: Turnip' });
   await expect(seedsButton).toBeDisabled();
   await page.keyboard.press('2');
 
@@ -66,7 +66,7 @@ test('sleep confirmation focuses the dialog and blocks background action activat
   expect(morning.pendingDaySummary).not.toBeNull();
   expect((await snapshot(page)).locked).toBe(true);
 
-  for (const name of ['1 Hoe', '2 Seeds', '3 Water', '4 Hands']) {
+  for (const name of ['1 Hoe', '2 Seeds: Turnip', '3 Water', '4 Hands']) {
     await expect(page.getByRole('button', { name, exact: true })).toBeDisabled();
   }
   await expect(page.getByRole('button', { name: 'Lock world input', exact: true })).toBeDisabled();
