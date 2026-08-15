@@ -65,13 +65,13 @@ A new src/game/core/dailyRhythm.ts module owns the fixed rules:
 - MAX_STAMINA = 20;
 - MAX_DAY = 14;
 - RAIN_CHANCE = 0.25;
-- the complete FarmingAction-to-ActionCost mapping;
+- ACTION_COSTS as Readonly<Record<FarmingAction, ActionCost>>;
 - evaluateActionBudget(currentBudget, action);
 - formatTime(minutes);
 - weatherFromRandom(value); and
 - the default next-weather function built from Math.random.
 
-ActionCost has exactly minutes and stamina fields. The cost mapping is exhaustive over the existing four FarmingAction values. There is no default cost and no mutable configuration object.
+ActionCost has exactly minutes and stamina fields. The cost mapping uses the existing values hoe, turnipSeeds, wateringCan, and hands as its keys. It does not add a parallel action enum, default cost, or mutable configuration object.
 
 evaluateActionBudget is a pure, non-mutating function. It checks the 22:00 cutoff first and stamina second, then returns either the exact failure code or the resulting time and stamina values. GameSession calls this one evaluator after farming-state validation. This keeps the currently content-limited game free of test-only clock setters while making the cutoff and precedence rules directly deterministic.
 
@@ -99,9 +99,11 @@ GameSessionConfig gains an optional nextWeather dependency with type () => Weath
 
 The session continues to return fresh JSON-serializable snapshots and stable CommandResult values. It never imports Phaser, Svelte, browser APIs, or Tauri.
 
+Weather and DaySummary are declared in src/game/core/types.ts beside GameSnapshot, along with the new snapshot fields and result codes. dailyRhythm.ts imports those shared types; it does not become a second domain-model module.
+
 ### Phaser
 
-ProofScene continues to own rendering, camera behavior, asset loading, and keyboard sampling. It constructs GameSession through the existing configuration plus the production weather provider, invokes session commands, reconciles farm visuals from snapshots, and publishes authoritative snapshots after commands.
+ProofScene continues to own rendering, camera behavior, asset loading, and keyboard sampling. It constructs GameSession through the existing configuration and deliberately omits nextWeather, allowing the session's production default to choose weather. The scene never imports, passes, or exposes the weather provider. It invokes session commands, reconciles farm visuals from snapshots, and publishes authoritative snapshots after commands.
 
 SceneCommands gains one method:
 
@@ -194,6 +196,8 @@ This domain gate is defensive. The presentation layer also keeps InputGate locke
 
 acknowledgeDaySummary is the only command allowed through this gate. It clears the summary and returns day-started. Calling it without a pending summary returns no-day-summary without mutation.
 
+GameSession implements the CommandResult gate once as a private activeDayFailure helper. selectAction, applySelectedAction, hoe, plant, water, harvest, and sleep call that helper before their existing prefixes. stepMovement checks the same pending-summary condition and returns before ProofWorld.step. This is a local command prefix, not middleware or an event system.
+
 ### Farming transaction
 
 Every farming command is one transaction:
@@ -209,9 +213,11 @@ State validation deliberately precedes affordability. For example, hoeing an alr
 
 All failure paths preserve the complete authoritative snapshot. Successful actions charge exactly once. Existing command-specific success codes remain unchanged.
 
+Current HPA-592 content cannot naturally move a GameSession clock close enough to 22:00 to exercise the late-time branch before stamina is exhausted. Exact cutoff and time-before-stamina behavior therefore belong to evaluateActionBudget tests. GameSession tests prove successful evaluator results are applied and reachable stamina exhaustion is rejected. They do not claim an unreachable session-level cutoff test or add a clock setter. The residual risk that GameSession could omit only the unreachable late-time branch is accepted as a narrow code-review seam.
+
 ### Selection and walking
 
-selectAction remains free during active play and returns action-selected. Walking and facing updates remain free. Neither changes time or stamina.
+selectAction is free and returns action-selected only during active play. Walking and facing updates are also free. Neither changes time or stamina.
 
 During a pending summary, selection fails and movement is ignored as described by the lifecycle gate.
 
@@ -240,16 +246,15 @@ The successful transition:
 
 1. Captures completedDay, completed weather, and completed stamina.
 2. Calls nextWeather exactly once and validates that its result is sunny or rainy before mutating session state.
-3. Computes the next farm state and actual growth count without changing the current farm state.
-4. Commits the next farm state, including wateredToday reset on every surviving crop.
-5. Increments day by one.
-6. Sets timeMinutes to 360.
-7. Sets stamina to maxStamina.
-8. Stores the validated next weather as current weather.
-9. Creates pendingDaySummary from the captured and resulting values.
-10. Returns day-advanced.
+3. Extends the existing in-place farm loop: advance each eligible non-mature crop, count each actual increase, and reset wateredToday on every surviving crop.
+4. Increments day by one.
+5. Sets timeMinutes to 360.
+6. Sets stamina to maxStamina.
+7. Stores the validated next weather as current weather.
+8. Creates pendingDaySummary from the captured and resulting values.
+9. Returns day-advanced.
 
-Sleep is allowed at any valid active-day time, including 06:00 and 22:00. It has no separate time or stamina cost. A Day 14 rejection changes no crop, watering flag, time, stamina, weather, inventory, day, or provider state. An invalid provider result throws before authoritative state changes, so the day transition cannot be partially committed.
+Sleep is allowed at any valid active-day time, including 06:00 and 22:00. It has no separate time or stamina cost. A Day 14 rejection changes no crop, watering flag, time, stamina, weather, inventory, day, or provider state. An invalid provider result throws before authoritative state changes. After provider validation, the existing plain-object farm loop and scalar assignments contain no expected failure path, so no copied farm pipeline is added.
 
 ### Result codes
 
@@ -283,14 +288,16 @@ Weather presentation is intentionally compact. Sunny and Rainy text plus wet-soi
 
 ### Two-stage modal transition
 
-App.svelte uses one InputGate reason named day-transition for the entire flow. A single synchronization function sets that reason from:
+App.svelte derives one dayTransitionActive value from:
 
 - sleep confirmation visibility;
 - sleep submission in flight;
 - authoritative pendingDaySummary presence; or
 - summary acknowledgment in flight.
 
-Opening sleep confirmation sets the reason before rendering the modal. Confirm disables repeated submission and invokes SceneCommands.sleep once. ProofScene publishes the resulting snapshot synchronously with the command. App closes confirmation only after processing that result, and the authoritative pending summary keeps the same gate reason active. There is no unlock/relock frame between stages.
+That same value drives the InputGate reason named day-transition, handleSleepPrompt's early return, Overlay's actionsReady predicate, the demonstration-lock disabled state and click guard, and all modal submission guards. App passes it to Overlay explicitly. The old sleep-confirmation reason is removed rather than retained beside the new reason.
+
+Opening sleep confirmation sets day-transition before rendering the modal. Confirm disables repeated submission and invokes SceneCommands.sleep once. ProofScene publishes the resulting snapshot synchronously with the command. App closes confirmation only after processing that result, and the authoritative pending summary keeps the same gate reason active. There is no unlock/relock frame between stages.
 
 If sleep fails, App clears the in-flight state, closes confirmation, releases the reason, and leaves the returned failure as feedback. Cancel closes confirmation and releases the reason without invoking sleep.
 
@@ -349,6 +356,7 @@ Focused dailyRhythm tests prove:
 
 Focused GameSession tests prove:
 
+- the shared config() helper injects nextWeather: () => 'sunny' by default, while weather-specific tests override it explicitly;
 - the exact Day 1, 06:00, 20 / 20, sunny defaults;
 - snapshots remain fresh and JSON round-trippable with the new fields;
 - each action charges its exact cost once;
@@ -370,18 +378,18 @@ Focused GameSession tests prove:
 - repeated acknowledgment returns no-day-summary without mutation; and
 - Day 14 remains playable but cannot advance to Day 15.
 
-Mutation checks must demonstrate that the tests fail when the cutoff comparison, failure precedence, rain watering, single provider call, duplicate-sleep gate, or atomic charge behavior is deliberately broken.
+Existing domain sleep helpers are upgraded deliberately. A normal advanceDayAtBed helper faces the bed, expects day-advanced, verifies the pending summary, calls acknowledgeDaySummary, and expects day-started. Growth and Day 14 tests use that complete helper. Tests specifically covering the pending gate or duplicate sleep call raw sleep and acknowledge explicitly.
 
-### Render and bridge tests
+Mutation checks are scoped to reachable ownership. dailyRhythm mutations must fail for cutoff comparison and time-before-stamina precedence. GameSession mutations must fail for successful budget application, reachable stamina exhaustion, rain watering, the shared active-day gate, single provider call, duplicate sleep, and atomic charging. No test claims to reach a late clock through GameSession play.
 
-Focused tests prove:
+### Render, type, and bridge coverage
+
+Focused farmVisuals tests prove:
 
 - farmVisuals renders every tilled rainy tile wet, including empty soil;
-- sunny dry/wet and crop-growth mappings remain correct;
-- ProofScene includes acknowledgeDaySummary in SceneCommands;
-- every command publishes its CommandResult and authoritative snapshot;
-- the weather provider and mutable session are not exposed through the facade; and
-- teardown remains idempotent.
+- sunny dry/wet and crop-growth mappings remain correct.
+
+The TypeScript and Svelte check proves SceneCommands includes acknowledgeDaySummary and that App and Overlay consume the widened facade. Playwright proves acknowledgment publishes the result and authoritative snapshot that clears the summary. Existing lifecycle tests continue to prove idempotent teardown. No Phaser scene harness or new Bun test runner is introduced merely to inspect the facade, publication plumbing, or absence of a provider field.
 
 ### Browser acceptance
 
@@ -401,9 +409,13 @@ Browser coverage proves:
 10. The displayed next-day weather matches the authoritative current weather.
 11. The existing complete turnip loop remains playable across repeated days.
 
-Deterministic rain selection, rain-driven crop growth, the cutoff boundary, stamina exhaustion, and Day 14 are proved in pure tests. Browser acceptance does not gain a weather setter, clock setter, stamina setter, command hook, or test-only mutation API.
+The browser day-transition helper confirms sleep, waits for the authoritative summary, asserts its visible content, clicks Start Day N, and waits for the summary and input lock to clear. Existing farming routes use that complete helper after every successful sleep.
 
-All existing foundation, farming, lifecycle, HMR, collision, depth, camera, stage-scaling, and map-edge acceptance remains green. Existing sleep helpers are updated to acknowledge the morning summary explicitly.
+Multi-day farming branches on the observed authoritative weather. On Sunny days it waters and expects crop-watered. On Rainy days it attempts Water once to assert rain-waters-crops and unchanged budgets, then sleeps and expects growth without manual watering. This preserves real production Math.random while making the loop deterministic for either outcome and without adding a setter.
+
+Deterministic rain selection, rain-driven crop growth, the cutoff boundary, stamina exhaustion, provider call count, and Day 14 are proved in pure tests. Browser acceptance does not gain a weather setter, clock setter, stamina setter, command hook, or test-only mutation API.
+
+All existing foundation, farming, lifecycle, HMR, collision, depth, camera, stage-scaling, and map-edge acceptance remains green. Unit and browser sleep helpers both acknowledge the morning summary explicitly except in tests whose subject is the pending state itself.
 
 ### Final macOS gate
 
