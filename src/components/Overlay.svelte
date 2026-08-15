@@ -1,11 +1,13 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import type { InputGate } from '../game/core/InputGate';
   import type {
     CommandResult,
     FarmingAction,
     GameSnapshot,
+    Weather,
   } from '../game/core/types';
+  import { formatTime } from '../game/core/dailyRhythm';
   import type { SceneCommands } from '../game/phaser/ProofScene';
 
   type LifecycleStatus = 'loading' | 'ready' | 'error';
@@ -18,8 +20,12 @@
     result: CommandResult | null;
     commands: SceneCommands | null;
     sleepPromptVisible: boolean;
+    sleepSubmitting: boolean;
+    summarySubmitting: boolean;
+    dayTransitionActive: boolean;
     onConfirmSleep: () => void;
     onCancelSleep: () => void;
+    onStartDay: () => void;
   }
 
   const actions: ReadonlyArray<{
@@ -41,19 +47,40 @@
     result,
     commands,
     sleepPromptVisible,
+    sleepSubmitting,
+    summarySubmitting,
+    dayTransitionActive,
     onConfirmSleep,
     onCancelSleep,
+    onStartDay,
   }: Props = $props();
   let overlayLocked = $state(false);
   let locked = $state(false);
   let confirmButton = $state<HTMLButtonElement | null>(null);
+  let startDayButton = $state<HTMLButtonElement | null>(null);
+  const summary = $derived(snapshot?.pendingDaySummary ?? null);
   const actionsReady = $derived(
-    status === 'ready' && commands !== null && snapshot !== null && !sleepPromptVisible,
+    status === 'ready'
+      && commands !== null
+      && snapshot !== null
+      && !dayTransitionActive,
   );
 
   $effect(() => {
-    if (sleepPromptVisible) confirmButton?.focus();
+    if (sleepPromptVisible) {
+      void tick().then(() => requestAnimationFrame(() => confirmButton?.focus()));
+    } else if (summary) {
+      void tick().then(() => requestAnimationFrame(() => startDayButton?.focus()));
+    }
   });
+
+  function weatherLabel(weather: Weather): string {
+    switch (weather) {
+      case 'sunny': return 'Sunny';
+      case 'rainy': return 'Rainy';
+      default: return assertNever(weather);
+    }
+  }
 
   function actionLabel(action: FarmingAction): string {
     switch (action) {
@@ -112,7 +139,7 @@
   });
 
   const toggle = () => {
-    if (sleepPromptVisible) return;
+    if (dayTransitionActive) return;
     const nextLocked = !overlayLocked;
     overlayLocked = nextLocked;
     inputGate.set('overlay', nextLocked);
@@ -130,6 +157,9 @@
     <section data-farming-hud aria-label="Farming status">
       <div class="hud-stats">
         <p>Day {snapshot?.day ?? '—'}</p>
+        <p>Time: <span data-time>{snapshot ? formatTime(snapshot.timeMinutes) : '—'}</span></p>
+        <p>Stamina: <span data-stamina>{snapshot ? snapshot.stamina + ' / ' + snapshot.maxStamina : '—'}</span></p>
+        <p>Weather: <span data-weather>{snapshot ? weatherLabel(snapshot.weather) : '—'}</span></p>
         <p>Selected: {snapshot ? actionLabel(snapshot.selectedAction) : '—'}</p>
         <p>Seeds: {snapshot?.inventory.turnipSeeds ?? '—'}</p>
         <p>Turnips: {snapshot?.inventory.turnips ?? '—'}</p>
@@ -156,7 +186,7 @@
     <p>Move: WASD</p>
     <p>Use selected: Space · Sleep at bed: E</p>
     <p>World input: {locked ? 'Locked' : 'Active'}</p>
-    <button type="button" aria-pressed={overlayLocked} disabled={sleepPromptVisible} onclick={toggle}>
+    <button type="button" aria-pressed={overlayLocked} disabled={dayTransitionActive} onclick={toggle}>
       {overlayLocked ? 'Unlock world input' : 'Lock world input'}
     </button>
   {/if}
@@ -173,8 +203,42 @@
         <h2 id="sleep-dialog-title">Sleep until tomorrow?</h2>
         <p>Watered crops grow overnight.</p>
         <div class="sleep-dialog-actions">
-          <button bind:this={confirmButton} type="button" onclick={onConfirmSleep} disabled={commands === null}>Confirm</button>
-          <button type="button" onclick={onCancelSleep}>Cancel</button>
+          <button
+            bind:this={confirmButton}
+            type="button"
+            onclick={onConfirmSleep}
+            disabled={commands === null || sleepSubmitting}
+          >Confirm</button>
+          <button type="button" onclick={onCancelSleep} disabled={sleepSubmitting}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if summary}
+    <div class="sleep-modal-layer" data-day-summary-modal>
+      <div
+        class="sleep-dialog summary-dialog"
+        role="dialog"
+        tabindex="-1"
+        aria-modal="true"
+        aria-labelledby="morning-summary-title"
+      >
+        <h2 id="morning-summary-title">Morning summary</h2>
+        <p>Day {summary.completedDay} complete</p>
+        <p>Crops advanced: {summary.cropsAdvanced}</p>
+        <p>Next day: Day {summary.nextDay}</p>
+        <p>Weather: {weatherLabel(summary.nextWeather)}</p>
+        <p>Stamina restored: {summary.staminaRestored} ({snapshot?.stamina ?? '—'} / {snapshot?.maxStamina ?? '—'})</p>
+        <div class="sleep-dialog-actions">
+          <button
+            bind:this={startDayButton}
+            type="button"
+            onclick={onStartDay}
+            disabled={summarySubmitting || commands === null}
+          >
+            Start Day {summary.nextDay}
+          </button>
         </div>
       </div>
     </div>

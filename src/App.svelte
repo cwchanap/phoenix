@@ -16,17 +16,29 @@
   let commandResult = $state.raw<CommandResult | null>(null);
   let commands = $state.raw<SceneCommands | null>(null);
   let sleepPromptVisible = $state(false);
+  let sleepSubmitting = $state(false);
+  let summarySubmitting = $state(false);
+  let dayTransitionActive = $state(false);
 
-  function closeSleepPrompt(): void {
-    sleepPromptVisible = false;
-    inputGate.set('sleep-confirmation', false);
+  function syncDayTransition(): void {
+    dayTransitionActive = (
+      sleepPromptVisible
+      || sleepSubmitting
+      || summarySubmitting
+      || (gameSnapshot?.pendingDaySummary ?? null) !== null
+    );
+    inputGate.set('day-transition', dayTransitionActive);
   }
 
   function resetGamePresentation(): void {
     gameSnapshot = null;
     commandResult = null;
     commands = null;
-    closeSleepPrompt();
+    sleepPromptVisible = false;
+    sleepSubmitting = false;
+    summarySubmitting = false;
+    syncDayTransition();
+    inputGate.set('day-transition', false);
   }
 
   function handleStatus(nextStatus: string): void {
@@ -55,6 +67,7 @@
 
   function handleGameSnapshot(nextSnapshot: GameSnapshot): void {
     gameSnapshot = nextSnapshot;
+    syncDayTransition();
   }
 
   function handleCommandResult(nextResult: CommandResult): void {
@@ -62,37 +75,58 @@
   }
 
   function handleSleepPrompt(): void {
-    if (sleepPromptVisible) return;
+    if (dayTransitionActive) return;
     sleepPromptVisible = true;
-    inputGate.set('sleep-confirmation', true);
+    syncDayTransition();
   }
 
   function confirmSleep(): void {
-    if (!sleepPromptVisible) return;
+    if (!sleepPromptVisible || sleepSubmitting) return;
 
     const currentCommands = commands;
     if (!currentCommands) {
-      closeSleepPrompt();
+      sleepPromptVisible = false;
+      syncDayTransition();
       return;
     }
 
+    sleepSubmitting = true;
+    syncDayTransition();
     try {
       currentCommands.sleep();
     } finally {
-      closeSleepPrompt();
+      sleepSubmitting = false;
+      sleepPromptVisible = false;
+      syncDayTransition();
     }
   }
 
   function cancelSleep(): void {
-    closeSleepPrompt();
+    if (sleepSubmitting) return;
+    sleepPromptVisible = false;
+    syncDayTransition();
+  }
+
+  function startDay(): void {
+    if (!gameSnapshot?.pendingDaySummary || summarySubmitting || !commands) return;
+
+    summarySubmitting = true;
+    syncDayTransition();
+    try {
+      commands.acknowledgeDaySummary();
+    } finally {
+      summarySubmitting = false;
+      syncDayTransition();
+    }
   }
 
   const handleBlur = () => inputGate.set('window-blur', true);
   const handleFocus = () => inputGate.set('window-blur', false);
 
   onMount(() => () => {
-    closeSleepPrompt();
+    resetGamePresentation();
     handleFocus();
+    inputGate.set('day-transition', false);
   });
 </script>
 
@@ -117,8 +151,12 @@
       result={commandResult}
       {commands}
       {sleepPromptVisible}
+      {sleepSubmitting}
+      {summarySubmitting}
+      {dayTransitionActive}
       onConfirmSleep={confirmSleep}
       onCancelSleep={cancelSleep}
+      onStartDay={startDay}
     />
   </StageFrame>
 </main>

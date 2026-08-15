@@ -99,7 +99,7 @@ body {
   position: absolute;
   top: 12px;
   right: 12px;
-  width: min(270px, calc(100% - 24px));
+  width: min(300px, calc(100% - 24px));
   margin: 0;
   padding: 7px 8px;
   background: rgb(16 22 20 / 88%);
@@ -115,8 +115,9 @@ body {
 
 .hud-stats {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 2px 12px;
+  font-size: 12px;
 }
 
 .action-buttons {
@@ -184,6 +185,10 @@ body {
   background: #17251f;
   box-shadow: 0 5px 0 rgb(16 22 20 / 55%);
   pointer-events: auto;
+}
+
+.summary-dialog {
+  width: min(320px, calc(100% - 40px));
 }
 
 .sleep-dialog h2 {
