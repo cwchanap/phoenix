@@ -12,6 +12,7 @@ import { formatTime } from '../../src/game/core/dailyRhythm';
 import {
   confirmAndStartDay,
   gameSnapshot,
+  assertCameraWithinBounds,
   moveUntil,
   moveUntilPlayerAxis,
   snapshot,
@@ -97,21 +98,41 @@ async function expectPublishedTarget(page: Page, target: GridCell): Promise<Game
   return state;
 }
 
-async function tapDirection(page: Page, key: string, target: GridCell): Promise<void> {
-  const facing = key === 'w'
-    ? 'up'
-    : key === 'd'
-      ? 'right'
-      : key === 's'
-        ? 'down'
-        : 'left';
-  await page.keyboard.down(key);
+async function acquireTarget(page: Page, key: string, target: GridCell): Promise<void> {
+  const initial = await snapshot(page);
+  if (initial.visibleTarget
+    && initial.target?.x === target.x
+    && initial.target?.y === target.y) {
+    assertCameraWithinBounds(initial);
+    return;
+  }
+
+  let waitError: unknown;
   try {
-    await expect.poll(async () => (await snapshot(page)).player.facing, { timeout: 3_000 }).toBe(facing);
+    await page.keyboard.down(key);
+    try {
+      await page.waitForFunction(
+        ({ x, y }) => {
+          const current = window.__PHOENIX_TEST__!.snapshot();
+          return current.target?.x === x && current.target?.y === y;
+        },
+        target,
+        { timeout: 3_000, polling: 'raf' },
+      );
+    } catch (error) {
+      waitError = error;
+    }
   } finally {
     await page.keyboard.up(key);
   }
-  await expectDebugTarget(page, target);
+
+  const released = await snapshot(page);
+  if (waitError) {
+    throw new Error(`${waitError instanceof Error ? waitError.message : String(waitError)}; last snapshot after release: ${JSON.stringify(released)}`);
+  }
+  expect(released.target).toEqual(target);
+  expect(released.visibleTarget).toBe(true);
+  assertCameraWithinBounds(released);
 }
 
 async function selectWithKey(
@@ -167,8 +188,7 @@ async function moveToBed(page: Page): Promise<void> {
   } else if (settled.player.position.y >= 10) {
     settled = await moveUntilPlayerAxis(page, ['w'], 'y', 'lte', 9.8);
   }
-  expect(Math.floor(settled.player.position.y)).toBe(9);
-  await tapDirection(page, 'd', BED_CELL);
+  await acquireTarget(page, 'd', BED_CELL);
 }
 
 async function moveToCrop(page: Page): Promise<void> {
@@ -176,9 +196,7 @@ async function moveToCrop(page: Page): Promise<void> {
   if (settled.player.position.y < 9.3) {
     settled = await moveUntilPlayerAxis(page, ['a'], 'y', 'gte', 9.3);
   }
-  expect(Math.floor(settled.player.position.x), JSON.stringify(settled.player.position)).toBe(2);
-  expect(Math.floor(settled.player.position.y), JSON.stringify(settled.player.position)).toBe(9);
-  await tapDirection(page, 'd', CROP_CELL);
+  await acquireTarget(page, 'd', CROP_CELL);
 }
 
 async function waitForCameraToSettle(page: Page): Promise<void> {
@@ -253,7 +271,7 @@ async function openSleepDialog(page: Page): Promise<Locator> {
 
 test('selects hands, keeps a rejected empty-crop command stable, and supports clickable selection', async ({ page }) => {
   await waitForWorld(page);
-  await tapDirection(page, 'd', CROP_CELL);
+  await acquireTarget(page, 'd', CROP_CELL);
 
   const hands = await selectWithKey(page, '4', CROP_CELL);
   expect(hands.inventory).toEqual({ turnipSeeds: 3, turnips: 0 });
@@ -290,7 +308,7 @@ test('selects hands, keeps a rejected empty-crop command stable, and supports cl
 
 test('completes three real-control nights from tilling through turnip harvest', async ({ page }) => {
   await waitForWorld(page);
-  await tapDirection(page, 'd', CROP_CELL);
+  await acquireTarget(page, 'd', CROP_CELL);
 
   let state = await selectWithKey(page, '1', CROP_CELL);
   await expectHud(page, state);
@@ -457,7 +475,7 @@ test('completes three real-control nights from tilling through turnip harvest', 
 
 test('reverses crop and player depth while retaining foundation scenery depth keys', async ({ page }) => {
   await waitForWorld(page);
-  await tapDirection(page, 'd', CROP_CELL);
+  await acquireTarget(page, 'd', CROP_CELL);
   await selectWithKey(page, '1', CROP_CELL);
   await useSelected(page, CROP_CELL, FEEDBACK.soilTilled);
   await selectWithKey(page, '2', CROP_CELL);
