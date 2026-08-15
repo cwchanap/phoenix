@@ -164,6 +164,8 @@ async function moveToBed(page: Page): Promise<void> {
   let settled = await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 5.1);
   if (settled.player.position.y < 9.8) {
     settled = await moveUntilPlayerAxis(page, ['s'], 'y', 'gte', 9.8);
+  } else if (settled.player.position.y >= 10) {
+    settled = await moveUntilPlayerAxis(page, ['w'], 'y', 'lte', 9.8);
   }
   expect(Math.floor(settled.player.position.y)).toBe(9);
   await tapDirection(page, 'd', BED_CELL);
