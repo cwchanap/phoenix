@@ -162,8 +162,8 @@ async function moveToBed(page: Page): Promise<void> {
   await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 5.1);
   await moveUntilPlayerAxis(page, ['w'], 'y', 'lte', 9.8);
   let settled = await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 5.1);
-  if (settled.player.position.y < 9.8) {
-    settled = await moveUntilPlayerAxis(page, ['s'], 'y', 'gte', 9.8);
+  if (settled.player.position.y < 9) {
+    settled = await moveUntilPlayerAxis(page, ['s'], 'y', 'gte', 9);
   } else if (settled.player.position.y >= 10) {
     settled = await moveUntilPlayerAxis(page, ['w'], 'y', 'lte', 9.8);
   }
