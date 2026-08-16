@@ -1,9 +1,11 @@
 # Phoenix
 
 Phoenix combines the HPA-588 foundation slice, the HPA-591 turnip day-loop
-slice, and the HPA-592 daily-rhythm slice: a browser and Tauri proof world
-where you can move through the authored map, hoe and plant a turnip, water it
-through three nights, and harvest it. HPA-592 adds an action-driven clock and
+slice, the HPA-592 daily-rhythm slice, and HPA-593's three-crop economy loop: a
+browser and Tauri proof world where you can move through the authored map, hoe,
+plant, water, and harvest Turnip, Potato, and Pumpkin crops; buy seeds at the
+Seed shop; deposit harvests in the Shipping bin; sleep for itemized Shipping
+income; and reinvest the proceeds. HPA-592 adds an action-driven clock and
 stamina, sunny and rainy days, and a blocking morning summary. This macOS-first
 farming MVP is verified on macOS only; it does not claim acceptance for Windows or Linux.
 
@@ -35,16 +37,36 @@ Run the desktop shell with:
 bun run tauri:dev
 ```
 
-Controls are keyboard-first: WASD moves in screen-relative directions; keys
-1–4 select Hoe, Seeds, Water, and Hands respectively. Press Space to apply the
-selected action to the highlighted farm cell. Press E when the bed is
-highlighted to request sleep. The overlay input lock prevents keyboard
-movement while it is enabled; unlock it to resume movement.
+## Controls and three-crop economy (HPA-593)
 
-The new session starts with three starter seeds for turnips. A planted turnip
-advances one growth stage after each of three watered nights; harvest it with
-Hands after the third night. Pressing E at the bed opens a Svelte confirmation
-panel that locks world input.
+Controls are keyboard-first: WASD moves in screen-relative directions; `1 Hoe`,
+`2 Seeds`, `3 Water`, and `4 Hands` select the farming action. Seeds uses the
+currently selected crop kind. Press Space to apply the selected action to the
+highlighted farm cell. The Select Turnip, Select Potato, and Select Pumpkin
+buttons change the seed kind without changing the farming action.
+
+Press E to open sleep, Seed shop, or Shipping bin from its highlighted authored
+target. The shop and shipping dialogs use minus, plus, Max controls, explicit
+Buy/Deposit actions, Escape/Close dismissal, and a world-input lock. The
+overlay input lock prevents keyboard movement while it is enabled; unlock it
+to resume movement.
+
+Each new session starts with 150G and three turnip seeds. Crop growth and
+prices are fixed by this table:
+
+| Crop | Growth | Seed price | Sale price |
+| --- | --- | ---: | ---: |
+| Turnip | 3 watered nights | 20G | 35G |
+| Potato | 5 watered nights | 40G | 75G |
+| Pumpkin | 7 watered nights | 70G | 140G |
+
+Deposits are final and free. One successful sleep credits itemized Shipping
+income once and clears the pending shipment before the blocking Morning
+summary. The 290G/210G acceptance example demonstrates reinvest: after buying
+one Potato seed and one Pumpkin seed, shipping one mature crop of each kind
+plus one Turnip yields 250G of Shipping income and 290G total; buying four
+Turnip seeds for 80G leaves 210G. This demonstrates the loop without making
+that balance a guaranteed general session outcome.
 
 ## Daily rhythm (HPA-592)
 
@@ -102,5 +124,9 @@ and macOS Tauri build matrix there.
 - Tauri remains the unchanged macOS-only desktop shell; gameplay authority
   stays in the frontend rules layer.
 
-The authored proof map is a finite 12×12 (12x12) logical grid using 64×32
-(64x32) 2:1 isometric tiles and embedded Tiled tilesets.
+The existing compact 12×12 (12x12) world is a finite logical grid using 64×32
+(64x32) 2:1 isometric tiles and embedded Tiled tilesets. The authored shop cell 6,7
+is the adjacent shop-counter cell at 6,7 beside the existing building, while the
+shipping cell 6,10 is the authored shipping-bin target. Economy scenery uses the
+three-frame 288×96 scenery sheet; the compact world, map IDs, and collision routes
+remain stable.

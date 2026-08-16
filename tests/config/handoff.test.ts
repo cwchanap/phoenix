@@ -51,6 +51,36 @@ describe('Task 8 handoff contract', () => {
     ]) {
       expect(readme.toLowerCase()).toContain(dailyRhythmText.toLowerCase());
     }
+    for (const economyText of [
+      'HPA-593',
+      '150G',
+      'Turnip',
+      'Potato',
+      'Pumpkin',
+      '3 watered nights',
+      '5 watered nights',
+      '7 watered nights',
+      'Seed shop',
+      'Shipping bin',
+      '20G',
+      '35G',
+      '40G',
+      '75G',
+      '70G',
+      '140G',
+      'Select Turnip',
+      'Select Potato',
+      'Select Pumpkin',
+      'minus, plus, Max',
+      'Deposit',
+      'Shipping income',
+      'reinvest',
+      'shop cell 6,7',
+      'adjacent shop-counter cell at 6,7',
+      'shipping cell 6,10',
+    ]) {
+      expect(readme.toLowerCase()).toContain(economyText.toLowerCase());
+    }
   });
 
   test('verifies an exact committed archive with the approved seven-command matrix', async () => {
