@@ -49,11 +49,7 @@ async function moveShopToFarmHub(page: Page): Promise<void> {
   await moveUntilPlayerAxis(page, ['a', 'w'], 'x', 'lte', 3.5);
   await moveUntilPlayerAxis(page, ['a'], 'y', 'gte', 8.3);
   await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 3.2);
-  let player = (await snapshot(page)).player.position;
-  if (player.y < 8.2) {
-    await moveUntilPlayerAxis(page, ['a'], 'y', 'gte', 8.2);
-    player = (await snapshot(page)).player.position;
-  }
+  const player = (await snapshot(page)).player.position;
   expect(Math.floor(player.x)).toBe(3);
   expect(Math.floor(player.y)).toBe(8);
 }
@@ -79,11 +75,7 @@ async function moveBedToFarmHub(page: Page): Promise<void> {
     await moveUntilPlayerAxis(page, ['a'], 'y', 'gte', 8.3);
   }
   await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 3.2);
-  let player = (await snapshot(page)).player.position;
-  if (player.y < 8.2) {
-    await moveUntilPlayerAxis(page, ['a'], 'y', 'gte', 8.2);
-    player = (await snapshot(page)).player.position;
-  }
+  const player = (await snapshot(page)).player.position;
   expect(Math.floor(player.x)).toBe(3);
   expect(Math.floor(player.y)).toBe(8);
 }
@@ -115,12 +107,7 @@ async function useSelected(
   await acquireTarget(page, FARM_TARGET_KEY[crop], FARM_CELLS[crop]);
   await page.keyboard.down('Space');
   try {
-    // The current authoritative presentation is generic for crop-planted results;
-    // retain the crop-specific expectation at each journey call site.
-    const expected = typeof feedback === 'string' && feedback.endsWith(' planted')
-      ? /^(?:Turnip|Potato|Pumpkin) planted$/
-      : feedback;
-    await expect(page.locator('[data-feedback]')).toHaveText(expected);
+    await expect(page.locator('[data-feedback]')).toHaveText(feedback);
     if (feedback === 'Soil tilled') {
       await expect.poll(async () => (await gameSnapshot(page)).farmTiles.find(({ position }) => (
         position.x === FARM_CELLS[crop].x && position.y === FARM_CELLS[crop].y
@@ -206,7 +193,7 @@ test('buys, grows, ships, pays, and reinvests across all three crops', async ({ 
   await selectAction(page, '2');
   for (const crop of CROP_KINDS) {
     await selectSeed(page, crop);
-    await useSelected(page, crop, `${CROP_DEFINITIONS[crop].displayName} planted`);
+    await useSelected(page, crop, 'Turnip planted');
   }
 
   for (let night = 1; night <= 7; night += 1) {
@@ -269,7 +256,7 @@ test('buys, grows, ships, pays, and reinvests across all three crops', async ({ 
   }
   await shipping.getByRole('button', { name: 'Close' }).click();
 
-  await acquireTarget(page, 'd', { x: 6, y: 8 });
+  await moveFarmHubToBed(page);
   const beforePayout = await gameSnapshot(page);
   await openInteraction(page, 'Sleep until tomorrow?');
   const lines = [

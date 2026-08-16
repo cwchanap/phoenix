@@ -1963,6 +1963,8 @@ async function moveFarmHubToShipping(page: Page): Promise<void> {
 
 Approved evidence-based correction: the real-browser route uses the `x <= 5.1` waypoint; retain the unchanged 3-second deadline and retries 0.
 
+Human-approved execution deviations recorded from real-browser evidence (2026-08-15): retain the `moveFarmHubToBed` and mirrored world bed-approach alignment after `d+s x >= 5.1` (`y < 9.2` → `['s']` until `y >= 9.2`, refresh the snapshot, then retain the existing `y >= 10` correction); retain the plan-required `moveBedToFarmHub`/mirrored pre-leg alignment (`y < 8.2` → `['a']` until `y >= 8.3`) with no post-leg fallback; use `moveFarmHubToBed` for the post-shipping bed return; and use bounded real `page.keyboard.press(key, { delay: 8 })` pulses followed by a settled animation frame before target assertions, with the paired press owning key release. These are the only approved deviations; preserve the exact routes, 3-second deadline, retries 0, release semantics for held-key helpers, and observation-only boundary otherwise.
+
 All helpers must retain key release in `finally` through the existing shared helpers and assert camera bounds after each settled leg.
 
 - [ ] **Step 3: Add real-control action helpers without widening the hook**

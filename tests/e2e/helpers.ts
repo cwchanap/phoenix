@@ -32,32 +32,86 @@ export async function acquireTarget(page: Page, key: string, target: GridCell): 
     return;
   }
 
+  const deadline = Date.now() + 3_000;
+  const waitForSettledFrame = async (timeout: number): Promise<void> => {
+    await page.evaluate((timeoutMs) => new Promise<void>((resolve, reject) => {
+      const deadlineAt = performance.now() + timeoutMs;
+      let previous: {
+        x: number;
+        y: number;
+        facing: string;
+        target: GridCell | null;
+        visibleTarget: boolean;
+      } | null = null;
+      const timer = window.setTimeout(() => {
+        reject(new Error('Target did not settle after key release'));
+      }, timeoutMs);
+      const sample = () => {
+        const current = window.__PHOENIX_TEST__!.snapshot();
+        const state = {
+          x: current.player.position.x,
+          y: current.player.position.y,
+          facing: current.player.facing,
+          target: current.target ? { ...current.target } : null,
+          visibleTarget: current.visibleTarget,
+        };
+        const positionSettled = previous !== null
+          && Math.abs(state.x - previous.x) < 0.0001
+          && Math.abs(state.y - previous.y) < 0.0001;
+        const targetSettled = previous !== null
+          && state.facing === previous.facing
+          && state.visibleTarget === previous.visibleTarget
+          && state.target?.x === previous.target?.x
+          && state.target?.y === previous.target?.y;
+        if (positionSettled && targetSettled) {
+          window.clearTimeout(timer);
+          resolve();
+          return;
+        }
+        previous = state;
+        if (performance.now() >= deadlineAt) {
+          window.clearTimeout(timer);
+          reject(new Error('Target did not settle after key release'));
+          return;
+        }
+        requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+    }), timeout);
+  };
+
   let waitError: unknown;
+  let released = initial;
   try {
-    await page.keyboard.down(key);
-    try {
-      await page.waitForFunction(
-        ({ x, y }) => {
-          const current = window.__PHOENIX_TEST__!.snapshot();
-          return current.target?.x === x && current.target?.y === y;
-        },
-        target,
-        { timeout: 3_000, polling: 'raf' },
-      );
-    } catch (error) {
-      waitError = error;
+    while (Date.now() < deadline) {
+      await page.keyboard.press(key, { delay: 8 });
+
+      const settleTimeout = deadline - Date.now();
+      if (settleTimeout <= 0) break;
+      try {
+        await waitForSettledFrame(settleTimeout);
+      } catch (error) {
+        waitError = error;
+        released = await snapshot(page).catch(() => released);
+        break;
+      }
+      released = await snapshot(page);
+      if (released.target?.x === target.x && released.target?.y === target.y) {
+        expect(released.target, JSON.stringify({ initial, released })).toEqual(target);
+        expect(released.visibleTarget).toBe(true);
+        assertCameraWithinBounds(released);
+        return;
+      }
     }
-  } finally {
-    await page.keyboard.up(key);
+  } catch (error) {
+    waitError = error;
+    released = await snapshot(page).catch(() => released);
   }
 
-  const released = await snapshot(page);
-  if (waitError) {
-    throw new Error(`${waitError instanceof Error ? waitError.message : String(waitError)}; snapshots: ${JSON.stringify({ initial, released })}`);
-  }
-  expect(released.target, JSON.stringify({ initial, released })).toEqual(target);
-  expect(released.visibleTarget).toBe(true);
-  assertCameraWithinBounds(released);
+  const timeoutError = waitError instanceof Error
+    ? waitError.message
+    : `Target ${JSON.stringify(target)} was not acquired before the 3-second deadline`;
+  throw new Error(`${timeoutError}; snapshots: ${JSON.stringify({ initial, released })}`);
 }
 
 export async function gameSnapshot(page: Page): Promise<GameSnapshot> {
