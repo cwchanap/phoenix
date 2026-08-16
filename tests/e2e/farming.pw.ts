@@ -42,7 +42,7 @@ const ACTION_LABEL: Record<FarmingAction, string> = {
 const FEEDBACK = {
   actionSelected: 'Action selected',
   soilTilled: 'Soil tilled',
-  turnipPlanted: 'Turnip planted',
+  turnipPlanted: 'Crop planted',
   cropWatered: 'Crop watered',
   rainWatersCrops: 'Rain is watering the crops',
   dayStarted: 'Day started',

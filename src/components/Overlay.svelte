@@ -150,7 +150,7 @@
       case 'action-selected': return 'Action selected';
       case 'seed-selected': return 'Seed selected';
       case 'soil-tilled': return 'Soil tilled';
-      case 'crop-planted': return 'Turnip planted';
+      case 'crop-planted': return 'Crop planted';
       case 'crop-watered': return 'Crop watered';
       case 'crop-harvested': return 'Crop harvested';
       case 'seeds-purchased': return 'Seeds purchased';

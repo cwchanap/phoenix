@@ -193,7 +193,7 @@ test('buys, grows, ships, pays, and reinvests across all three crops', async ({ 
   await selectAction(page, '2');
   for (const crop of CROP_KINDS) {
     await selectSeed(page, crop);
-    await useSelected(page, crop, 'Turnip planted');
+    await useSelected(page, crop, 'Crop planted');
   }
 
   for (let night = 1; night <= 7; night += 1) {
