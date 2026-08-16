@@ -15,6 +15,7 @@ import {
   acquireTarget,
   gameSnapshot,
   assertCameraWithinBounds,
+  captureCropSprite,
   moveUntil,
   moveUntilPlayerAxis,
   snapshot,
@@ -23,11 +24,6 @@ import {
 
 const CROP_CELL: GridCell = { x: 3, y: 8 };
 const BED_CELL: GridCell = { x: 6, y: 8 };
-const CROP_FOOTPOINT = { x: 3.5, y: 8.5 };
-const CROP_WORLD_FOOTPOINT = {
-  x: 384 + (CROP_FOOTPOINT.x - CROP_FOOTPOINT.y) * 32,
-  y: (CROP_FOOTPOINT.x + CROP_FOOTPOINT.y) * 16,
-};
 
 const ACTION_BY_KEY = {
   '1': 'hoe',
@@ -170,59 +166,6 @@ async function moveToCrop(page: Page): Promise<void> {
   await acquireTarget(page, 'd', CROP_CELL);
 }
 
-async function waitForCameraToSettle(page: Page): Promise<void> {
-  await page.evaluate(() => new Promise<void>((resolve, reject) => {
-    const deadline = performance.now() + 3_000;
-    let previous: { scrollX: number; scrollY: number } | null = null;
-    const sample = () => {
-      const current = window.__PHOENIX_TEST__?.snapshot().camera;
-      if (!current) {
-        reject(new Error('Phoenix camera snapshot is not ready'));
-        return;
-      }
-      if (previous
-        && Math.abs(current.scrollX - previous.scrollX) < 0.01
-        && Math.abs(current.scrollY - previous.scrollY) < 0.01) {
-        resolve();
-        return;
-      }
-      previous = { scrollX: current.scrollX, scrollY: current.scrollY };
-      if (performance.now() >= deadline) {
-        reject(new Error(`Phoenix camera did not settle: ${JSON.stringify(current)}`));
-        return;
-      }
-      requestAnimationFrame(sample);
-    };
-    requestAnimationFrame(sample);
-  }));
-}
-
-async function captureCropSprite(page: Page): Promise<Buffer> {
-  await waitForCameraToSettle(page);
-  const debug = await snapshot(page);
-  const canvas = page.locator('canvas');
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error('Phoenix canvas is not measurable');
-
-  const scaleX = box.width / 640;
-  const scaleY = box.height / 360;
-  expect(scaleX).toBeGreaterThan(0);
-  expect(Number.isInteger(scaleX)).toBe(true);
-  expect(scaleY).toBe(scaleX);
-
-  const clip = {
-    x: box.x + (CROP_WORLD_FOOTPOINT.x - 16 - debug.camera.scrollX) * scaleX,
-    y: box.y + (CROP_WORLD_FOOTPOINT.y - 48 - debug.camera.scrollY) * scaleY,
-    width: 32 * scaleX,
-    height: 48 * scaleY,
-  };
-  expect(clip.x).toBeGreaterThanOrEqual(box.x);
-  expect(clip.y).toBeGreaterThanOrEqual(box.y);
-  expect(clip.x + clip.width).toBeLessThanOrEqual(box.x + box.width);
-  expect(clip.y + clip.height).toBeLessThanOrEqual(box.y + box.height);
-  return page.screenshot({ clip, animations: 'disabled' });
-}
-
 function expectDistinctFrame(previous: Buffer, current: Buffer): void {
   expect(Buffer.compare(previous, current)).not.toBe(0);
 }
@@ -302,7 +245,7 @@ test('completes three real-control nights from tilling through turnip harvest', 
   expect(state.timeMinutes).toBe(410);
   expect(state.stamina).toBe(16);
   await expectHud(page, state);
-  let previousFrame = await captureCropSprite(page);
+  let previousFrame = await captureCropSprite(page, CROP_CELL);
 
   state = await selectWithKey(page, '3', CROP_CELL);
   await expectHud(page, state);
@@ -315,7 +258,7 @@ test('completes three real-control nights from tilling through turnip harvest', 
   expect(state.timeMinutes).toBe(430);
   expect(state.stamina).toBe(14);
   await expectHud(page, state);
-  let currentFrame = await captureCropSprite(page);
+  let currentFrame = await captureCropSprite(page, CROP_CELL);
   expectDistinctFrame(previousFrame, currentFrame);
   previousFrame = currentFrame;
 
@@ -353,7 +296,7 @@ test('completes three real-control nights from tilling through turnip harvest', 
   await expectHud(page, state);
 
   await moveToCrop(page);
-  currentFrame = await captureCropSprite(page);
+  currentFrame = await captureCropSprite(page, CROP_CELL);
   expectDistinctFrame(previousFrame, currentFrame);
   previousFrame = currentFrame;
 
@@ -372,7 +315,7 @@ test('completes three real-control nights from tilling through turnip harvest', 
   }
   await expectHud(page, state);
   if (day2Weather === 'sunny') {
-    currentFrame = await captureCropSprite(page);
+    currentFrame = await captureCropSprite(page, CROP_CELL);
     expectDistinctFrame(previousFrame, currentFrame);
     previousFrame = currentFrame;
   }
@@ -394,7 +337,7 @@ test('completes three real-control nights from tilling through turnip harvest', 
   await expectHud(page, state);
 
   await moveToCrop(page);
-  currentFrame = await captureCropSprite(page);
+  currentFrame = await captureCropSprite(page, CROP_CELL);
   expectDistinctFrame(previousFrame, currentFrame);
   previousFrame = currentFrame;
 
@@ -413,7 +356,7 @@ test('completes three real-control nights from tilling through turnip harvest', 
   }
   await expectHud(page, state);
   if (day3Weather === 'sunny') {
-    currentFrame = await captureCropSprite(page);
+    currentFrame = await captureCropSprite(page, CROP_CELL);
     expectDistinctFrame(previousFrame, currentFrame);
     previousFrame = currentFrame;
   }
@@ -435,7 +378,7 @@ test('completes three real-control nights from tilling through turnip harvest', 
   await expectHud(page, state);
 
   await moveToCrop(page);
-  currentFrame = await captureCropSprite(page);
+  currentFrame = await captureCropSprite(page, CROP_CELL);
   expectDistinctFrame(previousFrame, currentFrame);
 
   state = await selectWithKey(page, '4', CROP_CELL);

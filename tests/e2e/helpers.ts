@@ -1,12 +1,15 @@
 import { expect, type Page } from '@playwright/test';
+import { Buffer } from 'node:buffer';
+import { gridToWorld } from '../../src/game/core/isometric';
 import type { DebugSnapshot } from '../../src/game/phaser/ProofScene';
-import type { DaySummary, GameSnapshot, GridCell } from '../../src/game/core/types';
+import type { GameSnapshot, GridCell, ShipmentLine } from '../../src/game/core/types';
+import { CROP_DEFINITIONS } from '../../src/game/core/cropDefinitions';
 
 interface ExpectedDayTransition {
   completedDay: number;
   cropsAdvanced: number;
   staminaRestored: number;
-  shipments?: DaySummary['shipments'];
+  shipments?: ShipmentLine[];
   shippingIncome?: number;
   moneyAfterShipping?: number;
 }
@@ -50,9 +53,9 @@ export async function acquireTarget(page: Page, key: string, target: GridCell): 
 
   const released = await snapshot(page);
   if (waitError) {
-    throw new Error(`${waitError instanceof Error ? waitError.message : String(waitError)}; last snapshot after release: ${JSON.stringify(released)}`);
+    throw new Error(`${waitError instanceof Error ? waitError.message : String(waitError)}; snapshots: ${JSON.stringify({ initial, released })}`);
   }
-  expect(released.target).toEqual(target);
+  expect(released.target, JSON.stringify({ initial, released })).toEqual(target);
   expect(released.visibleTarget).toBe(true);
   assertCameraWithinBounds(released);
 }
@@ -95,6 +98,16 @@ export async function confirmAndStartDay(
   await expect(dialog).toContainText(
     'Stamina restored: ' + expected.staminaRestored,
   );
+  const shipments = expected.shipments ?? [];
+  await expect(dialog.locator('[data-shipment-row]')).toHaveCount(shipments.length);
+  for (const shipment of shipments) {
+    const line = `${CROP_DEFINITIONS[shipment.crop].displayName}: ${shipment.quantity} × ${shipment.unitValue} = ${shipment.lineTotal}`;
+    await expect(dialog.locator('[data-shipment-row]').filter({ hasText: line })).toHaveCount(1);
+  }
+  const shippingIncome = expected.shippingIncome ?? 0;
+  const moneyAfterShipping = expected.moneyAfterShipping ?? pending.money;
+  await expect(dialog).toContainText('Shipping income: ' + shippingIncome);
+  await expect(dialog).toContainText('Money after shipping: ' + moneyAfterShipping);
   expect((await snapshot(page)).locked).toBe(true);
 
   const start = page.getByRole('button', { name: 'Start Day ' + nextDay });
@@ -104,6 +117,69 @@ export async function confirmAndStartDay(
   await expect.poll(async () => (await gameSnapshot(page)).pendingDaySummary).toBeNull();
   expect((await snapshot(page)).locked).toBe(false);
   return gameSnapshot(page);
+}
+
+export async function waitForCameraToSettle(page: Page): Promise<void> {
+  await page.evaluate(() => new Promise<void>((resolve, reject) => {
+    const deadline = performance.now() + 3_000;
+    let previous: { scrollX: number; scrollY: number } | null = null;
+    const sample = () => {
+      const current = window.__PHOENIX_TEST__?.snapshot().camera;
+      if (!current) {
+        reject(new Error('Phoenix camera snapshot is not ready'));
+        return;
+      }
+      if (previous
+        && Math.abs(current.scrollX - previous.scrollX) < 0.01
+        && Math.abs(current.scrollY - previous.scrollY) < 0.01) {
+        resolve();
+        return;
+      }
+      previous = { scrollX: current.scrollX, scrollY: current.scrollY };
+      if (performance.now() >= deadline) {
+        reject(new Error(`Phoenix camera did not settle: ${JSON.stringify(current)}`));
+        return;
+      }
+      requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  }));
+}
+
+const E2E_PROJECTION = {
+  tileWidth: 64,
+  tileHeight: 32,
+  origin: { x: 384, y: 0 },
+} as const;
+
+export async function captureCropSprite(page: Page, cell: GridCell): Promise<Buffer> {
+  await waitForCameraToSettle(page);
+  const debug = await snapshot(page);
+  const canvas = page.locator('canvas');
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('Phoenix canvas is not measurable');
+
+  const scaleX = box.width / 640;
+  const scaleY = box.height / 360;
+  expect(scaleX).toBeGreaterThan(0);
+  expect(Number.isInteger(scaleX)).toBe(true);
+  expect(scaleY).toBe(scaleX);
+
+  const footpoint = gridToWorld(
+    { x: cell.x + 0.5, y: cell.y + 0.5 },
+    E2E_PROJECTION,
+  );
+  const clip = {
+    x: box.x + (footpoint.x - 16 - debug.camera.scrollX) * scaleX,
+    y: box.y + (footpoint.y - 48 - debug.camera.scrollY) * scaleY,
+    width: 32 * scaleX,
+    height: 48 * scaleY,
+  };
+  expect(clip.x).toBeGreaterThanOrEqual(box.x);
+  expect(clip.y).toBeGreaterThanOrEqual(box.y);
+  expect(clip.x + clip.width).toBeLessThanOrEqual(box.x + box.width);
+  expect(clip.y + clip.height).toBeLessThanOrEqual(box.y + box.height);
+  return page.screenshot({ clip, animations: 'disabled' });
 }
 
 export async function holdKey(page: Page, key: string, ms: number): Promise<void> {

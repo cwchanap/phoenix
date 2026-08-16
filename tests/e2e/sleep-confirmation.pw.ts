@@ -1,5 +1,31 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { holdKey, moveUntilPlayerAxis, snapshot, waitForWorld } from './helpers';
+
+async function expectEconomyDialogsAbsent(page: Page): Promise<void> {
+  await expect(page.getByRole('dialog', { name: 'Seed shop' })).toHaveCount(0);
+  await expect(page.getByRole('dialog', { name: 'Shipping bin' })).toHaveCount(0);
+}
+
+async function expectBackgroundControlsDisabled(page: Page): Promise<void> {
+  for (const name of ['1 Hoe', '2 Seeds: Turnip', '3 Water', '4 Hands']) {
+    await expect(page.getByRole('button', { name, exact: true })).toBeDisabled();
+  }
+  for (const name of ['Select Turnip', 'Select Potato', 'Select Pumpkin']) {
+    await expect(page.getByRole('button', { name, exact: true })).toBeDisabled();
+  }
+  await expect(page.getByRole('button', { name: 'Lock world input', exact: true })).toBeDisabled();
+}
+
+async function assertHeldELeavesModalOpen(page: Page, modal: Locator): Promise<void> {
+  await page.keyboard.down('e');
+  try {
+    await expect(modal).toBeVisible();
+    await expectEconomyDialogsAbsent(page);
+  } finally {
+    await page.keyboard.up('e');
+  }
+  await expect(modal).toBeVisible();
+}
 
 test('sleep confirmation focuses the dialog and blocks background action activation', async ({ page }) => {
   await waitForWorld(page);
@@ -29,6 +55,9 @@ test('sleep confirmation focuses the dialog and blocks background action activat
     await page.keyboard.up('e');
   }
   await expect(page.getByRole('button', { name: 'Confirm' })).toBeFocused();
+  await expectEconomyDialogsAbsent(page);
+  await expectBackgroundControlsDisabled(page);
+  await assertHeldELeavesModalOpen(page, dialog);
 
   const seedsButton = page.getByRole('button', { name: '2 Seeds: Turnip' });
   await expect(seedsButton).toBeDisabled();
@@ -66,10 +95,9 @@ test('sleep confirmation focuses the dialog and blocks background action activat
   expect(morning.pendingDaySummary).not.toBeNull();
   expect((await snapshot(page)).locked).toBe(true);
 
-  for (const name of ['1 Hoe', '2 Seeds: Turnip', '3 Water', '4 Hands']) {
-    await expect(page.getByRole('button', { name, exact: true })).toBeDisabled();
-  }
-  await expect(page.getByRole('button', { name: 'Lock world input', exact: true })).toBeDisabled();
+  await expectEconomyDialogsAbsent(page);
+  await expectBackgroundControlsDisabled(page);
+  await assertHeldELeavesModalOpen(page, summary);
   await page.keyboard.press('2');
   expect((await readGameSnapshot()).selectedAction).toBe(before.selectedAction);
 

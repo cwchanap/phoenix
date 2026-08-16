@@ -1951,7 +1951,7 @@ async function moveBedToFarmHub(page: Page): Promise<void> {
 }
 
 async function moveBedToShop(page: Page): Promise<void> {
-  await moveUntilPlayerAxis(page, ['w'], 'x', 'lte', 4.5);
+  await moveUntilPlayerAxis(page, ['w'], 'x', 'lte', 5.1);
   await acquireTarget(page, 'd', SHOP_CELL);
 }
 
@@ -1960,6 +1960,8 @@ async function moveFarmHubToShipping(page: Page): Promise<void> {
   await acquireTarget(page, 's', SHIPPING_CELL);
 }
 ~~~
+
+Approved evidence-based correction: the real-browser route uses the `x <= 5.1` waypoint; retain the unchanged 3-second deadline and retries 0.
 
 All helpers must retain key release in `finally` through the existing shared helpers and assert camera bounds after each settled leg.
 

@@ -1,7 +1,7 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { readFileSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { holdKey, snapshot, waitForWorld } from './helpers';
+import { acquireTarget, gameSnapshot, holdKey, moveUntilPlayerAxis, snapshot, waitForWorld } from './helpers';
 
 const appPath = fileURLToPath(new URL('../../src/App.svelte', import.meta.url));
 
@@ -10,6 +10,25 @@ type ListenerCensusWindow = Window & { __PHOENIX_LISTENER_CENSUS__: () => Listen
 
 async function listenerCensus(page: Parameters<typeof waitForWorld>[0]): Promise<ListenerCensus> {
   return page.evaluate(() => (window as unknown as ListenerCensusWindow).__PHOENIX_LISTENER_CENSUS__());
+}
+
+async function moveLifecycleToShop(page: Page): Promise<void> {
+  await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 5.1);
+  await moveUntilPlayerAxis(page, ['w'], 'y', 'lte', 9.8);
+  await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 5.1);
+  await moveUntilPlayerAxis(page, ['w'], 'x', 'lte', 4.5);
+  await acquireTarget(page, 'd', { x: 6, y: 7 });
+}
+
+async function openShop(page: Page): Promise<Locator> {
+  const dialog = page.getByRole('dialog', { name: 'Seed shop' });
+  await page.keyboard.down('e');
+  try {
+    await expect(dialog).toBeVisible();
+  } finally {
+    await page.keyboard.up('e');
+  }
+  return dialog;
 }
 
 function displacement(before: Awaited<ReturnType<typeof snapshot>>, after: Awaited<ReturnType<typeof snapshot>>): number {
@@ -66,6 +85,35 @@ test('synthetic window blur prevents movement until focus returns', async ({ pag
   await holdKey(page, 'd', 250);
   const focusedAfter = await snapshot(page);
   expect(displacement(focusedBefore, focusedAfter)).toBeGreaterThan(0.1);
+});
+
+test('economy panel owns focus and clears its lock on Escape and remount', async ({ page }) => {
+  await waitForWorld(page);
+  await moveLifecycleToShop(page);
+  const dialog = await openShop(page);
+  await expect(dialog.getByRole('button', { name: 'Turnip seeds' })).toBeFocused();
+  expect((await snapshot(page)).locked).toBe(true);
+
+  const beforeWorld = await snapshot(page);
+  const beforeGame = await gameSnapshot(page);
+  for (const key of ['w', 'a', 's', 'd', 'Space', '1', '2', '3', '4', 'e']) {
+    await holdKey(page, key, 100);
+  }
+  const afterWorld = await snapshot(page);
+  const afterGame = await gameSnapshot(page);
+  expect(afterWorld.player.position).toEqual(beforeWorld.player.position);
+  expect(afterGame.selectedAction).toBe(beforeGame.selectedAction);
+  await expect(dialog).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  expect((await snapshot(page)).locked).toBe(false);
+
+  const reopened = await openShop(page);
+  await page.evaluate(() => window.__PHOENIX_TEST__!.remount());
+  await expect(reopened).toBeHidden();
+  await expect(page.getByText('World ready')).toBeVisible();
+  expect((await snapshot(page)).locked).toBe(false);
 });
 
 test('keeps the overlay and canvas aligned at supported sizes', async ({ page }) => {
@@ -137,6 +185,11 @@ test('keeps one input handler across a real Vite HMR update', async ({ page }) =
   expect(beforeListeners).toEqual({ keydown: 1, keyup: 1 });
   const beforeHmr = await measure();
   expect(beforeHmr).toBeGreaterThan(0.1);
+  await moveLifecycleToShop(page);
+  const hmrShop = await openShop(page);
+  await page.keyboard.press('Escape');
+  await expect(hmrShop).toBeHidden();
+  expect(await listenerCensus(page)).toEqual({ keydown: 1, keyup: 1 });
   let primaryFailure: unknown;
   try {
     const updateCount = await page.evaluate(() => window.__PHOENIX_HMR_COUNT__ ?? 0);
