@@ -13,12 +13,9 @@ permissions:
   contents: read
 
 jobs:
-  quality:
-    name: Quality
+  build:
+    name: Build
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
@@ -32,6 +29,22 @@ jobs:
         run: bun run lint
       - name: Format check
         run: bun run format:check
+      - name: Frontend build
+        run: bun run build
+
+  unit-test:
+    name: Unit test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        env:
+          HUSKY: '0'
       - name: Unit tests
         run: bun run test
       - name: Unit test coverage
@@ -56,12 +69,21 @@ jobs:
           disable_search: true
           flags: unit
           fail_ci_if_error: false
+
+  e2e:
+    name: E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        env:
+          HUSKY: '0'
       - name: Install Chromium
         run: bun run test:e2e:install:ci
       - name: Browser E2E
         run: bun run test:e2e
-      - name: Frontend build
-        run: bun run build
       - name: Upload Playwright failures
         if: failure()
         uses: actions/upload-artifact@v7
