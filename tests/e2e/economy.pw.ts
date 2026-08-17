@@ -191,6 +191,9 @@ test('routes E to authoritative shop and shipping presentation', async ({ page }
 });
 
 test('buys, grows, ships, pays, and reinvests across all three crops', async ({ page }) => {
+  // The seven-day economy loop can exceed Playwright's default 30 s budget on CI.
+  test.setTimeout(60_000);
+
   await waitForWorld(page);
   await moveToShop(page);
   const shop = await openInteraction(page, 'Seed shop');
