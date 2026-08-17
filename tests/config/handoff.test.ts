@@ -140,7 +140,7 @@ describe('Phoenix handoff contract', () => {
     expect(pkg.scripts?.['verify:clean']).toBe('bun run tools/verify-clean-checkout.ts');
   });
 
-  test('separates browser quality checks from an unsigned macOS bundle build', async () => {
+  test('separates build, unit, browser e2e, and unsigned macOS bundle gates', async () => {
     const workflowPath = resolve(root, '.github/workflows/ci.yml');
     expect(existsSync(workflowPath)).toBe(true);
 
@@ -153,7 +153,9 @@ describe('Phoenix handoff contract', () => {
       'group: ${{ github.workflow }}-${{ github.ref }}',
       'cancel-in-progress: true',
       'permissions:\n  contents: read',
-      'name: Quality',
+      'name: Build',
+      'name: Unit test',
+      'name: E2E',
       'runs-on: ubuntu-latest',
       'name: Tauri build',
       'runs-on: macos-latest',
@@ -162,6 +164,8 @@ describe('Phoenix handoff contract', () => {
       'dtolnay/rust-toolchain@1.96.0',
       'bun install --frozen-lockfile',
       "HUSKY: '0'",
+      'bun run lint',
+      'bun run build',
       'bun run test:e2e:install:ci',
       'bun run test:coverage',
       'bun run coverage:check',
@@ -177,9 +181,9 @@ describe('Phoenix handoff contract', () => {
       expect(workflow).toContain(expected);
     }
 
-    expect(workflow.match(/runs-on:/g)).toHaveLength(2);
-    const [quality, tauriBuild] = workflow.split('\n  tauri-build:\n');
-    expect(quality.match(/id-token: write/g) ?? []).toHaveLength(1);
+    expect(workflow.match(/runs-on:/g)).toHaveLength(4);
+    const [workflowJobs, tauriBuild] = workflow.split('\n  tauri-build:\n');
+    expect(workflowJobs.match(/id-token: write/g) ?? []).toHaveLength(1);
     expect(tauriBuild).toBeDefined();
     expect(tauriBuild).not.toMatch(/test:e2e|playwright/);
   });
