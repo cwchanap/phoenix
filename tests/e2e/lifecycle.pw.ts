@@ -40,6 +40,10 @@ async function openShop(page: Page): Promise<Locator> {
   return dialog;
 }
 
+async function expectInputLock(page: Page, locked: boolean): Promise<void> {
+  await expect.poll(async () => (await snapshot(page)).locked).toBe(locked);
+}
+
 function displacement(
   before: Awaited<ReturnType<typeof snapshot>>,
   after: Awaited<ReturnType<typeof snapshot>>,
@@ -104,7 +108,7 @@ test('economy panel owns focus and clears its lock on Escape and remount', async
   await moveLifecycleToShop(page);
   const dialog = await openShop(page);
   await expect(dialog.getByRole('button', { name: 'Turnip seeds' })).toBeFocused();
-  expect((await snapshot(page)).locked).toBe(true);
+  await expectInputLock(page, true);
 
   const beforeWorld = await snapshot(page);
   const beforeGame = await gameSnapshot(page);
@@ -119,13 +123,13 @@ test('economy panel owns focus and clears its lock on Escape and remount', async
 
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
-  expect((await snapshot(page)).locked).toBe(false);
+  await expectInputLock(page, false);
 
   const reopened = await openShop(page);
   await page.evaluate(() => window.__PHOENIX_TEST__!.remount());
   await expect(reopened).toBeHidden();
   await expect(page.getByText('World ready')).toBeVisible();
-  expect((await snapshot(page)).locked).toBe(false);
+  await expectInputLock(page, false);
 });
 
 test('keeps the overlay and canvas aligned at supported sizes', async ({ page }) => {
