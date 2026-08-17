@@ -118,7 +118,9 @@ test('destroy is idempotent and removes keys through their plugins', () => {
 
   expect(plugin.removeCalls).toHaveLength(4);
   expect(plugin.removeCalls.map(({ key }) => key)).toEqual(Object.values(raw));
-  expect(plugin.removeCalls.every(({ destroy, removeCapture }) => destroy && removeCapture)).toBe(true);
+  expect(plugin.removeCalls.every(({ destroy, removeCapture }) => destroy && removeCapture)).toBe(
+    true,
+  );
   expect(Object.values(raw).map((key) => key.destroyCalls)).toEqual([0, 0, 0, 0]);
 });
 

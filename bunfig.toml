@@ -1,0 +1,13 @@
+[test]
+coverageSkipTestFiles = true
+coveragePathIgnorePatterns = [
+  "coverage/**",
+  "dist/**",
+  "node_modules/**",
+  "playwright-report/**",
+  "test-results/**",
+  ".svelte-check/**",
+  "src-tauri/**",
+  "tests/**",
+  "tools/**",
+]

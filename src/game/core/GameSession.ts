@@ -1,9 +1,5 @@
 import { intersects } from './collision';
-import {
-  CROP_DEFINITIONS,
-  isMature,
-  shipmentPayout,
-} from './cropDefinitions';
+import { CROP_DEFINITIONS, isMature, shipmentPayout } from './cropDefinitions';
 import {
   DAY_START_MINUTES,
   defaultNextWeather,
@@ -108,9 +104,14 @@ export class GameSession {
 
     const interactionCells = [bedCell, shopCell, shippingCell];
     for (const cell of interactionCells) {
-      if (!Number.isInteger(cell.x) || !Number.isInteger(cell.y)
-        || cell.x < 0 || cell.x >= world.width
-        || cell.y < 0 || cell.y >= world.height) {
+      if (
+        !Number.isInteger(cell.x) ||
+        !Number.isInteger(cell.y) ||
+        cell.x < 0 ||
+        cell.x >= world.width ||
+        cell.y < 0 ||
+        cell.y >= world.height
+      ) {
         throw new Error('GameSession: interaction cells must be integer cells in bounds');
       }
     }
@@ -153,10 +154,12 @@ export class GameSession {
       stamina: this.stamina,
       maxStamina: this.maxStamina,
       weather: this.weather,
-      pendingDaySummary: this.pendingDaySummary ? {
-        ...this.pendingDaySummary,
-        shipments: this.pendingDaySummary.shipments.map((line) => ({ ...line })),
-      } : null,
+      pendingDaySummary: this.pendingDaySummary
+        ? {
+            ...this.pendingDaySummary,
+            shipments: this.pendingDaySummary.shipments.map((line) => ({ ...line })),
+          }
+        : null,
       selectedAction: this.selectedAction,
       selectedSeed: this.selectedSeed,
       money: this.money,
@@ -228,11 +231,16 @@ export class GameSession {
     const activeFailure = this.activeDayFailure();
     if (activeFailure) return activeFailure;
     switch (this.selectedAction) {
-      case 'hoe': return this.hoe(position);
-      case 'seeds': return this.plant(position);
-      case 'wateringCan': return this.water(position);
-      case 'hands': return this.harvest(position);
-      default: return assertNever(this.selectedAction);
+      case 'hoe':
+        return this.hoe(position);
+      case 'seeds':
+        return this.plant(position);
+      case 'wateringCan':
+        return this.water(position);
+      case 'hands':
+        return this.harvest(position);
+      default:
+        return assertNever(this.selectedAction);
     }
   }
 
@@ -356,9 +364,7 @@ export class GameSession {
   }
 
   private activeDayFailure(): CommandResult | null {
-    return this.pendingDaySummary
-      ? { ok: false, code: 'day-summary-pending' }
-      : null;
+    return this.pendingDaySummary ? { ok: false, code: 'day-summary-pending' } : null;
   }
 
   private evaluateBudget(action: FarmingAction): ActionBudgetResult {

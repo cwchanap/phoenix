@@ -1,10 +1,7 @@
 <script lang="ts">
   import { onMount, tick, untrack } from 'svelte';
   import type { InputGate } from '../game/core/InputGate';
-  import {
-    CROP_DEFINITIONS,
-    CROP_KINDS,
-  } from '../game/core/cropDefinitions';
+  import { CROP_DEFINITIONS, CROP_KINDS } from '../game/core/cropDefinitions';
   import { formatTime } from '../game/core/dailyRhythm';
   import type {
     CommandResult,
@@ -81,11 +78,11 @@
     return CROP_KINDS.reduce((total, kind) => total + snapshot.pendingShipment[kind], 0);
   });
   const actionsReady = $derived(
-    status === 'ready'
-      && commands !== null
-      && snapshot !== null
-      && !dayTransitionActive
-      && economyPanel === null,
+    status === 'ready' &&
+      commands !== null &&
+      snapshot !== null &&
+      !dayTransitionActive &&
+      economyPanel === null,
   );
   const panelMaximum = $derived.by(() => {
     if (!snapshot || !economyPanel) return 0;
@@ -111,76 +108,123 @@
     transactionSubmitting = false;
     quantity = 1;
     if (panel === null) return;
-    selectedPanelCrop = untrack(() => (
-      CROP_KINDS.find((kind) => panel === 'shop'
-        ? Boolean(snapshot && snapshot.money >= CROP_DEFINITIONS[kind].seedPrice)
-        : Boolean(snapshot && snapshot.inventory.crops[kind] > 0)) ?? 'turnip'
-    ));
-    void tick().then(() => requestAnimationFrame(() => {
-      if (economyPanel !== panel) return;
-      const firstUsableRow = economyDialog
-        ?.querySelector<HTMLButtonElement>('[data-economy-row]:not(:disabled)');
-      (firstUsableRow ?? economyCloseButton)?.focus();
-    }));
+    selectedPanelCrop = untrack(
+      () =>
+        CROP_KINDS.find((kind) =>
+          panel === 'shop'
+            ? Boolean(snapshot && snapshot.money >= CROP_DEFINITIONS[kind].seedPrice)
+            : Boolean(snapshot && snapshot.inventory.crops[kind] > 0),
+        ) ?? 'turnip',
+    );
+    void tick().then(() =>
+      requestAnimationFrame(() => {
+        if (economyPanel !== panel) return;
+        const firstUsableRow = economyDialog?.querySelector<HTMLButtonElement>(
+          '[data-economy-row]:not(:disabled)',
+        );
+        (firstUsableRow ?? economyCloseButton)?.focus();
+      }),
+    );
   });
 
   function weatherLabel(weather: Weather): string {
     switch (weather) {
-      case 'sunny': return 'Sunny';
-      case 'rainy': return 'Rainy';
-      default: return assertNever(weather);
+      case 'sunny':
+        return 'Sunny';
+      case 'rainy':
+        return 'Rainy';
+      default:
+        return assertNever(weather);
     }
   }
 
   function actionLabel(action: FarmingAction): string {
     switch (action) {
-      case 'hoe': return 'Hoe';
+      case 'hoe':
+        return 'Hoe';
       case 'seeds': {
         const definition = snapshot ? CROP_DEFINITIONS[snapshot.selectedSeed] : null;
         return definition ? `Seeds: ${definition.displayName}` : 'Seeds';
       }
-      case 'wateringCan': return 'Water';
-      case 'hands': return 'Hands';
-      default: return assertNever(action);
+      case 'wateringCan':
+        return 'Water';
+      case 'hands':
+        return 'Hands';
+      default:
+        return assertNever(action);
     }
   }
 
   function commandResultMessage(commandResult: CommandResult): string {
     switch (commandResult.code) {
-      case 'action-selected': return 'Action selected';
-      case 'seed-selected': return 'Seed selected';
-      case 'soil-tilled': return 'Soil tilled';
-      case 'crop-planted': return 'Crop planted';
-      case 'crop-watered': return 'Crop watered';
-      case 'crop-harvested': return 'Crop harvested';
-      case 'seeds-purchased': return 'Seeds purchased';
-      case 'crop-deposited': return 'Crop deposited';
-      case 'day-advanced': return 'Day advanced';
-      case 'day-started': return 'Day started';
-      case 'no-target': return 'No target highlighted';
-      case 'not-farm-cell': return 'That is not a farm cell';
-      case 'already-tilled': return 'That soil is already tilled';
-      case 'soil-untilled': return 'Till the soil first';
-      case 'crop-present': return 'That cell already has a crop';
-      case 'no-selected-seeds': return 'No selected seeds';
-      case 'no-crop': return 'No crop here';
-      case 'already-watered': return 'This crop is already watered';
-      case 'crop-mature': return 'This crop is already mature';
-      case 'crop-immature': return 'This crop is not ready';
-      case 'nothing-to-interact': return 'Nothing to interact with';
-      case 'not-at-bed': return 'You must be at the bed';
-      case 'not-at-shop': return 'You must be at the shop';
-      case 'not-at-shipping-bin': return 'You must be at the shipping bin';
-      case 'invalid-quantity': return 'Invalid quantity';
-      case 'insufficient-funds': return 'Not enough money';
-      case 'insufficient-crops': return 'Not enough crops';
-      case 'action-too-late': return 'Not enough time before 22:00';
-      case 'insufficient-stamina': return 'Not enough stamina';
-      case 'day-summary-pending': return 'Start the new day first';
-      case 'rain-waters-crops': return 'Rain is watering the crops';
-      case 'day-limit-reached': return 'Day 14 is the final playable day for now';
-      case 'no-day-summary': return 'No morning summary to close';
-      default: return assertNever(commandResult);
+      case 'action-selected':
+        return 'Action selected';
+      case 'seed-selected':
+        return 'Seed selected';
+      case 'soil-tilled':
+        return 'Soil tilled';
+      case 'crop-planted':
+        return 'Crop planted';
+      case 'crop-watered':
+        return 'Crop watered';
+      case 'crop-harvested':
+        return 'Crop harvested';
+      case 'seeds-purchased':
+        return 'Seeds purchased';
+      case 'crop-deposited':
+        return 'Crop deposited';
+      case 'day-advanced':
+        return 'Day advanced';
+      case 'day-started':
+        return 'Day started';
+      case 'no-target':
+        return 'No target highlighted';
+      case 'not-farm-cell':
+        return 'That is not a farm cell';
+      case 'already-tilled':
+        return 'That soil is already tilled';
+      case 'soil-untilled':
+        return 'Till the soil first';
+      case 'crop-present':
+        return 'That cell already has a crop';
+      case 'no-selected-seeds':
+        return 'No selected seeds';
+      case 'no-crop':
+        return 'No crop here';
+      case 'already-watered':
+        return 'This crop is already watered';
+      case 'crop-mature':
+        return 'This crop is already mature';
+      case 'crop-immature':
+        return 'This crop is not ready';
+      case 'nothing-to-interact':
+        return 'Nothing to interact with';
+      case 'not-at-bed':
+        return 'You must be at the bed';
+      case 'not-at-shop':
+        return 'You must be at the shop';
+      case 'not-at-shipping-bin':
+        return 'You must be at the shipping bin';
+      case 'invalid-quantity':
+        return 'Invalid quantity';
+      case 'insufficient-funds':
+        return 'Not enough money';
+      case 'insufficient-crops':
+        return 'Not enough crops';
+      case 'action-too-late':
+        return 'Not enough time before 22:00';
+      case 'insufficient-stamina':
+        return 'Not enough stamina';
+      case 'day-summary-pending':
+        return 'Start the new day first';
+      case 'rain-waters-crops':
+        return 'Rain is watering the crops';
+      case 'day-limit-reached':
+        return 'Day 14 is the final playable day for now';
+      case 'no-day-summary':
+        return 'No morning summary to close';
+      default:
+        return assertNever(commandResult);
     }
   }
 
@@ -242,16 +286,24 @@
       <div class="hud-stats">
         <p>Day {snapshot?.day ?? '—'}</p>
         <p>Time: <span data-time>{snapshot ? formatTime(snapshot.timeMinutes) : '—'}</span></p>
-        <p>Stamina: <span data-stamina>{snapshot ? snapshot.stamina + ' / ' + snapshot.maxStamina : '—'}</span></p>
+        <p>
+          Stamina: <span data-stamina
+            >{snapshot ? snapshot.stamina + ' / ' + snapshot.maxStamina : '—'}</span
+          >
+        </p>
         <p>Weather: <span data-weather>{snapshot ? weatherLabel(snapshot.weather) : '—'}</span></p>
         <p>Selected: {snapshot ? actionLabel(snapshot.selectedAction) : '—'}</p>
         <p>Selected seed: {snapshot ? CROP_DEFINITIONS[snapshot.selectedSeed].displayName : '—'}</p>
         <p>Money: {snapshot?.money ?? '—'}</p>
         {#each CROP_KINDS as kind (kind)}
-          <p>{CROP_DEFINITIONS[kind].displayName} seeds: {snapshot?.inventory.seeds[kind] ?? '—'}</p>
+          <p>
+            {CROP_DEFINITIONS[kind].displayName} seeds: {snapshot?.inventory.seeds[kind] ?? '—'}
+          </p>
         {/each}
         {#each CROP_KINDS as kind (kind)}
-          <p>{CROP_DEFINITIONS[kind].displayName} crops: {snapshot?.inventory.crops[kind] ?? '—'}</p>
+          <p>
+            {CROP_DEFINITIONS[kind].displayName} crops: {snapshot?.inventory.crops[kind] ?? '—'}
+          </p>
         {/each}
         <p>Pending shipment: {snapshot ? totalPendingQuantity : '—'}</p>
       </div>
@@ -265,8 +317,8 @@
             disabled={!actionsReady}
             onclick={() => {
               if (actionsReady) commands?.selectSeed(kind);
-            }}
-          >Select {CROP_DEFINITIONS[kind].displayName}</button>
+            }}>Select {CROP_DEFINITIONS[kind].displayName}</button
+          >
         {/each}
       </div>
 
@@ -280,7 +332,8 @@
               if (actionsReady) commands?.selectAction(action.action);
             }}
           >
-            {action.key} {actionLabel(action.action)}
+            {action.key}
+            {actionLabel(action.action)}
           </button>
         {/each}
       </div>
@@ -321,29 +374,43 @@
               data-economy-row
               aria-label={`${definition.displayName} ${economyPanel === 'shop' ? 'seeds' : 'crop'}`}
               aria-pressed={selectedPanelCrop === kind}
-              disabled={snapshot === null || (economyPanel === 'shop'
-                ? snapshot.money < definition.seedPrice
-                : snapshot.inventory.crops[kind] < 1)}
+              disabled={snapshot === null ||
+                (economyPanel === 'shop'
+                  ? snapshot.money < definition.seedPrice
+                  : snapshot.inventory.crops[kind] < 1)}
               onclick={() => selectPanelCrop(kind)}
             >
               <span>{definition.displayName} {economyPanel === 'shop' ? 'seeds' : 'crop'}</span>
               <span>{definition.growthDays} nights</span>
-              <span>{economyPanel === 'shop' ? 'Seed price' : 'Sale value'}: {economyPanel === 'shop' ? definition.seedPrice : definition.saleValue}</span>
-              <span>{economyPanel === 'shop' ? 'Seeds owned' : 'Crops carried'}: {economyPanel === 'shop' ? snapshot?.inventory.seeds[kind] ?? '—' : snapshot?.inventory.crops[kind] ?? '—'}</span>
+              <span
+                >{economyPanel === 'shop' ? 'Seed price' : 'Sale value'}: {economyPanel === 'shop'
+                  ? definition.seedPrice
+                  : definition.saleValue}</span
+              >
+              <span
+                >{economyPanel === 'shop' ? 'Seeds owned' : 'Crops carried'}: {economyPanel ===
+                'shop'
+                  ? (snapshot?.inventory.seeds[kind] ?? '—')
+                  : (snapshot?.inventory.crops[kind] ?? '—')}</span
+              >
             </button>
           {/each}
         </div>
 
         <QuantityStepper
-          quantity={quantity}
+          {quantity}
           max={panelMaximum}
           disabled={transactionSubmitting || commands === null || snapshot === null}
-          itemName={economyPanel === 'shop' ? `${selectedPanelDefinition.displayName} seed` : selectedPanelDefinition.displayName}
+          itemName={economyPanel === 'shop'
+            ? `${selectedPanelDefinition.displayName} seed`
+            : selectedPanelDefinition.displayName}
           actionLabel={economyPanel === 'shop' ? 'Buy' : 'Deposit'}
-          onQuantityChange={(nextQuantity) => quantity = nextQuantity}
+          onQuantityChange={(nextQuantity) => (quantity = nextQuantity)}
           onSubmit={submitEconomyTransaction}
         />
-        <button bind:this={economyCloseButton} type="button" onclick={onCloseEconomyPanel}>Close</button>
+        <button bind:this={economyCloseButton} type="button" onclick={onCloseEconomyPanel}
+          >Close</button
+        >
       </div>
     </div>
   {/if}
@@ -364,8 +431,8 @@
             bind:this={confirmButton}
             type="button"
             onclick={onConfirmSleep}
-            disabled={commands === null || sleepSubmitting}
-          >Confirm</button>
+            disabled={commands === null || sleepSubmitting}>Confirm</button
+          >
           <button type="button" onclick={onCancelSleep} disabled={sleepSubmitting}>Cancel</button>
         </div>
       </div>
@@ -386,9 +453,15 @@
         <p>Crops advanced: {summary.cropsAdvanced}</p>
         <p>Next day: Day {summary.nextDay}</p>
         <p>Weather: {weatherLabel(summary.nextWeather)}</p>
-        <p>Stamina restored: {summary.staminaRestored} ({snapshot?.stamina ?? '—'} / {snapshot?.maxStamina ?? '—'})</p>
+        <p>
+          Stamina restored: {summary.staminaRestored} ({snapshot?.stamina ?? '—'} / {snapshot?.maxStamina ??
+            '—'})
+        </p>
         {#each summary.shipments as shipment (shipment.crop)}
-          <p data-shipment-row>{CROP_DEFINITIONS[shipment.crop].displayName}: {shipment.quantity} × {shipment.unitValue} = {shipment.lineTotal}</p>
+          <p data-shipment-row>
+            {CROP_DEFINITIONS[shipment.crop].displayName}: {shipment.quantity} × {shipment.unitValue}
+            = {shipment.lineTotal}
+          </p>
         {/each}
         <p>Shipping income: {summary.shippingIncome}</p>
         <p>Money after shipping: {summary.moneyAfterShipping}</p>

@@ -1,16 +1,18 @@
 import { describe, expect, test } from 'bun:test';
 import { GameSession, type GameSessionConfig } from '../../src/game/core/GameSession';
-import {
-  CROP_DEFINITIONS,
-  CROP_KINDS,
-  isMature,
-} from '../../src/game/core/cropDefinitions';
+import { CROP_DEFINITIONS, CROP_KINDS, isMature } from '../../src/game/core/cropDefinitions';
 import type { CropKind, FarmingAction, GridCell, Weather } from '../../src/game/core/types';
 
 const farmCells = [
-  { x: 2, y: 7 }, { x: 3, y: 7 }, { x: 4, y: 7 },
-  { x: 2, y: 8 }, { x: 3, y: 8 }, { x: 4, y: 8 },
-  { x: 2, y: 9 }, { x: 3, y: 9 }, { x: 4, y: 9 },
+  { x: 2, y: 7 },
+  { x: 3, y: 7 },
+  { x: 4, y: 7 },
+  { x: 2, y: 8 },
+  { x: 3, y: 8 },
+  { x: 4, y: 8 },
+  { x: 2, y: 9 },
+  { x: 3, y: 9 },
+  { x: 4, y: 9 },
 ];
 
 const bedCell = { x: 6, y: 8 };
@@ -81,7 +83,9 @@ function advanceDayAtBed(session: GameSession): void {
 }
 
 function growToMaturity(session: GameSession, cell: GridCell = farmCells[0]): void {
-  const kind = session.snapshot().farmTiles.find((tile) => tile.position.x === cell.x && tile.position.y === cell.y)?.crop?.kind;
+  const kind = session
+    .snapshot()
+    .farmTiles.find((tile) => tile.position.x === cell.x && tile.position.y === cell.y)?.crop?.kind;
   if (!kind) throw new Error('test crop is missing');
   for (let growth = 0; growth < CROP_DEFINITIONS[kind].growthDays; growth += 1) {
     expect(session.water(cell)).toEqual({ ok: true, code: 'crop-watered' });
@@ -110,7 +114,9 @@ describe('GameSession', () => {
       crops: { turnip: 0, potato: 0, pumpkin: 0 },
     });
     expect(first.farmTiles.map((tile) => tile.position)).toEqual(farmCells);
-    expect(first.farmTiles.every((tile) => tile.soil === 'untilled' && tile.crop === null)).toBe(true);
+    expect(first.farmTiles.every((tile) => tile.soil === 'untilled' && tile.crop === null)).toBe(
+      true,
+    );
     expect(first.bedCell).toEqual(bedCell);
     expect(first.shopCell).toEqual(shopCell);
     expect(first.shippingCell).toEqual(shippingCell);
@@ -256,29 +262,32 @@ describe('GameSession', () => {
     });
   });
 
-  test.each([...CROP_KINDS] as CropKind[])('grows and harvests %s only at configured maturity', (kind) => {
-    const session = sessionWithConfig();
-    const cell = farmCells[0];
-    prepareCrop(session, kind, cell);
+  test.each([...CROP_KINDS] as CropKind[])(
+    'grows and harvests %s only at configured maturity',
+    (kind) => {
+      const session = sessionWithConfig();
+      const cell = farmCells[0];
+      prepareCrop(session, kind, cell);
 
-    for (let progress = 0; progress < CROP_DEFINITIONS[kind].growthDays; progress += 1) {
-      expect(session.harvest(cell)).toEqual({ ok: false, code: 'crop-immature' });
-      expect(session.water(cell)).toEqual({ ok: true, code: 'crop-watered' });
-      faceBed(session);
-      expect(session.sleep()).toEqual({ ok: true, code: 'day-advanced' });
-      expect(session.snapshot().farmTiles[0].crop).toEqual({
-        kind,
-        growth: progress + 1,
-        wateredToday: false,
-      });
-      expect(session.acknowledgeDaySummary()).toEqual({ ok: true, code: 'day-started' });
-    }
+      for (let progress = 0; progress < CROP_DEFINITIONS[kind].growthDays; progress += 1) {
+        expect(session.harvest(cell)).toEqual({ ok: false, code: 'crop-immature' });
+        expect(session.water(cell)).toEqual({ ok: true, code: 'crop-watered' });
+        faceBed(session);
+        expect(session.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+        expect(session.snapshot().farmTiles[0].crop).toEqual({
+          kind,
+          growth: progress + 1,
+          wateredToday: false,
+        });
+        expect(session.acknowledgeDaySummary()).toEqual({ ok: true, code: 'day-started' });
+      }
 
-    expect(isMature(kind, CROP_DEFINITIONS[kind].growthDays)).toBe(true);
-    expect(session.water(cell)).toEqual({ ok: false, code: 'crop-mature' });
-    expect(session.harvest(cell)).toEqual({ ok: true, code: 'crop-harvested' });
-    expect(session.snapshot().inventory.crops[kind]).toBe(1);
-  });
+      expect(isMature(kind, CROP_DEFINITIONS[kind].growthDays)).toBe(true);
+      expect(session.water(cell)).toEqual({ ok: false, code: 'crop-mature' });
+      expect(session.harvest(cell)).toEqual({ ok: true, code: 'crop-harvested' });
+      expect(session.snapshot().inventory.crops[kind]).toBe(1);
+    },
+  );
 
   test('buys exact quantities atomically and preserves failures', () => {
     const session = sessionWithConfig();
@@ -375,7 +384,10 @@ describe('GameSession', () => {
     faceShipping(session);
     for (const quantity of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
       const before = session.snapshot();
-      expect(session.depositCrop('turnip', quantity)).toEqual({ ok: false, code: 'invalid-quantity' });
+      expect(session.depositCrop('turnip', quantity)).toEqual({
+        ok: false,
+        code: 'invalid-quantity',
+      });
       expect(session.snapshot()).toEqual(before);
     }
     const beforeMissing = session.snapshot();
@@ -455,7 +467,10 @@ describe('GameSession', () => {
         const session = new GameSession(config());
         const before = session.snapshot();
 
-        expect(command(session, { x: 99, y: 99 }), name).toEqual({ ok: false, code: 'not-farm-cell' });
+        expect(command(session, { x: 99, y: 99 }), name).toEqual({
+          ok: false,
+          code: 'not-farm-cell',
+        });
         expect(session.snapshot()).toEqual(before);
       }
     });
@@ -547,10 +562,14 @@ describe('GameSession', () => {
     advanceDayAtBed(session);
     expect(session.snapshot().day).toBe(2);
     expect(session.snapshot().farmTiles[0].crop).toEqual({
-      kind: 'turnip', growth: 1, wateredToday: false,
+      kind: 'turnip',
+      growth: 1,
+      wateredToday: false,
     });
     expect(session.snapshot().farmTiles[1].crop).toEqual({
-      kind: 'turnip', growth: 0, wateredToday: false,
+      kind: 'turnip',
+      growth: 0,
+      wateredToday: false,
     });
 
     expect(session.water(watered)).toEqual({ ok: true, code: 'crop-watered' });
@@ -560,7 +579,9 @@ describe('GameSession', () => {
     expect(session.water(watered)).toEqual({ ok: true, code: 'crop-watered' });
     advanceDayAtBed(session);
     expect(session.snapshot().farmTiles[0].crop).toEqual({
-      kind: 'turnip', growth: 3, wateredToday: false,
+      kind: 'turnip',
+      growth: 3,
+      wateredToday: false,
     });
     expect(session.snapshot().day).toBe(4);
 
@@ -568,7 +589,9 @@ describe('GameSession', () => {
     advanceDayAtBed(session);
     expect(session.snapshot().day).toBe(5);
     expect(session.snapshot().farmTiles[0].crop).toEqual({
-      kind: 'turnip', growth: 3, wateredToday: false,
+      kind: 'turnip',
+      growth: 3,
+      wateredToday: false,
     });
     expect(session.snapshot().farmTiles[1].crop).toEqual(beforeUnwateredSleep.farmTiles[1].crop);
   });
@@ -760,7 +783,10 @@ describe('GameSession', () => {
       preparePlanted(harvest);
       growToMaturity(harvest);
       expect(harvest.selectAction('hands')).toEqual({ ok: true, code: 'action-selected' });
-      expect(harvest.applySelectedAction(farmCells[0])).toEqual({ ok: true, code: 'crop-harvested' });
+      expect(harvest.applySelectedAction(farmCells[0])).toEqual({
+        ok: true,
+        code: 'crop-harvested',
+      });
     });
 
     test('round-trips a nontrivial snapshot through JSON', () => {
@@ -778,13 +804,20 @@ describe('GameSession', () => {
   describe('constructor invariants and ownership', () => {
     test('requires exactly nine farm cells', () => {
       expect(() => new GameSession(config({ farmCells: farmCells.slice(0, 8) }))).toThrow();
-      expect(() => new GameSession(config({ farmCells: [...farmCells, { x: 5, y: 5 }] }))).toThrow();
+      expect(
+        () => new GameSession(config({ farmCells: [...farmCells, { x: 5, y: 5 }] })),
+      ).toThrow();
     });
 
     test('rejects duplicate farm cells', () => {
-      expect(() => new GameSession(config({
-        farmCells: [...farmCells.slice(0, 8), farmCells[0]],
-      }))).toThrow();
+      expect(
+        () =>
+          new GameSession(
+            config({
+              farmCells: [...farmCells.slice(0, 8), farmCells[0]],
+            }),
+          ),
+      ).toThrow();
     });
 
     test('rejects a bed cell that is also a farm cell', () => {
@@ -802,12 +835,17 @@ describe('GameSession', () => {
     });
 
     test('allows a bed rectangle that only touches a footprint edge', () => {
-      expect(() => new GameSession(config({
-        world: {
-          ...config().world,
-          footprints: [{ id: 'edge', x: 5, y: 8, width: 1, height: 1 }],
-        },
-      }))).not.toThrow();
+      expect(
+        () =>
+          new GameSession(
+            config({
+              world: {
+                ...config().world,
+                footprints: [{ id: 'edge', x: 5, y: 8, width: 1, height: 1 }],
+              },
+            }),
+          ),
+      ).not.toThrow();
     });
 
     test('clones caller-owned configuration at construction', () => {

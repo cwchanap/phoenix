@@ -25,59 +25,63 @@ export const snapshot = (page: Page): Promise<DebugSnapshot> =>
 
 export async function acquireTarget(page: Page, key: string, target: GridCell): Promise<void> {
   const initial = await snapshot(page);
-  if (initial.visibleTarget
-    && initial.target?.x === target.x
-    && initial.target?.y === target.y) {
+  if (initial.visibleTarget && initial.target?.x === target.x && initial.target?.y === target.y) {
     assertCameraWithinBounds(initial);
     return;
   }
 
   const deadline = Date.now() + 3_000;
   const waitForSettledFrame = async (timeout: number): Promise<void> => {
-    await page.evaluate((timeoutMs) => new Promise<void>((resolve, reject) => {
-      const deadlineAt = performance.now() + timeoutMs;
-      let previous: {
-        x: number;
-        y: number;
-        facing: string;
-        target: GridCell | null;
-        visibleTarget: boolean;
-      } | null = null;
-      const timer = window.setTimeout(() => {
-        reject(new Error('Target did not settle after key release'));
-      }, timeoutMs);
-      const sample = () => {
-        const current = window.__PHOENIX_TEST__!.snapshot();
-        const state = {
-          x: current.player.position.x,
-          y: current.player.position.y,
-          facing: current.player.facing,
-          target: current.target ? { ...current.target } : null,
-          visibleTarget: current.visibleTarget,
-        };
-        const positionSettled = previous !== null
-          && Math.abs(state.x - previous.x) < 0.0001
-          && Math.abs(state.y - previous.y) < 0.0001;
-        const targetSettled = previous !== null
-          && state.facing === previous.facing
-          && state.visibleTarget === previous.visibleTarget
-          && state.target?.x === previous.target?.x
-          && state.target?.y === previous.target?.y;
-        if (positionSettled && targetSettled) {
-          window.clearTimeout(timer);
-          resolve();
-          return;
-        }
-        previous = state;
-        if (performance.now() >= deadlineAt) {
-          window.clearTimeout(timer);
-          reject(new Error('Target did not settle after key release'));
-          return;
-        }
-        requestAnimationFrame(sample);
-      };
-      requestAnimationFrame(sample);
-    }), timeout);
+    await page.evaluate(
+      (timeoutMs) =>
+        new Promise<void>((resolve, reject) => {
+          const deadlineAt = performance.now() + timeoutMs;
+          let previous: {
+            x: number;
+            y: number;
+            facing: string;
+            target: GridCell | null;
+            visibleTarget: boolean;
+          } | null = null;
+          const timer = window.setTimeout(() => {
+            reject(new Error('Target did not settle after key release'));
+          }, timeoutMs);
+          const sample = () => {
+            const current = window.__PHOENIX_TEST__!.snapshot();
+            const state = {
+              x: current.player.position.x,
+              y: current.player.position.y,
+              facing: current.player.facing,
+              target: current.target ? { ...current.target } : null,
+              visibleTarget: current.visibleTarget,
+            };
+            const positionSettled =
+              previous !== null &&
+              Math.abs(state.x - previous.x) < 0.0001 &&
+              Math.abs(state.y - previous.y) < 0.0001;
+            const targetSettled =
+              previous !== null &&
+              state.facing === previous.facing &&
+              state.visibleTarget === previous.visibleTarget &&
+              state.target?.x === previous.target?.x &&
+              state.target?.y === previous.target?.y;
+            if (positionSettled && targetSettled) {
+              window.clearTimeout(timer);
+              resolve();
+              return;
+            }
+            previous = state;
+            if (performance.now() >= deadlineAt) {
+              window.clearTimeout(timer);
+              reject(new Error('Target did not settle after key release'));
+              return;
+            }
+            requestAnimationFrame(sample);
+          };
+          requestAnimationFrame(sample);
+        }),
+      timeout,
+    );
   };
 
   let waitError: unknown;
@@ -108,9 +112,10 @@ export async function acquireTarget(page: Page, key: string, target: GridCell): 
     released = await snapshot(page).catch(() => released);
   }
 
-  const timeoutError = waitError instanceof Error
-    ? waitError.message
-    : `Target ${JSON.stringify(target)} was not acquired before the 3-second deadline`;
+  const timeoutError =
+    waitError instanceof Error
+      ? waitError.message
+      : `Target ${JSON.stringify(target)} was not acquired before the 3-second deadline`;
   throw new Error(`${timeoutError}; snapshots: ${JSON.stringify({ initial, released })}`);
 }
 
@@ -149,9 +154,7 @@ export async function confirmAndStartDay(
   await expect(dialog).toContainText(
     'Weather: ' + (pending.weather === 'sunny' ? 'Sunny' : 'Rainy'),
   );
-  await expect(dialog).toContainText(
-    'Stamina restored: ' + expected.staminaRestored,
-  );
+  await expect(dialog).toContainText('Stamina restored: ' + expected.staminaRestored);
   const shipments = expected.shipments ?? [];
   await expect(dialog.locator('[data-shipment-row]')).toHaveCount(shipments.length);
   for (const shipment of shipments) {
@@ -174,30 +177,35 @@ export async function confirmAndStartDay(
 }
 
 export async function waitForCameraToSettle(page: Page): Promise<void> {
-  await page.evaluate(() => new Promise<void>((resolve, reject) => {
-    const deadline = performance.now() + 3_000;
-    let previous: { scrollX: number; scrollY: number } | null = null;
-    const sample = () => {
-      const current = window.__PHOENIX_TEST__?.snapshot().camera;
-      if (!current) {
-        reject(new Error('Phoenix camera snapshot is not ready'));
-        return;
-      }
-      if (previous
-        && Math.abs(current.scrollX - previous.scrollX) < 0.01
-        && Math.abs(current.scrollY - previous.scrollY) < 0.01) {
-        resolve();
-        return;
-      }
-      previous = { scrollX: current.scrollX, scrollY: current.scrollY };
-      if (performance.now() >= deadline) {
-        reject(new Error(`Phoenix camera did not settle: ${JSON.stringify(current)}`));
-        return;
-      }
-      requestAnimationFrame(sample);
-    };
-    requestAnimationFrame(sample);
-  }));
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        const deadline = performance.now() + 3_000;
+        let previous: { scrollX: number; scrollY: number } | null = null;
+        const sample = () => {
+          const current = window.__PHOENIX_TEST__?.snapshot().camera;
+          if (!current) {
+            reject(new Error('Phoenix camera snapshot is not ready'));
+            return;
+          }
+          if (
+            previous &&
+            Math.abs(current.scrollX - previous.scrollX) < 0.01 &&
+            Math.abs(current.scrollY - previous.scrollY) < 0.01
+          ) {
+            resolve();
+            return;
+          }
+          previous = { scrollX: current.scrollX, scrollY: current.scrollY };
+          if (performance.now() >= deadline) {
+            reject(new Error(`Phoenix camera did not settle: ${JSON.stringify(current)}`));
+            return;
+          }
+          requestAnimationFrame(sample);
+        };
+        requestAnimationFrame(sample);
+      }),
+  );
 }
 
 const E2E_PROJECTION = {
@@ -219,10 +227,7 @@ export async function captureCropSprite(page: Page, cell: GridCell): Promise<Buf
   expect(Number.isInteger(scaleX)).toBe(true);
   expect(scaleY).toBe(scaleX);
 
-  const footpoint = gridToWorld(
-    { x: cell.x + 0.5, y: cell.y + 0.5 },
-    E2E_PROJECTION,
-  );
+  const footpoint = gridToWorld({ x: cell.x + 0.5, y: cell.y + 0.5 }, E2E_PROJECTION);
   const clip = {
     x: box.x + (footpoint.x - 16 - debug.camera.scrollX) * scaleX,
     y: box.y + (footpoint.y - 48 - debug.camera.scrollY) * scaleY,
@@ -296,7 +301,9 @@ export async function moveUntilPlayerAxis(
   if (waitError) {
     const latest = await snapshot(page).catch(() => null);
     if (latest) {
-      throw new Error(`${waitError instanceof Error ? waitError.message : String(waitError)}; last snapshot after release: ${JSON.stringify(latest)}`);
+      throw new Error(
+        `${waitError instanceof Error ? waitError.message : String(waitError)}; last snapshot after release: ${JSON.stringify(latest)}`,
+      );
     }
     throw waitError;
   }
@@ -315,10 +322,15 @@ export async function moveUntilKeys(
   let waitError: unknown;
   try {
     try {
-      await expect.poll(async () => {
-        latest = await snapshot(page);
-        return predicate(latest);
-      }, { timeout: 3_000, intervals: [50] }).toBe(true);
+      await expect
+        .poll(
+          async () => {
+            latest = await snapshot(page);
+            return predicate(latest);
+          },
+          { timeout: 3_000, intervals: [50] },
+        )
+        .toBe(true);
     } catch (error) {
       waitError = error;
     }
@@ -328,7 +340,9 @@ export async function moveUntilKeys(
   if (waitError) {
     latest = await snapshot(page).catch(() => latest);
     if (latest) {
-      throw new Error(`${waitError instanceof Error ? waitError.message : String(waitError)}; last snapshot after release: ${JSON.stringify(latest)}`);
+      throw new Error(
+        `${waitError instanceof Error ? waitError.message : String(waitError)}; last snapshot after release: ${JSON.stringify(latest)}`,
+      );
     }
     throw waitError;
   }

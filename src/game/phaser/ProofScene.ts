@@ -18,10 +18,7 @@ import type {
 } from '../core/types';
 import { sortDepthEntries } from '../core/isometric';
 import { ActionController, type ActionKeys } from './ActionController';
-import {
-  interactionIntentForTarget,
-  type InteractionIntent,
-} from './interactionIntent';
+import { interactionIntentForTarget, type InteractionIntent } from './interactionIntent';
 import { KeyboardController, type KeyboardKeys } from './KeyboardController';
 import { ProjectionAdapter } from './ProjectionAdapter';
 import { parseProofMap, type ParsedProofMap } from './loadProofMap';
@@ -54,8 +51,6 @@ type CropEntityId = `crop:${number},${number}`;
 type EntityId = BaseEntityId | CropEntityId;
 
 export type DebugDepths = Record<BaseEntityId, number> & Partial<Record<CropEntityId, number>>;
-
-const debugDepthsCropMayBeMissing: DebugDepths['crop:3,8'] = undefined;
 
 export interface DebugSnapshot {
   player: { position: GridPoint; facing: Facing; world: WorldPoint };
@@ -240,7 +235,8 @@ export class ProofScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
-    if (!this.session || !this.keyboard || !this.actionController || !this.player || !this.target) return;
+    if (!this.session || !this.keyboard || !this.actionController || !this.player || !this.target)
+      return;
     this.session.stepMovement(this.keyboard.sample(), delta);
 
     const action = this.actionController.sample();
@@ -321,8 +317,9 @@ export class ProofScene extends Phaser.Scene {
       } else {
         visibleSoil.add(key);
         const existing = this.soilSprites.get(key);
-        const sprite = existing ?? this.add.sprite(center.x, center.y, SOIL_KEY, frames.soilFrame)
-          .setOrigin(0.5, 0.5);
+        const sprite =
+          existing ??
+          this.add.sprite(center.x, center.y, SOIL_KEY, frames.soilFrame).setOrigin(0.5, 0.5);
         sprite.setPosition(center.x, center.y).setFrame(frames.soilFrame).setDepth(SOIL_DEPTH);
         if (!existing) this.soilSprites.set(key, sprite);
       }
@@ -332,8 +329,9 @@ export class ProofScene extends Phaser.Scene {
       } else {
         visibleCrops.add(key);
         const existing = this.cropSprites.get(key);
-        const sprite = existing ?? this.add.sprite(center.x, center.y, CROPS_KEY, frames.cropFrame)
-          .setOrigin(0.5, 1);
+        const sprite =
+          existing ??
+          this.add.sprite(center.x, center.y, CROPS_KEY, frames.cropFrame).setOrigin(0.5, 1);
         sprite.setPosition(center.x, center.y).setFrame(frames.cropFrame);
         if (!existing) this.cropSprites.set(key, sprite);
       }
@@ -347,10 +345,7 @@ export class ProofScene extends Phaser.Scene {
     }
   }
 
-  private destroyFarmSprite(
-    sprites: Map<string, Phaser.GameObjects.Sprite>,
-    key: string,
-  ): void {
+  private destroyFarmSprite(sprites: Map<string, Phaser.GameObjects.Sprite>, key: string): void {
     const sprite = sprites.get(key);
     if (!sprite) return;
     sprite.destroy();
@@ -435,7 +430,9 @@ export class ProofScene extends Phaser.Scene {
       building: this.depths.building,
       'shipping-bin': this.depths['shipping-bin'],
     };
-    const sortedEntries = sortDepthEntries(entries) as Array<DepthEntry & { sprite: Phaser.GameObjects.Sprite }>;
+    const sortedEntries = sortDepthEntries(entries) as Array<
+      DepthEntry & { sprite: Phaser.GameObjects.Sprite }
+    >;
     sortedEntries.forEach((entry, index) => {
       const depth = PLAYER_DEPTH + index;
       entry.sprite.setDepth(depth);

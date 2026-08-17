@@ -1,11 +1,7 @@
 import { expect, test } from 'bun:test';
-import type Phaser from 'phaser';
 import { InputGate } from '../../src/game/core/InputGate';
 import type { FarmingAction } from '../../src/game/core/types';
-import {
-  ActionController,
-  type ActionKeys,
-} from '../../src/game/phaser/ActionController';
+import { ActionController, type ActionKeys } from '../../src/game/phaser/ActionController';
 
 interface FakeKey {
   isDown: boolean;
@@ -165,10 +161,18 @@ test('locking resets held key state and remembered edges before unlock', () => {
   gate.set('modal', true);
   expect(Object.values(raw).map((key) => key.resetCalls)).toEqual([1, 1, 1, 1, 1, 1]);
   expect(Object.values(raw).every((key) => !key.isDown)).toBe(true);
-  expect(controller.sample()).toEqual({ selectedAction: null, useSelected: false, interact: false });
+  expect(controller.sample()).toEqual({
+    selectedAction: null,
+    useSelected: false,
+    interact: false,
+  });
 
   gate.set('modal', false);
-  expect(controller.sample()).toEqual({ selectedAction: null, useSelected: false, interact: false });
+  expect(controller.sample()).toEqual({
+    selectedAction: null,
+    useSelected: false,
+    interact: false,
+  });
   controller.destroy();
 });
 

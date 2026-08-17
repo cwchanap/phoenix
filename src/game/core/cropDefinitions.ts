@@ -37,9 +37,7 @@ export function isMature(kind: CropKind, progress: number): boolean {
   return progress === CROP_DEFINITIONS[kind].growthDays;
 }
 
-export function shipmentPayout(
-  pending: CropCounts,
-): { lines: ShipmentLine[]; total: number } {
+export function shipmentPayout(pending: CropCounts): { lines: ShipmentLine[]; total: number } {
   const lines: ShipmentLine[] = [];
   let total = 0;
   for (const crop of CROP_KINDS) {

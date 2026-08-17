@@ -8,10 +8,10 @@ export interface FarmVisualFrames {
 
 export function farmVisuals(tile: FarmTileSnapshot, weather: Weather): FarmVisualFrames {
   const wet = weather === 'rainy' || tile.crop?.wateredToday === true;
-  const cropFrame = tile.crop === null
-    ? null
-    : CROP_KINDS.indexOf(tile.crop.kind) * 4
-      + visualStage(tile.crop.kind, tile.crop.growth);
+  const cropFrame =
+    tile.crop === null
+      ? null
+      : CROP_KINDS.indexOf(tile.crop.kind) * 4 + visualStage(tile.crop.kind, tile.crop.growth);
   return {
     soilFrame: tile.soil === 'untilled' ? null : wet ? 1 : 0,
     cropFrame,

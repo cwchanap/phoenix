@@ -27,18 +27,26 @@ interface ParsedMarkers {
   shippingCell: GridCell;
 }
 
-const allowedMarkerNames = new Set(['player-spawn', 'bed-interaction', 'shop-counter', 'shipping-bin']);
+const allowedMarkerNames = new Set([
+  'player-spawn',
+  'bed-interaction',
+  'shop-counter',
+  'shipping-bin',
+]);
 
 const sceneryContract = {
   tree: { objectId: 1, gid: 3, frame: 0, world: { x: 480, y: 192 } },
   building: { objectId: 2, gid: 4, frame: 1, world: { x: 384, y: 288 } },
   'shipping-bin': { objectId: 7, gid: 5, frame: 2, world: { x: 256, y: 272 } },
-} as const satisfies Record<SceneryKind, {
-  objectId: number;
-  gid: number;
-  frame: number;
-  world: { x: number; y: number };
-}>;
+} as const satisfies Record<
+  SceneryKind,
+  {
+    objectId: number;
+    gid: number;
+    frame: number;
+    world: { x: number; y: number };
+  }
+>;
 
 const footprintContract = {
   tree: { objectId: 3, x: 7.2, y: 4.2, width: 0.6, height: 0.6 },
@@ -70,7 +78,8 @@ function string(value: unknown, context: string): string {
 }
 
 function number(value: unknown, context: string): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) fail(`${context} must be a finite number`);
+  if (typeof value !== 'number' || !Number.isFinite(value))
+    fail(`${context} must be a finite number`);
   return value;
 }
 
@@ -99,23 +108,28 @@ function validateTilesetSpacing(tileset: RecordValue, name: string): void {
 }
 
 function findLayer(raw: RecordValue, name: string): RecordValue {
-  const layers = array(raw.layers, 'layers').map((value, index) => record(value, `layers[${index}]`));
+  const layers = array(raw.layers, 'layers').map((value, index) =>
+    record(value, `layers[${index}]`),
+  );
   const layer = layers.find((candidate) => candidate.name === name);
   if (!layer) fail(`missing ${name} layer`);
   return layer;
 }
 
-function validateTileset(value: unknown, expected: {
-  name: string;
-  firstgid: number;
-  columns: number;
-  image: string;
-  imageheight: number;
-  imagewidth: number;
-  tilecount: number;
-  tileheight: number;
-  tilewidth: number;
-}): RecordValue {
+function validateTileset(
+  value: unknown,
+  expected: {
+    name: string;
+    firstgid: number;
+    columns: number;
+    image: string;
+    imageheight: number;
+    imagewidth: number;
+    tilecount: number;
+    tileheight: number;
+    tilewidth: number;
+  },
+): RecordValue {
   const tileset = record(value, `tileset ${expected.name}`);
   if (string(tileset.name, `tileset ${expected.name}.name`) !== expected.name) {
     fail(`expected tileset ${expected.name}`);
@@ -167,7 +181,9 @@ function validateMapHeader(raw: RecordValue, projection: ProjectionAdapter): voi
   }
   if (integer(raw.nextlayerid, 'nextlayerid') !== 5) fail('nextlayerid must be 5');
   if (integer(raw.nextobjectid, 'nextobjectid') !== 11) fail('nextobjectid must be 11');
-  const layers = array(raw.layers, 'layers').map((value, index) => record(value, `layers[${index}]`));
+  const layers = array(raw.layers, 'layers').map((value, index) =>
+    record(value, `layers[${index}]`),
+  );
   const layerNames = new Set(layers.map((layer) => string(layer.name, 'layer.name')));
   for (const name of ['Ground', 'Scenery', 'Collision', 'Markers']) {
     if (!layerNames.has(name)) fail(`missing ${name} layer`);
@@ -268,7 +284,9 @@ function parseScenery(raw: RecordValue): {
   const layer = findLayer(raw, 'Scenery');
   if (integer(layer.id, 'Scenery.id') !== 2) fail('Scenery layer id must be 2');
   if (string(layer.type, 'Scenery.type') !== 'objectgroup') fail('Scenery must be an object layer');
-  const objects = array(layer.objects, 'Scenery.objects').map((value, index) => record(value, `Scenery.objects[${index}]`));
+  const objects = array(layer.objects, 'Scenery.objects').map((value, index) =>
+    record(value, `Scenery.objects[${index}]`),
+  );
   if (objects.length !== 3) fail('expected tree, building, and shipping-bin scenery objects');
   const seen = new Set<string>();
   const scenery: SceneryPlacement[] = [];
@@ -289,10 +307,16 @@ function parseScenery(raw: RecordValue): {
     if (objectId !== contract.objectId) {
       fail(`scenery ${id}.id must be ${contract.objectId}`);
     }
-    if (number(object.width, `scenery ${id}.width`) !== 96 || number(object.height, `scenery ${id}.height`) !== 96) {
+    if (
+      number(object.width, `scenery ${id}.width`) !== 96 ||
+      number(object.height, `scenery ${id}.height`) !== 96
+    ) {
       fail(`scenery ${id} dimensions must be 96x96`);
     }
-    if (number(object.rotation, `scenery ${id}.rotation`) !== 0 || !boolean(object.visible, `scenery ${id}.visible`)) {
+    if (
+      number(object.rotation, `scenery ${id}.rotation`) !== 0 ||
+      !boolean(object.visible, `scenery ${id}.visible`)
+    ) {
       fail(`scenery ${id} must be visible with zero rotation`);
     }
     const worldX = number(object.x, `scenery ${id}.x`);
@@ -323,13 +347,15 @@ function parseFootprint(object: RecordValue, projection: ProjectionAdapter): Foo
   const y = number(object.y, `footprint ${name}.y`);
   const polygon = array(object.polygon, `footprint ${name}.polygon`);
   if (polygon.length !== 4) fail(`footprint ${name} must have four polygon points`);
-  const gridPoints = polygon.map((point, index) => {
-    const relative = record(point, `footprint ${name}.polygon[${index}]`);
-    return projection.worldToGrid({
-      x: x + number(relative.x, `footprint ${name}.polygon[${index}].x`),
-      y: y + number(relative.y, `footprint ${name}.polygon[${index}].y`),
-    });
-  }).map(({ x: gridX, y: gridY }) => ({ x: snap(gridX), y: snap(gridY) }));
+  const gridPoints = polygon
+    .map((point, index) => {
+      const relative = record(point, `footprint ${name}.polygon[${index}]`);
+      return projection.worldToGrid({
+        x: x + number(relative.x, `footprint ${name}.polygon[${index}].x`),
+        y: y + number(relative.y, `footprint ${name}.polygon[${index}].y`),
+      });
+    })
+    .map(({ x: gridX, y: gridY }) => ({ x: snap(gridX), y: snap(gridY) }));
   const uniquePoints = new Set(gridPoints.map(({ x: gridX, y: gridY }) => `${gridX},${gridY}`));
   const xs = [...new Set(gridPoints.map(({ x: gridX }) => gridX))].sort((a, b) => a - b);
   const ys = [...new Set(gridPoints.map(({ y: gridY }) => gridY))].sort((a, b) => a - b);
@@ -346,11 +372,18 @@ function parseFootprint(object: RecordValue, projection: ProjectionAdapter): Foo
   return { id: name, x: xs[0], y: ys[0], width, height };
 }
 
-function parseCollision(raw: RecordValue, projection: ProjectionAdapter, scenery: SceneryPlacement[]): Footprint[] {
+function parseCollision(
+  raw: RecordValue,
+  projection: ProjectionAdapter,
+  scenery: SceneryPlacement[],
+): Footprint[] {
   const layer = findLayer(raw, 'Collision');
   if (integer(layer.id, 'Collision.id') !== 3) fail('Collision layer id must be 3');
-  if (string(layer.type, 'Collision.type') !== 'objectgroup') fail('Collision must be an object layer');
-  const objects = array(layer.objects, 'Collision.objects').map((value, index) => record(value, `Collision.objects[${index}]`));
+  if (string(layer.type, 'Collision.type') !== 'objectgroup')
+    fail('Collision must be an object layer');
+  const objects = array(layer.objects, 'Collision.objects').map((value, index) =>
+    record(value, `Collision.objects[${index}]`),
+  );
   const footprints = objects.map((object) => {
     const name = string(object.name, 'Collision object.name');
     if (!Object.hasOwn(footprintContract, name)) fail(`unknown collision footprint ${name}`);
@@ -359,8 +392,12 @@ function parseCollision(raw: RecordValue, projection: ProjectionAdapter, scenery
     if (objectId !== contract.objectId) {
       fail(`footprint ${name}.id must be ${contract.objectId}`);
     }
-    if (string(object.type, `footprint ${name}.type`) !== '') fail(`footprint ${name}.type must be empty`);
-    if (number(object.rotation, `footprint ${name}.rotation`) !== 0 || !boolean(object.visible, `footprint ${name}.visible`)) {
+    if (string(object.type, `footprint ${name}.type`) !== '')
+      fail(`footprint ${name}.type must be empty`);
+    if (
+      number(object.rotation, `footprint ${name}.rotation`) !== 0 ||
+      !boolean(object.visible, `footprint ${name}.visible`)
+    ) {
       fail(`footprint ${name} must be visible with zero rotation`);
     }
     return parseFootprint(object, projection);
@@ -377,7 +414,8 @@ function parseCollision(raw: RecordValue, projection: ProjectionAdapter, scenery
       fail(`footprint ${placement.id} is not at its authored logical position`);
     }
   }
-  if (footprints.length !== scenery.length) fail('expected one collision footprint per scenery object');
+  if (footprints.length !== scenery.length)
+    fail('expected one collision footprint per scenery object');
   return scenery.map(({ id }) => byId.get(id) as Footprint);
 }
 
@@ -385,7 +423,9 @@ function parseMarkers(raw: RecordValue, projection: ProjectionAdapter): ParsedMa
   const layer = findLayer(raw, 'Markers');
   if (integer(layer.id, 'Markers.id') !== 4) fail('Markers layer id must be 4');
   if (string(layer.type, 'Markers.type') !== 'objectgroup') fail('Markers must be an object layer');
-  const objects = array(layer.objects, 'Markers.objects').map((value, index) => record(value, `Markers.objects[${index}]`));
+  const objects = array(layer.objects, 'Markers.objects').map((value, index) =>
+    record(value, `Markers.objects[${index}]`),
+  );
   const markers = new Map<string, RecordValue>();
   for (const object of objects) {
     const name = string(object.name, 'Markers object.name');
@@ -413,32 +453,53 @@ function parseMarkers(raw: RecordValue, projection: ProjectionAdapter): ParsedMa
     ['shipping-bin', shippingMarker],
   ] as const) {
     if (candidate.point !== true) fail(`${name} marker must be a point`);
-    if (string(candidate.type, `${name}.type`) !== ''
-      || number(candidate.rotation, `${name}.rotation`) !== 0
-      || !boolean(candidate.visible, `${name}.visible`)) {
+    if (
+      string(candidate.type, `${name}.type`) !== '' ||
+      number(candidate.rotation, `${name}.rotation`) !== 0 ||
+      !boolean(candidate.visible, `${name}.visible`)
+    ) {
       fail(`${name} marker must be visible with zero rotation and empty type`);
     }
   }
 
-  const spawnWorld = { x: number(marker.x, 'player-spawn.x'), y: number(marker.y, 'player-spawn.y') };
+  const spawnWorld = {
+    x: number(marker.x, 'player-spawn.x'),
+    y: number(marker.y, 'player-spawn.y'),
+  };
   const spawn = projection.worldToGrid(spawnWorld);
-  if (!Number.isFinite(spawn.x) || !Number.isFinite(spawn.y)
-    || spawn.x < 0 || spawn.y < 0
-    || spawn.x > projection.mapSize.width || spawn.y > projection.mapSize.height) {
+  if (
+    !Number.isFinite(spawn.x) ||
+    !Number.isFinite(spawn.y) ||
+    spawn.x < 0 ||
+    spawn.y < 0 ||
+    spawn.x > projection.mapSize.width ||
+    spawn.y > projection.mapSize.height
+  ) {
     fail('player spawn is out of bounds');
   }
   const snapped = { x: snap(spawn.x), y: snap(spawn.y) };
   if (snapped.x !== 2.5 || snapped.y !== 9.5) fail('player spawn is not at its authored position');
 
-  const bedWorld = { x: number(bedMarker.x, 'bed-interaction.x'), y: number(bedMarker.y, 'bed-interaction.y') };
+  const bedWorld = {
+    x: number(bedMarker.x, 'bed-interaction.x'),
+    y: number(bedMarker.y, 'bed-interaction.y'),
+  };
   const bedCell = projection.gridCellAtWorld(bedWorld);
-  if (bedCell.x !== 6 || bedCell.y !== 8) fail('bed-interaction marker must be at logical cell 6,8');
-  const shopWorld = { x: number(shopMarker.x, 'shop-counter.x'), y: number(shopMarker.y, 'shop-counter.y') };
+  if (bedCell.x !== 6 || bedCell.y !== 8)
+    fail('bed-interaction marker must be at logical cell 6,8');
+  const shopWorld = {
+    x: number(shopMarker.x, 'shop-counter.x'),
+    y: number(shopMarker.y, 'shop-counter.y'),
+  };
   const shopCell = projection.gridCellAtWorld(shopWorld);
   if (shopCell.x !== 6 || shopCell.y !== 7) fail('shop-counter marker must be at logical cell 6,7');
-  const shippingWorld = { x: number(shippingMarker.x, 'shipping-bin.x'), y: number(shippingMarker.y, 'shipping-bin.y') };
+  const shippingWorld = {
+    x: number(shippingMarker.x, 'shipping-bin.x'),
+    y: number(shippingMarker.y, 'shipping-bin.y'),
+  };
   const shippingCell = projection.gridCellAtWorld(shippingWorld);
-  if (shippingCell.x !== 6 || shippingCell.y !== 10) fail('shipping-bin marker must be at logical cell 6,10');
+  if (shippingCell.x !== 6 || shippingCell.y !== 10)
+    fail('shipping-bin marker must be at logical cell 6,10');
   return {
     spawn: { ...snapped },
     bedCell: { ...bedCell },

@@ -3,13 +3,26 @@ import type { GridPoint, Footprint, ProofMap } from './types';
 export function intersects(a: Footprint, b: Footprint): boolean {
   // Keep computed edge contacts (for example, 6.82 + 0.18) from becoming
   // microscopic overlaps solely because of floating-point representation.
-  const epsilon = Number.EPSILON * 32 * Math.max(
-    1,
-    Math.abs(a.x), Math.abs(a.y), Math.abs(a.width), Math.abs(a.height),
-    Math.abs(b.x), Math.abs(b.y), Math.abs(b.width), Math.abs(b.height),
+  const epsilon =
+    Number.EPSILON *
+    32 *
+    Math.max(
+      1,
+      Math.abs(a.x),
+      Math.abs(a.y),
+      Math.abs(a.width),
+      Math.abs(a.height),
+      Math.abs(b.x),
+      Math.abs(b.y),
+      Math.abs(b.width),
+      Math.abs(b.height),
+    );
+  return (
+    a.x < b.x + b.width - epsilon &&
+    a.x + a.width > b.x + epsilon &&
+    a.y < b.y + b.height - epsilon &&
+    a.y + a.height > b.y + epsilon
   );
-  return a.x < b.x + b.width - epsilon && a.x + a.width > b.x + epsilon
-    && a.y < b.y + b.height - epsilon && a.y + a.height > b.y + epsilon;
 }
 
 export function playerRect(position: GridPoint, halfExtent = 0.18): Footprint {
@@ -45,17 +58,16 @@ function resolveAxis(
   if (delta > 0) {
     for (const footprint of map.footprints) {
       if (!intersects(proposedRect, footprint)) continue;
-      const edge = axis === 'x'
-        ? footprint.x - halfExtent
-        : footprint.y - halfExtent;
+      const edge = axis === 'x' ? footprint.x - halfExtent : footprint.y - halfExtent;
       resolved = Math.min(resolved, edge);
     }
   } else if (delta < 0) {
     for (const footprint of map.footprints) {
       if (!intersects(proposedRect, footprint)) continue;
-      const edge = axis === 'x'
-        ? footprint.x + footprint.width + halfExtent
-        : footprint.y + footprint.height + halfExtent;
+      const edge =
+        axis === 'x'
+          ? footprint.x + footprint.width + halfExtent
+          : footprint.y + footprint.height + halfExtent;
       resolved = Math.max(resolved, edge);
     }
   }

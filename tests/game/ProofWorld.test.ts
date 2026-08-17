@@ -95,12 +95,15 @@ test('caps a large delta before it can tunnel through the tree', () => {
 });
 
 test('subdivides a capped frame into collision steps no larger than 8 ms', () => {
-  const world = new ProofWorld({
-    width: 12,
-    height: 12,
-    spawn: { x: 0.4, y: 0.75 },
-    footprints: [{ id: 'post', x: 0.5, y: 0.5, width: 0.05, height: 0.05 }],
-  }, metrics);
+  const world = new ProofWorld(
+    {
+      width: 12,
+      height: 12,
+      spawn: { x: 0.4, y: 0.75 },
+      footprints: [{ id: 'post', x: 0.5, y: 0.5, width: 0.05, height: 0.05 }],
+    },
+    metrics,
+  );
   world.step({ screenX: -1, screenY: -1 }, 50);
 
   expect(world.snapshot().player.position.y).toBeGreaterThan(0.7);
@@ -120,7 +123,11 @@ test('treats touching footprint edges as clear but overlap as collision', () => 
   expect(intersects(edge, { id: 'player', x: 2, y: 1, width: 1, height: 1 })).toBe(false);
   expect(intersects(edge, { id: 'player', x: 1.999, y: 1, width: 1, height: 1 })).toBe(true);
   expect(playerRect({ x: 2, y: 3 })).toEqual({
-    id: 'player', x: 1.82, y: 2.82, width: 0.36, height: 0.36,
+    id: 'player',
+    x: 1.82,
+    y: 2.82,
+    width: 0.36,
+    height: 0.36,
   });
 });
 
@@ -146,10 +153,22 @@ test('returns null instead of clamping a target beyond the map', () => {
 
 test('applies all four target offsets from a fractional player position', () => {
   const cases = [
-    [{ screenX: 0, screenY: -1 }, { x: 4, y: 4 }],
-    [{ screenX: 1, screenY: 0 }, { x: 6, y: 4 }],
-    [{ screenX: 0, screenY: 1 }, { x: 6, y: 6 }],
-    [{ screenX: -1, screenY: 0 }, { x: 4, y: 6 }],
+    [
+      { screenX: 0, screenY: -1 },
+      { x: 4, y: 4 },
+    ],
+    [
+      { screenX: 1, screenY: 0 },
+      { x: 6, y: 4 },
+    ],
+    [
+      { screenX: 0, screenY: 1 },
+      { x: 6, y: 6 },
+    ],
+    [
+      { screenX: -1, screenY: 0 },
+      { x: 4, y: 6 },
+    ],
   ] as const;
 
   for (const [input, target] of cases) {
@@ -168,7 +187,9 @@ test('returns fresh snapshots', () => {
 });
 
 test('keeps farm, bed, shop, and shipping routes clear around the authored bin', async () => {
-  const raw = await Bun.file(resolve(import.meta.dir, '../../src/assets/maps/proof-map.json')).json();
+  const raw = await Bun.file(
+    resolve(import.meta.dir, '../../src/assets/maps/proof-map.json'),
+  ).json();
   const projection = new ProjectionAdapter(
     { tileWidth: 64, tileHeight: 32, origin: { x: 384, y: 0 } },
     { width: 12, height: 12 },
@@ -185,12 +206,14 @@ test('keeps farm, bed, shop, and shipping routes clear around the authored bin',
   expect(world.snapshot().target).toEqual(parsed.bedCell);
 
   stepUntil(world, { screenX: 0, screenY: -1 }, ({ player }) => player.position.x <= 4.5);
-  expect(stepUntil(world, { screenX: 1, screenY: 0 }, ({ target }) => (
-    target?.x === 6 && target.y === 7
-  )).target).toEqual(parsed.shopCell);
-  expect(stepUntil(world, { screenX: 0, screenY: 1 }, ({ target }) => (
-    target?.x === 6 && target.y === 10
-  )).target).toEqual(parsed.shippingCell);
+  expect(
+    stepUntil(world, { screenX: 1, screenY: 0 }, ({ target }) => target?.x === 6 && target.y === 7)
+      .target,
+  ).toEqual(parsed.shopCell);
+  expect(
+    stepUntil(world, { screenX: 0, screenY: 1 }, ({ target }) => target?.x === 6 && target.y === 10)
+      .target,
+  ).toEqual(parsed.shippingCell);
 
   const atShipping = world.snapshot().player.position;
   expect(atShipping.x + 0.18).toBeLessThan(6.2);
@@ -199,14 +222,17 @@ test('keeps farm, bed, shop, and shipping routes clear around the authored bin',
     pushed = moveWithCollisions(pushed, { x: 0.02, y: 0.02 }, parsed.world, 0.18);
   }
   expect(pushed.y).toBeLessThanOrEqual(10.02 + 1e-9);
-  expect(intersects(
-    { id: 'player', x: pushed.x - 0.18, y: pushed.y - 0.18, width: 0.36, height: 0.36 },
-    parsed.world.footprints.find(({ id }) => id === 'shipping-bin')!,
-  )).toBe(false);
+  expect(
+    intersects(
+      { id: 'player', x: pushed.x - 0.18, y: pushed.y - 0.18, width: 0.36, height: 0.36 },
+      parsed.world.footprints.find(({ id }) => id === 'shipping-bin')!,
+    ),
+  ).toBe(false);
   world.step({ screenX: 1, screenY: 0 }, 0);
   expect(world.snapshot().target).toEqual(parsed.bedCell);
   stepUntil(world, { screenX: 0, screenY: -1 }, ({ player }) => player.position.x <= 4.8);
-  expect(stepUntil(world, { screenX: 1, screenY: 0 }, ({ target }) => (
-    target?.x === 6 && target.y === 7
-  )).target).toEqual(parsed.shopCell);
+  expect(
+    stepUntil(world, { screenX: 1, screenY: 0 }, ({ target }) => target?.x === 6 && target.y === 7)
+      .target,
+  ).toEqual(parsed.shopCell);
 });

@@ -42,9 +42,14 @@ export class ProofWorld {
     const { screenX, screenY } = input;
     const magnitude = Math.hypot(screenX, screenY);
     if (magnitude > 0) {
-      this.facing = Math.abs(screenX) >= Math.abs(screenY)
-        ? screenX > 0 ? 'right' : 'left'
-        : screenY > 0 ? 'down' : 'up';
+      this.facing =
+        Math.abs(screenX) >= Math.abs(screenY)
+          ? screenX > 0
+            ? 'right'
+            : 'left'
+          : screenY > 0
+            ? 'down'
+            : 'up';
     }
 
     const normalizedX = magnitude > 0 ? screenX / magnitude : 0;
@@ -53,8 +58,8 @@ export class ProofWorld {
 
     while (remainingMs > 0) {
       const stepMs = Math.min(remainingMs, MAX_SUBSTEP_MS);
-      const projectedX = normalizedX * MOVE_SPEED * stepMs / 1000;
-      const projectedY = normalizedY * MOVE_SPEED * stepMs / 1000;
+      const projectedX = (normalizedX * MOVE_SPEED * stepMs) / 1000;
+      const projectedY = (normalizedY * MOVE_SPEED * stepMs) / 1000;
       const gridDelta = {
         x: projectedX / this.metrics.tileWidth + projectedY / this.metrics.tileHeight,
         y: projectedY / this.metrics.tileHeight - projectedX / this.metrics.tileWidth,

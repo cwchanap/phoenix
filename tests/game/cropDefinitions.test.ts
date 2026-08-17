@@ -15,12 +15,12 @@ describe('cropDefinitions', () => {
       potato: { displayName: 'Potato', growthDays: 5, seedPrice: 40, saleValue: 75 },
       pumpkin: { displayName: 'Pumpkin', growthDays: 7, seedPrice: 70, saleValue: 140 },
     });
-    const profits = CROP_KINDS.map((kind) => (
-      CROP_DEFINITIONS[kind].saleValue - CROP_DEFINITIONS[kind].seedPrice
-    ));
-    const profitPerNight = CROP_KINDS.map((kind) => (
-      profits[CROP_KINDS.indexOf(kind)] / CROP_DEFINITIONS[kind].growthDays
-    ));
+    const profits = CROP_KINDS.map(
+      (kind) => CROP_DEFINITIONS[kind].saleValue - CROP_DEFINITIONS[kind].seedPrice,
+    );
+    const profitPerNight = CROP_KINDS.map(
+      (kind) => profits[CROP_KINDS.indexOf(kind)] / CROP_DEFINITIONS[kind].growthDays,
+    );
     expect(profits).toEqual([15, 35, 70]);
     expect(profitPerNight).toEqual([5, 7, 10]);
   });
@@ -75,8 +75,7 @@ describe('cropDefinitions', () => {
     expect(second).not.toBe(first);
     expect(second.lines).not.toBe(first.lines);
     expect(second.lines[0]).not.toBe(first.lines[0]);
-    expect(shipmentPayout({ turnip: 0, potato: 0, pumpkin: 0 }))
-      .toEqual({ lines: [], total: 0 });
+    expect(shipmentPayout({ turnip: 0, potato: 0, pumpkin: 0 })).toEqual({ lines: [], total: 0 });
   });
 
   test.each([-1, 1.5, Number.NaN])('rejects invalid shipment count %p', (quantity) => {
@@ -84,10 +83,12 @@ describe('cropDefinitions', () => {
   });
 
   test('rejects unsafe payout arithmetic', () => {
-    expect(() => shipmentPayout({
-      turnip: Number.MAX_SAFE_INTEGER,
-      potato: 0,
-      pumpkin: 0,
-    })).toThrow();
+    expect(() =>
+      shipmentPayout({
+        turnip: Number.MAX_SAFE_INTEGER,
+        potato: 0,
+        pumpkin: 0,
+      }),
+    ).toThrow();
   });
 });

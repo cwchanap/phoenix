@@ -15,11 +15,12 @@ const createSurface = (width: number, height: number): Surface => ({
   pixels: new Uint8Array(width * height * 4),
 });
 
-const rgb = (hex: string) => [
-  Number.parseInt(hex.slice(1, 3), 16),
-  Number.parseInt(hex.slice(3, 5), 16),
-  Number.parseInt(hex.slice(5, 7), 16),
-] as const;
+const rgb = (hex: string) =>
+  [
+    Number.parseInt(hex.slice(1, 3), 16),
+    Number.parseInt(hex.slice(3, 5), 16),
+    Number.parseInt(hex.slice(5, 7), 16),
+  ] as const;
 
 function setPixel(surface: Surface, x: number, y: number, color: string): void {
   if (x < 0 || y < 0 || x >= surface.width || y >= surface.height) return;
@@ -53,8 +54,8 @@ function fillDiamond(
   const borderStart = 1 - 1 / Math.min(halfWidth, halfHeight);
   for (let y = centerY - halfHeight; y < centerY + halfHeight; y++) {
     for (let x = centerX - halfWidth; x < centerX + halfWidth; x++) {
-      const distance = Math.abs(x + 0.5 - centerX) / halfWidth
-        + Math.abs(y + 0.5 - centerY) / halfHeight;
+      const distance =
+        Math.abs(x + 0.5 - centerX) / halfWidth + Math.abs(y + 0.5 - centerY) / halfHeight;
       if (distance <= 1) setPixel(surface, x, y, distance >= borderStart ? outline : fill);
     }
   }
@@ -93,12 +94,15 @@ async function writePng(path: string, surface: Surface): Promise<void> {
     );
   }
   await mkdir(dirname(path), { recursive: true });
-  await Bun.write(path, Buffer.concat([
-    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
-    chunk('IHDR', ihdr),
-    chunk('IDAT', deflateSync(scanlines)),
-    chunk('IEND', new Uint8Array()),
-  ]));
+  await Bun.write(
+    path,
+    Buffer.concat([
+      Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+      chunk('IHDR', ihdr),
+      chunk('IDAT', deflateSync(scanlines)),
+      chunk('IEND', new Uint8Array()),
+    ]),
+  );
 }
 
 const project = ({ x, y }: GridPoint): WorldPoint => ({
@@ -188,7 +192,14 @@ cropPalettes.forEach((palette, cropIndex) => {
       continue;
     }
     fillRect(crops, x + 14, rowY + 25 - stage * 4, 4, 11 + stage * 4, palette.leaf);
-    fillRect(crops, x + 7 - stage, rowY + 26 - stage * 3, 9 + stage * 2, 4 + stage, palette.leafLight);
+    fillRect(
+      crops,
+      x + 7 - stage,
+      rowY + 26 - stage * 3,
+      9 + stage * 2,
+      4 + stage,
+      palette.leafLight,
+    );
     fillRect(crops, x + 17, rowY + 22 - stage * 4, 7 + stage * 2, 4 + stage, palette.leaf);
     fillDiamond(
       crops,
@@ -321,43 +332,48 @@ const markerLayer = {
   draworder: 'topdown',
   opacity: 1,
   visible: true,
-  objects: [{
-    id: 5,
-    name: 'player-spawn',
-    type: '',
-    point: true,
-    x: spawn.x,
-    y: spawn.y,
-    rotation: 0,
-    visible: true,
-  }, {
-    id: 6,
-    name: 'bed-interaction',
-    type: '',
-    point: true,
-    x: 320,
-    y: 240,
-    rotation: 0,
-    visible: true,
-  }, {
-    id: 9,
-    name: 'shop-counter',
-    type: '',
-    point: true,
-    x: shopCounter.x,
-    y: shopCounter.y,
-    rotation: 0,
-    visible: true,
-  }, {
-    id: 10,
-    name: 'shipping-bin',
-    type: '',
-    point: true,
-    x: shippingMarker.x,
-    y: shippingMarker.y,
-    rotation: 0,
-    visible: true,
-  }],
+  objects: [
+    {
+      id: 5,
+      name: 'player-spawn',
+      type: '',
+      point: true,
+      x: spawn.x,
+      y: spawn.y,
+      rotation: 0,
+      visible: true,
+    },
+    {
+      id: 6,
+      name: 'bed-interaction',
+      type: '',
+      point: true,
+      x: 320,
+      y: 240,
+      rotation: 0,
+      visible: true,
+    },
+    {
+      id: 9,
+      name: 'shop-counter',
+      type: '',
+      point: true,
+      x: shopCounter.x,
+      y: shopCounter.y,
+      rotation: 0,
+      visible: true,
+    },
+    {
+      id: 10,
+      name: 'shipping-bin',
+      type: '',
+      point: true,
+      x: shippingMarker.x,
+      y: shippingMarker.y,
+      rotation: 0,
+      visible: true,
+    },
+  ],
 };
 
 const map = {

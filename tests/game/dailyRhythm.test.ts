@@ -24,15 +24,21 @@ describe('dailyRhythm', () => {
       stamina: 17,
     });
     expect(current).toEqual({ timeMinutes: 1290, stamina: 20 });
-    expect(evaluateActionBudget({ timeMinutes: 1291, stamina: 20 }, 'hoe'))
-      .toEqual({ ok: false, code: 'action-too-late' });
+    expect(evaluateActionBudget({ timeMinutes: 1291, stamina: 20 }, 'hoe')).toEqual({
+      ok: false,
+      code: 'action-too-late',
+    });
   });
 
   test('checks time before stamina', () => {
-    expect(evaluateActionBudget({ timeMinutes: 1310, stamina: 0 }, 'hands'))
-      .toEqual({ ok: false, code: 'action-too-late' });
-    expect(evaluateActionBudget({ timeMinutes: 360, stamina: 0 }, 'hands'))
-      .toEqual({ ok: false, code: 'insufficient-stamina' });
+    expect(evaluateActionBudget({ timeMinutes: 1310, stamina: 0 }, 'hands')).toEqual({
+      ok: false,
+      code: 'action-too-late',
+    });
+    expect(evaluateActionBudget({ timeMinutes: 360, stamina: 0 }, 'hands')).toEqual({
+      ok: false,
+      code: 'insufficient-stamina',
+    });
   });
 
   test.each([

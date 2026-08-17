@@ -54,11 +54,11 @@ to resume movement.
 Each new session starts with 150G and three turnip seeds. Crop growth and
 prices are fixed by this table:
 
-| Crop | Growth | Seed price | Sale price |
-| --- | --- | ---: | ---: |
-| Turnip | 3 watered nights | 20G | 35G |
-| Potato | 5 watered nights | 40G | 75G |
-| Pumpkin | 7 watered nights | 70G | 140G |
+| Crop    | Growth           | Seed price | Sale price |
+| ------- | ---------------- | ---------: | ---------: |
+| Turnip  | 3 watered nights |        20G |        35G |
+| Potato  | 5 watered nights |        40G |        75G |
+| Pumpkin | 7 watered nights |        70G |       140G |
 
 Deposits are final and free. One successful sleep credits itemized Shipping
 income once and clears the pending shipment before the blocking Morning
@@ -76,12 +76,12 @@ selection, sleep confirmation, and summary acknowledgment are free. An action
 must finish by 22:00, and a valid action that is short on both time and stamina
 reports the time cutoff first. The exact farming costs are:
 
-| Action | Time | Stamina |
-| --- | ---: | ---: |
-| Hoe | 30 minutes | 3 |
-| Plant | 20 minutes | 1 |
-| Water | 20 minutes | 2 |
-| Harvest | 20 minutes | 1 |
+| Action  |       Time | Stamina |
+| ------- | ---------: | ------: |
+| Hoe     | 30 minutes |       3 |
+| Plant   | 20 minutes |       1 |
+| Water   | 20 minutes |       2 |
+| Harvest | 20 minutes |       1 |
 
 Rainy days automatically water planted crops and render tilled farm soil wet.
 Manual watering on a rainy day is rejected without spending time or stamina;

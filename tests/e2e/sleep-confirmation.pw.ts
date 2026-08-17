@@ -27,7 +27,9 @@ async function assertHeldELeavesModalOpen(page: Page, modal: Locator): Promise<v
   await expect(modal).toBeVisible();
 }
 
-test('sleep confirmation focuses the dialog and blocks background action activation', async ({ page }) => {
+test('sleep confirmation focuses the dialog and blocks background action activation', async ({
+  page,
+}) => {
   await waitForWorld(page);
   await expect(page.locator('[data-time]')).toHaveText('06:00');
   await expect(page.locator('[data-stamina]')).toHaveText('20 / 20');
@@ -38,11 +40,12 @@ test('sleep confirmation focuses the dialog and blocks background action activat
   await holdKey(page, 'd', 40);
   await expect.poll(async () => (await snapshot(page)).target).toEqual({ x: 6, y: 8 });
 
-  const readGameSnapshot = () => page.evaluate(() => {
-    const snapshot = window.__PHOENIX_TEST__?.gameSnapshot();
-    if (!snapshot) throw new Error('Phoenix game snapshot is not ready');
-    return snapshot;
-  });
+  const readGameSnapshot = () =>
+    page.evaluate(() => {
+      const snapshot = window.__PHOENIX_TEST__?.gameSnapshot();
+      if (!snapshot) throw new Error('Phoenix game snapshot is not ready');
+      return snapshot;
+    });
 
   const before = await readGameSnapshot();
   expect(before.selectedAction).toBe('hoe');
@@ -77,8 +80,7 @@ test('sleep confirmation focuses the dialog and blocks background action activat
     await page.keyboard.up('e');
   }
   await expect(page.getByRole('button', { name: 'Confirm', exact: true })).toBeFocused();
-  await page.getByRole('button', { name: 'Confirm', exact: true })
-    .click({ clickCount: 2 });
+  await page.getByRole('button', { name: 'Confirm', exact: true }).click({ clickCount: 2 });
 
   const summary = page.getByRole('dialog', { name: 'Morning summary' });
   await expect(summary).toBeVisible();

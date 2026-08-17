@@ -14,7 +14,12 @@ body {
 body {
   background: #101614;
   color: #f4f6ef;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
 }
 
 *,
@@ -205,8 +210,8 @@ body {
   gap: 6px;
 }
 
-.economy-crop-rows button[aria-pressed="true"],
-.seed-selection button[aria-pressed="true"] {
+.economy-crop-rows button[aria-pressed='true'],
+.seed-selection button[aria-pressed='true'] {
   background: #365f4d;
 }
 

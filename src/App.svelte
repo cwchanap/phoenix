@@ -24,12 +24,11 @@
   let economyPanel = $state<EconomyPanel>(null);
 
   function syncDayTransition(): void {
-    dayTransitionActive = (
-      sleepPromptVisible
-      || sleepSubmitting
-      || summarySubmitting
-      || (gameSnapshot?.pendingDaySummary ?? null) !== null
-    );
+    dayTransitionActive =
+      sleepPromptVisible ||
+      sleepSubmitting ||
+      summarySubmitting ||
+      (gameSnapshot?.pendingDaySummary ?? null) !== null;
     inputGate.set('day-transition', dayTransitionActive);
   }
 

@@ -1,17 +1,32 @@
 import { expect, test, type Page } from '@playwright/test';
 import type { DebugDepths } from '../../src/game/phaser/ProofScene';
-import { acquireTarget, assertCameraWithinBounds, holdKey, moveUntil, moveUntilKeys, moveUntilPlayerAxis, snapshot, waitForWorld } from './helpers';
+import {
+  acquireTarget,
+  assertCameraWithinBounds,
+  holdKey,
+  moveUntil,
+  moveUntilKeys,
+  moveUntilPlayerAxis,
+  snapshot,
+  waitForWorld,
+} from './helpers';
 
 const SHOP_CELL = { x: 6, y: 7 } as const;
 const BED_CELL = { x: 6, y: 8 } as const;
 const SHIPPING_CELL = { x: 6, y: 10 } as const;
 const SHIPPING_FOOTPRINT = { x: 6.2, y: 10.2, width: 0.6, height: 0.6 } as const;
 
-function outsideFootprint(position: { x: number; y: number }, footprint: { x: number; y: number; width: number; height: number }, halfExtent = 0.18): boolean {
-  return position.x + halfExtent <= footprint.x
-    || position.x - halfExtent >= footprint.x + footprint.width
-    || position.y + halfExtent <= footprint.y
-    || position.y - halfExtent >= footprint.y + footprint.height;
+function outsideFootprint(
+  position: { x: number; y: number },
+  footprint: { x: number; y: number; width: number; height: number },
+  halfExtent = 0.18,
+): boolean {
+  return (
+    position.x + halfExtent <= footprint.x ||
+    position.x - halfExtent >= footprint.x + footprint.width ||
+    position.y + halfExtent <= footprint.y ||
+    position.y - halfExtent >= footprint.y + footprint.height
+  );
 }
 
 async function moveWorldToShop(page: Page): Promise<void> {
@@ -65,34 +80,37 @@ test('stops at the tree, then detours down and right', async ({ page }) => {
   const approachKeys = ['d', 's'];
   for (const key of approachKeys) await page.keyboard.down(key);
   try {
-    await page.evaluate(() => new Promise<void>((resolve, reject) => {
-      const deadline = performance.now() + 3_000;
-      let blockedAt: number | null = null;
-      const sample = () => {
-        const position = window.__PHOENIX_TEST__!.snapshot().player.position;
-        const now = performance.now();
-        if (blockedAt === null) {
-          if (position.x >= 7.019 && position.x <= 7.021 && position.y < 4.65) {
-            blockedAt = now;
-          }
-        } else {
-          if (position.x > 7.021) {
-            reject(new Error(`tree collision escaped: ${JSON.stringify(position)}`));
-            return;
-          }
-          if (now - blockedAt >= 300) {
-            resolve();
-            return;
-          }
-        }
-        if (now >= deadline) {
-          reject(new Error(`tree collision timeout: ${JSON.stringify(position)}`));
-          return;
-        }
-        requestAnimationFrame(sample);
-      };
-      requestAnimationFrame(sample);
-    }));
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          const deadline = performance.now() + 3_000;
+          let blockedAt: number | null = null;
+          const sample = () => {
+            const position = window.__PHOENIX_TEST__!.snapshot().player.position;
+            const now = performance.now();
+            if (blockedAt === null) {
+              if (position.x >= 7.019 && position.x <= 7.021 && position.y < 4.65) {
+                blockedAt = now;
+              }
+            } else {
+              if (position.x > 7.021) {
+                reject(new Error(`tree collision escaped: ${JSON.stringify(position)}`));
+                return;
+              }
+              if (now - blockedAt >= 300) {
+                resolve();
+                return;
+              }
+            }
+            if (now >= deadline) {
+              reject(new Error(`tree collision timeout: ${JSON.stringify(position)}`));
+              return;
+            }
+            requestAnimationFrame(sample);
+          };
+          requestAnimationFrame(sample);
+        }),
+    );
   } finally {
     for (const key of [...approachKeys].reverse()) await page.keyboard.up(key);
   }
@@ -100,26 +118,42 @@ test('stops at the tree, then detours down and right', async ({ page }) => {
   assertCameraWithinBounds(blocked);
   expect(blocked.player.facing).toBe('right');
   expect(blocked.player.position.x).toBeLessThanOrEqual(7.021);
-  expect(outsideFootprint(blocked.player.position, { x: 7.2, y: 4.2, width: 0.6, height: 0.6 })).toBe(true);
+  expect(
+    outsideFootprint(blocked.player.position, { x: 7.2, y: 4.2, width: 0.6, height: 0.6 }),
+  ).toBe(true);
 
   await moveUntil(page, 's', (value) => value.player.position.y >= 5.3);
   const detour = await moveUntilKeys(page, ['d', 's'], (value) => value.player.position.x >= 7.5);
   expect(detour.player.position.x).toBeGreaterThanOrEqual(7.45);
-  expect(outsideFootprint(detour.player.position, { x: 7.2, y: 4.2, width: 0.6, height: 0.6 })).toBe(true);
+  expect(
+    outsideFootprint(detour.player.position, { x: 7.2, y: 4.2, width: 0.6, height: 0.6 }),
+  ).toBe(true);
 });
 
 test('slides along the building edge and routes around its corner', async ({ page }) => {
   await waitForWorld(page);
   await moveUntil(page, 'w', (value) => value.player.position.y <= 5.5);
   await moveUntilKeys(page, ['d', 's'], (value) => value.player.position.x >= 6.7);
-  const edgeStart = await moveUntilKeys(page, ['d', 's'], (value) => value.player.position.y >= 8.7);
+  const edgeStart = await moveUntilKeys(
+    page,
+    ['d', 's'],
+    (value) => value.player.position.y >= 8.7,
+  );
   expect(edgeStart.player.position.x).toBeLessThanOrEqual(6.821);
   expect(edgeStart.player.position.y).toBeGreaterThan(7.4);
-  expect(outsideFootprint(edgeStart.player.position, { x: 7, y: 7, width: 2, height: 2 })).toBe(true);
+  expect(outsideFootprint(edgeStart.player.position, { x: 7, y: 7, width: 2, height: 2 })).toBe(
+    true,
+  );
 
-  const bottomCorner = await moveUntilKeys(page, ['d', 's'], (value) => value.player.position.x >= 7.4);
+  const bottomCorner = await moveUntilKeys(
+    page,
+    ['d', 's'],
+    (value) => value.player.position.x >= 7.4,
+  );
   expect(bottomCorner.player.position.x).toBeGreaterThanOrEqual(7.4);
-  expect(outsideFootprint(bottomCorner.player.position, { x: 7, y: 7, width: 2, height: 2 })).toBe(true);
+  expect(outsideFootprint(bottomCorner.player.position, { x: 7, y: 7, width: 2, height: 2 })).toBe(
+    true,
+  );
 });
 
 test('crosses and leaves the nine-cell farm patch', async ({ page }) => {
@@ -135,12 +169,7 @@ test('crosses and leaves the nine-cell farm patch', async ({ page }) => {
 });
 
 test('keeps the player rectangle within each reachable map edge', async ({ page }) => {
-  for (const [key] of [
-    ['a'],
-    ['d'],
-    ['w'],
-    ['s'],
-  ] as const) {
+  for (const [key] of [['a'], ['d'], ['w'], ['s']] as const) {
     await waitForWorld(page);
     let result: Awaited<ReturnType<typeof moveUntilPlayerAxis>>;
     if (key === 'd') {
@@ -200,7 +229,9 @@ test('reports the exact target offset for each facing direction', async ({ page 
     await waitForWorld(page);
     await page.keyboard.down(key);
     try {
-      await expect.poll(async () => (await snapshot(page)).player.facing, { timeout: 3_000 }).toBe(facing);
+      await expect
+        .poll(async () => (await snapshot(page)).player.facing, { timeout: 3_000 })
+        .toBe(facing);
     } finally {
       await page.keyboard.up(key);
     }
@@ -220,9 +251,15 @@ test('reverses tree and player depth across the authored tree footpoint', async 
   expect(above.depths.player).toBeGreaterThan(above.depths.tree);
 });
 
-test('reverses building and player depth across the authored building footpoint', async ({ page }) => {
+test('reverses building and player depth across the authored building footpoint', async ({
+  page,
+}) => {
   await waitForWorld(page);
-  const below = await moveUntil(page, 's', (value) => value.player.world.y >= 260 && value.player.world.y <= 284.8);
+  const below = await moveUntil(
+    page,
+    's',
+    (value) => value.player.world.y >= 260 && value.player.world.y <= 284.8,
+  );
   expect(below.player.world.y).toBeLessThanOrEqual(284.8);
   expect(below.depths.player).toBeLessThan(below.depths.building);
   const above = await moveUntil(page, 's', (value) => value.player.world.y >= 291.2);
@@ -230,7 +267,9 @@ test('reverses building and player depth across the authored building footpoint'
   expect(above.depths.player).toBeGreaterThan(above.depths.building);
 });
 
-test('routes around the shipping bin footprint and reverses its depth ordering', async ({ page }) => {
+test('routes around the shipping bin footprint and reverses its depth ordering', async ({
+  page,
+}) => {
   await waitForWorld(page);
   await moveWorldToShop(page);
   await moveShopToWorldFarmHub(page);
@@ -242,37 +281,47 @@ test('routes around the shipping bin footprint and reverses its depth ordering',
   const approachKeys = ['s'];
   for (const key of approachKeys) await page.keyboard.down(key);
   try {
-    await page.evaluate(() => new Promise<void>((resolve, reject) => {
-      const deadline = performance.now() + 3_000;
-      let blockedAt: number | null = null;
-      const outside = (position: { x: number; y: number }): boolean => (
-        position.x + 0.18 <= 6.2
-        || position.x - 0.18 >= 6.8
-        || position.y + 0.18 <= 10.2
-        || position.y - 0.18 >= 10.8
-      );
-      const sample = () => {
-        const current = window.__PHOENIX_TEST__!.snapshot();
-        if (!outside(current.player.position)) {
-          reject(new Error(`shipping-bin collision escaped: ${JSON.stringify(current.player.position)}`));
-          return;
-        }
-        if (blockedAt === null) {
-          if (current.player.position.x >= 6.019 && current.player.position.y >= 10.019) {
-            blockedAt = performance.now();
-          }
-        } else if (performance.now() - blockedAt >= 300) {
-          resolve();
-          return;
-        }
-        if (performance.now() >= deadline) {
-          reject(new Error(`shipping-bin collision timeout: ${JSON.stringify(current.player.position)}`));
-          return;
-        }
-        requestAnimationFrame(sample);
-      };
-      requestAnimationFrame(sample);
-    }));
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          const deadline = performance.now() + 3_000;
+          let blockedAt: number | null = null;
+          const outside = (position: { x: number; y: number }): boolean =>
+            position.x + 0.18 <= 6.2 ||
+            position.x - 0.18 >= 6.8 ||
+            position.y + 0.18 <= 10.2 ||
+            position.y - 0.18 >= 10.8;
+          const sample = () => {
+            const current = window.__PHOENIX_TEST__!.snapshot();
+            if (!outside(current.player.position)) {
+              reject(
+                new Error(
+                  `shipping-bin collision escaped: ${JSON.stringify(current.player.position)}`,
+                ),
+              );
+              return;
+            }
+            if (blockedAt === null) {
+              if (current.player.position.x >= 6.019 && current.player.position.y >= 10.019) {
+                blockedAt = performance.now();
+              }
+            } else if (performance.now() - blockedAt >= 300) {
+              resolve();
+              return;
+            }
+            if (performance.now() >= deadline) {
+              reject(
+                new Error(
+                  `shipping-bin collision timeout: ${JSON.stringify(current.player.position)}`,
+                ),
+              );
+              return;
+            }
+            requestAnimationFrame(sample);
+          };
+          requestAnimationFrame(sample);
+        }),
+    );
   } finally {
     for (const key of [...approachKeys].reverse()) await page.keyboard.up(key);
   }

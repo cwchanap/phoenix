@@ -11,7 +11,9 @@ describe('Task 8 handoff contract', () => {
 
     const readme = await Bun.file(readmePath).text();
     expect(readme).toMatch(/macOS/i);
-    expect(readme).toMatch(/does not\s+claim\s+(?:acceptance|verification)\s+for Windows or Linux/i);
+    expect(readme).toMatch(
+      /does not\s+claim\s+(?:acceptance|verification)\s+for Windows or Linux/i,
+    );
     for (const prerequisite of [
       'Bun 1.3.1',
       'Rust/Cargo 1.96',

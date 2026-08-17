@@ -1,4 +1,3 @@
-.DS_Store
 node_modules/
 dist/
 coverage/
@@ -6,4 +5,9 @@ playwright-report/
 test-results/
 .svelte-check/
 src-tauri/target/
-src-tauri/gen/schemas/
+src-tauri/gen/
+src/assets/
+src-tauri/icons/
+bun.lock
+src-tauri/Cargo.lock
+docs/superpowers/

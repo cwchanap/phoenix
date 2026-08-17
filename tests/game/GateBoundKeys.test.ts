@@ -56,13 +56,9 @@ test('does not reset keys when constructed while the gate is unlocked', () => {
   const raw = makeKeys();
   let controllerResetCalls = 0;
 
-  const bound = new GateBoundKeys(
-    gate,
-    raw.map(asPhaserKey),
-    () => {
-      controllerResetCalls += 1;
-    },
-  );
+  const bound = new GateBoundKeys(gate, raw.map(asPhaserKey), () => {
+    controllerResetCalls += 1;
+  });
 
   expect(bound.isLocked()).toBe(false);
   expect(raw.map((key) => key.resetCalls)).toEqual([0, 0, 0, 0]);
@@ -76,13 +72,9 @@ test('resets keys exactly once when constructed while the gate is locked', () =>
   const raw = makeKeys();
   let controllerResetCalls = 0;
 
-  const bound = new GateBoundKeys(
-    gate,
-    raw.map(asPhaserKey),
-    () => {
-      controllerResetCalls += 1;
-    },
-  );
+  const bound = new GateBoundKeys(gate, raw.map(asPhaserKey), () => {
+    controllerResetCalls += 1;
+  });
 
   expect(bound.isLocked()).toBe(true);
   expect(raw.map((key) => key.resetCalls)).toEqual([1, 1, 1, 1]);
@@ -94,13 +86,9 @@ test('resets only on transitions into a locked state', () => {
   const gate = new InputGate();
   const raw = makeKeys();
   let controllerResetCalls = 0;
-  const bound = new GateBoundKeys(
-    gate,
-    raw.map(asPhaserKey),
-    () => {
-      controllerResetCalls += 1;
-    },
-  );
+  const bound = new GateBoundKeys(gate, raw.map(asPhaserKey), () => {
+    controllerResetCalls += 1;
+  });
 
   gate.set('modal', true);
   expect(raw.map((key) => key.resetCalls)).toEqual([1, 1, 1, 1]);
@@ -124,13 +112,9 @@ test('destroy unsubscribes and is idempotent', () => {
   const gate = new InputGate();
   const raw = makeKeys();
   let controllerResetCalls = 0;
-  const bound = new GateBoundKeys(
-    gate,
-    raw.map(asPhaserKey),
-    () => {
-      controllerResetCalls += 1;
-    },
-  );
+  const bound = new GateBoundKeys(gate, raw.map(asPhaserKey), () => {
+    controllerResetCalls += 1;
+  });
 
   bound.destroy();
   bound.destroy();
@@ -151,7 +135,9 @@ test('removes keys through their plugins with destruction and capture flags', ()
 
   expect(plugin.removeCalls).toHaveLength(4);
   expect(plugin.removeCalls.map(({ key }) => key)).toEqual(raw);
-  expect(plugin.removeCalls.every(({ destroy, removeCapture }) => destroy && removeCapture)).toBe(true);
+  expect(plugin.removeCalls.every(({ destroy, removeCapture }) => destroy && removeCapture)).toBe(
+    true,
+  );
   expect(raw.map((key) => key.destroyCalls)).toEqual([0, 0, 0, 0]);
 });
 

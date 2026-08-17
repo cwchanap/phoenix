@@ -1,8 +1,25 @@
-export interface GridPoint { x: number; y: number }
-export interface GridCell { x: number; y: number }
-export interface WorldPoint { x: number; y: number }
-export interface WorldRect { x: number; y: number; width: number; height: number }
-export interface MapSize { width: number; height: number }
+export interface GridPoint {
+  x: number;
+  y: number;
+}
+export interface GridCell {
+  x: number;
+  y: number;
+}
+export interface WorldPoint {
+  x: number;
+  y: number;
+}
+export interface WorldRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+export interface MapSize {
+  width: number;
+  height: number;
+}
 export interface ProjectionMetrics {
   tileWidth: number;
   tileHeight: number;
@@ -148,6 +165,4 @@ export type FailureCode =
   | 'day-limit-reached'
   | 'no-day-summary';
 
-export type CommandResult =
-  | { ok: true; code: SuccessCode }
-  | { ok: false; code: FailureCode };
+export type CommandResult = { ok: true; code: SuccessCode } | { ok: false; code: FailureCode };

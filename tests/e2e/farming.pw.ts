@@ -14,7 +14,6 @@ import {
   confirmAndStartDay,
   acquireTarget,
   gameSnapshot,
-  assertCameraWithinBounds,
   captureCropSprite,
   moveUntil,
   moveUntilPlayerAxis,
@@ -57,9 +56,9 @@ const WEATHER_LABEL: Record<Weather, string> = {
 };
 
 function cropTile(state: GameSnapshot): FarmTileSnapshot {
-  const tile = state.farmTiles.find(({ position }) => (
-    position.x === CROP_CELL.x && position.y === CROP_CELL.y
-  ));
+  const tile = state.farmTiles.find(
+    ({ position }) => position.x === CROP_CELL.x && position.y === CROP_CELL.y,
+  );
   if (!tile) throw new Error(`Missing farm tile ${CROP_CELL.x},${CROP_CELL.y}`);
   return tile;
 }
@@ -75,9 +74,10 @@ async function expectFeedback(page: Page, text: string): Promise<void> {
 }
 
 async function expectHud(page: Page, state: GameSnapshot): Promise<void> {
-  const selectedAction = state.selectedAction === 'seeds'
-    ? `Seeds: ${CROP_DEFINITIONS[state.selectedSeed].displayName}`
-    : ACTION_LABEL[state.selectedAction];
+  const selectedAction =
+    state.selectedAction === 'seeds'
+      ? `Seeds: ${CROP_DEFINITIONS[state.selectedSeed].displayName}`
+      : ACTION_LABEL[state.selectedAction];
   await expect(page.locator('.hud-stats p')).toHaveText([
     `Day ${state.day}`,
     `Time: ${formatTime(state.timeMinutes)}`,
@@ -86,8 +86,12 @@ async function expectHud(page: Page, state: GameSnapshot): Promise<void> {
     `Selected: ${selectedAction}`,
     `Selected seed: ${CROP_DEFINITIONS[state.selectedSeed].displayName}`,
     `Money: ${state.money}`,
-    ...CROP_KINDS.map((kind) => `${CROP_DEFINITIONS[kind].displayName} seeds: ${state.inventory.seeds[kind]}`),
-    ...CROP_KINDS.map((kind) => `${CROP_DEFINITIONS[kind].displayName} crops: ${state.inventory.crops[kind]}`),
+    ...CROP_KINDS.map(
+      (kind) => `${CROP_DEFINITIONS[kind].displayName} seeds: ${state.inventory.seeds[kind]}`,
+    ),
+    ...CROP_KINDS.map(
+      (kind) => `${CROP_DEFINITIONS[kind].displayName} crops: ${state.inventory.crops[kind]}`,
+    ),
     `Pending shipment: ${CROP_KINDS.reduce((total, kind) => total + state.pendingShipment[kind], 0)}`,
   ]);
 }
@@ -112,7 +116,9 @@ async function selectWithKey(
   await page.keyboard.down(key);
   try {
     await expectFeedback(page, FEEDBACK.actionSelected);
-    await expect.poll(async () => (await gameSnapshot(page)).selectedAction, { timeout: 3_000 }).toBe(action);
+    await expect
+      .poll(async () => (await gameSnapshot(page)).selectedAction, { timeout: 3_000 })
+      .toBe(action);
   } finally {
     await page.keyboard.up(key);
   }
@@ -149,19 +155,19 @@ async function waterForCurrentWeather(page: Page): Promise<GameSnapshot> {
 async function moveToBed(page: Page): Promise<void> {
   await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 5.1);
   await moveUntilPlayerAxis(page, ['w'], 'y', 'lte', 9.8);
-  let settled = await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 5.1);
+  const settled = await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 5.1);
   if (settled.player.position.y < 9) {
-    settled = await moveUntilPlayerAxis(page, ['s'], 'y', 'gte', 9);
+    await moveUntilPlayerAxis(page, ['s'], 'y', 'gte', 9);
   } else if (settled.player.position.y >= 10) {
-    settled = await moveUntilPlayerAxis(page, ['w'], 'y', 'lte', 9.8);
+    await moveUntilPlayerAxis(page, ['w'], 'y', 'lte', 9.8);
   }
   await acquireTarget(page, 'd', BED_CELL);
 }
 
 async function moveToCrop(page: Page): Promise<void> {
-  let settled = await moveUntilPlayerAxis(page, ['a', 'w'], 'x', 'lte', 2.8);
+  const settled = await moveUntilPlayerAxis(page, ['a', 'w'], 'x', 'lte', 2.8);
   if (settled.player.position.y < 9.3) {
-    settled = await moveUntilPlayerAxis(page, ['a'], 'y', 'gte', 9.3);
+    await moveUntilPlayerAxis(page, ['a'], 'y', 'gte', 9.3);
   }
   await acquireTarget(page, 'd', CROP_CELL);
 }
@@ -183,7 +189,9 @@ async function openSleepDialog(page: Page): Promise<Locator> {
   return dialog;
 }
 
-test('selects hands, keeps a rejected empty-crop command stable, and supports clickable selection', async ({ page }) => {
+test('selects hands, keeps a rejected empty-crop command stable, and supports clickable selection', async ({
+  page,
+}) => {
   await waitForWorld(page);
   await acquireTarget(page, 'd', CROP_CELL);
 
@@ -223,7 +231,9 @@ test('selects hands, keeps a rejected empty-crop command stable, and supports cl
   await expectHud(page, hoe);
 });
 
-test('completes three real-control nights from tilling through turnip harvest', async ({ page }) => {
+test('completes three real-control nights from tilling through turnip harvest', async ({
+  page,
+}) => {
   await waitForWorld(page);
   await acquireTarget(page, 'd', CROP_CELL);
 
@@ -393,7 +403,9 @@ test('completes three real-control nights from tilling through turnip harvest', 
   await expectHud(page, state);
 });
 
-test('reverses crop and player depth while retaining foundation scenery depth keys', async ({ page }) => {
+test('reverses crop and player depth while retaining foundation scenery depth keys', async ({
+  page,
+}) => {
   await waitForWorld(page);
   await acquireTarget(page, 'd', CROP_CELL);
   await selectWithKey(page, '1', CROP_CELL);

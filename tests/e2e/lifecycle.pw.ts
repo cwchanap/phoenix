@@ -1,7 +1,14 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { readFileSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { acquireTarget, gameSnapshot, holdKey, moveUntilPlayerAxis, snapshot, waitForWorld } from './helpers';
+import {
+  acquireTarget,
+  gameSnapshot,
+  holdKey,
+  moveUntilPlayerAxis,
+  snapshot,
+  waitForWorld,
+} from './helpers';
 
 const appPath = fileURLToPath(new URL('../../src/App.svelte', import.meta.url));
 
@@ -9,7 +16,9 @@ type ListenerCensus = { keydown: number; keyup: number };
 type ListenerCensusWindow = Window & { __PHOENIX_LISTENER_CENSUS__: () => ListenerCensus };
 
 async function listenerCensus(page: Parameters<typeof waitForWorld>[0]): Promise<ListenerCensus> {
-  return page.evaluate(() => (window as unknown as ListenerCensusWindow).__PHOENIX_LISTENER_CENSUS__());
+  return page.evaluate(() =>
+    (window as unknown as ListenerCensusWindow).__PHOENIX_LISTENER_CENSUS__(),
+  );
 }
 
 async function moveLifecycleToShop(page: Page): Promise<void> {
@@ -31,7 +40,10 @@ async function openShop(page: Page): Promise<Locator> {
   return dialog;
 }
 
-function displacement(before: Awaited<ReturnType<typeof snapshot>>, after: Awaited<ReturnType<typeof snapshot>>): number {
+function displacement(
+  before: Awaited<ReturnType<typeof snapshot>>,
+  after: Awaited<ReturnType<typeof snapshot>>,
+): number {
   return Math.hypot(
     after.player.world.x - before.player.world.x,
     after.player.world.y - before.player.world.y,
@@ -124,15 +136,22 @@ test('keeps the overlay and canvas aligned at supported sizes', async ({ page })
     [1280, 720, 2, 0, 0],
   ] as const) {
     await page.setViewportSize({ width, height });
-    await expect(page.locator('[data-stage-frame]')).toHaveAttribute('data-stage-scale', String(scale));
-    await expect.poll(
-      () => page.locator('[data-stage-frame]').evaluate((node) => {
-        const rect = node.getBoundingClientRect();
-        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
-      }),
-      { timeout: 3_000, intervals: [16] },
-    ).toEqual({ x: left, y: top, width: 640 * scale, height: 360 * scale });
-    const [host, overlay, frame] = await page.locator('[data-game-host], [data-overlay], [data-stage-frame]')
+    await expect(page.locator('[data-stage-frame]')).toHaveAttribute(
+      'data-stage-scale',
+      String(scale),
+    );
+    await expect
+      .poll(
+        () =>
+          page.locator('[data-stage-frame]').evaluate((node) => {
+            const rect = node.getBoundingClientRect();
+            return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+          }),
+        { timeout: 3_000, intervals: [16] },
+      )
+      .toEqual({ x: left, y: top, width: 640 * scale, height: 360 * scale });
+    const [host, overlay, frame] = await page
+      .locator('[data-game-host], [data-overlay], [data-stage-frame]')
       .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().toJSON()));
     expect(host).toEqual(overlay);
     expect(frame).toMatchObject({ x: left, y: top, width: 640 * scale, height: 360 * scale });
@@ -142,26 +161,49 @@ test('keeps the overlay and canvas aligned at supported sizes', async ({ page })
 test('keeps one input handler across a real Vite HMR update', async ({ page }) => {
   test.setTimeout(60_000);
   await page.addInitScript(() => {
-    const active = new Map<string, Array<{ listener: EventListenerOrEventListenerObject; capture: boolean }>>();
+    const active = new Map<
+      string,
+      Array<{ listener: EventListenerOrEventListenerObject; capture: boolean }>
+    >();
     type ListenerOptions = boolean | AddEventListenerOptions;
-    const originalAdd = window.addEventListener.bind(window) as (type: string, listener: EventListenerOrEventListenerObject | null, options?: ListenerOptions) => void;
-    const originalRemove = window.removeEventListener.bind(window) as (type: string, listener: EventListenerOrEventListenerObject | null, options?: ListenerOptions) => void;
-    const captureOf = (options?: ListenerOptions) => typeof options === 'boolean' ? options : Boolean(options?.capture);
+    const originalAdd = window.addEventListener.bind(window) as (
+      type: string,
+      listener: EventListenerOrEventListenerObject | null,
+      options?: ListenerOptions,
+    ) => void;
+    const originalRemove = window.removeEventListener.bind(window) as (
+      type: string,
+      listener: EventListenerOrEventListenerObject | null,
+      options?: ListenerOptions,
+    ) => void;
+    const captureOf = (options?: ListenerOptions) =>
+      typeof options === 'boolean' ? options : Boolean(options?.capture);
     const tracked = (type: string) => type === 'keydown' || type === 'keyup';
-    window.addEventListener = ((type: string, listener: EventListenerOrEventListenerObject | null, options?: boolean | AddEventListenerOptions) => {
+    window.addEventListener = ((
+      type: string,
+      listener: EventListenerOrEventListenerObject | null,
+      options?: boolean | AddEventListenerOptions,
+    ) => {
       if (listener && tracked(type)) {
         const records = active.get(type) ?? [];
         const capture = captureOf(options);
-        if (!records.some((record) => record.listener === listener && record.capture === capture)) records.push({ listener, capture });
+        if (!records.some((record) => record.listener === listener && record.capture === capture))
+          records.push({ listener, capture });
         active.set(type, records);
       }
       return originalAdd(type, listener, options);
     }) as typeof window.addEventListener;
-    window.removeEventListener = ((type: string, listener: EventListenerOrEventListenerObject | null, options?: ListenerOptions) => {
+    window.removeEventListener = ((
+      type: string,
+      listener: EventListenerOrEventListenerObject | null,
+      options?: ListenerOptions,
+    ) => {
       if (listener && tracked(type)) {
         const records = active.get(type) ?? [];
         const capture = captureOf(options);
-        const index = records.findIndex((record) => record.listener === listener && record.capture === capture);
+        const index = records.findIndex(
+          (record) => record.listener === listener && record.capture === capture,
+        );
         if (index >= 0) records.splice(index, 1);
       }
       return originalRemove(type, listener, options);
@@ -207,33 +249,33 @@ test('keeps one input handler across a real Vite HMR update', async ({ page }) =
     expect(afterHmr).toBeGreaterThan(0.1);
   } catch (error) {
     primaryFailure = error;
-    throw error;
-  } finally {
-    let restorationFailure: unknown;
+  }
+
+  let restorationFailure: unknown;
+  try {
+    let restoreCount: number | null = null;
     try {
-      let restoreCount: number | null = null;
-      try {
-        if (!page.isClosed()) {
-          restoreCount = await page.evaluate(() => window.__PHOENIX_HMR_COUNT__ ?? 0);
-        }
-      } catch (error) {
-        restorationFailure = error;
-      }
-      writeFileSync(appPath, originalSource);
-      if (!restorationFailure && restoreCount !== null && !page.isClosed()) {
-        await page.waitForFunction(
-          (count) => (window.__PHOENIX_HMR_COUNT__ ?? 0) > count,
-          restoreCount,
-          { timeout: 10_000 },
-        );
+      if (!page.isClosed()) {
+        restoreCount = await page.evaluate(() => window.__PHOENIX_HMR_COUNT__ ?? 0);
       }
     } catch (error) {
       restorationFailure = error;
-    } finally {
-      utimesSync(appPath, original.atime, original.mtime);
     }
-    if (!primaryFailure && restorationFailure && !page.isClosed()) {
-      throw restorationFailure;
+    writeFileSync(appPath, originalSource);
+    if (!restorationFailure && restoreCount !== null && !page.isClosed()) {
+      await page.waitForFunction(
+        (count) => (window.__PHOENIX_HMR_COUNT__ ?? 0) > count,
+        restoreCount,
+        { timeout: 10_000 },
+      );
     }
+  } catch (error) {
+    restorationFailure = error;
+  } finally {
+    utimesSync(appPath, original.atime, original.mtime);
+  }
+  if (primaryFailure) throw primaryFailure;
+  if (restorationFailure && !page.isClosed()) {
+    throw restorationFailure;
   }
 });

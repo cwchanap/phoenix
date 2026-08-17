@@ -31,10 +31,8 @@ export class ActionController {
     private readonly keys: ActionKeys,
     inputGate: InputGate,
   ) {
-    this.gateBoundKeys = new GateBoundKeys(
-      inputGate,
-      Object.values(keys),
-      () => this.resetPreviousDown(),
+    this.gateBoundKeys = new GateBoundKeys(inputGate, Object.values(keys), () =>
+      this.resetPreviousDown(),
     );
   }
 
