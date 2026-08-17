@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dir, '../..');
 
-describe('Task 8 handoff contract', () => {
+describe('Phoenix handoff contract', () => {
   test('documents the macOS-only setup, controls, checks, ownership, and map contract', async () => {
     const readmePath = resolve(root, 'README.md');
     expect(existsSync(readmePath)).toBe(true);
@@ -25,11 +25,17 @@ describe('Task 8 handoff contract', () => {
       'WASD',
       'input lock',
       'bun run check',
-      'bun test',
+      'bun run lint',
+      'bun run format:check',
+      'bun run test',
+      'bun run test:coverage',
+      'bun run coverage:check',
       'bun run test:e2e',
       'bun run build',
-      'bun run tauri:build',
+      'bun run tauri:build -- --no-sign',
       'bun run verify:clean',
+      'Quality',
+      'Tauri build',
       'framework-free TypeScript',
       'Phaser',
       'Svelte',
@@ -85,7 +91,7 @@ describe('Task 8 handoff contract', () => {
     }
   });
 
-  test('verifies an exact committed archive with the approved seven-command matrix', async () => {
+  test('verifies an exact committed archive with the approved eleven-command matrix', async () => {
     const verifierPath = resolve(root, 'tools/verify-clean-checkout.ts');
     expect(existsSync(verifierPath)).toBe(true);
 
@@ -94,10 +100,14 @@ describe('Task 8 handoff contract', () => {
       "['bun', 'install', '--frozen-lockfile']",
       "['bun', 'run', 'test:e2e:install']",
       "['bun', 'run', 'check']",
-      "['bun', 'test']",
+      "['bun', 'run', 'lint']",
+      "['bun', 'run', 'format:check']",
+      "['bun', 'run', 'test']",
+      "['bun', 'run', 'test:coverage']",
+      "['bun', 'run', 'coverage:check']",
       "['bun', 'run', 'test:e2e']",
       "['bun', 'run', 'build']",
-      "['bun', 'run', 'tauri:build']",
+      "['bun', 'run', 'tauri:build', '--', '--no-sign']",
     ]) {
       expect(verifier).toContain(command);
     }
@@ -106,6 +116,7 @@ describe('Task 8 handoff contract', () => {
     expect(verifier).toContain("stdin: 'inherit'");
     expect(verifier).toContain("stdout: 'inherit'");
     expect(verifier).toContain("stderr: 'inherit'");
+    expect(verifier).toContain("HUSKY: '0'");
     expect(verifier).toMatch(/if \(code !== 0\)/);
     expect(verifier).toMatch(/finally\s*\{/);
     expect(verifier).toContain('rm(archive');
@@ -126,5 +137,49 @@ describe('Task 8 handoff contract', () => {
   test('exposes the committed clean-checkout verifier through Bun', async () => {
     const pkg = await Bun.file(resolve(root, 'package.json')).json();
     expect(pkg.scripts?.['verify:clean']).toBe('bun run tools/verify-clean-checkout.ts');
+  });
+
+  test('separates browser quality checks from an unsigned macOS bundle build', async () => {
+    const workflowPath = resolve(root, '.github/workflows/ci.yml');
+    expect(existsSync(workflowPath)).toBe(true);
+
+    const workflow = await Bun.file(workflowPath).text();
+    for (const expected of [
+      'name: CI',
+      'push:',
+      'pull_request:',
+      'workflow_dispatch:',
+      'group: ${{ github.workflow }}-${{ github.ref }}',
+      'cancel-in-progress: true',
+      'permissions:\n  contents: read',
+      'name: Quality',
+      'runs-on: ubuntu-latest',
+      'name: Tauri build',
+      'runs-on: macos-latest',
+      'actions/checkout@v7',
+      'oven-sh/setup-bun@v2',
+      'dtolnay/rust-toolchain@1.96.0',
+      'bun install --frozen-lockfile',
+      "HUSKY: '0'",
+      'bun run test:e2e:install:ci',
+      'bun run test:coverage',
+      'bun run coverage:check',
+      'codecov/codecov-action@v7',
+      'use_oidc: true',
+      'continue-on-error: true',
+      'fail_ci_if_error: false',
+      'actions/upload-artifact@v7',
+      'if: failure()',
+      'retention-days: 7',
+      'bun run tauri:build -- --no-sign',
+    ]) {
+      expect(workflow).toContain(expected);
+    }
+
+    expect(workflow.match(/runs-on:/g)).toHaveLength(2);
+    const [quality, tauriBuild] = workflow.split('\n  tauri-build:\n');
+    expect(quality.match(/id-token: write/g) ?? []).toHaveLength(1);
+    expect(tauriBuild).toBeDefined();
+    expect(tauriBuild).not.toMatch(/test:e2e|playwright/);
   });
 });

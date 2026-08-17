@@ -102,16 +102,34 @@ the finale.
 
 ```bash
 bun run check
-bun test
+bun run lint
+bun run format:check
+bun run test
+bun run test:coverage
+bun run coverage:check
 bun run test:e2e
 bun run build
-bun run tauri:build
+bun run tauri:build -- --no-sign
 bun run verify:clean
 ```
 
+`test:coverage` writes LCOV to `coverage/lcov.info`; `coverage:check` fails if
+measured line or function coverage falls below 90%. The CI workflow uploads that
+report to Codecov as a non-blocking copy and retains it as a GitHub Actions
+artifact. `tauri:build -- --no-sign` proves an unsigned local/CI macOS bundle;
+it is not a distributable release.
+
 `verify:clean` archives the committed `HEAD` into a temporary checkout and
-runs the complete frozen-install, browser, static-check, unit-test, frontend,
-and macOS Tauri build matrix there.
+runs the complete frozen-install, local Chromium, static/lint/format, plain
+unit, coverage/gate, browser E2E, frontend, and unsigned macOS bundle matrix
+there.
+
+## CI quality gates
+
+GitHub Actions runs browser interaction checks in `Quality` on Ubuntu and an
+unsigned native bundle proof in `Tauri build` on macOS. After this workflow has
+run on the remote target branch, protect that branch and require exactly those
+two checks before merging.
 
 ## Architecture and authored map contract
 

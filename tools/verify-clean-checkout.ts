@@ -6,15 +6,22 @@ const commands: string[][] = [
   ['bun', 'install', '--frozen-lockfile'],
   ['bun', 'run', 'test:e2e:install'],
   ['bun', 'run', 'check'],
-  ['bun', 'test'],
+  ['bun', 'run', 'lint'],
+  ['bun', 'run', 'format:check'],
+  ['bun', 'run', 'test'],
+  ['bun', 'run', 'test:coverage'],
+  ['bun', 'run', 'coverage:check'],
   ['bun', 'run', 'test:e2e'],
   ['bun', 'run', 'build'],
-  ['bun', 'run', 'tauri:build'],
+  ['bun', 'run', 'tauri:build', '--', '--no-sign'],
 ];
+
+const verificationEnv = { ...process.env, HUSKY: '0' };
 
 async function run(command: string[], cwd: string): Promise<void> {
   const child = Bun.spawn(command, {
     cwd,
+    env: verificationEnv,
     stdin: 'inherit',
     stdout: 'inherit',
     stderr: 'inherit',
