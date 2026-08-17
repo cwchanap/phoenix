@@ -16,7 +16,7 @@ const commands: string[][] = [
   ['bun', 'run', 'tauri:build', '--', '--no-sign'],
 ];
 
-const verificationEnv = { ...process.env, HUSKY: '0' };
+const verificationEnv = { ...process.env, CI: 'true', HUSKY: '0' };
 
 async function run(command: string[], cwd: string): Promise<void> {
   const child = Bun.spawn(command, {

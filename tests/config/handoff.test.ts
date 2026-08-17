@@ -117,6 +117,7 @@ describe('Phoenix handoff contract', () => {
     expect(verifier).toContain("stdout: 'inherit'");
     expect(verifier).toContain("stderr: 'inherit'");
     expect(verifier).toContain("HUSKY: '0'");
+    expect(verifier).toContain("CI: 'true'");
     expect(verifier).toMatch(/if \(code !== 0\)/);
     expect(verifier).toMatch(/finally\s*\{/);
     expect(verifier).toContain('rm(archive');
