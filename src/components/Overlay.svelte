@@ -28,6 +28,7 @@
     summarySubmitting: boolean;
     dayTransitionActive: boolean;
     economyPanel: EconomyPanel;
+    dialogueOpen: boolean;
     onConfirmSleep: () => void;
     onCancelSleep: () => void;
     onStartDay: () => void;
@@ -57,6 +58,7 @@
     summarySubmitting,
     dayTransitionActive,
     economyPanel,
+    dialogueOpen,
     onConfirmSleep,
     onCancelSleep,
     onStartDay,
@@ -82,7 +84,8 @@
       commands !== null &&
       snapshot !== null &&
       !dayTransitionActive &&
-      economyPanel === null,
+      economyPanel === null &&
+      !dialogueOpen,
   );
   const panelMaximum = $derived.by(() => {
     if (!snapshot || !economyPanel) return 0;
@@ -275,7 +278,7 @@
   });
 
   const toggle = () => {
-    if (dayTransitionActive || economyPanel !== null) return;
+    if (dayTransitionActive || economyPanel !== null || dialogueOpen) return;
     const nextLocked = !overlayLocked;
     overlayLocked = nextLocked;
     inputGate.set('overlay', nextLocked);
@@ -355,7 +358,7 @@
     <button
       type="button"
       aria-pressed={overlayLocked}
-      disabled={dayTransitionActive || economyPanel !== null}
+      disabled={dayTransitionActive || economyPanel !== null || dialogueOpen}
       onclick={toggle}
     >
       {overlayLocked ? 'Unlock world input' : 'Lock world input'}
