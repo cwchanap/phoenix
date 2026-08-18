@@ -1,7 +1,13 @@
 import { describe, expect, test } from 'bun:test';
 import { GameSession, type GameSessionConfig } from '../../src/game/core/GameSession';
 import { CROP_DEFINITIONS, CROP_KINDS, isMature } from '../../src/game/core/cropDefinitions';
-import type { CropKind, FarmingAction, GridCell, Weather } from '../../src/game/core/types';
+import type {
+  CropKind,
+  FarmingAction,
+  GridCell,
+  VillagerId,
+  Weather,
+} from '../../src/game/core/types';
 
 const farmCells = [
   { x: 2, y: 7 },
@@ -18,6 +24,32 @@ const farmCells = [
 const bedCell = { x: 6, y: 8 };
 const shopCell = { x: 6, y: 10 };
 const shippingCell = { x: 4, y: 10 };
+const villagerCells = {
+  shopkeeper: { x: 6, y: 5 },
+  farmer: { x: 3, y: 5 },
+  resident: { x: 9, y: 5 },
+} as const;
+
+const villagerStances = {
+  shopkeeper: {
+    spawn: { x: 5.5, y: 6.5 },
+    input: { screenX: 1, screenY: 0 },
+    bedCell: { x: 6, y: 7 },
+    bedInput: { screenX: 0, screenY: 1 },
+  },
+  farmer: {
+    spawn: { x: 4.5, y: 6.5 },
+    input: { screenX: 0, screenY: -1 },
+    bedCell: { x: 5, y: 7 },
+    bedInput: { screenX: 0, screenY: 1 },
+  },
+  resident: {
+    spawn: { x: 8.5, y: 6.5 },
+    input: { screenX: 1, screenY: 0 },
+    bedCell: { x: 7, y: 5 },
+    bedInput: { screenX: 0, screenY: -1 },
+  },
+} as const;
 
 function config(overrides: Partial<GameSessionConfig> = {}): GameSessionConfig {
   return {
@@ -35,6 +67,7 @@ function config(overrides: Partial<GameSessionConfig> = {}): GameSessionConfig {
     bedCell,
     shopCell,
     shippingCell,
+    villagerCells,
     nextWeather: () => 'sunny',
     ...overrides,
   };
@@ -57,6 +90,54 @@ function faceShop(session: GameSession): void {
 function faceShipping(session: GameSession): void {
   session.stepMovement({ screenX: -1, screenY: 0 }, 0);
   expect(session.snapshot().target).toEqual(shippingCell);
+}
+
+function faceVillager(session: GameSession, id: VillagerId): void {
+  session.stepMovement(villagerStances[id].input, 0);
+  expect(session.snapshot().target).toEqual(villagerCells[id]);
+}
+
+function sessionAtVillager(
+  id: VillagerId,
+  overrides: Partial<GameSessionConfig> = {},
+): GameSession {
+  const base = config(overrides);
+  return new GameSession({
+    ...base,
+    world: { ...base.world, spawn: { ...villagerStances[id].spawn } },
+    bedCell: { ...villagerStances[id].bedCell },
+  });
+}
+
+function faceSocialBed(session: GameSession, id: VillagerId): void {
+  session.stepMovement(villagerStances[id].bedInput, 0);
+  expect(session.snapshot().target).toEqual(villagerStances[id].bedCell);
+}
+
+function harvestTurnipAtVillager(session: GameSession, id: VillagerId): void {
+  preparePlanted(session);
+  for (let night = 0; night < 3; night += 1) {
+    expect(session.water(farmCells[0])).toEqual({ ok: true, code: 'crop-watered' });
+    faceSocialBed(session, id);
+    expect(session.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+    expect(session.acknowledgeDaySummary()).toEqual({ ok: true, code: 'day-started' });
+  }
+  expect(session.harvest(farmCells[0])).toEqual({ ok: true, code: 'crop-harvested' });
+}
+
+function harvestThreeTurnipsAtVillager(session: GameSession, id: VillagerId): void {
+  for (const cell of farmCells.slice(0, 3)) preparePlanted(session, cell);
+  for (let night = 0; night < 3; night += 1) {
+    for (const cell of farmCells.slice(0, 3)) {
+      expect(session.water(cell)).toEqual({ ok: true, code: 'crop-watered' });
+    }
+    faceSocialBed(session, id);
+    expect(session.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+    expect(session.acknowledgeDaySummary()).toEqual({ ok: true, code: 'day-started' });
+  }
+  for (const cell of farmCells.slice(0, 3)) {
+    expect(session.harvest(cell)).toEqual({ ok: true, code: 'crop-harvested' });
+  }
 }
 
 function preparePlanted(session: GameSession, cell: GridCell = farmCells[0]): void {
@@ -852,6 +933,13 @@ describe('GameSession', () => {
       const source = config({
         farmCells: farmCells.map((cell) => ({ ...cell })),
         bedCell: { x: 6, y: 8 },
+        shopCell: { ...shopCell },
+        shippingCell: { ...shippingCell },
+        villagerCells: {
+          shopkeeper: { ...villagerCells.shopkeeper },
+          farmer: { ...villagerCells.farmer },
+          resident: { ...villagerCells.resident },
+        },
         world: {
           width: 12,
           height: 12,
@@ -870,11 +958,325 @@ describe('GameSession', () => {
       source.bedCell.x = 99;
       source.shopCell.x = 99;
       source.shippingCell.x = 99;
+      source.villagerCells.shopkeeper.x = 99;
       source.world.spawn.x = 99;
       source.world.footprints[0].x = 99;
       source.metrics.origin.x = 99;
 
       expect(session.snapshot()).toEqual(before);
+    });
+  });
+
+  describe('social progression', () => {
+    test('starts with fresh deep-cloned relationships and villager cells', () => {
+      const session = new GameSession(config());
+      const first = session.snapshot();
+      const second = session.snapshot();
+
+      expect(first.relationships).toEqual({
+        shopkeeper: {
+          points: 0,
+          level: 'stranger',
+          talkedToday: false,
+          giftedToday: false,
+          closeFriendDialogueSeen: false,
+        },
+        farmer: {
+          points: 0,
+          level: 'stranger',
+          talkedToday: false,
+          giftedToday: false,
+          closeFriendDialogueSeen: false,
+        },
+        resident: {
+          points: 0,
+          level: 'stranger',
+          talkedToday: false,
+          giftedToday: false,
+          closeFriendDialogueSeen: false,
+        },
+      });
+      expect(first.villagerCells).toEqual(villagerCells);
+      expect(second.relationships).not.toBe(first.relationships);
+      expect(second.relationships.shopkeeper).not.toBe(first.relationships.shopkeeper);
+      expect(second.villagerCells).not.toBe(first.villagerCells);
+      first.relationships.shopkeeper.points = 99;
+      first.villagerCells.shopkeeper.x = 99;
+      expect(session.snapshot().relationships.shopkeeper.points).toBe(0);
+      expect(session.snapshot().villagerCells.shopkeeper).toEqual(villagerCells.shopkeeper);
+    });
+
+    test('rejects social commands away from the requested villager without mutation', () => {
+      const session = new GameSession(config());
+      const before = session.snapshot();
+
+      expect(session.talkTo('shopkeeper')).toEqual({ ok: false, code: 'not-at-villager' });
+      expect(session.giftCrop('shopkeeper', 'turnip')).toEqual({
+        ok: false,
+        code: 'not-at-villager',
+      });
+      expect(session.snapshot()).toEqual(before);
+    });
+
+    test('talks once per day, then repeats without extra points or costs', () => {
+      const session = sessionAtVillager('resident');
+      faceVillager(session, 'resident');
+      const before = session.snapshot();
+
+      expect(session.talkTo('resident')).toEqual({
+        ok: true,
+        code: 'villager-talked',
+        social: {
+          lines: ['It is quieter here than the road makes it look.'],
+          pointsGained: 1,
+          giftReaction: null,
+          closeFriendSequence: false,
+        },
+      });
+      const afterFirstTalk = session.snapshot();
+      expect(afterFirstTalk.timeMinutes).toBe(before.timeMinutes);
+      expect(afterFirstTalk.stamina).toBe(before.stamina);
+      expect(afterFirstTalk.relationships.resident).toMatchObject({
+        points: 1,
+        level: 'stranger',
+        talkedToday: true,
+      });
+
+      expect(session.talkTo('resident')).toEqual({
+        ok: true,
+        code: 'villager-talked',
+        social: {
+          lines: ['It is quieter here than the road makes it look.'],
+          pointsGained: 0,
+          giftReaction: null,
+          closeFriendSequence: false,
+        },
+      });
+      expect(session.snapshot().relationships.resident.points).toBe(1);
+    });
+
+    test('gives one normal crop and one favourite crop, then rejects repeat and no-crop gifts', () => {
+      const normal = sessionAtVillager('shopkeeper');
+      harvestTurnipAtVillager(normal, 'shopkeeper');
+      faceVillager(normal, 'shopkeeper');
+      expect(normal.giftCrop('shopkeeper', 'turnip')).toEqual({
+        ok: true,
+        code: 'crop-gifted',
+        social: {
+          lines: ['A useful harvest. Thank you.'],
+          pointsGained: 3,
+          giftReaction: 'normal',
+          closeFriendSequence: false,
+        },
+      });
+      expect(normal.snapshot().inventory.crops.turnip).toBe(0);
+      const afterGift = normal.snapshot();
+      expect(normal.giftCrop('shopkeeper', 'turnip')).toEqual({
+        ok: false,
+        code: 'gift-already-given',
+      });
+      expect(normal.snapshot()).toEqual(afterGift);
+
+      const favourite = sessionAtVillager('resident');
+      harvestTurnipAtVillager(favourite, 'resident');
+      faceVillager(favourite, 'resident');
+      expect(favourite.giftCrop('resident', 'turnip')).toEqual({
+        ok: true,
+        code: 'crop-gifted',
+        social: {
+          lines: ['Turnips are my favourite. Perfect choice.'],
+          pointsGained: 5,
+          giftReaction: 'favourite',
+          closeFriendSequence: false,
+        },
+      });
+
+      const noCrop = sessionAtVillager('resident');
+      faceVillager(noCrop, 'resident');
+      expect(noCrop.giftCrop('resident', 'turnip')).toEqual({
+        ok: false,
+        code: 'insufficient-crops',
+      });
+    });
+
+    test('reaches Friend at 12 and Close Friend at 18 with the one-time sequence', () => {
+      const session = sessionAtVillager('resident');
+      harvestThreeTurnipsAtVillager(session, 'resident');
+
+      for (let day = 0; day < 2; day += 1) {
+        faceVillager(session, 'resident');
+        expect(session.talkTo('resident').ok).toBe(true);
+        expect(session.giftCrop('resident', 'turnip').ok).toBe(true);
+        expect(session.snapshot().relationships.resident.points).toBe((day + 1) * 6);
+        if (day === 1) expect(session.snapshot().relationships.resident.level).toBe('friend');
+        faceSocialBed(session, 'resident');
+        expect(session.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+        expect(session.acknowledgeDaySummary()).toEqual({ ok: true, code: 'day-started' });
+      }
+
+      faceVillager(session, 'resident');
+      expect(session.talkTo('resident')).toEqual({
+        ok: true,
+        code: 'villager-talked',
+        social: {
+          lines: ['I keep seeing you around. I like that.'],
+          pointsGained: 1,
+          giftReaction: null,
+          closeFriendSequence: false,
+        },
+      });
+      expect(session.giftCrop('resident', 'turnip')).toEqual({
+        ok: true,
+        code: 'crop-gifted',
+        social: {
+          lines: ['Turnips are my favourite. Perfect choice.'],
+          pointsGained: 5,
+          giftReaction: 'favourite',
+          closeFriendSequence: false,
+        },
+      });
+      expect(session.snapshot().relationships.resident).toMatchObject({
+        points: 18,
+        level: 'closeFriend',
+        closeFriendDialogueSeen: false,
+      });
+
+      expect(session.talkTo('resident')).toEqual({
+        ok: true,
+        code: 'villager-talked',
+        social: {
+          lines: [
+            'You came here as the new farmer, but that is not how I think of you now.',
+            'You are one of us.',
+          ],
+          pointsGained: 0,
+          giftReaction: null,
+          closeFriendSequence: true,
+        },
+      });
+      expect(session.snapshot().relationships.resident.closeFriendDialogueSeen).toBe(true);
+      expect(session.talkTo('resident')).toEqual({
+        ok: true,
+        code: 'villager-talked',
+        social: {
+          lines: ['The village feels more like home with you here.'],
+          pointsGained: 0,
+          giftReaction: null,
+          closeFriendSequence: false,
+        },
+      });
+    });
+
+    test('resets daily social flags only after successful sleep', () => {
+      const failed = sessionAtVillager('shopkeeper');
+      harvestTurnipAtVillager(failed, 'shopkeeper');
+      faceVillager(failed, 'shopkeeper');
+      expect(failed.talkTo('shopkeeper').ok).toBe(true);
+      expect(failed.giftCrop('shopkeeper', 'turnip').ok).toBe(true);
+      expect(failed.sleep()).toEqual({ ok: false, code: 'not-at-bed' });
+      expect(failed.snapshot().relationships.shopkeeper).toMatchObject({
+        talkedToday: true,
+        giftedToday: true,
+      });
+
+      faceSocialBed(failed, 'shopkeeper');
+      expect(failed.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+      expect(failed.snapshot().relationships.shopkeeper).toMatchObject({
+        points: 4,
+        talkedToday: false,
+        giftedToday: false,
+      });
+    });
+
+    test('does not reset social flags for Day 14 rejection or summary-pending sleep', () => {
+      const finalDay = sessionAtVillager('resident');
+      for (let transition = 0; transition < 13; transition += 1) {
+        faceSocialBed(finalDay, 'resident');
+        expect(finalDay.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+        expect(finalDay.acknowledgeDaySummary()).toEqual({ ok: true, code: 'day-started' });
+      }
+      faceVillager(finalDay, 'resident');
+      expect(finalDay.talkTo('resident').ok).toBe(true);
+      faceSocialBed(finalDay, 'resident');
+      const beforeDayLimit = finalDay.snapshot();
+      expect(finalDay.sleep()).toEqual({ ok: false, code: 'day-limit-reached' });
+      expect(finalDay.snapshot()).toEqual(beforeDayLimit);
+
+      const pending = sessionAtVillager('resident');
+      faceVillager(pending, 'resident');
+      expect(pending.talkTo('resident').ok).toBe(true);
+      faceSocialBed(pending, 'resident');
+      expect(pending.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+      const beforeDuplicate = pending.snapshot();
+      expect(pending.sleep()).toEqual({ ok: false, code: 'day-summary-pending' });
+      expect(pending.snapshot()).toEqual(beforeDuplicate);
+    });
+
+    test('blocks talk and gift while a morning summary is pending', () => {
+      const session = sessionAtVillager('resident');
+      faceSocialBed(session, 'resident');
+      expect(session.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+      const before = session.snapshot();
+
+      expect(session.talkTo('resident')).toEqual({
+        ok: false,
+        code: 'day-summary-pending',
+      });
+      expect(session.giftCrop('resident', 'turnip')).toEqual({
+        ok: false,
+        code: 'day-summary-pending',
+      });
+      expect(session.snapshot()).toMatchObject(before);
+    });
+
+    test('requires distinct in-bounds integer villager cells away from farm interactions', () => {
+      expect(
+        () =>
+          new GameSession(config({ villagerCells: { ...villagerCells, farmer: { x: 12, y: 5 } } })),
+      ).toThrow();
+      expect(
+        () =>
+          new GameSession(
+            config({ villagerCells: { ...villagerCells, farmer: { x: 3.5, y: 5 } } }),
+          ),
+      ).toThrow();
+      expect(
+        () =>
+          new GameSession(
+            config({
+              villagerCells: { ...villagerCells, farmer: { ...villagerCells.shopkeeper } },
+            }),
+          ),
+      ).toThrow();
+      expect(
+        () =>
+          new GameSession(
+            config({ villagerCells: { ...villagerCells, farmer: { ...farmCells[0] } } }),
+          ),
+      ).toThrow();
+      expect(
+        () =>
+          new GameSession(config({ villagerCells: { ...villagerCells, farmer: { ...bedCell } } })),
+      ).toThrow();
+      expect(
+        () =>
+          new GameSession(config({ villagerCells: { ...villagerCells, farmer: { ...shopCell } } })),
+      ).toThrow();
+      expect(
+        () =>
+          new GameSession(
+            config({ villagerCells: { ...villagerCells, farmer: { ...shippingCell } } }),
+          ),
+      ).toThrow();
+    });
+
+    test('round-trips social state through JSON', () => {
+      const session = sessionAtVillager('resident');
+      faceVillager(session, 'resident');
+      expect(session.talkTo('resident').ok).toBe(true);
+      const snapshot = session.snapshot();
+
+      expect(JSON.parse(JSON.stringify(snapshot))).toEqual(snapshot);
     });
   });
 });

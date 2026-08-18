@@ -91,6 +91,17 @@ export interface SocialFeedback {
   closeFriendSequence: boolean;
 }
 
+export type TalkResult =
+  | { ok: true; code: 'villager-talked'; social: SocialFeedback }
+  | { ok: false; code: 'day-summary-pending' | 'not-at-villager' };
+
+export type GiftResult =
+  | { ok: true; code: 'crop-gifted'; social: SocialFeedback }
+  | {
+      ok: false;
+      code: 'day-summary-pending' | 'not-at-villager' | 'gift-already-given' | 'insufficient-crops';
+    };
+
 export interface ShipmentLine {
   crop: CropKind;
   quantity: number;
@@ -141,6 +152,8 @@ export interface GameSnapshot extends WorldSnapshot {
   inventory: InventorySnapshot;
   pendingShipment: CropCounts;
   farmTiles: FarmTileSnapshot[];
+  relationships: Record<VillagerId, RelationshipSnapshot>;
+  villagerCells: Record<VillagerId, GridCell>;
   bedCell: GridCell;
   shopCell: GridCell;
   shippingCell: GridCell;
@@ -155,6 +168,8 @@ export type SuccessCode =
   | 'crop-harvested'
   | 'seeds-purchased'
   | 'crop-deposited'
+  | 'villager-talked'
+  | 'crop-gifted'
   | 'day-advanced'
   | 'day-started';
 
@@ -173,6 +188,8 @@ export type FailureCode =
   | 'not-at-bed'
   | 'not-at-shop'
   | 'not-at-shipping-bin'
+  | 'not-at-villager'
+  | 'gift-already-given'
   | 'invalid-quantity'
   | 'insufficient-funds'
   | 'insufficient-crops'
