@@ -180,7 +180,7 @@ test('routes E to authoritative shop and shipping presentation', async ({ page }
   await expect.poll(async () => (await gameSnapshot(page)).inventory.seeds.potato).toBe(1);
   await page.keyboard.press('Escape');
   await expect(shop).toBeHidden();
-  expect((await snapshot(page)).locked).toBe(false);
+  await expect.poll(async () => (await snapshot(page)).locked).toBe(false);
 
   await acquireTarget(page, 's', SHIPPING_CELL);
   const shipping = await openInteraction(page, 'Shipping bin');
@@ -188,7 +188,7 @@ test('routes E to authoritative shop and shipping presentation', async ({ page }
   await expect(shipping.getByRole('button', { name: 'Close' })).toBeFocused();
   await shipping.getByRole('button', { name: 'Close' }).click();
   await expect(shipping).toBeHidden();
-  expect((await snapshot(page)).locked).toBe(false);
+  await expect.poll(async () => (await snapshot(page)).locked).toBe(false);
 });
 
 test('buys, grows, ships, pays, and reinvests across all three crops', async ({ page }) => {
