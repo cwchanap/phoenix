@@ -30,6 +30,7 @@ const MAP_KEY = 'proof-map';
 const GROUND_KEY = 'proof-tiles';
 const PLAYER_KEY = 'proof-player';
 const SCENERY_KEY = 'proof-scenery';
+const VILLAGER_KEY = 'proof-villagers';
 const SOIL_KEY = 'proof-soil';
 const CROPS_KEY = 'proof-crops';
 const PLAYER_DEPTH = 100;
@@ -51,9 +52,11 @@ const PLAYER_FRAMES: Record<Facing, number> = {
 
 type BaseEntityId = 'player' | 'tree' | 'building' | 'shipping-bin';
 type CropEntityId = `crop:${number},${number}`;
-type EntityId = BaseEntityId | CropEntityId;
+type VillagerEntityId = `villager:${VillagerId}`;
+type EntityId = BaseEntityId | CropEntityId | VillagerEntityId;
 
-export type DebugDepths = Record<BaseEntityId, number> & Partial<Record<CropEntityId, number>>;
+export type DebugDepths = Record<BaseEntityId, number> &
+  Partial<Record<CropEntityId | VillagerEntityId, number>>;
 
 export interface DebugSnapshot {
   player: { position: GridPoint; facing: Facing; world: WorldPoint };
@@ -102,6 +105,7 @@ export class ProofScene extends Phaser.Scene {
   private actionController: ActionController | null = null;
   private commands: SceneCommands | null = null;
   private readonly scenery = new Map<SceneryKind, Phaser.GameObjects.Sprite>();
+  private readonly villagerSprites = new Map<VillagerId, Phaser.GameObjects.Sprite>();
   private readonly soilSprites = new Map<string, Phaser.GameObjects.Sprite>();
   private readonly cropSprites = new Map<string, Phaser.GameObjects.Sprite>();
   private readonly cameraBounds = projection.projectedBounds(96);
@@ -145,6 +149,11 @@ export class ProofScene extends Phaser.Scene {
       { frameWidth: 96, frameHeight: 96 },
     );
     this.load.spritesheet(
+      VILLAGER_KEY,
+      new URL('../../assets/sprites/proof-villagers.png', import.meta.url).href,
+      { frameWidth: 32, frameHeight: 48 },
+    );
+    this.load.spritesheet(
       SOIL_KEY,
       new URL('../../assets/sprites/proof-soil.png', import.meta.url).href,
       { frameWidth: 64, frameHeight: 32 },
@@ -186,6 +195,12 @@ export class ProofScene extends Phaser.Scene {
           .sprite(placement.world.x, placement.world.y, SCENERY_KEY, placement.frame)
           .setOrigin(0.5, 1);
         this.scenery.set(placement.kind, sprite);
+      }
+      for (const placement of parsed.villagers) {
+        const sprite = this.add
+          .sprite(placement.world.x, placement.world.y, VILLAGER_KEY, placement.frame)
+          .setOrigin(0.5, 1);
+        this.villagerSprites.set(placement.id, sprite);
       }
 
       const initial = this.session.snapshot();
@@ -427,6 +442,16 @@ export class ProofScene extends Phaser.Scene {
       { id: 'building', groundY: building.y, stableOrder: 2, sprite: building },
       { id: 'shipping-bin', groundY: shippingBin.y, stableOrder: 3, sprite: shippingBin },
     ];
+    for (const placement of this.parsedMap?.villagers ?? []) {
+      const villager = this.villagerSprites.get(placement.id);
+      if (!villager) continue;
+      entries.push({
+        id: `villager:${placement.id}`,
+        groundY: villager.y,
+        stableOrder: placement.stableOrder,
+        sprite: villager,
+      });
+    }
     snapshot.farmTiles.forEach((tile, index) => {
       const crop = this.cropSprites.get(cellKey(tile.position));
       if (!crop) return;
@@ -470,8 +495,10 @@ export class ProofScene extends Phaser.Scene {
 
     for (const sprite of this.soilSprites.values()) sprite.destroy();
     for (const sprite of this.cropSprites.values()) sprite.destroy();
+    for (const sprite of this.villagerSprites.values()) sprite.destroy();
     this.soilSprites.clear();
     this.cropSprites.clear();
+    this.villagerSprites.clear();
 
     this.session = null;
     this.parsedMap = null;

@@ -20,7 +20,7 @@
   let sleepSubmitting = $state(false);
   let summarySubmitting = $state(false);
   let dayTransitionActive = $state(false);
-  type EconomyPanel = Exclude<InteractionIntent, 'sleep'> | null;
+  type EconomyPanel = Exclude<InteractionIntent['kind'], 'sleep' | 'villager'> | null;
   let economyPanel = $state<EconomyPanel>(null);
 
   function syncDayTransition(): void {
@@ -83,13 +83,20 @@
 
   function handleInteractIntent(intent: InteractionIntent): void {
     if (dayTransitionActive || economyPanel !== null) return;
-    if (intent === 'sleep') {
-      sleepPromptVisible = true;
-      syncDayTransition();
-      return;
+    switch (intent.kind) {
+      case 'sleep':
+        sleepPromptVisible = true;
+        syncDayTransition();
+        break;
+      case 'shop':
+      case 'shipping':
+        economyPanel = intent.kind;
+        syncEconomyPanel();
+        break;
+      case 'villager':
+        commands?.talkTo(intent.villagerId);
+        break;
     }
-    economyPanel = intent;
-    syncEconomyPanel();
   }
 
   function closeEconomyPanel(): void {
