@@ -1,8 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
-import type { DebugDepths } from '../../src/game/phaser/ProofScene';
+import type { DebugDepths, DebugSnapshot } from '../../src/game/phaser/ProofScene';
 import {
   acquireTarget,
   assertCameraWithinBounds,
+  gameSnapshot,
   holdKey,
   moveUntil,
   moveUntilKeys,
@@ -15,6 +16,12 @@ const SHOP_CELL = { x: 6, y: 7 } as const;
 const BED_CELL = { x: 6, y: 8 } as const;
 const SHIPPING_CELL = { x: 6, y: 10 } as const;
 const SHIPPING_FOOTPRINT = { x: 6.2, y: 10.2, width: 0.6, height: 0.6 } as const;
+const VILLAGER_CELLS = {
+  shopkeeper: { x: 6, y: 5 },
+  farmer: { x: 3, y: 5 },
+  resident: { x: 9, y: 5 },
+} as const;
+const MIRA_FOOTPRINT = { x: 6.2, y: 5.2, width: 0.6, height: 0.6 } as const;
 
 function outsideFootprint(
   position: { x: number; y: number },
@@ -27,6 +34,12 @@ function outsideFootprint(
     position.y + halfExtent <= footprint.y ||
     position.y - halfExtent >= footprint.y + footprint.height
   );
+}
+
+function shopkeeperDepth(state: DebugSnapshot): number {
+  const depth = state.depths['villager:shopkeeper'];
+  if (depth === undefined) throw new Error('Missing shopkeeper depth');
+  return depth;
 }
 
 async function moveWorldToShop(page: Page): Promise<void> {
@@ -70,6 +83,24 @@ async function moveWorldBedToFarmHub(page: Page): Promise<void> {
   const player = (await snapshot(page)).player.position;
   expect(Math.floor(player.x)).toBe(3);
   expect(Math.floor(player.y)).toBe(8);
+}
+
+async function moveToVillagerStance(
+  page: Page,
+  villager: keyof typeof VILLAGER_CELLS,
+): Promise<void> {
+  const target = VILLAGER_CELLS[villager];
+  const key = villager === 'farmer' ? 'w' : 'd';
+  if (villager === 'resident') {
+    await moveUntilPlayerAxis(page, ['d'], 'x', 'gte', 6.4);
+    await moveUntilPlayerAxis(page, ['s'], 'y', 'gte', 6.7);
+    await moveUntilPlayerAxis(page, ['d'], 'x', 'gte', 7.5);
+    await moveUntilPlayerAxis(page, ['s'], 'y', 'gte', 6.7);
+  } else {
+    await moveUntilPlayerAxis(page, ['d'], 'x', 'gte', 5.2);
+    await moveUntilPlayerAxis(page, ['w'], 'y', 'lte', 7);
+  }
+  await acquireTarget(page, key, target);
 }
 
 test('stops at the tree, then detours down and right', async ({ page }) => {
@@ -239,6 +270,37 @@ test('reports the exact target offset for each facing direction', async ({ page 
     expect(result.target).toEqual(target);
     expect(result.visibleTarget).toBe(true);
   }
+});
+
+test('keeps authored villager cells and acquires each documented path stance', async ({ page }) => {
+  await waitForWorld(page);
+  expect((await gameSnapshot(page)).villagerCells).toEqual(VILLAGER_CELLS);
+
+  for (const villager of ['shopkeeper', 'farmer', 'resident'] as const) {
+    await waitForWorld(page);
+    await moveToVillagerStance(page, villager);
+    expect((await snapshot(page)).target).toEqual(VILLAGER_CELLS[villager]);
+    assertCameraWithinBounds(await snapshot(page));
+  }
+});
+
+test('blocks entry to Mira and reverses player depth across her footpoint', async ({ page }) => {
+  await waitForWorld(page);
+  await moveToVillagerStance(page, 'shopkeeper');
+  const above = await snapshot(page);
+  expect(above.player.world.y).toBeLessThan(192);
+  expect(above.depths.player).toBeLessThan(shopkeeperDepth(above));
+
+  await holdKey(page, 'd', 300);
+  const blocked = await snapshot(page);
+  expect(outsideFootprint(blocked.player.position, MIRA_FOOTPRINT)).toBe(true);
+  expect(blocked.player.position.x).toBeLessThanOrEqual(6.021);
+  assertCameraWithinBounds(blocked);
+
+  const below = await moveUntil(page, 's', (value) => value.player.world.y >= 195.2);
+  expect(below.player.world.y).toBeGreaterThanOrEqual(195.2);
+  expect(below.depths.player).toBeGreaterThan(shopkeeperDepth(below));
+  assertCameraWithinBounds(below);
 });
 
 test('reverses tree and player depth across the authored tree footpoint', async ({ page }) => {

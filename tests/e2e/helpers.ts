@@ -127,6 +127,60 @@ export async function gameSnapshot(page: Page): Promise<GameSnapshot> {
   });
 }
 
+export async function waterForCurrentWeather(
+  page: Page,
+  targetKey: string,
+  targetCell: GridCell,
+): Promise<GameSnapshot> {
+  await acquireTarget(page, targetKey, targetCell);
+  await page.keyboard.down('1');
+  try {
+    await expect.poll(async () => (await gameSnapshot(page)).selectedAction).toBe('hoe');
+  } finally {
+    await page.keyboard.up('1');
+  }
+  await page.keyboard.down('3');
+  try {
+    await expect.poll(async () => (await gameSnapshot(page)).selectedAction).toBe('wateringCan');
+  } finally {
+    await page.keyboard.up('3');
+  }
+  // Movement is published through the observation-only snapshot; the game
+  // snapshot is refreshed on commands. Merge the live world coordinates so a
+  // rainy no-op compares domain state without retaining the prior waypoint.
+  const observed = await snapshot(page);
+  const before = {
+    ...(await gameSnapshot(page)),
+    player: {
+      position: observed.player.position,
+      facing: observed.player.facing,
+    },
+    target: observed.target,
+  } satisfies GameSnapshot;
+  const feedback = before.weather === 'sunny' ? 'Crop watered' : 'Rain is watering the crops';
+
+  await page.keyboard.down('Space');
+  try {
+    if (before.weather === 'sunny') {
+      await expect
+        .poll(async () => (await gameSnapshot(page)).timeMinutes)
+        .toBe(before.timeMinutes + 20);
+    }
+    await expect(page.locator('[data-feedback]')).toHaveText(feedback);
+  } finally {
+    await page.keyboard.up('Space');
+  }
+
+  const after = await gameSnapshot(page);
+  if (before.weather === 'sunny') {
+    expect(after.timeMinutes).toBe(before.timeMinutes + 20);
+    expect(after.stamina).toBe(before.stamina - 2);
+  } else {
+    expect(after).toEqual(before);
+  }
+  return after;
+}
+
 export async function confirmAndStartDay(
   page: Page,
   expected: ExpectedDayTransition,
@@ -278,7 +332,12 @@ export async function moveUntilPlayerAxis(
   axis: 'x' | 'y',
   comparison: 'gte' | 'lte',
   target: number,
+  pollingMargin = 0,
 ): Promise<DebugSnapshot> {
+  // Some route waypoints must release before a fractional floor boundary so
+  // acquireTarget can turn without crossing into the next cell. Callers that
+  // assert the reached coordinate keep the default exact polling target.
+  const pollingTarget = comparison === 'gte' ? target - pollingMargin : target + pollingMargin;
   for (const key of keys) await page.keyboard.down(key);
   let waitError: unknown;
   try {
@@ -289,7 +348,7 @@ export async function moveUntilPlayerAxis(
           const value = position[positionAxis];
           return positionComparison === 'gte' ? value >= positionTarget : value <= positionTarget;
         },
-        { axis, comparison, target },
+        { axis, comparison, target: pollingTarget },
         { timeout: 3_000, polling: 'raf' },
       );
     } catch (error) {
@@ -297,6 +356,9 @@ export async function moveUntilPlayerAxis(
     }
   } finally {
     for (const key of [...keys].reverse()) await page.keyboard.up(key);
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+    );
   }
   if (waitError) {
     const latest = await snapshot(page).catch(() => null);

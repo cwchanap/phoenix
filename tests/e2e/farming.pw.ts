@@ -18,6 +18,7 @@ import {
   moveUntil,
   moveUntilPlayerAxis,
   snapshot,
+  waterForCurrentWeather,
   waitForWorld,
 } from './helpers';
 
@@ -138,20 +139,6 @@ async function useSelected(page: Page, target: GridCell, feedback: string): Prom
   return expectPublishedTarget(page, target);
 }
 
-async function waterForCurrentWeather(page: Page): Promise<GameSnapshot> {
-  const before = await gameSnapshot(page);
-  if (before.weather === 'sunny') {
-    const watered = await useSelected(page, CROP_CELL, FEEDBACK.cropWatered);
-    expect(watered.timeMinutes).toBe(before.timeMinutes + 20);
-    expect(watered.stamina).toBe(before.stamina - 2);
-    return watered;
-  }
-
-  const rejected = await useSelected(page, CROP_CELL, FEEDBACK.rainWatersCrops);
-  expect(rejected).toEqual(before);
-  return rejected;
-}
-
 async function moveToBed(page: Page): Promise<void> {
   await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 5.1);
   await moveUntilPlayerAxis(page, ['w'], 'y', 'lte', 9.8);
@@ -260,7 +247,7 @@ test('completes three real-control nights from tilling through turnip harvest', 
   state = await selectWithKey(page, '3', CROP_CELL);
   await expectHud(page, state);
   expect(state.weather).toBe('sunny');
-  state = await waterForCurrentWeather(page);
+  state = await waterForCurrentWeather(page, 'd', CROP_CELL);
   expect(cropTile(state)).toMatchObject({
     soil: 'tilled',
     crop: { kind: 'turnip', growth: 0, wateredToday: true },
@@ -313,7 +300,7 @@ test('completes three real-control nights from tilling through turnip harvest', 
   state = await selectWithKey(page, '3', CROP_CELL);
   await expectHud(page, state);
   const day2Weather = state.weather;
-  state = await waterForCurrentWeather(page);
+  state = await waterForCurrentWeather(page, 'd', CROP_CELL);
   if (day2Weather === 'sunny') {
     expect(cropTile(state)).toMatchObject({ crop: { growth: 1, wateredToday: true } });
     expect(state.timeMinutes).toBe(380);
@@ -354,7 +341,7 @@ test('completes three real-control nights from tilling through turnip harvest', 
   state = await selectWithKey(page, '3', CROP_CELL);
   await expectHud(page, state);
   const day3Weather = state.weather;
-  state = await waterForCurrentWeather(page);
+  state = await waterForCurrentWeather(page, 'd', CROP_CELL);
   if (day3Weather === 'sunny') {
     expect(cropTile(state)).toMatchObject({ crop: { growth: 2, wateredToday: true } });
     expect(state.timeMinutes).toBe(380);
