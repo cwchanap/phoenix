@@ -218,6 +218,8 @@ function cropAt(
 }
 
 test('completes the no-hook three-day village social loop', async ({ page }) => {
+  // This real three-day journey exceeds Playwright's default 30 s budget on CI.
+  test.setTimeout(60_000);
   await waitForWorld(page);
   await moveSpawnToFarmHub(page);
 
