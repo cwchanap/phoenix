@@ -73,6 +73,24 @@ export type FarmingAction = 'hoe' | 'seeds' | 'wateringCan' | 'hands';
 export type CropKind = 'turnip' | 'potato' | 'pumpkin';
 export type CropCounts = Record<CropKind, number>;
 
+export type VillagerId = 'shopkeeper' | 'farmer' | 'resident';
+export type RelationshipLevel = 'stranger' | 'friend' | 'closeFriend';
+
+export interface RelationshipSnapshot {
+  points: number;
+  level: RelationshipLevel;
+  talkedToday: boolean;
+  giftedToday: boolean;
+  closeFriendDialogueSeen: boolean;
+}
+
+export interface SocialFeedback {
+  lines: string[];
+  pointsGained: number;
+  giftReaction: 'normal' | 'favourite' | null;
+  closeFriendSequence: boolean;
+}
+
 export interface ShipmentLine {
   crop: CropKind;
   quantity: number;
