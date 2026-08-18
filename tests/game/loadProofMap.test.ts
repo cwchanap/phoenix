@@ -498,6 +498,14 @@ describe('proof-map contract validation', () => {
       /proof-map: villager-shopkeeper marker must be at logical cell 6,5/,
     ],
     [
+      'within-cell villager marker drift',
+      (raw: Record<string, unknown>) => {
+        const resident = withObject(raw, 'Markers', 'villager-resident');
+        resident.x = (resident.x as number) + 31;
+      },
+      /proof-map: villager-resident marker must be at authored world position 512,240/,
+    ],
+    [
       'missing building footprint',
       (raw: Record<string, unknown>) => {
         const collision = withLayer(raw, 'Collision') as unknown as {
