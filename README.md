@@ -98,6 +98,11 @@ Day 14 is fully playable, but sleeping there returns the temporary final-day
 result instead of advancing to Day 15. HPA-597 will replace this boundary with
 the finale.
 
+## Village social slice (HPA-595)
+
+`E on a villager talks`; gifts use one harvested crop.
+Friend at 12 and Close Friend at 18.
+
 ## Verification and builds
 
 ```bash

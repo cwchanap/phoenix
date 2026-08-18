@@ -89,6 +89,15 @@ describe('Phoenix handoff contract', () => {
     ]) {
       expect(readme.toLowerCase()).toContain(economyText.toLowerCase());
     }
+    for (const socialText of [
+      'HPA-595',
+      'E on a villager talks',
+      'one harvested crop',
+      'Friend at 12',
+      'Close Friend at 18',
+    ]) {
+      expect(readme.toLowerCase()).toContain(socialText.toLowerCase());
+    }
   });
 
   test('verifies an exact committed archive with the approved eleven-command matrix', async () => {
