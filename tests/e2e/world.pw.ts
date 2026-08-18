@@ -47,6 +47,10 @@ async function moveWorldToShop(page: Page): Promise<void> {
   await moveUntilPlayerAxis(page, ['w'], 'y', 'lte', 9.8);
   await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 5.1);
   await moveUntilPlayerAxis(page, ['w'], 'x', 'lte', 4.5);
+  await moveUntilPlayerAxis(page, ['d'], 'x', 'gte', 5.1);
+  const player = (await snapshot(page)).player.position;
+  expect(Math.floor(player.x)).toBe(5);
+  expect(Math.floor(player.y)).toBe(8);
   await acquireTarget(page, 'd', SHOP_CELL);
 }
 
