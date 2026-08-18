@@ -1,6 +1,6 @@
 # Phoenix Social Slice Design (HPA-595)
 
-**Status:** Draft for review
+**Status:** Draft for review — revised after repository contract review
 
 **Date:** 2026-08-17
 
@@ -8,92 +8,112 @@
 
 ## Source of truth
 
-This design implements the next active vertical slice under [HPA-587](https://linear.app/cwchanap/issue/HPA-587/tracking-deliver-the-phoenix-14-day-farming-mvp): [HPA-595](https://linear.app/cwchanap/issue/HPA-595/social-slice-add-the-village-three-villagers-gifting-and-relationships).
+This design implements [HPA-595](https://linear.app/cwchanap/issue/HPA-595/social-slice-add-the-village-three-villagers-gifting-and-relationships), the next active child of HPA-587 after the completed HPA-593 economy slice. HPA-595 blocks HPA-596 persistence, so all social gameplay state must remain authoritative, deterministic, fresh, and JSON-serializable.
 
-HPA-593 is complete on `main`, so HPA-595 is no longer blocked. HPA-595 blocks HPA-596 persistence, therefore this slice must leave social state explicit, deterministic, and JSON-serializable without introducing a second gameplay authority.
-
-The live Linear issue and Phoenix project description remain authoritative for product scope, delivery order, and non-goals. This document resolves the implementation details needed to build the slice against the current repository state.
+The live Linear issue and Phoenix project description remain authoritative for product scope and non-goals. This document resolves the implementation contract against the current `main` code.
 
 ## Outcome
 
-The existing 12×12 isometric farm map gains a compact village path in the currently unused northern half rather than becoming a larger world. The player can walk from the farm to three static villagers, interact with each villager using the existing `E` action, talk once per day for relationship credit, give exactly one harvested crop per villager per day, receive a favourite-crop bonus, and see dialogue evolve from Stranger to Friend to Close Friend.
+Phoenix keeps the existing 12×12 isometric world and adds a short village path in the unused northern area. Three static villagers stand immediately north of that path. The player walks to a known path stance, presses the existing `E` interaction key, talks once per day for relationship credit, gives exactly one harvested crop per villager per day, receives a favourite-crop bonus, and sees dialogue progress through Stranger, Friend, and Close Friend.
 
-Each villager has one short two-line Close Friend sequence that is shown once through the normal dialogue panel. Afterwards the villager uses their normal Close Friend line. The same authoritative TypeScript state and frontend run in the browser and Tauri.
+Each villager has one two-line Close Friend sequence shown once through a focused Svelte dialogue panel. Villagers do not move. There are no schedules, homes, pathfinding, quests, cutscene machinery, or generalized NPC/dialogue abstractions.
 
-This is intentionally a social **slice**, not an NPC framework: villagers never move, there are no homes or schedules, relationship rules are three small records, and dialogue presentation is one focused Svelte component.
+## Approved decisions
 
-## Approved implementation direction
+- Keep the map, projection, camera, logical stage, and one-elevation renderer unchanged.
+- Use one static content/policy module, `villagerDefinitions.ts`, shaped like the existing `cropDefinitions.ts` pattern.
+- Keep `GameSession` as the only mutable social authority.
+- Add only two domain commands: `talkTo(villagerId)` and `giftCrop(villagerId, crop)`.
+- Add a `SocialFeedback` payload only to `villager-talked` and `crop-gifted` successes; do not replace the current command-result model with a generic envelope.
+- Keep talking and gifting free of time/stamina cost for HPA-595.
+- Keep daily limits and relationship reset logic in the existing direct `sleep()` transition.
+- Keep the development hook observation-only.
+- Use a dedicated `DialoguePanel.svelte`; do not reuse the quantity stepper and do not build a dialogue engine.
+- Keep persistence, the market finale, schedules, romance, and additional villagers out of this slice.
 
-### Keep the current world size
+## Villager content and pacing
 
-Do not resize the map, projection, camera, or logical stage. The 12×12 map already has enough unused space north of the farm and shop for the MVP village. Expanding content inside the existing bounds avoids a large camera/parser migration while still giving the player a visible destination beyond the farm.
+Villager IDs are stable role IDs. Names are content.
 
-The village adds one new ground tile for a visible walking path, three Tiled villager markers, three small collision footprints, one generated three-frame villager spritesheet, and a reserved empty market area for HPA-597.
+| Villager ID | Name | Role | Favourite crop | Authored cell | Interaction stance |
+| --- | --- | --- | --- | --- | --- |
+| `shopkeeper` | Mira | Seed-shop keeper | Potato | 7,5 | stand in 6,6 and face right |
+| `farmer` | Rowan | Neighbouring farmer | Pumpkin | 3,5 | stand in 4,6 and face up |
+| `resident` | June | Village resident | Turnip | 9,5 | stand in 8,6 and face right |
 
-### Use exactly three villagers
+These stances intentionally match `ProofWorld`'s shipped facing offsets: right targets `{ +1, -1 }` and up targets `{ -1, -1 }` after flooring the player position. No villager requires standing inside the shop/building footprint or inventing a special targeting rule.
 
-Villager IDs are role-based and stable; display names remain content:
+Relationship thresholds and gains are exact:
 
-| Villager ID | Name | Role | Favourite crop | Authored cell |
-| --- | --- | --- | --- | --- |
-| `shopkeeper` | Mira | Seed-shop keeper | Potato | 7,6 |
-| `farmer` | Rowan | Neighbouring farmer | Pumpkin | 3,5 |
-| `resident` | June | Village resident | Turnip | 9,5 |
-
-Role-based IDs let HPA-597 refer to the shopkeeper without coupling future logic to a display name.
-
-### Keep relationship pacing small and deterministic
-
-Relationship levels use these exact minimum-point thresholds:
-
-| Level | Minimum points |
+| Rule | Value |
 | --- | ---: |
-| Stranger | 0 |
-| Friend | 12 |
-| Close Friend | 30 |
+| Stranger floor | 0 |
+| Friend floor | 12 |
+| Close Friend floor | 30 |
+| First talk per villager/day | +1 |
+| First normal gift per villager/day | +3 |
+| Favourite gift bonus | +2 |
 
-The player earns:
+A favourite talk+gift day gives six points, so one villager reaches Close Friend in five social days. A normal talk+gift day gives four points and still fits the 14-day arc.
 
-- +1 point for the first successful talk with a villager each day;
-- +3 points for the first successful gift to that villager each day; and
-- an additional +2 points when that gift is the villager's favourite crop, for +5 total.
+### Exact dialogue content
 
-There is no relationship cap, decay, dislike penalty, random bonus, birthday modifier, or hidden multiplier.
+`VILLAGER_DEFINITIONS` contains these strings so implementation does not invent copy later.
 
-A focused favourite routine earns at most six points per villager-day, so Close Friend is reachable in five social days. A normal-gift routine earns four points per villager-day and still reaches Close Friend comfortably within the 14-day MVP.
+**Mira / shopkeeper**
 
-Talking and gifting consume no game time or stamina in this slice. The per-villager daily limits already bound repetition, and adding a second time-cost system would widen HPA-595 without improving the acceptance proof.
+- Stranger: `The seed counter is open whenever you need it.`
+- Friend: `Your fields are starting to look dependable.`
+- Close Friend: `You have made this little farm part of the village.`
+- Close Friend sequence:
+  1. `You kept showing up, even on the slow days.`
+  2. `The harvest market will feel different with you there.`
+- Normal gift: `A useful harvest. Thank you.`
+- Favourite gift: `Potatoes? You remembered.`
 
-## Explicit non-goals
+**Rowan / farmer**
 
-HPA-595 does **not** add villager schedules, NPC pathfinding, homes or interiors, romance, marriage, jealousy, birthdays, relationship decay, quests, item likes/dislikes beyond one favourite crop, gifts other than harvested crops, gift quantities, inventory capacity, generic items, a generic NPC base class, a generic relationship service, a dialogue scripting language, branching dialogue, cutscenes, voice, animated portraits, event triggers, another map, another renderer, backend state, persistence, the harvest-market event, or HPA-597 finale logic.
+- Stranger: `Watered soil tells you what tomorrow will bring.`
+- Friend: `Your rows are getting cleaner every day.`
+- Close Friend: `I would trust you with a field of my own.`
+- Close Friend sequence:
+  1. `I noticed when the farm stopped looking neglected.`
+  2. `You earned that change one ordinary day at a time.`
+- Normal gift: `Good produce. I can use this.`
+- Favourite gift: `A pumpkin this good is hard to ignore.`
 
-The Close Friend sequence is not an event engine. It is a two-line static array selected by one boolean flag.
+**June / resident**
 
-## Architecture and ownership
+- Stranger: `It is quieter here than the road makes it look.`
+- Friend: `I keep seeing you around. I like that.`
+- Close Friend: `The village feels more like home with you here.`
+- Close Friend sequence:
+  1. `You came here as the new farmer, but that is not how I think of you now.`
+  2. `You are one of us.`
+- Normal gift: `That is kind of you.`
+- Favourite gift: `Turnips are my favourite. Perfect choice.`
 
-### Pure villager definitions
+## Pure villager definitions
 
-Create `src/game/core/villagerDefinitions.ts` as the only content and pure-policy module for this slice.
+Create `src/game/core/villagerDefinitions.ts` with only static records, constants, and pure helpers. It exports:
 
-It exports:
+```ts
+VILLAGER_IDS;
+VILLAGER_DEFINITIONS;
+RELATIONSHIP_THRESHOLDS;
+TALK_POINTS;
+GIFT_POINTS;
+FAVOURITE_GIFT_BONUS;
+relationshipLevel(points);
+dialogueLines(villagerId, level);
+closeFriendDialogueLines(villagerId);
+```
 
-- `VILLAGER_IDS` in stable `shopkeeper`, `farmer`, `resident` order;
-- `VILLAGER_DEFINITIONS` as one readonly exhaustive record;
-- `RELATIONSHIP_THRESHOLDS` with exact floors 0, 12, and 30;
-- `TALK_POINTS = 1`;
-- `GIFT_POINTS = 3`;
-- `FAVOURITE_GIFT_BONUS = 2`;
-- `relationshipLevel(points)`; and
-- pure helpers that return fresh dialogue lines for a villager and relationship level.
+`VILLAGER_IDS` is exactly `['shopkeeper', 'farmer', 'resident']`. Pure helpers validate programmer inputs, return fresh arrays, and throw for invalid point values. The module contains no coordinates, mutable state, Phaser/Svelte objects, callbacks, schedules, persistence logic, or event dispatch.
 
-The definitions contain only data needed by HPA-595: display name, role, favourite crop, three normal dialogue entries, one two-line Close Friend sequence, one normal gift response, and one favourite gift response.
+## Shared social types
 
-They contain no mutable relationship state, Phaser objects, Tiled coordinates, Svelte callbacks, timers, schedules, persistence code, or event dispatch.
-
-### Shared social types
-
-Add these domain concepts to `src/game/core/types.ts`:
+Add closed unions and plain snapshot data to `src/game/core/types.ts`:
 
 ```ts
 export type VillagerId = 'shopkeeper' | 'farmer' | 'resident';
@@ -118,15 +138,15 @@ export interface SocialFeedback {
 }
 ```
 
-`GameSnapshot` gains exactly:
+`GameSnapshot` gains only:
 
 ```ts
 relationships: Record<VillagerId, RelationshipSnapshot>;
 ```
 
-It does not store villager display names, favourite crops, Tiled positions, portrait data, or dialogue strings. Those are immutable definitions or authored map data.
+Relationship level is derived from points; it is not mutable authoritative state. Panel line index, dialogue strings, portrait presentation, map placement, and Svelte/Phaser values stay outside `GameSnapshot`.
 
-Social command success carries a `SocialFeedback` payload while existing command shapes remain unchanged:
+The command result remains narrow:
 
 ```ts
 type CommandResult =
@@ -135,21 +155,19 @@ type CommandResult =
   | { ok: false; code: FailureCode };
 ```
 
-Add failure codes `not-at-villager` and `gift-already-given`. Reuse `insufficient-crops` when the selected harvested crop is not carried.
+Add `not-at-villager` and `gift-already-given`. Reuse `insufficient-crops` when the requested harvested crop is unavailable.
 
-### GameSession remains authoritative
+## GameSession authority
 
-`GameSession` remains the only mutable gameplay authority.
-
-`GameSessionConfig` gains one cloned map-owned record:
+`GameSessionConfig` gains the map-owned cells after the map/parser task exposes them:
 
 ```ts
 villagerCells: Record<VillagerId, GridCell>;
 ```
 
-Construction validates that all three cells are integer cells in bounds, distinct from each other, and distinct from the farm, bed, shop, and shipping interaction cells. The authored map/parser owns the exact positions and collision shapes.
+Construction clones the record and validates that all cells are in bounds, integer, unique, and distinct from farm, bed, shop, and shipping interaction cells.
 
-Mutable social state is only:
+Mutable social state is exactly:
 
 ```ts
 Record<VillagerId, {
@@ -160,99 +178,78 @@ Record<VillagerId, {
 }>;
 ```
 
-`level` is derived from points for snapshots and command feedback; it is not stored redundantly.
+### `talkTo`
 
-The session gains two direct commands:
+Validation and mutation order:
 
-```ts
-talkTo(villagerId: VillagerId): CommandResult;
-giftCrop(villagerId: VillagerId, crop: CropKind): CommandResult;
-```
+1. apply `activeDayFailure()`;
+2. require the authoritative target to equal the requested villager cell;
+3. on the first talk that day, set `talkedToday` and add one point;
+4. derive the resulting level;
+5. if the resulting level is Close Friend and the one-time sequence has not been seen, return the two-line sequence and set `closeFriendDialogueSeen`;
+6. otherwise return the normal line for the resulting level.
 
-Both commands:
+Repeated same-day talks remain successful dialogue interactions with `pointsGained: 0`.
 
-1. apply the existing active-day gate first;
-2. require the authoritative target to match that villager's authored cell;
-3. mutate only `GameSession` state; and
-4. return fresh JSON-serializable feedback.
+### `giftCrop`
 
-#### Talk semantics
+Validation and mutation order:
 
-A valid talk always succeeds and shows dialogue.
+1. apply `activeDayFailure()`;
+2. require the authoritative target to equal the requested villager cell;
+3. reject `gift-already-given`;
+4. reject `insufficient-crops` before mutation;
+5. consume exactly one crop;
+6. set `giftedToday`;
+7. add +3 plus +2 when the crop is that villager's favourite;
+8. return the static gift response and resulting relationship level.
 
-On the first talk to that villager that day, `talkedToday` becomes true and one relationship point is added. Further talks that day return dialogue with `pointsGained: 0` and do not mutate points.
+A gift that crosses 30 points does not consume the one-time Close Friend dialogue. The next talk does.
 
-Normal dialogue is selected from the relationship level **after** any talk point is applied.
+### Daily reset
 
-If the villager is already Close Friend and `closeFriendDialogueSeen` is false, the talk returns the two-line Close Friend sequence and sets the flag true. This trigger is independent of the daily point credit, so a player who crossed the threshold through a gift may reopen the villager the same day and see the sequence without gaining a second talk point. Every later talk uses the normal Close Friend line.
+Only a successful `sleep()` transition clears every `talkedToday` and `giftedToday`. Points and `closeFriendDialogueSeen` persist. Failed sleep, Day 14 rejection, and a duplicate sleep while the morning summary is pending do not reset social flags.
 
-#### Gift semantics
+## Authored map contract
 
-A valid gift always consumes exactly one harvested crop from `inventory.crops`.
+Keep the map exactly 12×12 with the current 64×32 isometric projection, origin `(384, 0)`, four layers, and `nextlayerid: 5`.
 
-Validation order is:
+### Ground tiles
 
-1. active-day gate;
-2. correct villager target;
-3. daily gift not already used;
-4. at least one selected harvested crop is carried.
+Expand `proof-tiles.png` from 128×32 to 192×32:
 
-Only after all validation passes does the session decrement the carried crop, mark `giftedToday`, and apply relationship points.
+1. GID 1 grass;
+2. GID 2 farm soil;
+3. GID 3 village path.
 
-A normal crop gives +3. The villager's favourite crop gives +3 plus +2, for +5 total. Gift feedback uses the villager's static normal/favourite response and reports the resulting relationship level. A gift that crosses 30 points does **not** consume the one-time Close Friend sequence; that sequence remains a talk event.
+`proof-ground` becomes `columns: 3`, `tilecount: 3`, `imagewidth: 192`. Because the ground tileset gains one global ID, `proof-scenery.firstgid` moves from 3 to 4; existing scenery global GIDs become tree 4, building 5, shipping bin 6.
 
-Repeated or invalid gifts consume nothing and add no relationship points.
-
-#### Day transition reset
-
-Only one successful `sleep()` transition resets every villager's `talkedToday` and `giftedToday` flags for the new day. Failed sleep, Day 14 rejection, and a duplicate sleep while the morning summary is pending do not perform another reset.
-
-Relationship points and `closeFriendDialogueSeen` never reset during the 14-day run.
-
-### Authored map and deterministic assets
-
-Keep the map at 12×12, the 64×32 2:1 projection, origin `(384, 0)`, four existing layers, and `nextlayerid: 5`.
-
-#### Ground tiles
-
-Expand `proof-tiles.png` from 128×32 to **192×32** with three 64×32 frames:
-
-1. GID 1: grass;
-2. GID 2: farm soil; and
-3. GID 3: village path.
-
-`proof-ground` becomes `columns: 3`, `tilecount: 3`, and `imagewidth: 192`.
-
-Because the ground tileset gains one global tile ID, `proof-scenery` moves from `firstgid: 3` to **`firstgid: 4`**. Its existing local frame order remains tree, building, shipping bin, so the authored global IDs become 4, 5, and 6 respectively. No scenery frame is added.
-
-The exact path cells are:
+The path is only the seven-cell row immediately north of the farm/shop approach:
 
 ```text
 3,6  4,6  5,6  6,6  7,6  8,6  9,6
-3,5                              9,5
-                                 9,4
 ```
 
-The existing farm remains exactly x 2–4, y 7–9. Every other ground cell remains grass.
+All three villagers stand one row north at y=5. The HPA-597 market reserve remains x 8–10, y 2–3: grass, walkable, and free of new markers/collision/scenery.
 
-The rectangle x 8–10, y 2–3 is the **HPA-597 market reserve**. HPA-595 leaves those six cells grass, walkable, and free of collision, markers, or new scenery.
+### Villager footprints and markers
 
-#### Villager markers and footprints
-
-Keep all existing object IDs 1–10 unchanged. Add:
+Keep existing object IDs 1–10. Add exact contracts:
 
 | Object ID | Layer | Name | Contract |
 | ---: | --- | --- | --- |
-| 11 | Collision | `villager-shopkeeper` | logical footprint x 7.3, y 6.3, w 0.4, h 0.4 |
-| 12 | Collision | `villager-farmer` | logical footprint x 3.3, y 5.3, w 0.4, h 0.4 |
-| 13 | Collision | `villager-resident` | logical footprint x 9.3, y 5.3, w 0.4, h 0.4 |
-| 14 | Markers | `villager-shopkeeper` | logical cell 7,6; footpoint world 416,224 |
-| 15 | Markers | `villager-farmer` | logical cell 3,5; footpoint world 320,144 |
-| 16 | Markers | `villager-resident` | logical cell 9,5; footpoint world 512,240 |
+| 11 | Collision | `villager-shopkeeper` | x 7.2, y 5.2, w 0.6, h 0.6 |
+| 12 | Collision | `villager-farmer` | x 3.2, y 5.2, w 0.6, h 0.6 |
+| 13 | Collision | `villager-resident` | x 9.2, y 5.2, w 0.6, h 0.6 |
+| 14 | Markers | `villager-shopkeeper` | cell 7,5; world footpoint 448,208 |
+| 15 | Markers | `villager-farmer` | cell 3,5; world footpoint 320,144 |
+| 16 | Markers | `villager-resident` | cell 9,5; world footpoint 512,240 |
 
-The map sets `nextobjectid: 17`.
+Set `nextobjectid: 17`.
 
-The marker points are villager footpoints, not sprite top-left positions. They are the bottom-center sprite anchors and the source of the interaction cell. The collision footprints are deliberately smaller than a cell so players can route around a villager and target the occupied cell from an adjacent position.
+The 0.6×0.6 size deliberately reuses the already-proven tree/shipping-bin footprint scale instead of introducing a 0.4×0.4 collision contract. Players target villagers from the y=6 path stances above rather than occupying the villager cell.
+
+### Parser ownership and footprint ordering
 
 `ParsedProofMap` gains:
 
@@ -261,25 +258,24 @@ villagers: VillagerPlacement[];
 villagerCells: Record<VillagerId, GridCell>;
 ```
 
-`VillagerPlacement` is a Phaser/map-adapter type containing `id`, authored world footpoint, cell, and stable object order. It is not persisted gameplay state.
+Keep existing scenery parsing limited to tree/building/shipping-bin. Add a separate villager-footprint contract instead of widening `SceneryKind`.
 
-`loadProofMap.ts` remains an exact proof-map parser. Extend the existing explicit contracts instead of replacing them with a generic Tiled schema framework.
+`parseCollision` must no longer assume collision count equals scenery count or return only `scenery.map(...)`. Its exact output contract becomes six footprints:
 
-#### Villager sprites
+1. existing scenery footprints in existing scenery order: tree, building, shipping-bin;
+2. villager footprints in `VILLAGER_IDS` order: shopkeeper, farmer, resident.
 
-Generate `src/assets/sprites/proof-villagers.png` as exactly **96×48**: three 32×48 frames in `VILLAGER_IDS` order. Each frame uses a distinct silhouette/palette and shares the player's bottom-center footpoint convention.
+Missing, duplicate, renamed, malformed, or unexpected collision objects remain parser errors.
 
-The portrait in Svelte remains a styled placeholder using the villager's name/initial. HPA-595 does not add a second portrait asset pipeline.
+## Deterministic villager asset
 
-### Phaser adapter
+Generate `proof-villagers.png` as exactly 96×48: one 32×48 bottom-center frame per `VILLAGER_IDS` entry. Reuse the player's simple deterministic sprite-generation convention. Portraits remain styled Svelte placeholders; there is no portrait asset pipeline.
 
-`ProofScene` remains responsible for map loading, static sprite creation, target detection, input sampling, rendering, and depth reconciliation. It does not own relationship rules or dialogue content.
+## Phaser adapter
 
-Preload `proof-villagers.png`, create one sprite per parsed villager marker, and keep them in a `Map<VillagerId, Phaser.GameObjects.Sprite>`.
+`ProofScene` preloads and renders the three static villager sprites from parsed placements. Villagers participate in the existing footpoint depth sort using IDs such as `villager:${VillagerId}` and marker object ID as stable order. No update-loop movement is added.
 
-Add villager entity IDs to the debug depth shape using a template form such as `villager:${VillagerId}`. Villagers participate in the existing `sortDepthEntries` pass with their authored footpoint y and marker object ID as stable order. Do not create a second depth system.
-
-Replace the current string-only interaction intent with one small discriminated union:
+The interaction intent becomes one closed discriminated union:
 
 ```ts
 type InteractionIntent =
@@ -289,157 +285,85 @@ type InteractionIntent =
   | { kind: 'villager'; villagerId: VillagerId };
 ```
 
-`interactionIntentForTarget` checks the existing authored cells plus the three villager cells. Off-target `E` keeps the existing `nothing-to-interact` result.
+`interactionIntentForTarget` uses authored cells only. No registry, entity lookup service, or sprite-position inference is introduced.
 
-`SceneCommands` gains only:
+`SceneCommands` gains direct `talkTo` and `giftCrop` facades that delegate to `GameSession` and reuse `publishCommand`.
 
-```ts
-talkTo(villagerId: VillagerId): CommandResult;
-giftCrop(villagerId: VillagerId, crop: CropKind): CommandResult;
-```
+## Svelte presentation and complete input lock
 
-The facades delegate to `GameSession` and use the same `publishCommand` path as every other command. Do not expose the session, relationship setters, inventory injection, teleportation, or test-only social mutation.
+`App.svelte` continues to own presentation state. It adds one social panel state with the current `villagerId` and latest `SocialFeedback`. Opening a villager interaction calls `talkTo`, stores the returned social payload, and sets the existing generic `InputGate` reason string `dialogue-panel`.
 
-### Svelte presentation
+`InputGate.ts` itself does not change: it already supports arbitrary string reasons.
 
-`App.svelte` continues to own mutually exclusive presentation state and InputGate reasons.
+Create `DialoguePanel.svelte` for line index, gift-choice presentation, local focus, and local Escape-to-close behavior. It uses a native `Continue` button. There is no window-level Enter/Space dialogue handler, so one Enter activation on focused Continue advances exactly one line.
 
-Keep `economyPanel: 'shop' | 'shipping' | null` and add one social panel state containing the current `villagerId` and latest `SocialFeedback`.
+The Phaser gate alone is insufficient because Overlay buttons are a separate input path. `App.svelte` therefore passes `dialogueOpen` into `Overlay.svelte`, and Overlay must:
 
-Opening a villager interaction performs `commands.talkTo(villagerId)` and opens the social panel from its returned payload. While the panel is open, App holds one `dialogue-panel` InputGate reason. The panel cannot coexist with economy, sleep confirmation, or morning summary state. Reset/unmount clears the reason idempotently.
+- include `!dialogueOpen` in `actionsReady` so action/seed HUD buttons are disabled;
+- include `dialogueOpen` in the manual overlay-toggle guard/disabled state; and
+- keep economy/day-summary behavior otherwise unchanged.
 
-Create `src/components/DialoguePanel.svelte` as a focused feature component, not a reusable dialogue framework. It receives authoritative snapshot/social feedback plus callbacks for gifting and closing.
+Dialogue state and relationship math remain outside Overlay.
 
-The panel shows:
+Gifting lists carried harvested crops and sends exactly one crop. Do not reuse `QuantityStepper.svelte`.
 
-- villager name and role;
-- a portrait placeholder;
-- current relationship level;
-- one dialogue line at a time;
-- a native `Continue` button for multi-line dialogue;
-- `Give gift` after the current dialogue is complete;
-- a simple crop chooser containing only carried harvested crops;
-- relationship feedback such as `+5 · Favourite gift · Friend`; and
-- Close.
+## README/handoff contract
 
-Gifting always sends exactly one selected crop; do not reuse the quantity stepper.
+HPA-595 extends the existing checked README contract rather than updating README without pinning it. `tests/config/handoff.test.ts` must require the README to contain the same class of stable facts already pinned for HPA-592/HPA-593:
 
-Use native button activation for dialogue progression. Do not add a window-level Enter/Space handler that competes with button activation. When `Continue` is focused, one Enter key press produces one native click and advances exactly one line. Phaser receives nothing because the InputGate is locked. Escape may close the panel through one panel-local handler, matching the economy-panel pattern.
+- `HPA-595`;
+- `E on a villager talks`;
+- `one harvested crop`;
+- `Friend at 12`;
+- `Close Friend at 30`;
+- `shopkeeper cell 7,5`;
+- `farmer cell 3,5`;
+- `resident cell 9,5`.
 
-`Overlay.svelte` keeps HUD/economy/day-summary responsibility. It only needs new command-result labels if social success/failure codes are surfaced in its existing feedback region; the dialogue UI itself lives in `DialoguePanel.svelte` so `Overlay.svelte` does not become a general modal controller.
+The README can phrase surrounding prose naturally, but those facts stay test-pinned.
 
-## Exact dialogue content
+## Acceptance strategy
 
-HPA-597 will own harvest-market exposition. HPA-595 dialogue deliberately stays about the village/farm so the finale is not preimplemented.
+### Unit and parser coverage
 
-### Mira — shopkeeper — favourite Potato
+Use `bun:test` for:
 
-- Stranger: `Seeds are on the counter if you need them.`
-- Friend: `Your farm is starting to look settled in.`
-- Close Friend: `The shop feels livelier when you stop by.`
-- One-time Close Friend sequence:
-  1. `You have become part of the village rhythm.`
-  2. `I am glad you chose to tend that farm.`
-- Normal gift: `Thank you. I will put this to good use.`
-- Favourite gift: `A potato? Perfect. I always save these for supper.`
-
-### Rowan — farmer — favourite Pumpkin
-
-- Stranger: `Water early and the rest of the day feels easier.`
-- Friend: `Your rows look steadier every time I pass.`
-- Close Friend: `You have good instincts with that field.`
-- One-time Close Friend sequence:
-  1. `I thought the farm might wear you down.`
-  2. `I was wrong. You have earned my respect.`
-- Normal gift: `A farm gift is never wasted. Thanks.`
-- Favourite gift: `That pumpkin is a beauty. You grew this?`
-
-### June — resident — favourite Turnip
-
-- Stranger: `It is nice seeing someone use the old farm again.`
-- Friend: `I have started looking for you on the village path.`
-- Close Friend: `The village feels smaller now that we know each other.`
-- One-time Close Friend sequence:
-  1. `When you arrived, you felt like a visitor.`
-  2. `You do not anymore.`
-- Normal gift: `Thanks. That is kind of you.`
-- Favourite gift: `Turnips are my favourite. You remembered—or got lucky.`
-
-## Persistence handoff for HPA-596
-
-HPA-595 must leave the following social state recoverable without Phaser/Svelte objects or runtime closures:
-
-- relationship points for all three villagers;
-- `talkedToday` for all three villagers;
-- `giftedToday` for all three villagers; and
-- `closeFriendDialogueSeen` for all three villagers.
-
-Every `snapshot()` returns fresh nested relationship records, and a nontrivial social snapshot must round-trip through `JSON.stringify`/`JSON.parse` exactly.
-
-The current open dialogue line, modal focus, or panel visibility is presentation state and is **not** part of `GameSnapshot`.
-
-## Acceptance evidence
-
-### Unit and parser proof
-
-Add focused Bun tests for:
-
-- exact villager content, favourites, point values, thresholds, and relationship-level boundaries;
-- talk credit once per villager/day while repeated talk still returns dialogue;
-- normal versus favourite gift points;
-- exactly one carried crop removed on successful gift;
-- invalid/repeated gifts leave inventory and relationships unchanged;
-- level changes at 12 and 30 points;
-- one-time Close Friend sequence then normal Close Friend dialogue;
-- successful sleep resets both daily flags while failed sleep does not;
+- exact definition content and relationship thresholds;
+- first/repeated talk behavior;
+- normal/favourite gift behavior and exact one-crop consumption;
+- threshold crossing and one-time Close Friend dialogue;
+- successful-sleep daily reset and failed-sleep non-reset;
 - fresh/JSON-safe relationship snapshots;
-- exact path GIDs, unchanged farm cells, market reserve, new marker IDs/cells, collision footprints, and `nextobjectid: 17`;
-- exact 192×32 ground and 96×48 villager PNG dimensions; and
-- villager intent routing without changing sleep/shop/shipping/off-target behavior.
+- exact marker positions and 0.6 footprints;
+- exact path cells and scenery GID shift;
+- exact six-footprint parser ordering;
+- typed interaction intents for all three villagers.
 
-### Real browser proof
+### Browser world proof
 
-Create one `tests/e2e/social.pw.ts` vertical journey using real movement, `E`, visible buttons, and the existing observation-only development hook.
+The static village/map task must retune existing `world.pw.ts` routes as soon as the new Mira footprint lands. The current tree-detour route crosses the new 7,5 footprint area, so preserving the old route until the final social test would defer a known map-contract regression.
 
-The journey proves:
+World tests must prove:
 
-1. the player can route from the farm to all three villager target cells;
-2. each villager collision blocks entry while remaining interactable;
-3. villager/player depth ordering reverses across at least one villager footpoint;
-4. opening dialogue locks world input;
-5. first talk adds one point and a repeated same-day talk adds zero;
-6. a gift removes exactly one crop and grants +3 or +5 as appropriate;
-7. a repeated same-day gift consumes nothing;
-8. sleep resets the two daily limits;
-9. June can reach Close Friend through a normal five-day favourite-gift routine after the player grows enough turnips;
-10. the one-time two-line Close Friend sequence appears once;
-11. one Enter activation on focused Continue advances one line, not two; and
-12. subsequent interactions use June's normal Close Friend line.
+- existing farm/shop/shipping/bed routes remain reachable;
+- all three villager targeting stances work;
+- representative villager collision blocks entry;
+- player/villager footpoint depth reverses correctly;
+- camera remains within bounds.
 
-Existing economy, farming, sleep, lifecycle, and world E2E suites remain green.
+### Full social journey
 
-### Native boundary
+`social.pw.ts` uses only real movement keys, `E`, and visible buttons. It prepares and harvests five Turnips through normal farming, then performs talk + favourite gift across five social days for June. The journey must demonstrate Stranger → Friend → Close Friend, daily reset, repeated-talk/gift limits, exact inventory consumption, the one-time two-line Close Friend sequence, one-Enter/one-line behavior, and JSON snapshot round-trip.
 
-The same frontend is packaged by the existing unsigned macOS Tauri build. HPA-595 adds no Rust command or native API. CI's macOS `tauri-build` remains the build proof; a bounded manual smoke may verify launch, one villager interaction, and dialogue close/focus behavior when a native GUI environment is available.
+The five-day journey is intentionally retained: without mutation hooks it is the direct proof that daily reset, threshold crossing, and the one-time two-line sequence compose correctly.
 
-## Alternatives rejected
+## Risks and mitigations
 
-### Larger map
+1. **Existing route regression from new collision.** Mira's 0.6 footprint intersects the area used by the current tree-detour E2E route. Retune that route in the static village/map task, then rerun existing world/economy paths. Do not increase retries/timeouts.
+2. **Long social E2E route flakiness.** The five-day journey is structurally required. Use existing movement helpers, `expect.poll`, and key release in `finally`; fix authored geometry/helper waypoints instead of adding sleeps, retries, teleportation, or mutation hooks.
+3. **Strict Tiled GID/footprint migration.** The new ground GID shifts scenery firstgid. Keep generator, generated JSON/PNGs, parser contracts, and fixture tests in one task so an intermediate mismatched asset contract is not accepted.
+4. **Modal bypass through HUD clicks.** InputGate blocks Phaser keys but not Svelte buttons. `dialogueOpen` must disable Overlay's action/seed/toggle paths while the social panel is open.
 
-Rejected for HPA-595. The existing 12×12 world has enough unused space, while resizing would force unnecessary projection/camera/route retuning before content actually requires it.
+## Explicit non-goals
 
-### NPC entity framework or schedule system
-
-Rejected. Three fixed villagers need data records, sprites, collision, and two commands—not an entity hierarchy, scheduler, steering, or pathfinding layer.
-
-### Generic dialogue engine
-
-Rejected. Three normal lines plus one two-line special sequence per villager do not justify a scripting language, node graph, event bus, or branching state machine.
-
-### Relationship state outside GameSession
-
-Rejected. It would create a second mutable gameplay authority and make HPA-596 persistence harder.
-
-### Social time/stamina costs
-
-Deferred. Daily talk/gift limits already bound progression and the Linear slice does not require a second action-budget policy. Balance can be revisited after the full 14-day loop is playable.
+No schedules, NPC movement, pathfinding, homes/interiors, romance, marriage, birthdays, relationship decay, disliked-gift categories, generic items, inventory capacity, quests, cutscene/event system, branching dialogue, voice acting, portrait pipeline, more than three villagers, persistence, harvest-market implementation, another map, second renderer, backend, or gameplay logic in Rust.

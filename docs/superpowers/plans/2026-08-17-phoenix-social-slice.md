@@ -1,124 +1,99 @@
 # Phoenix Social Slice Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Use TDD for domain/parser work and keep each task green before moving on.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Use TDD for policy/domain/parser changes and keep every task type-green before moving on.
 
-**Goal:** Deliver HPA-595 as one compact village/social vertical slice: three static villagers, daily talk and one-crop gifting, favourite bonuses, three relationship levels, one-time Close Friend dialogue, and real browser/Tauri proof without adding an NPC or dialogue framework.
+**Goal:** Deliver HPA-595 as one compact village/social slice: three static villagers, daily talking, exact one-crop gifting, favourite bonuses, three relationship levels, one-time Close Friend dialogue, and browser/Tauri proof without adding an NPC/dialogue framework.
 
-**Architecture:** `villagerDefinitions.ts` owns static villager content and pure relationship policy. `GameSession` remains the only mutable gameplay authority and stores plain relationship records plus direct `talkTo`/`giftCrop` commands. The existing 12×12 Tiled map gains a path, three villager markers, and three collision footprints; Phaser renders/targets static villager sprites and routes one discriminated interaction intent; Svelte owns one dedicated `DialoguePanel` and its InputGate reason. No map resize, second state authority, schedule system, event engine, or persistence work is introduced.
+**Architecture:** `villagerDefinitions.ts` owns static content and pure relationship policy. The existing 12×12 map owns exact villager cells/footprints and is extended before `GameSession` consumes those cells. `GameSession` remains the only mutable social authority; Phaser remains the render/target adapter; Svelte owns one focused `DialoguePanel` and a complete UI/input lock. No persistence, market finale, schedule system, event engine, or compatibility layer is introduced.
 
-**Tech Stack:** Bun 1.3.1 and `bun:test`, TypeScript/Svelte 5.56.8, Phaser 4.2.1, Playwright 1.62.1, Vite 8.2.1, Tauri 2.11.4, deterministic Bun asset generation, and the existing Rust 1.96 macOS build boundary.
+**Tech Stack:** Bun 1.3.1 and `bun:test`, Svelte 5.56.8, Phaser 4.2.1, Playwright 1.62.1, Vite 8.2.1, Tauri 2.11.4, deterministic Bun asset generation, existing Rust 1.96 macOS build boundary.
 
 **Spec:** `docs/superpowers/specs/2026-08-17-phoenix-social-slice-design.md`
 
-## Global Constraints
+## Global constraints
 
-- Implement only HPA-595. Do not start HPA-596 persistence or HPA-597 harvest-market content.
-- Keep the map exactly 12×12, projection 64×32, origin `(384, 0)`, logical stage 640×360, and existing camera behavior.
-- Add one path ground tile; do not add houses, interiors, another map, another scenery building, or a second elevation.
-- Villager IDs are exactly `shopkeeper`, `farmer`, `resident`; names are Mira, Rowan, June; favourites are Potato, Pumpkin, Turnip respectively.
-- Relationship level floors are exactly 0 Stranger, 12 Friend, 30 Close Friend. Talk grants +1 once/day. Gift grants +3 once/day plus +2 for a favourite crop. No decay, cap, dislike, random modifier, birthday, or hidden multiplier.
-- Talking and gifting consume no time or stamina. Do not widen `dailyRhythm.ts` or introduce a generic action-cost system for social commands.
-- `GameSession` is the only mutable social authority. Svelte and Phaser never change relationship points, daily flags, or inventory directly.
-- Store only points plus `talkedToday`, `giftedToday`, and `closeFriendDialogueSeen`; derive relationship level from points. Do not persist dialogue lines or panel state in `GameSnapshot`.
-- A repeated same-day talk still returns dialogue but adds 0 points. A repeated/invalid gift is rejected before inventory or relationship mutation.
-- The one-time Close Friend sequence is triggered by the first talk while the villager is Close Friend and the flag is false; gifting across the threshold does not consume the sequence.
-- Reset `talkedToday` and `giftedToday` only inside one successful `sleep()` transition. Failed sleep and duplicate summary-pending sleep must not reset again.
-- Keep `window.__PHOENIX_TEST__` observation-only. Do not add teleport, inventory injection, relationship setters, direct commands, weather setters, or social test hooks.
-- Use native button activation for dialogue `Continue`; do not add competing window-level Enter/Space progression handlers. One Enter key press on focused Continue must advance one line exactly once.
-- Use Bun as the only JavaScript package manager and existing test runners. Add no package or dependency.
-- No compatibility aliases are required for the internal interaction-intent type change; update all current consumers in the same task.
-- Generated PNG/JSON assets stay deterministic and committed. `bun run assets:generate` must regenerate the checked-in fixtures exactly.
-- Browser acceptance must enter through real movement keys, `E`, and visible buttons. Keep existing Playwright retries/timeouts; do not hide route failures with sleeps, retry increases, or mutation hooks.
-- Final validation must match the current CI gates: static check, lint, format, frontend build, unit/coverage gates, full browser E2E, and unsigned macOS Tauri build when running on macOS.
+- Implement only HPA-595. Do not start HPA-596 persistence or HPA-597 harvest-market behavior.
+- Keep map 12×12, projection 64×32, origin `(384, 0)`, logical stage 640×360, existing camera behavior, and one walkable elevation.
+- Villager IDs/names/favourites are exactly: `shopkeeper`/Mira/Potato, `farmer`/Rowan/Pumpkin, `resident`/June/Turnip.
+- Exact cells are Mira 7,5; Rowan 3,5; June 9,5. Exact path cells are y=6, x=3 through 9.
+- Exact villager footprints are 0.6×0.6: Mira x7.2/y5.2, Rowan x3.2/y5.2, June x9.2/y5.2.
+- Exact target stances are: Mira from 6,6 facing right; Rowan from 4,6 facing up; June from 8,6 facing right.
+- Relationship floors are 0 Stranger, 12 Friend, 30 Close Friend. First talk/day +1. First gift/day +3, favourite bonus +2.
+- Talking/gifting cost no time or stamina. Do not modify `dailyRhythm.ts` for social costs.
+- `GameSession` is the only mutable social authority. Store points, `talkedToday`, `giftedToday`, `closeFriendDialogueSeen`; derive level.
+- A repeated talk succeeds with 0 points. A repeated/invalid gift fails before inventory/points mutation.
+- Successful `sleep()` is the only daily reset seam for talk/gift flags.
+- `SocialFeedback` exists only on `villager-talked`/`crop-gifted`; do not create a generic result envelope.
+- `InputGate.ts` stays unchanged; it already accepts arbitrary string reasons. App uses `dialogue-panel`.
+- Phaser locking is not sufficient: Overlay must receive `dialogueOpen` and disable action/seed HUD controls and its manual input-lock toggle while dialogue is open.
+- Keep `window.__PHOENIX_TEST__` observation-only. No teleport, state injection, relationship setter, direct command hook, or weather hook.
+- Use native `Continue` button activation. No window-level Enter/Space dialogue progression handler.
+- Add no package/dependency and do not change package versions.
+- Keep current Playwright retries/timeouts. Fix geometry/helpers rather than masking route problems with retries/sleeps.
+- Every planned commit must pass `bun run check`; do not add compatibility aliases or hard-coded fallback villager cells merely to keep an intermediate commit green.
 
-## File Map
+## File map
 
-### Pure social policy and authoritative state
+### Pure social content
 
 - Create: `src/game/core/villagerDefinitions.ts`
 - Create: `tests/game/villagerDefinitions.test.ts`
 - Modify: `src/game/core/types.ts`
-- Modify: `src/game/core/GameSession.ts`
-- Modify: `tests/game/GameSession.test.ts`
 
-### Deterministic village assets and authored map
+### Static village/map/render contract
 
 - Modify: `tools/generate-proof-assets.ts`
-- Modify (generated): `src/assets/sprites/proof-tiles.png`
-- Create (generated): `src/assets/sprites/proof-villagers.png`
-- Modify (generated): `src/assets/maps/proof-map.json`
+- Modify generated: `src/assets/sprites/proof-tiles.png`
+- Create generated: `src/assets/sprites/proof-villagers.png`
+- Modify generated: `src/assets/maps/proof-map.json`
 - Modify: `src/game/phaser/loadProofMap.ts`
+- Modify: `src/game/phaser/ProofScene.ts`
 - Modify: `tests/game/loadProofMap.test.ts`
+- Modify: `tests/e2e/world.pw.ts`
 
-### Phaser interaction and rendering
+### Authoritative social progression
+
+- Modify: `src/game/core/types.ts`
+- Modify: `src/game/core/GameSession.ts`
+- Modify: `src/game/phaser/ProofScene.ts`
+- Modify: `src/components/Overlay.svelte`
+- Modify: `tests/game/GameSession.test.ts`
+
+### Typed interaction bridge
 
 - Modify: `src/game/phaser/interactionIntent.ts`
 - Modify: `tests/game/interactionIntent.test.ts`
 - Modify: `src/game/phaser/ProofScene.ts`
+- Modify: `src/App.svelte`
 
-### Svelte dialogue presentation
+`src/components/GameHost.svelte` remains unchanged unless the compiler requires a mechanical type-only change; it forwards the intent opaquely.
+
+### Dialogue presentation
 
 - Create: `src/components/DialoguePanel.svelte`
 - Modify: `src/App.svelte`
 - Modify: `src/components/Overlay.svelte`
 - Modify: `src/app.css`
 
-`src/components/GameHost.svelte` should remain unchanged unless the compiler requires a mechanical type-only adjustment: it already forwards `InteractionIntent` opaquely.
-
-### Acceptance and handoff
+### Acceptance/handoff
 
 - Create: `tests/e2e/social.pw.ts`
-- Modify: `tests/e2e/world.pw.ts` only for physical villager collision/depth evidence that is clearer there than in the social journey.
-- Modify: `README.md` with the new villager interaction/gifting control summary.
+- Modify: `README.md`
+- Modify: `tests/config/handoff.test.ts`
 
-No change is planned for `package.json`, `bun.lock`, `src-tauri/**`, `.github/workflows/ci.yml`, `playwright.config.ts`, `src/vite-env.d.ts`, `src/game/core/dailyRhythm.ts`, or the development-hook shape.
+No planned changes: `package.json`, `bun.lock`, `src-tauri/**`, `.github/workflows/ci.yml`, `playwright.config.ts`, `src/vite-env.d.ts`, `src/game/core/InputGate.ts`, `src/game/core/dailyRhythm.ts`.
 
 ---
 
-## Task 1: Add Pure Villager Content and Relationship Policy
+## Task 1: Add pure villager content and relationship policy
 
-**Files:**
+**Files**
 
-- Create: `src/game/core/villagerDefinitions.ts`
-- Create: `tests/game/villagerDefinitions.test.ts`
-- Modify: `src/game/core/types.ts`
+- Create `src/game/core/villagerDefinitions.ts`
+- Create `tests/game/villagerDefinitions.test.ts`
+- Modify `src/game/core/types.ts`
 
-**Interfaces:**
-
-- Produces `VillagerId`, `RelationshipLevel`, `RelationshipSnapshot`, `SocialFeedback`.
-- Produces stable `VILLAGER_IDS`, exact definitions, relationship constants, `relationshipLevel(points)`, and fresh dialogue-line helpers.
-- Does not consume `GameSession`, Phaser, map data, or Svelte state.
-
-- [ ] **Step 1: Write the failing definition/policy tests**
-
-Create `tests/game/villagerDefinitions.test.ts` covering all of the following in one focused suite:
-
-1. `VILLAGER_IDS` is exactly `['shopkeeper', 'farmer', 'resident']`.
-2. Definitions are exactly:
-   - shopkeeper → Mira → Potato;
-   - farmer → Rowan → Pumpkin;
-   - resident → June → Turnip.
-3. Point policy is exactly talk 1, gift 3, favourite bonus 2.
-4. Level boundaries are:
-   - 0–11 Stranger;
-   - 12–29 Friend;
-   - 30+ Close Friend.
-5. Negative, fractional, NaN, and unsafe point values throw as programmer errors.
-6. Normal dialogue is available for all three levels for all three villagers.
-7. Every Close Friend sequence has exactly two non-empty lines.
-8. Returned dialogue arrays are fresh and mutating one returned array cannot change the static definitions.
-
-Run:
-
-```bash
-bun test tests/game/villagerDefinitions.test.ts
-```
-
-Expected RED: module/types are missing.
-
-- [ ] **Step 2: Add the additive social types**
-
-In `src/game/core/types.ts` add:
+**Produces**
 
 ```ts
 export type VillagerId = 'shopkeeper' | 'farmer' | 'resident';
@@ -143,22 +118,45 @@ export interface SocialFeedback {
 }
 ```
 
-Do not change `GameSnapshot` or `CommandResult` yet; Task 2 performs the authoritative migration.
+- [ ] **Step 1: Write failing policy tests**
 
-- [ ] **Step 3: Implement the pure definitions**
+Cover exact `VILLAGER_IDS`, names/favourites, point constants, level boundaries, invalid point throws, one normal line per level, exact two-line Close Friend sequences, and fresh returned arrays.
 
-Create `src/game/core/villagerDefinitions.ts` with only readonly content/constants and pure helpers.
+Run:
 
-Use the exact dialogue strings from the design spec. Keep the relationship level helper as a direct threshold comparison; do not introduce a level class, strategy, event table, localization framework, or dialogue AST.
+```bash
+bun test tests/game/villagerDefinitions.test.ts
+```
 
-- [ ] **Step 4: Run focused GREEN and static check**
+Expected RED: module/types missing.
+
+- [ ] **Step 2: Add only additive social types**
+
+Add the closed unions/interfaces above. Do not modify `GameSnapshot`, command codes, `GameSessionConfig`, or current consumers in this task.
+
+- [ ] **Step 3: Implement `villagerDefinitions.ts`**
+
+Use the exact strings from the design spec and direct threshold comparisons. Exports:
+
+```ts
+export const VILLAGER_IDS = ['shopkeeper', 'farmer', 'resident'] as const;
+export const TALK_POINTS = 1;
+export const GIFT_POINTS = 3;
+export const FAVOURITE_GIFT_BONUS = 2;
+export function relationshipLevel(points: number): RelationshipLevel;
+export function dialogueLines(id: VillagerId, level: RelationshipLevel): string[];
+export function closeFriendDialogueLines(id: VillagerId): string[];
+```
+
+No classes, registries, callbacks, coordinates, event bus, or localization layer.
+
+- [ ] **Step 4: Verify GREEN**
 
 ```bash
 bun test tests/game/villagerDefinitions.test.ts
 bun run check
+bun run lint
 ```
-
-Expected: focused tests pass; existing app types remain green because the types are additive.
 
 - [ ] **Step 5: Commit**
 
@@ -169,174 +167,45 @@ git commit -m "feat: define social relationship policy"
 
 ---
 
-## Task 2: Make GameSession Authoritative for Talk, Gifts, and Daily Reset
+## Task 2: Author and render the static village contract
 
-**Files:**
+This task lands the map/parser contract before `GameSessionConfig.villagerCells` becomes required, avoiding a broken `ProofScene` intermediate state.
 
-- Modify: `src/game/core/types.ts`
-- Modify: `src/game/core/GameSession.ts`
-- Modify: `tests/game/GameSession.test.ts`
+**Files**
 
-**Interfaces:**
+- Modify `tools/generate-proof-assets.ts`
+- Modify generated `src/assets/sprites/proof-tiles.png`
+- Create generated `src/assets/sprites/proof-villagers.png`
+- Modify generated `src/assets/maps/proof-map.json`
+- Modify `src/game/phaser/loadProofMap.ts`
+- Modify `src/game/phaser/ProofScene.ts`
+- Modify `tests/game/loadProofMap.test.ts`
+- Modify `tests/e2e/world.pw.ts`
 
-- `GameSessionConfig` gains `villagerCells: Record<VillagerId, GridCell>`.
-- `GameSnapshot` gains `relationships: Record<VillagerId, RelationshipSnapshot>`.
-- `GameSession` gains `talkTo(villagerId)` and `giftCrop(villagerId, crop)`.
-- Social successes carry `social: SocialFeedback`.
-- Existing farming/economy/day command semantics remain unchanged.
+**Exact map contract**
 
-- [ ] **Step 1: Extend the test config without adding a test hook**
+- 12×12, four layers, `nextlayerid: 5`, `nextobjectid: 17`.
+- `proof-tiles.png`: 192×32, GIDs grass 1 / farm 2 / path 3.
+- Path cells: `3,6 4,6 5,6 6,6 7,6 8,6 9,6` only.
+- `proof-scenery.firstgid = 4`; global scenery GIDs tree/building/shipping = 4/5/6.
+- HPA-597 reserve x8–10/y2–3 remains grass and empty.
+- Collision IDs 11–13: shopkeeper 7.2/5.2/0.6/0.6; farmer 3.2/5.2/0.6/0.6; resident 9.2/5.2/0.6/0.6.
+- Marker IDs 14–16: shopkeeper cell7,5/world448,208; farmer cell3,5/world320,144; resident cell9,5/world512,240.
+- `proof-villagers.png`: 96×48, frames in `VILLAGER_IDS` order.
 
-Add one test-owned `villagerCells` record to the existing `config()` factory. Keep these cells distinct from farm/bed/shop/shipping.
+- [ ] **Step 1: Write parser/asset RED first**
 
-For direct location tests, use a helper that creates a normal `GameSession` with a spawn one diagonal cell from the desired test villager and calls `stepMovement(..., 0)` only to change facing. `ProofWorld` target offsets already make this possible; do not add a target setter to production or tests.
+Update `tests/game/loadProofMap.test.ts` to assert:
 
-- [ ] **Step 2: Write failing GameSession social tests**
-
-Add focused cases for:
-
-1. fresh session has zero points and all three flags false for every villager;
-2. relationship records are deeply fresh across snapshots;
-3. talk away from the requested villager returns `not-at-villager` with no mutation;
-4. first valid talk adds exactly 1 and sets only that villager's `talkedToday`;
-5. repeated same-day talk returns success dialogue with `pointsGained: 0` and unchanged points;
-6. normal gift consumes exactly one carried crop and grants +3;
-7. favourite gift consumes exactly one carried crop and grants +5;
-8. repeated gift returns `gift-already-given` before consuming another crop;
-9. gift with no carried selected crop returns `insufficient-crops` without marking the daily flag;
-10. Friend is reflected at 12 points and Close Friend at 30;
-11. crossing 30 through a gift leaves `closeFriendDialogueSeen` false;
-12. first talk while Close Friend returns the exact two-line special sequence and sets the flag;
-13. later talk returns the normal Close Friend line;
-14. successful sleep resets `talkedToday` and `giftedToday` for all villagers while preserving points/Close Friend flag;
-15. sleep away from bed, Day 14 sleep failure, and summary-pending duplicate sleep do not perform a second reset;
-16. summary-pending active-day gating blocks `talkTo` and `giftCrop` with `day-summary-pending`;
-17. a nontrivial social snapshot JSON-round-trips exactly.
-
-Also extend constructor invariant tests for missing/duplicate/out-of-bounds/overlapping interaction cells and cloning of caller-owned `villagerCells`.
-
-Run:
-
-```bash
-bun test tests/game/GameSession.test.ts
-```
-
-Expected RED: config/types/commands do not exist yet.
-
-- [ ] **Step 3: Add the command/result and snapshot contracts**
-
-In `types.ts`:
-
-- add `relationships` to `GameSnapshot`;
-- split the existing success side of `CommandResult` so `villager-talked` and `crop-gifted` require `social: SocialFeedback`;
-- add failures `not-at-villager` and `gift-already-given`;
-- preserve every current success/failure code exactly.
-
-Do not add optional payloads to every command and do not replace the union with a generic command envelope.
-
-- [ ] **Step 4: Add cloned configuration and mutable relationship records**
-
-In `GameSession`:
-
-- clone and validate `villagerCells` in the constructor;
-- initialize one small mutable record for all `VILLAGER_IDS`;
-- derive `level` only when producing snapshots/feedback;
-- deep-clone every relationship record in `snapshot()`.
-
-Validation should only ensure integer/in-bounds/distinct interaction cells and no ambiguity with farm/bed/shop/shipping cells. Do not reject a villager cell because its authored collision footprint occupies part of that cell; collision is intentional and owned by the map/world layer.
-
-- [ ] **Step 5: Implement `talkTo`**
-
-Order:
-
-1. `activeDayFailure()`;
-2. target equals `villagerCells[id]`;
-3. if first talk today, set flag and add 1;
-4. derive resulting level;
-5. if level is Close Friend and special flag is false, return special lines and set flag;
-6. otherwise return the normal line for resulting level.
-
-Repeated talk is still `ok: true`, `code: 'villager-talked'`, and has `pointsGained: 0`.
-
-- [ ] **Step 6: Implement `giftCrop`**
-
-Order:
-
-1. `activeDayFailure()`;
-2. target equals villager cell;
-3. reject `gift-already-given`;
-4. reject `insufficient-crops` if carried count is zero;
-5. decrement exactly one crop;
-6. set `giftedToday`;
-7. add 3 plus favourite bonus 2 when applicable;
-8. return one-line gift response and resulting level.
-
-Do not accept a quantity and do not reuse `depositCrop` or `QuantityStepper` semantics.
-
-- [ ] **Step 7: Reset daily social flags in the successful sleep transaction**
-
-Reset every `talkedToday`/`giftedToday` only after every sleep validation/provider check that can still fail, as part of the same successful state transition that increments `day` and creates the pending summary.
-
-Preserve points and `closeFriendDialogueSeen`.
-
-- [ ] **Step 8: Run focused and domain regression tests**
-
-```bash
-bun test tests/game/villagerDefinitions.test.ts tests/game/GameSession.test.ts
-bun test tests/game
-bun run check
-```
-
-Expected: all domain tests green. No map/UI code has been changed yet.
-
-- [ ] **Step 9: Commit**
-
-```bash
-git add src/game/core/types.ts src/game/core/GameSession.ts tests/game/GameSession.test.ts
-git commit -m "feat: add authoritative social progression"
-```
-
----
-
-## Task 3: Author the Village Path, Villager Markers, Collisions, and Sprite Sheet
-
-**Files:**
-
-- Modify: `tools/generate-proof-assets.ts`
-- Modify (generated): `src/assets/sprites/proof-tiles.png`
-- Create (generated): `src/assets/sprites/proof-villagers.png`
-- Modify (generated): `src/assets/maps/proof-map.json`
-- Modify: `src/game/phaser/loadProofMap.ts`
-- Modify: `tests/game/loadProofMap.test.ts`
-
-**Exact authored contract:**
-
-- Map remains 12×12 and four layers.
-- Ground PNG becomes 192×32: grass/farm/path.
-- Ground GIDs are 1/2/3.
-- Scenery `firstgid` becomes 4; global GIDs are tree 4, building 5, shipping bin 6.
-- Path cells: `3,6 4,6 5,6 6,6 7,6 8,6 9,6 3,5 9,5 9,4`.
-- Market reserve: x 8–10, y 2–3 stays grass and empty.
-- Villager collision IDs 11–13 and marker IDs 14–16 are exact as the design spec states.
-- `nextobjectid` becomes 17.
-- Villager PNG is 96×48, 32×48 per frame in `VILLAGER_IDS` order.
-
-- [ ] **Step 1: Update parser/asset tests first and observe RED**
-
-In `tests/game/loadProofMap.test.ts`, change the authored-contract expectations before production edits:
-
-- `nextobjectid: 17`;
-- exact existing + villager footprints;
-- exact villager placements/cells/stable object order;
-- existing farm/bed/shop/shipping cells unchanged;
-- path GID cells exact;
-- six market-reserve cells remain GID 1 and have no object/footprint;
-- `proof-tiles.png` expected 192×32;
-- new `proof-villagers.png` expected 96×48;
-- scenery tile IDs/metadata shifted to firstgid 4;
-- missing/duplicate/renamed/misplaced villager marker failures;
-- malformed/missing villager footprint failures;
-- unknown marker/collision objects still rejected.
+1. exact new tile metadata/path cells;
+2. exact shifted scenery GIDs;
+3. exact villager markers/placements/cells;
+4. exact three 0.6 footprints;
+5. exact six-footprint output order;
+6. missing/duplicate/renamed/misplaced villager marker rejection;
+7. missing/malformed/unexpected villager collision rejection;
+8. market reserve remains empty;
+9. PNG dimensions 192×32 and 96×48.
 
 Run:
 
@@ -344,22 +213,11 @@ Run:
 bun test tests/game/loadProofMap.test.ts
 ```
 
-Expected RED against current HPA-593 fixtures/parser.
+Expected RED against HPA-593 fixtures/parser.
 
-- [ ] **Step 2: Extend the deterministic generator**
+- [ ] **Step 2: Extend deterministic generation**
 
-In `tools/generate-proof-assets.ts`:
-
-- expand the ground surface to 192×32 and draw one simple path diamond in frame 3;
-- assign GID 3 to the exact path-cell set while preserving GID 2 only for the existing nine farm cells;
-- shift scenery global IDs to 4/5/6 without changing scenery pixel frames;
-- generate three distinct 32×48 villager frames into a 96×48 surface;
-- add exact logical collision polygons IDs 11–13;
-- add exact footpoint marker points IDs 14–16;
-- set `nextobjectid: 17`;
-- write `proof-villagers.png` with the other checked-in assets.
-
-Keep `project()` and `logicalPolygon()` as the only coordinate conversion helpers. Do not hand-maintain duplicate pixel coordinates when the logical coordinate can be projected.
+Use existing `project()`/`logicalPolygon()` helpers. Add the path frame/cells, shift scenery GIDs, generate the villager sheet, add object IDs 11–16, and write `nextobjectid: 17`.
 
 Run:
 
@@ -367,50 +225,157 @@ Run:
 bun run assets:generate
 ```
 
-- [ ] **Step 3: Extend the exact map parser, not a generic Tiled framework**
+- [ ] **Step 3: Fix the parser invariant explicitly**
 
-In `loadProofMap.ts`:
+Keep the existing scenery contract unchanged except the GID shift. Add a separate villager-footprint contract keyed by `VillagerId`.
 
-- update exact ground/scenery tileset metadata;
-- keep the existing four-layer/header validation;
-- validate path cells through the exact ground contract while returning the same nine `farmCells`;
-- extend collision contracts with three villager footprints;
-- extend allowed markers with the three `villager-*` names;
-- parse exact marker IDs/positions into `VillagerPlacement[]` and `villagerCells`;
-- keep existing scenery parsing limited to tree/building/shipping bin;
-- return all six collision footprints in `world.footprints`.
+`parseCollision` must validate exactly six collision objects and return:
 
-Do not add properties to `GameSnapshot` for map placements.
+```ts
+[
+  ...sceneryFootprintsInExistingSceneryOrder,
+  ...VILLAGER_IDS.map((id) => villagerFootprintById.get(id)),
+]
+```
 
-- [ ] **Step 4: Run parser GREEN and generation consistency checks**
+Do not cast villager collisions to `SceneryKind` and do not return only `scenery.map(...)`.
+
+`ParsedProofMap` adds `villagers` and `villagerCells`, but `GameSnapshot` does not.
+
+- [ ] **Step 4: Render static villagers in the existing depth system**
+
+In `ProofScene.ts`, preload the 32×48 villager sheet, create one bottom-center sprite per parsed placement, include `villager:${id}` in debug/depth entries using marker object ID as stable order, and clean sprites up with the scene.
+
+Do not add interaction or NPC movement yet.
+
+- [ ] **Step 5: Retune existing world route immediately**
+
+The current `world.pw.ts` tree detour travels through the new Mira footprint area. Change its waypoint/leg so it routes around Mira while preserving the same 3-second helper deadlines and retries 0.
+
+Also prove before leaving this task:
+
+- farm/shop/shipping/bed routes still work;
+- all three path stances can acquire villager cells;
+- representative villager collision blocks entry;
+- player/villager depth reverses across the footpoint;
+- camera remains bounded.
+
+Do not postpone this to the long social journey.
+
+- [ ] **Step 6: Verify GREEN and deterministic output**
 
 ```bash
-bun test tests/game/loadProofMap.test.ts
 bun run assets:generate
 bun test tests/game/loadProofMap.test.ts
 bun run check
+bun run lint
+bun run test:e2e -- tests/e2e/world.pw.ts tests/e2e/economy.pw.ts
+bun run assets:generate
 ```
 
-Run the generator twice before committing and verify the second run changes no generated bytes compared with the first run. Then inspect the generated JSON to confirm the market reserve and existing interaction cells were not moved.
+The final generator run must leave generated files byte-identical.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add tools/generate-proof-assets.ts src/assets/maps/proof-map.json src/assets/sprites/proof-tiles.png src/assets/sprites/proof-villagers.png src/game/phaser/loadProofMap.ts tests/game/loadProofMap.test.ts
+git add tools/generate-proof-assets.ts src/assets/maps/proof-map.json src/assets/sprites/proof-tiles.png src/assets/sprites/proof-villagers.png src/game/phaser/loadProofMap.ts src/game/phaser/ProofScene.ts tests/game/loadProofMap.test.ts tests/e2e/world.pw.ts
 git commit -m "feat: author the compact village"
 ```
 
 ---
 
-## Task 4: Render Villagers and Route a Typed Interaction Intent
+## Task 3: Make GameSession authoritative for social progression
 
-**Files:**
+**Files**
 
-- Modify: `src/game/phaser/interactionIntent.ts`
-- Modify: `tests/game/interactionIntent.test.ts`
-- Modify: `src/game/phaser/ProofScene.ts`
+- Modify `src/game/core/types.ts`
+- Modify `src/game/core/GameSession.ts`
+- Modify `src/game/phaser/ProofScene.ts`
+- Modify `src/components/Overlay.svelte`
+- Modify `tests/game/GameSession.test.ts`
 
-**Interfaces:**
+**Interfaces**
+
+```ts
+villagerCells: Record<VillagerId, GridCell>;
+relationships: Record<VillagerId, RelationshipSnapshot>;
+talkTo(villagerId: VillagerId): CommandResult;
+giftCrop(villagerId: VillagerId, crop: CropKind): CommandResult;
+```
+
+- [ ] **Step 1: Extend tests/config using real targeting**
+
+Use the exact villager cells from Task 2. For direct domain target tests, build normal `GameSession` configs with a spawn at an appropriate diagonal stance and use `stepMovement(..., 0)` only to set facing. Do not add a target setter.
+
+- [ ] **Step 2: Write failing social domain tests**
+
+Cover:
+
+1. fresh relationship state;
+2. deep snapshot freshness;
+3. `not-at-villager` without mutation;
+4. first talk +1;
+5. repeated talk +0;
+6. normal gift consumes one/+3;
+7. favourite gift consumes one/+5;
+8. repeated gift rejects before consumption;
+9. missing crop rejects before daily flag;
+10. Friend at 12 / Close Friend at 30;
+11. gift crossing 30 leaves special dialogue unseen;
+12. next talk returns exact two-line sequence once;
+13. later talk returns normal Close Friend line;
+14. successful sleep resets daily flags only;
+15. failed/Day14/summary-pending sleep does not reset twice;
+16. summary pending blocks both commands;
+17. JSON round trip;
+18. constructor cloning/in-bounds/distinct cell invariants.
+
+Obtain gift crops through existing domain farming/economy helpers; do not inject inventory state.
+
+- [ ] **Step 3: Extend command/snapshot types**
+
+Add `relationships` and the two social success codes/payloads plus `not-at-villager` and `gift-already-given`.
+
+In the same step, extend `Overlay.svelte`'s exhaustive `commandResultMessage()` with mechanical labels for all four new codes. This is required here so `bun run check` stays green; do not defer the exhaustive switch to the dialogue task.
+
+- [ ] **Step 4: Implement GameSession state and commands**
+
+Clone/validate `villagerCells`; initialize social records; derive levels in snapshots/feedback; implement the exact validation/mutation orders from the design spec; reset daily flags only in successful `sleep()`.
+
+- [ ] **Step 5: Wire the parsed cells and direct scene facades**
+
+Task 2 already exposes `parsed.villagerCells`. Update the existing `new GameSession(...)` call to pass them when the config field becomes required.
+
+Add `SceneCommands.talkTo` and `giftCrop` facades using the existing `publishCommand` path. No presentation command or session exposure.
+
+- [ ] **Step 6: Verify GREEN**
+
+```bash
+bun test tests/game/villagerDefinitions.test.ts tests/game/GameSession.test.ts tests/game/loadProofMap.test.ts
+bun test tests/game
+bun run check
+bun run lint
+```
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add src/game/core/types.ts src/game/core/GameSession.ts src/game/phaser/ProofScene.ts src/components/Overlay.svelte tests/game/GameSession.test.ts
+git commit -m "feat: add authoritative social progression"
+```
+
+---
+
+## Task 4: Route the typed interaction intent without compatibility aliases
+
+**Files**
+
+- Modify `src/game/phaser/interactionIntent.ts`
+- Modify `tests/game/interactionIntent.test.ts`
+- Modify `src/game/phaser/ProofScene.ts`
+- Modify `src/App.svelte`
+
+**Intent**
 
 ```ts
 type InteractionIntent =
@@ -420,142 +385,130 @@ type InteractionIntent =
   | { kind: 'villager'; villagerId: VillagerId };
 ```
 
-`SceneCommands` gains `talkTo` and `giftCrop`; every command still flows through `publishCommand`.
+- [ ] **Step 1: Write intent RED**
 
-- [ ] **Step 1: Update interaction-intent tests first**
-
-Rewrite the current string expectations to the object union and add all three villager cells. Prove:
-
-- exact sleep/shop/shipping intents still resolve;
-- each villager cell resolves to its exact `VillagerId`;
-- null/unrelated targets return null;
-- interaction cells are not inferred from names or sprite positions.
-
-Run:
+Prove sleep/shop/shipping object intents, all three exact villager intents, and null/unrelated targets.
 
 ```bash
 bun test tests/game/interactionIntent.test.ts
 ```
 
-Expected RED because the old helper is string-only.
+- [ ] **Step 2: Implement the closed union**
 
-- [ ] **Step 2: Implement the closed intent union**
+Use direct authored-cell equality and `VILLAGER_IDS`; do not build an interaction registry.
 
-Update `interactionIntent.ts` with one `InteractionCells` shape containing bed/shop/shipping plus `villagerCells`. Use direct cell equality and stable `VILLAGER_IDS`; do not create an interaction registry or callback map.
+- [ ] **Step 3: Route E in ProofScene**
 
-- [ ] **Step 3: Preload and create static villager sprites**
+Pass bed/shop/shipping/villager cells to `interactionIntentForTarget`. Null still publishes `nothing-to-interact`; non-null forwards one typed intent. Keep `ActionController` unchanged.
 
-In `ProofScene.ts`:
+- [ ] **Step 4: Convert App to `intent.kind` in the same task**
 
-- preload `proof-villagers.png` as 32×48 frames;
-- create one sprite from every `parsed.villagers` placement using bottom-center origin;
-- keep a `Map<VillagerId, Sprite>`;
-- pass `parsed.villagerCells` into `GameSession`;
-- include `villager:${id}` in `DebugDepths` and the existing footpoint sort;
-- destroy/clear villager sprites during scene cleanup.
+Do not leave the old `intent === 'sleep'` / `economyPanel = intent` consumer for Task 5.
 
-Do not add update-loop movement for villagers.
+Use a switch:
 
-- [ ] **Step 4: Route E and add direct command facades**
+```ts
+switch (intent.kind) {
+  case 'sleep':
+    // existing sleep presentation
+    break;
+  case 'shop':
+  case 'shipping':
+    economyPanel = intent.kind;
+    syncEconomyPanel();
+    break;
+  case 'villager':
+    commands?.talkTo(intent.villagerId);
+    break;
+}
+```
 
-In `update()` obtain the current target, call `interactionIntentForTarget` with current map interaction cells, and:
+The villager branch deliberately publishes the authoritative talk result but does not open dialogue presentation until Task 5. No string compatibility alias or temporary hard-coded mapping.
 
-- publish `nothing-to-interact` on null;
-- forward the typed intent otherwise.
-
-Add `SceneCommands.talkTo` and `giftCrop` facades that delegate to `GameSession` and call the existing `publishCommand` exactly once.
-
-- [ ] **Step 5: Run adapter/domain checks**
+- [ ] **Step 5: Verify GREEN**
 
 ```bash
-bun test tests/game/interactionIntent.test.ts tests/game/GameSession.test.ts tests/game/loadProofMap.test.ts
+bun test tests/game/interactionIntent.test.ts tests/game/GameSession.test.ts
 bun run check
 bun run lint
 ```
 
-Expected: no compatibility alias and no changes to `ActionController`; `E` remains one edge-triggered interact key guarded by `InputGate`.
-
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/game/phaser/interactionIntent.ts tests/game/interactionIntent.test.ts src/game/phaser/ProofScene.ts
-git commit -m "feat: render and target village residents"
+git add src/game/phaser/interactionIntent.ts tests/game/interactionIntent.test.ts src/game/phaser/ProofScene.ts src/App.svelte
+git commit -m "feat: route villager interactions"
 ```
 
 ---
 
-## Task 5: Add One Focused Dialogue/Gift Panel
+## Task 5: Add one focused dialogue/gift panel and lock every control path
 
-**Files:**
+**Files**
 
-- Create: `src/components/DialoguePanel.svelte`
-- Modify: `src/App.svelte`
-- Modify: `src/components/Overlay.svelte`
-- Modify: `src/app.css`
+- Create `src/components/DialoguePanel.svelte`
+- Modify `src/App.svelte`
+- Modify `src/components/Overlay.svelte`
+- Modify `src/app.css`
 
-**Ownership:**
+**Ownership**
 
-- App owns whether social presentation is open and the `dialogue-panel` InputGate reason.
-- DialoguePanel owns only line index, gift-selector visibility, and focus presentation.
-- `GameSession` owns points, daily flags, inventory consumption, and selected dialogue payload.
-- `Overlay` remains HUD/economy/day-summary UI.
+- App owns panel-open state and `dialogue-panel` InputGate reason.
+- DialoguePanel owns line index, gift-choice visibility, and local focus.
+- GameSession owns points, flags, inventory, and feedback.
+- Overlay remains HUD/economy/day summary; it only receives `dialogueOpen` to disable controls.
 
-- [ ] **Step 1: Make App understand the typed intent and social panel state**
+- [ ] **Step 1: Make App open authoritative social presentation**
 
-Replace the old string assumptions in `handleInteractIntent` with a switch on `intent.kind`.
+Change the Task 4 villager branch to call `talkTo`, require the social success payload, store `{ villagerId, social }`, and set `inputGate.set('dialogue-panel', true)`.
 
-Preserve sleep and economy behavior. For `villager`:
-
-1. refuse opening if a day transition, economy panel, or dialogue panel is already active;
-2. require current `commands`;
-3. call `commands.talkTo(intent.villagerId)`;
-4. if it returns social success, store `{ villagerId, social }` and set `inputGate.set('dialogue-panel', true)`.
-
-Add one `closeDialoguePanel()` that clears both state and gate reason. Reset/unmount must clear it idempotently alongside existing reasons.
-
-For gifting, add one App callback that calls `commands.giftCrop(currentVillager, crop)` and replaces the current social payload only on social success. Failure remains in the existing `commandResult` channel and must not close the panel.
-
-Do not cache or recalculate relationship points in App.
+Add `closeDialoguePanel()` and a gift callback. Gift success replaces current social feedback; failure stays in the existing command-result channel and does not close the panel. Reset/unmount clears the state/reason idempotently.
 
 - [ ] **Step 2: Create `DialoguePanel.svelte`**
 
-Required props should be feature-specific and small: open panel state/social payload, current `GameSnapshot`, `onGift(crop)`, and `onClose()`.
-
-Presentation requirements:
+Required behavior:
 
 - `role="dialog"`, `aria-modal="true"`, labelled by villager name;
-- simple portrait placeholder with name initial/role;
-- relationship level text;
-- show exactly one `social.lines[index]` at a time;
-- if more lines remain, render native `Continue` and focus it;
-- after the final line, render `Give gift` and `Close`;
-- gift selector lists only `CROP_KINDS` with carried count > 0;
-- each gift button clearly names the crop and means exactly one item;
-- if no harvested crops are carried, show `No harvested crops to give` and keep gift action unavailable;
-- after a successful gift payload, reset line index to zero and show its response/relationship feedback;
-- show feedback from payload fields (`pointsGained`, favourite/normal, resulting level) without recomputing rules;
-- optional Escape handling is local and only closes; it must not implement Enter/Space progression.
+- portrait placeholder/name/role/level;
+- exactly one `social.lines[index]` visible;
+- native `Continue` focused while another line remains;
+- after last line: `Give gift` and `Close`;
+- gift list contains only carried crop kinds with count > 0;
+- each gift sends exactly one crop;
+- no crops => `No harvested crops to give`;
+- successful gift resets line index to zero and displays returned response/points/reaction/level;
+- local Escape may close;
+- no window-level Enter/Space progression handler;
+- no relationship math in Svelte.
 
-Do not reuse `QuantityStepper.svelte`: gifts are exactly one item.
+Do not use `QuantityStepper.svelte`.
 
-- [ ] **Step 3: Keep Overlay changes mechanical**
+- [ ] **Step 3: Close the HUD bypass**
 
-Extend `commandResultMessage()` only for:
+Pass `dialogueOpen={dialoguePanel !== null}` into `Overlay.svelte`.
 
-- `villager-talked`;
-- `crop-gifted`;
-- `not-at-villager`; and
-- `gift-already-given`.
+Update Overlay:
 
-Do not move dialogue state or relationship math into Overlay.
+```ts
+const actionsReady = $derived(
+  status === 'ready' &&
+    commands !== null &&
+    snapshot !== null &&
+    !dayTransitionActive &&
+    economyPanel === null &&
+    !dialogueOpen,
+);
+```
 
-- [ ] **Step 4: Add focused stage CSS**
+Also make the manual overlay input-lock toggle refuse/disable when `dialogueOpen` is true. Seed/action buttons already derive from `actionsReady`, so no second lock mechanism is needed.
 
-In `app.css` add `[data-dialogue-panel]` as a 640×360 absolute stage overlay with z-index above the HUD and use the existing modal visual language. Add only feature-specific layout for portrait/text/actions/gift choices.
+Do **not** modify `InputGate.ts`; arbitrary reason strings already work.
 
-Do not redesign the HUD/economy panel in this task.
+- [ ] **Step 4: Add stage-local CSS**
 
-- [ ] **Step 5: Run Svelte/static checks and existing browser smoke**
+Add a 640×360 dialogue layer above HUD/economy surfaces with the existing modal visual language. No HUD redesign.
+
+- [ ] **Step 5: Verify static/UI regressions**
 
 ```bash
 bun run check
@@ -564,8 +517,6 @@ bun run format:check
 bun run build
 bun run test:e2e -- tests/e2e/sleep-confirmation.pw.ts tests/e2e/economy.pw.ts
 ```
-
-The existing sleep/economy dialogs must still lock and unlock input correctly after the App state changes.
 
 - [ ] **Step 6: Commit**
 
@@ -576,103 +527,124 @@ git commit -m "feat: add villager dialogue and gifting UI"
 
 ---
 
-## Task 6: Prove Physical Village Behavior and the Full Social Loop in the Browser
+## Task 6: Prove the full social loop through real browser controls
 
-**Files:**
+**Files**
 
-- Create: `tests/e2e/social.pw.ts`
-- Modify: `tests/e2e/world.pw.ts`
+- Create `tests/e2e/social.pw.ts`
 
-Do not widen `window.__PHOENIX_TEST__`; use only `snapshot()`, `gameSnapshot()`, and `remount()` already exposed.
+World geometry/collision route work belongs to Task 2 and should already be green.
 
-- [ ] **Step 1: Add physical villager proof to `world.pw.ts`**
+- [ ] **Step 1: Build the five-Turnip setup through real controls**
 
-Use real movement helpers to prove at least one representative villager footprint behaves like existing tree/shipping collision:
+Start a new session. Visit the seed shop and buy two additional Turnip seeds. Prepare five farm cells with real Hoe/Seeds controls.
 
-- player cannot enter the 0.4×0.4 logical footprint;
-- the villager target cell remains acquireable from an adjacent position;
-- player/villager depth ordering reverses on opposite sides of that villager's footpoint;
-- camera stays within bounds.
+The day-one stamina budget is exactly consumed by five hoes (15) plus five plants (5), so do not add a day-one watering expectation. Sleep once dry, then water normally for three growing nights and harvest five mature Turnips on the resulting morning.
 
-Also route to all three target cells once. Keep this test about world geometry, not relationship mutation.
+- [ ] **Step 2: Implement the five-social-day June journey**
 
-- [ ] **Step 2: Create the social E2E journey with local route helpers**
+Use local route helpers built from existing `tests/e2e/helpers.ts`; do not widen the test hook.
 
-Create `tests/e2e/social.pw.ts`. Prefer small helpers local to the social journey rather than moving the mature economy test's route library unless a helper is truly shared by three or more suites.
+For June at 9,5, stand on the y=6 path stance and face right before `E`.
 
-The journey starts from a real new session and performs this bounded scenario:
+Prove:
 
-1. visit the seed shop and buy two extra Turnip seeds, leaving enough starter money;
-2. prepare five farm cells with real Hoe/Seeds controls;
-3. grow those five Turnips through normal sleep/watering transitions and harvest them;
-4. walk to June at cell 9,5;
-5. press `E` and verify dialogue opens, world is locked, relationship becomes 1, and level is Stranger;
-6. close/reopen the same day and verify repeated talk does not add a second point;
-7. give one Turnip and verify carried Turnips decrement by exactly one and June gains +5;
-8. attempt a second gift that day and verify inventory/points are unchanged;
-9. sleep/start the next day and verify June's daily flags are false again;
-10. repeat one talk + one favourite gift across five social days total, reaching at least 30 points by Day 9 or earlier;
-11. verify Friend appears after crossing 12 and Close Friend after crossing 30;
-12. after reaching Close Friend, reopen June to trigger the two-line one-time sequence;
-13. with `Continue` focused, press Enter once and assert the second line is visible and the dialog has **not** skipped directly to the final actions;
-14. finish/close, reopen again, and assert June now uses only her normal Close Friend line;
-15. JSON-round-trip the observed `GameSnapshot` in the page context and compare it to the source snapshot.
+1. first talk locks world/UI, gives +1, Stranger;
+2. close/reopen same day gives +0;
+3. favourite Turnip gift consumes exactly one and gives +5;
+4. second same-day gift preserves inventory/points;
+5. sleep/start day clears June daily flags;
+6. repeat talk + favourite gift for five social days total;
+7. Friend appears exactly when crossing 12;
+8. Close Friend appears exactly when crossing 30;
+9. the gift that crosses 30 leaves special dialogue unseen;
+10. reopen June the same day: exact two-line Close Friend sequence appears once;
+11. with Continue focused, one Enter shows line two and does not skip to final actions;
+12. close/reopen: only normal Close Friend line remains;
+13. `GameSnapshot` JSON round-trips in page context.
 
-Use `expect.poll` on authoritative snapshots rather than arbitrary sleeps. Release every held key in `finally`.
+Use `expect.poll` on authoritative snapshots and release held keys in `finally`.
 
-- [ ] **Step 3: Run focused browser tests with retries unchanged**
+- [ ] **Step 3: Verify the no-bypass modal contract**
 
-```bash
-bun run test:e2e -- tests/e2e/world.pw.ts tests/e2e/social.pw.ts
-```
+While dialogue is open, assert:
 
-If a route is flaky, fix the authored route/helper. Do not increase retries, global timeout, or add a mutation/teleport hook.
+- debug snapshot reports Phaser input locked;
+- action/seed HUD buttons are disabled;
+- manual `Lock world input` / `Unlock world input` toggle is disabled;
+- movement keys do not move the player.
 
-- [ ] **Step 4: Run the full browser suite**
+This proves both Phaser and Svelte control paths are blocked.
+
+- [ ] **Step 4: Run focused and full browser suites**
 
 ```bash
+bun run test:e2e -- tests/e2e/social.pw.ts tests/e2e/world.pw.ts
 bun run test:e2e
 ```
 
-Expected: farming, economy, lifecycle, sleep, world, and social suites all pass with the existing Playwright configuration.
+If the journey is flaky, fix route geometry/helper waypoints. Do not increase retries/global timeout or add arbitrary sleeps/state hooks.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add tests/e2e/social.pw.ts tests/e2e/world.pw.ts
+git add tests/e2e/social.pw.ts
 git commit -m "test: prove the village social loop"
 ```
 
 ---
 
-## Task 7: Documentation, Full CI Parity, Native Boundary, and Self-Review
+## Task 7: Pin the README contract and run full delivery verification
 
-**Files:**
+**Files**
 
-- Modify: `README.md`
-- Verify all HPA-595 files above
+- Modify `README.md`
+- Modify `tests/config/handoff.test.ts`
 
-- [ ] **Step 1: Update README minimally**
+- [ ] **Step 1: Update README with stable HPA-595 facts**
 
-Document only player-visible controls/behavior introduced by HPA-595:
+Include these exact phrases so the existing handoff contract can pin them without fragile prose matching:
 
-- walk the compact village path;
-- `E` on a villager talks;
-- dialogue panel can give one harvested crop;
-- relationship level changes through repeat days.
+- `HPA-595`
+- `E on a villager talks`
+- `one harvested crop`
+- `Friend at 12`
+- `Close Friend at 30`
+- `shopkeeper cell 7,5`
+- `farmer cell 3,5`
+- `resident cell 9,5`
 
-Do not document future market/persistence systems as implemented.
+Surrounding prose can remain concise. Do not document persistence/market finale as implemented.
 
-- [ ] **Step 2: Run deterministic asset/clean-checkout verification**
+- [ ] **Step 2: Extend `tests/config/handoff.test.ts`**
+
+Add a social-content loop next to the current HPA-592/HPA-593 pinning:
+
+```ts
+for (const socialText of [
+  'HPA-595',
+  'E on a villager talks',
+  'one harvested crop',
+  'Friend at 12',
+  'Close Friend at 30',
+  'shopkeeper cell 7,5',
+  'farmer cell 3,5',
+  'resident cell 9,5',
+]) {
+  expect(readme.toLowerCase()).toContain(socialText.toLowerCase());
+}
+```
+
+- [ ] **Step 3: Run deterministic and clean-checkout verification**
 
 ```bash
 bun run assets:generate
 bun run verify:clean
 ```
 
-If `verify:clean` reports a generated-fixture mismatch, fix generator/source ownership rather than hand-editing the PNG/JSON output.
+Fix generator/source ownership if generated fixtures differ; do not hand-edit generated outputs.
 
-- [ ] **Step 3: Run the same frontend/unit gates as CI**
+- [ ] **Step 4: Run current CI parity**
 
 ```bash
 bun run check
@@ -685,32 +657,36 @@ bun run coverage:check
 bun run test:e2e
 ```
 
-All must pass. Do not lower coverage thresholds to land the feature.
+Do not lower coverage thresholds.
 
-- [ ] **Step 4: Run the existing macOS native build when on macOS**
+- [ ] **Step 5: Run the macOS native boundary when on macOS**
 
 ```bash
 bun run tauri:build -- --no-sign
 ```
 
-This is a packaging/build boundary only; HPA-595 adds no Rust command. If a GUI environment is available, launch the unsigned app and do one bounded manual smoke: walk to one villager, open dialogue, close it, and confirm movement resumes. Record any environment limitation accurately instead of adding native-only test code.
+If GUI access exists, manually smoke: walk to one villager, open dialogue, close, confirm movement resumes. Report environmental limitations rather than adding native-only social code.
 
-- [ ] **Step 5: Perform scope/architecture self-review**
+- [ ] **Step 6: Self-review scope and known risks**
 
-Before finalizing implementation, inspect the full diff and explicitly verify:
+Verify the final diff has:
 
-- map is still 12×12;
+- map still 12×12;
 - no dependency/lockfile change;
-- no `dailyRhythm` social cost work;
-- no mutable social state exists in Phaser/Svelte;
-- no NPC/schedule/dialogue/event framework was introduced;
-- test hook remains observation-only;
-- market reserve x 8–10/y 2–3 remains empty;
-- HPA-597 harvest-market content is absent;
-- HPA-596 persistence is absent;
-- successful gift consumes exactly one crop;
-- successful sleep is the only daily social reset seam;
-- snapshots remain plain/fresh/JSON-safe.
+- no InputGate implementation change;
+- no `dailyRhythm` social-cost work;
+- no mutable relationship state in Phaser/Svelte;
+- exact 0.6 villager footprints and targetable y=6 stances;
+- `parseCollision` returns all six footprints in specified order;
+- existing world/economy routes green after Mira collision;
+- Overlay controls disabled during dialogue;
+- test hook still observation-only;
+- market reserve empty;
+- HPA-596/HPA-597 behavior absent;
+- gift consumes exactly one crop;
+- successful sleep is the only daily social reset;
+- snapshots plain/fresh/JSON-safe;
+- README facts pinned by `handoff.test.ts`.
 
 Run:
 
@@ -718,41 +694,46 @@ Run:
 git diff --check
 ```
 
-- [ ] **Step 6: Commit final docs if needed**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add README.md
-git commit -m "docs: describe the social slice controls"
+git add README.md tests/config/handoff.test.ts
+git commit -m "docs: pin the social slice handoff"
 ```
 
-If README required no change after review, do not create an empty commit.
+## Primary implementation risks
 
-## Expected Implementation Commit Shape
+1. **Map route regression:** Mira's new 0.6 footprint overlaps the area used by the current tree-detour route. Task 2 must retune and prove existing routes before social progression work continues.
+2. **Five-day browser journey:** it is intentionally long because it is the only no-hook proof of daily reset + threshold crossing + one-time two-line dialogue. Keep retries/timeouts unchanged and fix waypoints rather than masking flakes.
+3. **Ground/scenery GID shift:** generator, generated fixtures, parser, and fixture tests must land together.
+4. **Modal control bypass:** `InputGate` locks Phaser only; Task 5 must also disable Overlay's button/toggle paths through `dialogueOpen`.
 
-The recommended implementation history is intentionally small and reviewable:
+## Recommended implementation commit shape
 
 1. `feat: define social relationship policy`
-2. `feat: add authoritative social progression`
-3. `feat: author the compact village`
-4. `feat: render and target village residents`
+2. `feat: author the compact village`
+3. `feat: add authoritative social progression`
+4. `feat: route villager interactions`
 5. `feat: add villager dialogue and gifting UI`
 6. `test: prove the village social loop`
-7. optional `docs: describe the social slice controls`
+7. `docs: pin the social slice handoff`
 
-No merge commit is required; rebase/squash policy can be chosen when the implementation PR is ready.
+No merge commit is required.
 
-## Completion Criteria
+## Completion criteria
 
-HPA-595 is implementation-complete only when all Linear acceptance criteria are demonstrated against the real controls and the final state is ready for HPA-596:
+HPA-595 is complete only when:
 
-- all three villagers are walkable/interactable with correct collision/depth;
-- talk points are once/day per villager;
-- gifting consumes exactly one crop, with normal/favourite points and once/day limit;
-- Stranger/Friend/Close Friend dialogue is visible at exact thresholds;
-- each one-time Close Friend sequence triggers once;
-- a normal 14-day run can reach at least one Close Friend;
-- dialogue locks Phaser input and one Enter press advances one line;
-- social state is fresh plain JSON;
-- browser suite is green;
-- current unsigned macOS build remains green;
-- no persistence/finale/framework work leaked into the slice.
+- all three villagers are visible, walkable-around, targetable from their documented path stances, and depth-sorted correctly;
+- talk credit is once/day and repeated talk still returns dialogue;
+- gift consumes exactly one crop, awards normal/favourite points, and is once/day;
+- Stranger/Friend/Close Friend use exact thresholds;
+- one Close Friend sequence triggers once per villager;
+- June reaches Close Friend through the real five-social-day browser journey;
+- one Enter on focused Continue advances exactly one line;
+- dialogue locks Phaser plus Overlay action/seed/toggle controls;
+- social snapshot state is fresh plain JSON;
+- README/handoff pins the new controls/thresholds/cells;
+- current static/unit/coverage/E2E/build gates pass;
+- unsigned macOS Tauri build remains green;
+- no persistence/finale/NPC/dialogue framework work leaks into the slice.
