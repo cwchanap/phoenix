@@ -173,6 +173,10 @@
         return 'Seeds purchased';
       case 'crop-deposited':
         return 'Crop deposited';
+      case 'villager-talked':
+        return 'Talked to villager';
+      case 'crop-gifted':
+        return 'Crop gifted';
       case 'day-advanced':
         return 'Day advanced';
       case 'day-started':
@@ -205,6 +209,10 @@
         return 'You must be at the shop';
       case 'not-at-shipping-bin':
         return 'You must be at the shipping bin';
+      case 'not-at-villager':
+        return 'You must be at the villager';
+      case 'gift-already-given':
+        return 'You already gave a gift today';
       case 'invalid-quantity':
         return 'Invalid quantity';
       case 'insufficient-funds':

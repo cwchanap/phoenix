@@ -8,6 +8,16 @@ import {
   MAX_STAMINA,
 } from './dailyRhythm';
 import { ProofWorld } from './ProofWorld';
+import {
+  closeFriendDialogueLines,
+  dialogueLines,
+  FAVOURITE_GIFT_BONUS,
+  GIFT_POINTS,
+  relationshipLevel,
+  TALK_POINTS,
+  VILLAGER_DEFINITIONS,
+  VILLAGER_IDS,
+} from './villagerDefinitions';
 import type { ActionBudgetResult } from './dailyRhythm';
 import type {
   CommandResult,
@@ -23,6 +33,10 @@ import type {
   MovementInput,
   ProjectionMetrics,
   ProofMap,
+  GiftResult,
+  RelationshipSnapshot,
+  TalkResult,
+  VillagerId,
   Weather,
   WorldSnapshot,
 } from './types';
@@ -34,6 +48,7 @@ export interface GameSessionConfig {
   bedCell: GridCell;
   shopCell: GridCell;
   shippingCell: GridCell;
+  villagerCells: Record<VillagerId, GridCell>;
   nextWeather?: () => Weather;
 }
 
@@ -49,6 +64,13 @@ interface MutableFarmTile {
   crop: MutableCrop | null;
 }
 
+interface MutableRelationship {
+  points: number;
+  talkedToday: boolean;
+  giftedToday: boolean;
+  closeFriendDialogueSeen: boolean;
+}
+
 type LookupResult = MutableFarmTile | { ok: false; code: 'no-target' | 'not-farm-cell' };
 
 const STARTING_MONEY = 150;
@@ -62,6 +84,8 @@ export class GameSession {
   private readonly bedCell: GridCell;
   private readonly shopCell: GridCell;
   private readonly shippingCell: GridCell;
+  private readonly villagerCells: Record<VillagerId, GridCell>;
+  private readonly relationships: Record<VillagerId, MutableRelationship>;
   private readonly nextWeather: () => Weather;
   private day = 1;
   private timeMinutes = DAY_START_MINUTES;
@@ -86,6 +110,7 @@ export class GameSession {
     const bedCell = { ...config.bedCell };
     const shopCell = { ...config.shopCell };
     const shippingCell = { ...config.shippingCell };
+    const villagerCells = cloneVillagerCells(config.villagerCells);
 
     if (farmCells.length !== REQUIRED_FARM_TILE_COUNT) {
       throw new Error(`GameSession: expected exactly ${REQUIRED_FARM_TILE_COUNT} farm cells`);
@@ -119,6 +144,20 @@ export class GameSession {
       throw new Error('GameSession: bed, shop, and shipping cells must be distinct');
     }
 
+    const occupiedCells = new Set([...keys, ...interactionCells.map(cellKey)]);
+    const villagerKeys = new Set<string>();
+    for (const id of VILLAGER_IDS) {
+      const cell = villagerCells[id];
+      if (!isIntegerCellInBounds(cell, world)) {
+        throw new Error('GameSession: villager cells must be integer cells in bounds');
+      }
+      const key = cellKey(cell);
+      if (occupiedCells.has(key) || villagerKeys.has(key)) {
+        throw new Error('GameSession: villager cells must be distinct from interactions');
+      }
+      villagerKeys.add(key);
+    }
+
     const bedFootprint: Footprint = {
       id: 'bed-interaction',
       x: bedCell.x,
@@ -134,6 +173,8 @@ export class GameSession {
     this.bedCell = bedCell;
     this.shopCell = shopCell;
     this.shippingCell = shippingCell;
+    this.villagerCells = villagerCells;
+    this.relationships = createRelationships();
     this.farmTiles = farmCells
       .sort((a, b) => a.y - b.y || a.x - b.x)
       .map((position) => ({ position, soil: 'untilled', crop: null }));
@@ -173,6 +214,8 @@ export class GameSession {
         soil: tile.soil,
         crop: tile.crop ? { ...tile.crop } : null,
       })),
+      relationships: cloneRelationships(this.relationships),
+      villagerCells: cloneVillagerCells(this.villagerCells),
       bedCell: { ...this.bedCell },
       shopCell: { ...this.shopCell },
       shippingCell: { ...this.shippingCell },
@@ -225,6 +268,76 @@ export class GameSession {
     this.inventory.crops[kind] -= quantity;
     this.pendingShipment[kind] = pendingAfter;
     return { ok: true, code: 'crop-deposited' };
+  }
+
+  talkTo(id: VillagerId): TalkResult {
+    if (this.pendingDaySummary) return { ok: false, code: 'day-summary-pending' };
+    if (!sameCell(this.world.snapshot().target, this.villagerCells[id])) {
+      return { ok: false, code: 'not-at-villager' };
+    }
+
+    const relationship = this.relationships[id];
+    const pointsGained = relationship.talkedToday ? 0 : TALK_POINTS;
+    if (!relationship.talkedToday) {
+      relationship.talkedToday = true;
+      relationship.points += TALK_POINTS;
+    }
+
+    const level = relationshipLevel(relationship.points);
+    if (level === 'closeFriend' && !relationship.closeFriendDialogueSeen) {
+      relationship.closeFriendDialogueSeen = true;
+      return {
+        ok: true,
+        code: 'villager-talked',
+        social: {
+          lines: closeFriendDialogueLines(id),
+          pointsGained,
+          giftReaction: null,
+          closeFriendSequence: true,
+        },
+      };
+    }
+
+    return {
+      ok: true,
+      code: 'villager-talked',
+      social: {
+        lines: dialogueLines(id, level),
+        pointsGained,
+        giftReaction: null,
+        closeFriendSequence: false,
+      },
+    };
+  }
+
+  giftCrop(id: VillagerId, crop: CropKind): GiftResult {
+    if (this.pendingDaySummary) return { ok: false, code: 'day-summary-pending' };
+    if (!sameCell(this.world.snapshot().target, this.villagerCells[id])) {
+      return { ok: false, code: 'not-at-villager' };
+    }
+
+    const relationship = this.relationships[id];
+    if (relationship.giftedToday) return { ok: false, code: 'gift-already-given' };
+    if (this.inventory.crops[crop] < 1) return { ok: false, code: 'insufficient-crops' };
+
+    const favourite = VILLAGER_DEFINITIONS[id].favouriteCrop === crop;
+    const pointsGained = GIFT_POINTS + (favourite ? FAVOURITE_GIFT_BONUS : 0);
+    this.inventory.crops[crop] -= 1;
+    relationship.giftedToday = true;
+    relationship.points += pointsGained;
+
+    return {
+      ok: true,
+      code: 'crop-gifted',
+      social: {
+        lines: [
+          favourite ? VILLAGER_DEFINITIONS[id].favouriteGift : VILLAGER_DEFINITIONS[id].normalGift,
+        ],
+        pointsGained,
+        giftReaction: favourite ? 'favourite' : 'normal',
+        closeFriendSequence: false,
+      },
+    };
   }
 
   applySelectedAction(position: GridCell | null): CommandResult {
@@ -354,6 +467,10 @@ export class GameSession {
       shippingIncome: payout.total,
       moneyAfterShipping: this.money,
     };
+    for (const relationship of Object.values(this.relationships)) {
+      relationship.talkedToday = false;
+      relationship.giftedToday = false;
+    }
     return { ok: true, code: 'day-advanced' };
   }
 
@@ -396,6 +513,53 @@ function cloneProjectionMetrics(metrics: ProjectionMetrics): ProjectionMetrics {
 
 function cloneCounts(counts: CropCounts): CropCounts {
   return { turnip: counts.turnip, potato: counts.potato, pumpkin: counts.pumpkin };
+}
+
+function cloneVillagerCells(cells: Record<VillagerId, GridCell>): Record<VillagerId, GridCell> {
+  return Object.fromEntries(VILLAGER_IDS.map((id) => [id, { ...cells[id] }])) as Record<
+    VillagerId,
+    GridCell
+  >;
+}
+
+function createRelationships(): Record<VillagerId, MutableRelationship> {
+  return Object.fromEntries(
+    VILLAGER_IDS.map((id) => [
+      id,
+      { points: 0, talkedToday: false, giftedToday: false, closeFriendDialogueSeen: false },
+    ]),
+  ) as Record<VillagerId, MutableRelationship>;
+}
+
+function cloneRelationships(
+  relationships: Record<VillagerId, MutableRelationship>,
+): Record<VillagerId, RelationshipSnapshot> {
+  return Object.fromEntries(
+    VILLAGER_IDS.map((id) => {
+      const relationship = relationships[id];
+      return [
+        id,
+        {
+          points: relationship.points,
+          level: relationshipLevel(relationship.points),
+          talkedToday: relationship.talkedToday,
+          giftedToday: relationship.giftedToday,
+          closeFriendDialogueSeen: relationship.closeFriendDialogueSeen,
+        },
+      ];
+    }),
+  ) as Record<VillagerId, RelationshipSnapshot>;
+}
+
+function isIntegerCellInBounds(cell: GridCell, world: ProofMap): boolean {
+  return (
+    Number.isInteger(cell?.x) &&
+    Number.isInteger(cell?.y) &&
+    cell.x >= 0 &&
+    cell.x < world.width &&
+    cell.y >= 0 &&
+    cell.y < world.height
+  );
 }
 
 function cellKey(cell: GridCell): string {

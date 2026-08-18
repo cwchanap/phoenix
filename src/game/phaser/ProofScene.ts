@@ -7,12 +7,15 @@ import type {
   CommandResult,
   CropKind,
   DepthEntry,
+  GiftResult,
   Facing,
   FarmingAction,
   GameSnapshot,
   GridCell,
   GridPoint,
   SceneryKind,
+  TalkResult,
+  VillagerId,
   WorldPoint,
   WorldRect,
 } from '../core/types';
@@ -66,6 +69,8 @@ export interface SceneCommands {
   selectSeed(kind: CropKind): CommandResult;
   buySeeds(kind: CropKind, quantity: number): CommandResult;
   depositCrop(kind: CropKind, quantity: number): CommandResult;
+  talkTo(id: VillagerId): TalkResult;
+  giftCrop(id: VillagerId, crop: CropKind): GiftResult;
   sleep(): CommandResult;
   acknowledgeDaySummary(): CommandResult;
 }
@@ -174,6 +179,7 @@ export class ProofScene extends Phaser.Scene {
         bedCell: parsed.bedCell,
         shopCell: parsed.shopCell,
         shippingCell: parsed.shippingCell,
+        villagerCells: parsed.villagerCells,
       });
       for (const placement of parsed.scenery) {
         const sprite = this.add
@@ -220,6 +226,8 @@ export class ProofScene extends Phaser.Scene {
         selectSeed: (kind) => this.selectSeed(kind),
         buySeeds: (kind, quantity) => this.buySeeds(kind, quantity),
         depositCrop: (kind, quantity) => this.depositCrop(kind, quantity),
+        talkTo: (id) => this.talkTo(id),
+        giftCrop: (id, crop) => this.giftCrop(id, crop),
         sleep: () => this.sleep(),
         acknowledgeDaySummary: () => this.acknowledgeDaySummary(),
       };
@@ -279,6 +287,16 @@ export class ProofScene extends Phaser.Scene {
     return this.publishCommand(session.depositCrop(kind, quantity));
   }
 
+  private talkTo(id: VillagerId): TalkResult {
+    const session = this.requireSession();
+    return this.publishCommand(session.talkTo(id));
+  }
+
+  private giftCrop(id: VillagerId, crop: CropKind): GiftResult {
+    const session = this.requireSession();
+    return this.publishCommand(session.giftCrop(id, crop));
+  }
+
   private sleep(): CommandResult {
     const session = this.requireSession();
     return this.publishCommand(session.sleep());
@@ -293,7 +311,7 @@ export class ProofScene extends Phaser.Scene {
     return this.session;
   }
 
-  private publishCommand(result: CommandResult): CommandResult {
+  private publishCommand<T extends CommandResult>(result: T): T {
     const snapshot = this.requireSession().snapshot();
     this.reconcileFarmSprites(snapshot);
     this.dependencies.onCommandResult(result);
