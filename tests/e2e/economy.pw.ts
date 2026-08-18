@@ -10,6 +10,7 @@ import {
   moveUntilPlayerAxis,
   snapshot,
   waitForWorld,
+  waterForCurrentWeather,
 } from './helpers';
 
 const SHOP_CELL: GridCell = { x: 6, y: 7 };
@@ -229,9 +230,7 @@ test('buys, grows, ships, pays, and reinvests across all three crops', async ({ 
         ({ position }) => position.x === FARM_CELLS[crop].x && position.y === FARM_CELLS[crop].y,
       );
       if (!tile?.crop || isMature(crop, tile.crop.growth)) continue;
-      const feedback =
-        beforeWater.weather === 'sunny' ? 'Crop watered' : 'Rain is watering the crops';
-      await useSelected(page, crop, feedback);
+      await waterForCurrentWeather(page, FARM_TARGET_KEY[crop], FARM_CELLS[crop]);
     }
     await moveFarmHubToBed(page);
     const beforeSleep = await gameSnapshot(page);
