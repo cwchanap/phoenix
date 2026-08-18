@@ -307,7 +307,8 @@ test('completes the no-hook three-day village social loop', async ({ page }) => 
   await closeDialogue(page, dialog);
 
   await moveJuneToBed(page);
-  await sleepAndStart(page, 0);
+  const dayTwo = await sleepAndStart(page, 0);
+  expect(dayTwo.relationships.resident).toMatchObject({ talkedToday: false, giftedToday: false });
   await moveBedToFarmHub(page);
   await moveFarmHubToJune(page);
 
@@ -323,7 +324,11 @@ test('completes the no-hook three-day village social loop', async ({ page }) => 
   await closeDialogue(page, dialog);
 
   await moveJuneToBed(page);
-  await sleepAndStart(page, 0);
+  const dayThree = await sleepAndStart(page, 0);
+  expect(dayThree.relationships.resident).toMatchObject({
+    talkedToday: false,
+    giftedToday: false,
+  });
   await moveBedToFarmHub(page);
   await moveFarmHubToJune(page);
 

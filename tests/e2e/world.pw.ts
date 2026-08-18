@@ -287,14 +287,51 @@ test('keeps authored villager cells and acquires each documented path stance', a
 test('blocks entry to Mira and reverses player depth across her footpoint', async ({ page }) => {
   await waitForWorld(page);
   await moveToVillagerStance(page, 'shopkeeper');
+  await moveUntilPlayerAxis(page, ['w'], 'y', 'lte', 6.3);
+  await moveUntilPlayerAxis(page, ['d'], 'x', 'gte', 6.4);
   const above = await snapshot(page);
   expect(above.player.world.y).toBeLessThan(192);
+  expect(above.player.position.y).toBeLessThan(5.019);
   expect(above.depths.player).toBeLessThan(shopkeeperDepth(above));
 
-  await holdKey(page, 'd', 300);
+  const approachKeys = ['a', 's'];
+  for (const key of approachKeys) await page.keyboard.down(key);
+  try {
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          const deadline = performance.now() + 3_000;
+          let blockedAt: number | null = null;
+          const sample = () => {
+            const position = window.__PHOENIX_TEST__!.snapshot().player.position;
+            const now = performance.now();
+            if (blockedAt === null) {
+              if (position.y >= 5.019 && position.y <= 5.021) blockedAt = now;
+            } else {
+              if (position.y > 5.021) {
+                reject(new Error(`Mira collision escaped: ${JSON.stringify(position)}`));
+                return;
+              }
+              if (now - blockedAt >= 300) {
+                resolve();
+                return;
+              }
+            }
+            if (now >= deadline) {
+              reject(new Error(`Mira collision timeout: ${JSON.stringify(position)}`));
+              return;
+            }
+            requestAnimationFrame(sample);
+          };
+          requestAnimationFrame(sample);
+        }),
+    );
+  } finally {
+    for (const key of [...approachKeys].reverse()) await page.keyboard.up(key);
+  }
   const blocked = await snapshot(page);
   expect(outsideFootprint(blocked.player.position, MIRA_FOOTPRINT)).toBe(true);
-  expect(blocked.player.position.x).toBeLessThanOrEqual(6.021);
+  expect(blocked.player.position.y).toBeLessThanOrEqual(5.021);
   assertCameraWithinBounds(blocked);
 
   const below = await moveUntil(page, 's', (value) => value.player.world.y >= 195.2);
