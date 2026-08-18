@@ -12,16 +12,80 @@ const projection = new ProjectionAdapter(
 
 test('loads the authored proof-map contract', async () => {
   const raw = (await Bun.file(mapPath).json()) as Record<string, unknown>;
+  const tilesets = raw.tilesets as Array<Record<string, unknown>>;
+  const ground = withLayer(raw, 'Ground');
+  const scenery = withLayer(raw, 'Scenery') as unknown as {
+    objects: Array<Record<string, unknown>>;
+  };
+  const collision = withLayer(raw, 'Collision') as unknown as {
+    objects: Array<Record<string, unknown>>;
+  };
   const markers = withLayer(raw, 'Markers') as unknown as {
     objects: Array<Record<string, unknown>>;
   };
-  expect(raw.nextobjectid).toBe(11);
+  expect(raw.nextlayerid).toBe(5);
+  expect(raw.nextobjectid).toBe(17);
+  expect(tilesets[0]).toEqual(
+    expect.objectContaining({
+      columns: 3,
+      imageheight: 32,
+      imagewidth: 192,
+      tilecount: 3,
+      firstgid: 1,
+    }),
+  );
+  expect(tilesets[1]).toEqual(expect.objectContaining({ firstgid: 4 }));
+  const groundData = ground.data as number[];
+  const pathCells = groundData.flatMap((gid, index) =>
+    gid === 3 ? [{ x: index % 12, y: Math.floor(index / 12) }] : [],
+  );
+  expect(pathCells).toEqual([
+    { x: 3, y: 6 },
+    { x: 4, y: 6 },
+    { x: 5, y: 6 },
+    { x: 6, y: 6 },
+    { x: 7, y: 6 },
+    { x: 8, y: 6 },
+    { x: 9, y: 6 },
+  ]);
+  for (let y = 2; y <= 3; y += 1) {
+    for (let x = 8; x <= 10; x += 1) expect(groundData[y * 12 + x]).toBe(1);
+  }
+  const reserveCells = new Set(
+    Array.from({ length: 2 }, (_, row) =>
+      Array.from({ length: 3 }, (_, column) => `${8 + column},${2 + row}`),
+    ).flat(),
+  );
+  for (const layerName of ['Scenery', 'Collision', 'Markers']) {
+    const objects = (withLayer(raw, layerName).objects ?? []) as Array<Record<string, unknown>>;
+    for (const object of objects) {
+      if (typeof object.x !== 'number' || typeof object.y !== 'number') continue;
+      const cell = projection.worldToGrid({ x: object.x, y: object.y });
+      expect(reserveCells.has(`${Math.floor(cell.x)},${Math.floor(cell.y)}`)).toBeFalse();
+    }
+  }
+  expect(scenery.objects.map(({ id, name, gid }) => [id, name, gid])).toEqual([
+    [1, 'tree', 4],
+    [2, 'building', 5],
+    [7, 'shipping-bin', 6],
+  ]);
+  expect(collision.objects.map(({ id, name }) => [id, name])).toEqual([
+    [3, 'tree'],
+    [4, 'building'],
+    [8, 'shipping-bin'],
+    [11, 'villager-shopkeeper'],
+    [12, 'villager-farmer'],
+    [13, 'villager-resident'],
+  ]);
   expect(markers.objects).toEqual(
     expect.arrayContaining([
       expect.objectContaining({ id: 5, name: 'player-spawn' }),
       expect.objectContaining({ id: 6, name: 'bed-interaction' }),
       expect.objectContaining({ id: 9, name: 'shop-counter' }),
       expect.objectContaining({ id: 10, name: 'shipping-bin' }),
+      expect.objectContaining({ id: 14, name: 'villager-shopkeeper', x: 416, y: 192 }),
+      expect.objectContaining({ id: 15, name: 'villager-farmer', x: 320, y: 144 }),
+      expect.objectContaining({ id: 16, name: 'villager-resident', x: 512, y: 240 }),
     ]),
   );
 
@@ -32,6 +96,9 @@ test('loads the authored proof-map contract', async () => {
     { id: 'tree', x: 7.2, y: 4.2, width: 0.6, height: 0.6 },
     { id: 'building', x: 7, y: 7, width: 2, height: 2 },
     { id: 'shipping-bin', x: 6.2, y: 10.2, width: 0.6, height: 0.6 },
+    { id: 'villager-shopkeeper', x: 6.2, y: 5.2, width: 0.6, height: 0.6 },
+    { id: 'villager-farmer', x: 3.2, y: 5.2, width: 0.6, height: 0.6 },
+    { id: 'villager-resident', x: 9.2, y: 5.2, width: 0.6, height: 0.6 },
   ]);
   expect(
     parsed.scenery.map(({ id, kind, frame, world, stableOrder }) => [
@@ -46,6 +113,16 @@ test('loads the authored proof-map contract', async () => {
     ['building', 'building', 1, { x: 384, y: 288 }, 2],
     ['shipping-bin', 'shipping-bin', 2, { x: 256, y: 272 }, 7],
   ]);
+  expect(parsed.villagers).toEqual([
+    { id: 'shopkeeper', frame: 0, world: { x: 416, y: 192 }, stableOrder: 14 },
+    { id: 'farmer', frame: 1, world: { x: 320, y: 144 }, stableOrder: 15 },
+    { id: 'resident', frame: 2, world: { x: 512, y: 240 }, stableOrder: 16 },
+  ]);
+  expect(parsed.villagerCells).toEqual({
+    shopkeeper: { x: 6, y: 5 },
+    farmer: { x: 3, y: 5 },
+    resident: { x: 9, y: 5 },
+  });
   expect(parsed.farmCells).toHaveLength(9);
   expect(parsed.farmCells).toEqual([
     { x: 2, y: 7 },
@@ -65,9 +142,10 @@ test('loads the authored proof-map contract', async () => {
 });
 
 test.each([
-  ['proof-tiles.png', 128, 32],
+  ['proof-tiles.png', 192, 32],
   ['proof-player.png', 128, 48],
   ['proof-scenery.png', 288, 96],
+  ['proof-villagers.png', 96, 48],
   ['proof-soil.png', 128, 32],
   ['proof-crops.png', 128, 144],
 ])('writes %s with exact PNG dimensions', async (name, width, height) => {
@@ -275,7 +353,7 @@ describe('proof-map contract validation', () => {
       (raw: Record<string, unknown>) => {
         raw.nextobjectid = 10;
       },
-      /proof-map: nextobjectid must be 11/,
+      /proof-map: nextobjectid must be 17/,
     ],
     [
       'missing shipping scenery',
@@ -297,7 +375,7 @@ describe('proof-map contract validation', () => {
       (raw: Record<string, unknown>) => {
         withObject(raw, 'Scenery', 'shipping-bin').gid = 4;
       },
-      /proof-map: scenery shipping-bin.gid must be 5/,
+      /proof-map: scenery shipping-bin.gid must be 6/,
     ],
     [
       'wrong shipping footprint id',
@@ -336,6 +414,90 @@ describe('proof-map contract validation', () => {
       /proof-map: shipping-bin marker must be at logical cell 6,10/,
     ],
     [
+      'missing villager footprint',
+      (raw: Record<string, unknown>) => {
+        const collision = withLayer(raw, 'Collision') as unknown as {
+          objects: Array<{ name: string }>;
+        };
+        collision.objects = collision.objects.filter(({ name }) => name !== 'villager-farmer');
+      },
+      /proof-map: Collision.objects must contain exactly six supported footprints/,
+    ],
+    [
+      'extra collision footprint',
+      (raw: Record<string, unknown>) => {
+        const collision = withLayer(raw, 'Collision') as unknown as {
+          objects: Array<Record<string, unknown>>;
+        };
+        collision.objects.push({ ...collision.objects[0], id: 17 });
+      },
+      /proof-map: Collision.objects must contain exactly six supported footprints/,
+    ],
+    [
+      'malformed villager footprint',
+      (raw: Record<string, unknown>) => {
+        withObject(raw, 'Collision', 'villager-shopkeeper').polygon = [];
+      },
+      /proof-map: footprint villager-shopkeeper must have four polygon points/,
+    ],
+    [
+      'wrong villager footprint id',
+      (raw: Record<string, unknown>) => {
+        withObject(raw, 'Collision', 'villager-shopkeeper').id = 18;
+      },
+      /proof-map: footprint villager-shopkeeper.id must be 11/,
+    ],
+    [
+      'wrong villager footprint position',
+      (raw: Record<string, unknown>) => {
+        withObject(raw, 'Collision', 'villager-shopkeeper').x = 0;
+      },
+      /proof-map: footprint villager-shopkeeper is not at its authored logical position/,
+    ],
+    [
+      'missing villager marker',
+      (raw: Record<string, unknown>) => {
+        const markers = withLayer(raw, 'Markers') as unknown as {
+          objects: Array<{ name: string }>;
+        };
+        markers.objects = markers.objects.filter(({ name }) => name !== 'villager-farmer');
+      },
+      /proof-map: expected exactly one villager-farmer marker/,
+    ],
+    [
+      'duplicate villager marker',
+      (raw: Record<string, unknown>) => {
+        const markers = withLayer(raw, 'Markers') as unknown as {
+          objects: Array<Record<string, unknown>>;
+        };
+        const villager = markers.objects.find(({ name }) => name === 'villager-resident');
+        if (!villager) throw new Error('missing villager marker in test fixture');
+        markers.objects.push({ ...villager, id: 19 });
+      },
+      /proof-map: expected exactly one villager-resident marker/,
+    ],
+    [
+      'malformed villager marker',
+      (raw: Record<string, unknown>) => {
+        withObject(raw, 'Markers', 'villager-shopkeeper').point = false;
+      },
+      /proof-map: villager-shopkeeper marker must be a point/,
+    ],
+    [
+      'wrong villager marker id',
+      (raw: Record<string, unknown>) => {
+        withObject(raw, 'Markers', 'villager-shopkeeper').id = 19;
+      },
+      /proof-map: villager-shopkeeper.id must be 14/,
+    ],
+    [
+      'wrong villager marker cell',
+      (raw: Record<string, unknown>) => {
+        withObject(raw, 'Markers', 'villager-shopkeeper').x = 384;
+      },
+      /proof-map: villager-shopkeeper marker must be at logical cell 6,5/,
+    ],
+    [
       'missing building footprint',
       (raw: Record<string, unknown>) => {
         const collision = withLayer(raw, 'Collision') as unknown as {
@@ -343,7 +505,7 @@ describe('proof-map contract validation', () => {
         };
         collision.objects = collision.objects.filter(({ name }) => name !== 'building');
       },
-      /proof-map: missing footprint for scenery building/,
+      /proof-map: Collision.objects must contain exactly six supported footprints/,
     ],
     [
       'wrong tree footprint dimensions',
