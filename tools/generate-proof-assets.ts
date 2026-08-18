@@ -2,6 +2,7 @@ import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { deflateSync } from 'node:zlib';
 import type { GridPoint, WorldPoint } from '../src/game/core/types';
+import { VILLAGER_IDS } from '../src/game/core/villagerDefinitions';
 
 interface Surface {
   width: number;
@@ -136,9 +137,10 @@ const logicalPolygon = (
   };
 };
 
-const tiles = createSurface(128, 32);
+const tiles = createSurface(192, 32);
 fillDiamond(tiles, 32, 16, 32, 16, '#76a85b', '#36563a');
 fillDiamond(tiles, 96, 16, 32, 16, '#9a6a43', '#5d3d2b');
+fillDiamond(tiles, 160, 16, 32, 16, '#c5a15d', '#755a35');
 
 const player = createSurface(128, 48);
 for (const [frame, marker] of ['#9fd8ff', '#ffd36b', '#f49c83', '#b7e48f'].entries()) {
@@ -169,6 +171,22 @@ fillRect(scenery, 204, 52, 72, 8, '#5d3d2b');
 fillRect(scenery, 214, 64, 52, 8, '#b98552');
 fillRect(scenery, 220, 88, 8, 8, '#4a352d');
 fillRect(scenery, 252, 88, 8, 8, '#4a352d');
+
+const villagerPalette = {
+  shopkeeper: { accent: '#c96b5e', shirt: '#6b4e85' },
+  farmer: { accent: '#d7a34a', shirt: '#537b58' },
+  resident: { accent: '#7ab8c9', shirt: '#7d5d48' },
+} as const;
+const villagers = createSurface(VILLAGER_IDS.length * 32, 48);
+for (const [frame, id] of VILLAGER_IDS.entries()) {
+  const x = frame * 32;
+  const palette = villagerPalette[id];
+  fillRect(villagers, x + 12, 8, 8, 8, '#f0c7a5');
+  fillRect(villagers, x + 10, 16, 12, 18, palette.shirt);
+  fillRect(villagers, x + 8, 20, 4, 12, palette.accent);
+  fillRect(villagers, x + 12, 34, 3, 10, '#4a352d');
+  fillRect(villagers, x + 18, 34, 3, 10, '#4a352d');
+}
 
 const soil = createSurface(128, 32);
 fillDiamond(soil, 32, 16, 32, 16, '#8a5a3b', '#5a3828');
@@ -216,7 +234,7 @@ cropPalettes.forEach((palette, cropIndex) => {
 const ground = Array.from({ length: 144 }, (_, index) => {
   const x = index % 12;
   const y = Math.floor(index / 12);
-  return x >= 2 && x <= 4 && y >= 7 && y <= 9 ? 2 : 1;
+  return x >= 3 && x <= 9 && y === 6 ? 3 : x >= 2 && x <= 4 && y >= 7 && y <= 9 ? 2 : 1;
 });
 
 const tree = project({ x: 7.5, y: 4.5 });
@@ -228,22 +246,37 @@ const shippingMarker = project({ x: 6.5, y: 10.5 });
 const treeRect = logicalPolygon(3, 'tree', 7.2, 4.2, 7.8, 4.8);
 const buildingRect = logicalPolygon(4, 'building', 7, 7, 9, 9);
 const shippingRect = logicalPolygon(8, 'shipping-bin', 6.2, 10.2, 6.8, 10.8);
+const villagerAuthoring = {
+  shopkeeper: {
+    collision: logicalPolygon(11, 'villager-shopkeeper', 6.2, 5.2, 6.8, 5.8),
+    marker: project({ x: 6.5, y: 5.5 }),
+  },
+  farmer: {
+    collision: logicalPolygon(12, 'villager-farmer', 3.2, 5.2, 3.8, 5.8),
+    marker: project({ x: 3.5, y: 5.5 }),
+  },
+  resident: {
+    collision: logicalPolygon(13, 'villager-resident', 9.2, 5.2, 9.8, 5.8),
+    marker: project({ x: 9.5, y: 5.5 }),
+  },
+} as const;
+const villagerFootprints = VILLAGER_IDS.map((id) => villagerAuthoring[id].collision);
 
 const groundTileset = {
   firstgid: 1,
-  columns: 2,
+  columns: 3,
   image: '../sprites/proof-tiles.png',
   imageheight: 32,
-  imagewidth: 128,
+  imagewidth: 192,
   margin: 0,
   name: 'proof-ground',
   spacing: 0,
-  tilecount: 2,
+  tilecount: 3,
   tileheight: 32,
   tilewidth: 64,
 };
 const sceneryTileset = {
-  firstgid: 3,
+  firstgid: 4,
   columns: 3,
   image: '../sprites/proof-scenery.png',
   imageheight: 96,
@@ -282,7 +315,7 @@ const sceneryLayer = {
       id: 1,
       name: 'tree',
       type: 'tree',
-      gid: 3,
+      gid: 4,
       x: tree.x,
       y: tree.y,
       width: 96,
@@ -294,7 +327,7 @@ const sceneryLayer = {
       id: 2,
       name: 'building',
       type: 'building',
-      gid: 4,
+      gid: 5,
       x: building.x,
       y: building.y,
       width: 96,
@@ -306,7 +339,7 @@ const sceneryLayer = {
       id: 7,
       name: 'shipping-bin',
       type: 'shipping-bin',
-      gid: 5,
+      gid: 6,
       x: shippingBin.x,
       y: shippingBin.y,
       width: 96,
@@ -323,7 +356,7 @@ const collisionLayer = {
   draworder: 'topdown',
   opacity: 1,
   visible: true,
-  objects: [treeRect, buildingRect, shippingRect],
+  objects: [treeRect, buildingRect, shippingRect, ...villagerFootprints],
 };
 const markerLayer = {
   id: 4,
@@ -373,6 +406,19 @@ const markerLayer = {
       rotation: 0,
       visible: true,
     },
+    ...VILLAGER_IDS.map((id, frame) => {
+      const marker = villagerAuthoring[id].marker;
+      return {
+        id: 14 + frame,
+        name: `villager-${id}`,
+        type: '',
+        point: true,
+        x: marker.x,
+        y: marker.y,
+        rotation: 0,
+        visible: true,
+      };
+    }),
   ],
 };
 
@@ -381,7 +427,7 @@ const map = {
   height: 12,
   infinite: false,
   nextlayerid: 5,
-  nextobjectid: 11,
+  nextobjectid: 17,
   orientation: 'isometric',
   renderorder: 'right-down',
   tiledversion: '1.12.2',
@@ -397,6 +443,7 @@ const map = {
 await writePng('src/assets/sprites/proof-tiles.png', tiles);
 await writePng('src/assets/sprites/proof-player.png', player);
 await writePng('src/assets/sprites/proof-scenery.png', scenery);
+await writePng('src/assets/sprites/proof-villagers.png', villagers);
 await writePng('src/assets/sprites/proof-soil.png', soil);
 await writePng('src/assets/sprites/proof-crops.png', crops);
 await Bun.write('src/assets/maps/proof-map.json', `${JSON.stringify(map, null, 2)}\n`);
