@@ -95,9 +95,9 @@ const cellMarkerContract = {
   'bed-interaction': { objectId: 6, cell: { x: 6, y: 8 } },
   'shop-counter': { objectId: 9, cell: { x: 6, y: 7 } },
   'shipping-bin': { objectId: 10, cell: { x: 6, y: 10 } },
-  'villager-shopkeeper': { objectId: 14, cell: { x: 6, y: 5 } },
-  'villager-farmer': { objectId: 15, cell: { x: 3, y: 5 } },
-  'villager-resident': { objectId: 16, cell: { x: 9, y: 5 } },
+  'villager-shopkeeper': { objectId: 14, cell: { x: 6, y: 5 }, world: { x: 416, y: 192 } },
+  'villager-farmer': { objectId: 15, cell: { x: 3, y: 5 }, world: { x: 320, y: 144 } },
+  'villager-resident': { objectId: 16, cell: { x: 9, y: 5 }, world: { x: 512, y: 240 } },
 } as const;
 
 type CellMarkerName = keyof typeof cellMarkerContract;
@@ -547,6 +547,11 @@ function parseMarkers(raw: RecordValue, projection: ProjectionAdapter): ParsedMa
     const cell = projection.gridCellAtWorld(world);
     if (cell.x !== contract.cell.x || cell.y !== contract.cell.y) {
       fail(`${name} marker must be at logical cell ${contract.cell.x},${contract.cell.y}`);
+    }
+    if ('world' in contract && (world.x !== contract.world.x || world.y !== contract.world.y)) {
+      fail(
+        `${name} marker must be at authored world position ${contract.world.x},${contract.world.y}`,
+      );
     }
     cellMarkerCells[name] = { ...cell };
     cellMarkerWorlds[name] = world;
