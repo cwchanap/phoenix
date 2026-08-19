@@ -232,9 +232,12 @@ export async function confirmAndStartDay(
   expect((await snapshot(page)).locked).toBe(true);
 
   const start = page.getByRole('button', { name: 'Start Day ' + nextDay });
+  await expect(page.locator('[data-save-status]')).toHaveText('Saved');
+  await expect(start).toBeEnabled();
   await expect(start).toBeFocused();
   await start.click();
   await expect(dialog).toBeHidden();
+  await expect(page.locator('[data-save-status]')).toHaveCount(0);
   await expect.poll(async () => (await gameSnapshot(page)).pendingDaySummary).toBeNull();
   expect((await snapshot(page)).locked).toBe(false);
   return gameSnapshot(page);

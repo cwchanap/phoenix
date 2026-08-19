@@ -6,6 +6,7 @@
   import StageFrame from './components/StageFrame.svelte';
   import { InputGate } from './game/core/InputGate';
   import { loadTitleState } from './persistence/loadTitleState';
+  import { persistOvernightSave } from './persistence/persistOvernightSave';
   import type { SaveFileV1 } from './persistence/saveFile';
   import type { SaveRepository } from './persistence/saveRepository';
   import type {
@@ -23,6 +24,7 @@
   type LifecycleStatus = 'loading' | 'ready' | 'error';
   type AppPhase = 'loading-save' | 'title' | 'playing';
   type LaunchSource = 'new' | 'continue' | null;
+  type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
   type AppHmrData = { appPhase?: AppPhase; saveRepository?: SaveRepository | null };
 
   const inputGate = new InputGate();
@@ -44,6 +46,8 @@
   let sleepPromptVisible = $state(false);
   let sleepSubmitting = $state(false);
   let summarySubmitting = $state(false);
+  let saveStatus = $state<SaveStatus>('idle');
+  let saveError = $state<string | null>(null);
   let dayTransitionActive = $state(false);
   type EconomyPanel = Exclude<InteractionIntent['kind'], 'sleep' | 'villager'> | null;
   let economyPanel = $state<EconomyPanel>(null);
@@ -70,6 +74,8 @@
     sleepPromptVisible = false;
     sleepSubmitting = false;
     summarySubmitting = false;
+    saveStatus = 'idle';
+    saveError = null;
     economyPanel = null;
     dialoguePanel = null;
     syncDayTransition();
@@ -185,9 +191,8 @@
     }
   }
 
-  function confirmSleep(): void {
+  async function confirmSleep(): Promise<void> {
     if (!sleepPromptVisible || sleepSubmitting) return;
-
     const currentCommands = commands;
     if (!currentCommands) {
       sleepPromptVisible = false;
@@ -198,10 +203,26 @@
     sleepSubmitting = true;
     syncDayTransition();
     try {
-      currentCommands.sleep();
+      const result = currentCommands.sleep();
+      sleepPromptVisible = false;
+      syncDayTransition();
+      if (!result.ok || result.code !== 'day-advanced') return;
+
+      saveStatus = 'saving';
+      saveError = null;
+      try {
+        await persistOvernightSave({
+          result,
+          state: currentCommands.state(),
+          repository: saveRepository,
+        });
+        saveStatus = 'saved';
+      } catch (error) {
+        saveStatus = 'error';
+        saveError = error instanceof Error ? error.message : String(error);
+      }
     } finally {
       sleepSubmitting = false;
-      sleepPromptVisible = false;
       syncDayTransition();
     }
   }
@@ -218,7 +239,11 @@
     summarySubmitting = true;
     syncDayTransition();
     try {
-      commands.acknowledgeDaySummary();
+      const result = commands.acknowledgeDaySummary();
+      if (result.ok && result.code === 'day-started') {
+        saveStatus = 'idle';
+        saveError = null;
+      }
     } finally {
       summarySubmitting = false;
       syncDayTransition();
@@ -283,6 +308,8 @@
         {sleepPromptVisible}
         {sleepSubmitting}
         {summarySubmitting}
+        {saveStatus}
+        {saveError}
         {dayTransitionActive}
         {economyPanel}
         dialogueOpen={dialoguePanel !== null}
