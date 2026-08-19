@@ -1,6 +1,6 @@
 # Phoenix Persistence Slice Design (HPA-596)
 
-**Status:** Draft for review
+**Status:** Draft for review — revised after repository and tooling review
 
 **Date:** 2026-08-18
 
@@ -8,45 +8,37 @@
 
 ## Source of truth
 
-This design implements HPA-596, `[Persistence Slice] Add one-slot autosave and continue`, against the current `main` after HPA-595 shipped.
+This design implements HPA-596, `[Persistence Slice] Add one-slot autosave and continue`, against current `main` after HPA-595 shipped.
 
-The live Linear issue and Phoenix project description remain authoritative for product scope and non-goals. This document resolves the persistence boundary against the code that exists now: `GameSession` is the mutable gameplay authority, `ProofScene` is an adapter, `App.svelte` owns screen-space lifecycle/modal orchestration, and the Tauri side is currently only the desktop shell.
+The live Linear issue and Phoenix project description remain authoritative for product scope and non-goals. This document resolves the persistence boundary against the code that exists now: `GameSession` is the mutable gameplay authority, `ProofScene` is the Phaser adapter, `App.svelte` owns application/modal orchestration, and the Tauri shell contains no gameplay logic.
 
 ## Outcome
 
-Phoenix opens on a small title screen instead of immediately constructing Phaser. The player can start a fresh run or continue one valid save. Sleeping completes the existing overnight mutation first, then writes exactly one versioned snapshot of the completed new-morning gameplay state. Closing and reopening the desktop app or reloading browser development can continue that run at the authored map spawn while preserving all gameplay state.
+Phoenix opens on a small title screen. The player can start a fresh run or continue one valid save. Sleeping completes the existing overnight transaction first, then writes exactly one versioned snapshot of the completed new-morning gameplay state. Browser development uses `localStorage`; desktop uses the official Tauri Store plugin. Continue restores gameplay state while `ProofWorld` starts from the authored map spawn.
 
-The implementation adds one explicit persistence boundary and two concrete storage adapters. It does not add slots, migrations, backup rotation, save-anywhere, a persistence framework, a second state owner, or Rust gameplay logic.
+The implementation adds one explicit persistence boundary and two real adapters. It does not add save slots, migrations, backup rotation, save-anywhere, cloud sync, a state-management framework, a desktop WebDriver harness, or Rust gameplay logic.
 
 ## Approved lean shape
 
-- Introduce a plain `GameState` DTO containing only mutable gameplay state.
-- Keep `GameSnapshot` as the presentation/read model; do not serialize it directly.
-- Restore `GameSession` from optional `initialState` while reconstructing world position from the authored map spawn.
-- Add one `SaveFileV1` wrapper with `schemaVersion: 1` and structural validation from `unknown`.
-- Add one `SaveRepository` interface with `load()` and `save()` only.
-- Use `localStorage` in normal browser development and the official Tauri Store plugin under `tauri dev` / `tauri build`.
-- Select the repository once during application startup; gameplay/UI code never branches on environment.
-- Mount Phaser only after New Game or Continue is selected.
-- Autosave only after successful `sleep()` has emitted the complete next-morning snapshot.
-- Keep the existing pending day-summary gate as the natural blocking surface while the save write is in flight.
+- Persist `GameState`, never `GameSnapshot`.
+- Keep `GameSession` as the only mutable gameplay authority and the owner of the persisted-state projection.
+- Add `GameSession.state(): GameState`; make `snapshot()` derive from that state plus world/presentation data.
+- Restore `GameSession` from optional `initialState` while always reconstructing `ProofWorld` from the authored map.
+- Add one `SaveFileV1` wrapper with `schemaVersion: 1` and structural parsing from `unknown`.
+- Keep authored farm-cell identity validation in `GameSession`, where the parsed map is available.
+- Add one `SaveRepository` interface with `load()` and `save()` and exactly two adapters.
+- Select the adapter once at startup; do not scatter environment checks through gameplay or UI code.
+- Mount Phaser only after New Game or Continue.
+- Autosave once after successful `day-advanced` and before the pending morning summary can be dismissed.
+- Keep the existing pending-day-summary/InputGate behavior; do not add another input-lock reason.
 - Surface only `Saving…`, `Saved`, and a clear save error.
+- Return a failed pre-ready world launch to the title screen so New Game remains available.
 
-## Why `GameSnapshot` is not the save format
+## Persisted state boundary
 
-`GameSnapshot` currently combines:
+### Relationship state
 
-1. mutable gameplay state such as day, weather, money, farm tiles, inventory, shipments, and relationships;
-2. transient world state such as player position, facing, and current target;
-3. authored/static interaction data such as bed, shop, shipping, and villager cells.
-
-Only the first category belongs in a save. Serializing the whole snapshot would make movement state and map-derived cells part of persistence, contradicting HPA-596's requirement to resume at a fixed spawn and avoid projected/runtime state.
-
-`GameState` is therefore the one serialization DTO while `GameSnapshot` remains optimized for rendering, interaction, and tests.
-
-## Persisted gameplay state
-
-Split relationship persistence from the derived UI/read field:
+Promote the current mutable relationship shape into shared core types:
 
 ```ts
 export interface RelationshipState {
@@ -61,7 +53,11 @@ export interface RelationshipSnapshot extends RelationshipState {
 }
 ```
 
-Add the exact mutable rules state:
+`RelationshipLevel` remains derived from points and is not persisted.
+
+### Game state
+
+`GameState` contains every mutable gameplay field currently owned by `GameSession`:
 
 ```ts
 export interface GameState {
@@ -82,60 +78,70 @@ export interface GameState {
 
 The save deliberately excludes:
 
-- `maxStamina`, because it is a current rules constant rather than mutable player state;
-- player position/facing and target;
-- camera scroll/bounds;
-- bed/shop/shipping/villager cells;
-- collision footprints, Tiled objects, projected/world coordinates;
-- Phaser sprites/scenes/controllers/resources;
-- Svelte modal state, feedback, title state, and save status;
-- villager content and derived relationship level.
+- player position, facing, and current target;
+- camera state and projected/world coordinates;
+- `maxStamina`, because it is a current rule constant;
+- bed/shop/shipping/villager cells, collision footprints, and Tiled objects;
+- Phaser scenes, sprites, controllers, or handles;
+- Svelte modal/component state and feedback text;
+- villager content and derived relationship levels.
 
-`pendingDaySummary` is persisted. The real autosave occurs while the new morning summary is pending; reopening should show that same summary and preserve the existing `day-summary-pending` command gate until `Start Day N`.
+`pendingDaySummary` is persisted. Autosave occurs while the newly produced morning summary is pending, so reopening immediately after a save must show that same blocking summary until the player presses `Start Day N`.
 
-`selectedAction` and `selectedSeed` are also persisted because they are current authoritative mutable fields. The rule stays simple: every mutable gameplay field owned by `GameSession` is represented once.
+`selectedAction` and `selectedSeed` are persisted because they are authoritative mutable fields.
 
-## State extraction and restore
+## `GameSession` owns export and restore
 
 ### Export
 
-`src/persistence/saveFile.ts` owns one pure extraction helper:
+Add:
 
 ```ts
-export function gameStateFromSnapshot(snapshot: GameSnapshot): GameState;
+state(): GameState;
 ```
 
-It deep-clones mutable data and strips presentation/static fields plus relationship `level`.
+`state()` is the canonical plain-data projection of the mutable rule state. It deep-clones nested data.
 
-This is sufficient because `ProofScene.publishCommand()` synchronously publishes the post-command `GameSnapshot` before `commands.sleep()` returns. `App.svelte` can therefore create the save from its updated snapshot immediately after a successful `day-advanced` result. No second state channel or `getState` scene command is needed.
+`snapshot()` must call `state()` and then add only presentation/read-model data:
+
+- `ProofWorld.snapshot()` player/target;
+- current `maxStamina`;
+- relationship `level` derived from `state.relationships`;
+- authored interaction cells.
+
+This avoids a persistence-layer copy of the mutable-field list. Adding a future mutable rule field requires updating the authoritative state projection and type, rather than independently teaching `saveFile.ts` how to strip the read model.
+
+`ProofScene` exposes one read-only scene accessor:
+
+```ts
+state(): GameState;
+```
+
+on `SceneCommands`. It delegates directly to `GameSession.state()` and does not mutate anything. `App.svelte` reads it immediately after a successful synchronous `sleep()` command, so no second state callback/channel is introduced.
 
 ### Restore
 
-Extend the existing constructor input:
+Extend `GameSessionConfig` with:
 
 ```ts
-export interface GameSessionConfig {
-  // current authored config
-  initialState?: GameState;
-}
+initialState?: GameState;
 ```
 
-Construction still clones/validates the authored world, farm cells, interaction cells, and villager cells first. If `initialState` is present, it validates current-version domain expectations and deep-clones those values into the existing mutable fields.
+Construction still validates the authored map/world/farm/interaction configuration first. When `initialState` exists:
 
-Current-version restore validation requires:
+1. require the saved farm tile positions to match the current authored farm-cell set exactly;
+2. require all current villager relationship records;
+3. clone scalar/inventory/shipment/relationship state into the existing session fields;
+4. replace the contents of `farmTiles` with cloned saved tile objects;
+5. clear and rebuild `farmTilesByKey` from those restored objects.
 
-- legal current day/time/stamina/money/counts;
-- current weather/action/crop unions only;
-- exactly one saved farm tile for each current authored farm cell, with no duplicate or foreign positions;
-- legal crop growth/watered state;
-- exactly the three current villager relationship records;
-- structurally valid pending day summary and shipment lines when present.
+The map rebuild is explicit. A restored snapshot that looks correct but leaves `farmTilesByKey` pointing to the default untilled objects is invalid.
 
-There is no coercion, repair, or compatibility path.
+Tests must execute a farm command after restore, not merely compare `snapshot().farmTiles`, to prove the lookup map uses restored objects.
 
-`ProofWorld` is always constructed from the current authored `ProofMap`. Continue therefore starts at the existing `parsed.world.spawn` marker (currently 2.5,9.5) using normal initial facing/target behavior. Saved player movement never participates in restore.
+`ProofWorld` is never hydrated from the save. Its constructor continues to initialize position from the current map spawn, so Continue resumes at the authored morning spawn with normal initial facing/target behavior.
 
-## Save file format
+## Save envelope and validation ownership
 
 Create `src/persistence/saveFile.ts`:
 
@@ -147,14 +153,24 @@ export interface SaveFileV1 {
   state: GameState;
 }
 
-export function gameStateFromSnapshot(snapshot: GameSnapshot): GameState;
-export function createSaveFile(snapshot: GameSnapshot): SaveFileV1;
+export function createSaveFile(state: GameState): SaveFileV1;
 export function parseSaveFile(value: unknown): SaveFileV1;
 ```
 
-`parseSaveFile` accepts only `unknown`, requires a plain object and exact `schemaVersion === 1`, validates the current state shape, then returns fresh cloned data. Errors use a concise `Invalid save: ...` prefix.
+`createSaveFile` only deep-clones/wraps `GameState`.
 
-Do not add Zod, JSON Schema, codec dependencies, migration registries, per-version folders, or compatibility fallbacks. There is one version and no real user data to preserve yet.
+`parseSaveFile` validates only what can be known without the authored map:
+
+- top-level plain-object shape;
+- exact `schemaVersion === 1`;
+- required current fields;
+- current closed unions;
+- integer/record/array/value shapes;
+- crop/relationship/day-summary nested structure.
+
+It does **not** assert the current nine authored farm positions. That identity belongs to `GameSession`, after `ProofScene` has parsed the current map.
+
+There is no coercion or repair path. Invalid saves throw a concise `Invalid save: ...` error. There is no migration registry, schema library, or compatibility fallback.
 
 ## Storage boundary
 
@@ -169,7 +185,7 @@ export interface SaveRepository {
 export async function createSaveRepository(): Promise<SaveRepository>;
 ```
 
-Repositories only store/retrieve the versioned object. Shared validation stays above the adapter boundary.
+Repositories store and retrieve the versioned envelope; they do not validate gameplay rules.
 
 ### Browser adapter
 
@@ -179,42 +195,19 @@ Repositories only store/retrieve the versioned object. Shared validation stays a
 phoenix.save.v1
 ```
 
-`load()` returns `null` when absent, otherwise JSON-parses the text to `unknown`. Invalid JSON rejects with a clear message for title bootstrap.
+`load()` returns `null` if absent and otherwise `JSON.parse`s the stored value. Invalid JSON rejects and is surfaced by the title bootstrap.
 
-`save()` performs one `JSON.stringify` and one `localStorage.setItem`.
+`save()` performs one `JSON.stringify(file)` and one `localStorage.setItem`.
 
-No second key, temp key, backup, IndexedDB wrapper, or generic storage framework is needed.
+No IndexedDB, temporary key, backup key, or second browser abstraction is added.
 
-## Tauri Store adapter
+### Tauri adapter
 
-Use the official Tauri Store plugin instead of a custom Rust filesystem command.
+Use `@tauri-apps/plugin-store` 2.4.4 and `tauri-plugin-store = "=2.4.4"`.
 
-Pin exactly:
-
-```json
-"@tauri-apps/plugin-store": "2.4.4"
-```
-
-and:
-
-```toml
-tauri-plugin-store = "=2.4.4"
-```
-
-Tauri's Vite integration exposes `TAURI_ENV_*` values to frontend hook builds when configured through Vite's `envPrefix`. Add only:
+The frontend Store module is dynamically imported only on the Tauri branch. Use one store file and one key:
 
 ```ts
-envPrefix: ['VITE_', 'TAURI_ENV_*'],
-```
-
-`createSaveRepository()` checks `import.meta.env.TAURI_ENV_PLATFORM`. When it is absent (normal `bun run dev` / browser build), return the localStorage adapter without importing Store. When present (`tauri dev` / `tauri build`), dynamically import `@tauri-apps/plugin-store` and create the Tauri adapter.
-
-This avoids a direct `@tauri-apps/api` dependency and keeps the environment branch in one factory. Do not expose the broad `TAURI_` prefix.
-
-Initialize one store file and one entry:
-
-```ts
-const { load } = await import('@tauri-apps/plugin-store');
 const store = await load('phoenix-save.json', {
   defaults: {},
   autoSave: false,
@@ -224,205 +217,265 @@ await store.set('save', file);
 await store.save();
 ```
 
-`defaults: {}` is explicit for the current Store options. `autoSave: false` is deliberate: Phoenix has one product-defined autosave transaction, so explicit `store.save()` gives one completion/error point instead of relying on plugin debounce.
+Explicit `store.save()` is required so the UI can report completion/failure of the product-defined overnight save transaction.
 
-Rust registers the plugin once:
+Rust only registers the plugin:
 
 ```rs
 .plugin(tauri_plugin_store::Builder::default().build())
 ```
 
-The main-window capability adds:
+The main-window capability adds `store:default`. No custom Rust save command, Rust DTO, filesystem API, encryption, or Store event system is introduced.
 
-```json
-"store:default"
+### Correct Tauri/browser selector
+
+Vite treats each `envPrefix` entry as a literal string prefix. Configure exactly:
+
+```ts
+envPrefix: ['VITE_', 'TAURI_ENV_'],
 ```
 
-No custom command, Rust DTO, filesystem path handling, serializer, encryption, or Store listener is needed.
+Do **not** use `TAURI_ENV_*`; the `*` is not a glob in Vite prefix matching.
 
-Do not silently fall back from failed Tauri Store initialization to localStorage. That would make desktop persistence appear successful while writing to the wrong backend. New Game may remain playable, but saving must report unavailable/failure.
+Add the client type in `src/vite-env.d.ts`:
+
+```ts
+interface ImportMetaEnv {
+  readonly TAURI_ENV_PLATFORM?: string;
+}
+```
+
+`createSaveRepository()` uses `import.meta.env.TAURI_ENV_PLATFORM` as its single selector. Normal browser development has no value; Tauri frontend hooks provide the value.
+
+A missing platform must take the browser adapter and must not invoke the Store loader. A Store initialization failure on the Tauri path must reject; it must never silently fall back to `localStorage` inside the webview.
+
+`tests/config/scaffold.test.ts` pins the exact `['VITE_', 'TAURI_ENV_']` contract.
 
 ## Title and startup flow
 
-Add `TitleScreen.svelte` inside the existing 640×360 `StageFrame`.
+Add `TitleScreen.svelte` inside the existing `StageFrame`.
 
 `App.svelte` owns:
 
 ```ts
 type AppPhase = 'loading-save' | 'title' | 'playing';
-
-let saveRepository: SaveRepository | null;
-let loadedSave: SaveFileV1 | null;
-let titleError: string | null;
-let initialState: GameState | null;
+type LaunchSource = 'new' | 'continue' | null;
 ```
 
 Startup runs once:
 
-1. create repository;
-2. load raw value;
-3. absent -> title with Continue disabled;
-4. parsed V1 -> title with Continue enabled;
+1. create the repository;
+2. call `load()`;
+3. no save -> title, Continue disabled;
+4. parsed V1 -> title, Continue enabled;
 5. load/parse failure -> title error, Continue disabled, New Game enabled.
 
-New Game sets `initialState = null` and enters `playing`.
+New Game launches with `initialState = null`. Continue launches with a clone of `loadedSave.state`.
 
-Continue clones `loadedSave.state` into `initialState` and enters `playing`.
+Only `playing` mounts `GameHost`, `Overlay`, and dialogue UI. `GameHost` carries `initialState` through `ProofSceneDependencies`; `ProofScene` passes it to `GameSession`.
 
-Only `playing` mounts `GameHost`, `Overlay`, and dialogue UI. `GameHost` accepts `initialState`, carries it in `ProofSceneDependencies`, and `ProofScene` passes it to the existing `GameSession` constructor.
+Starting New Game does not delete the old save immediately. The next successful overnight write replaces the slot.
 
-There is no return-to-title/pause-menu feature in HPA-596.
+### Pre-ready world failure
 
-Starting New Game does not immediately delete an existing save. The next successful sleep overwrites the single slot, avoiding an extra destructive confirmation flow.
+A structurally valid V1 can still be incompatible with the current authored map. `GameSession` discovers that only after `ProofScene.create()` has parsed the map.
+
+If `GameHost` reports an error before `onReady`:
+
+- stop/reset the failed world presentation;
+- return `AppPhase` to `title`;
+- show the error on the title;
+- keep New Game enabled;
+- if the launch source was Continue, clear the loaded save so Continue is disabled rather than retrying the same incompatible state forever.
+
+Do not strand this error in the gameplay Overlay; HPA-596 has no return-to-title menu.
 
 ## Autosave transaction
 
-Keep overnight mutation exactly where it is: `GameSession.sleep()`.
+Keep overnight mutation in `GameSession.sleep()`.
 
-`App.svelte::confirmSleep()` becomes async but preserves command ordering:
+Create one narrow, unit-testable persistence orchestration helper:
 
-1. duplicate-submit guard;
-2. call `commands.sleep()` once;
-3. if not `day-advanced`, do not save;
-4. capture the synchronously published post-sleep `gameSnapshot`;
-5. set status `saving`;
-6. call repository `save(createSaveFile(snapshot))` exactly once;
-7. set `saved` only after resolution;
-8. on rejection, set `error` with message;
-9. release submit state after the attempt settles.
+```ts
+export async function persistOvernightSave(input: {
+  result: CommandResult;
+  state: GameState;
+  repository: SaveRepository | null;
+}): Promise<boolean>;
+```
 
-The successful day transition is never rolled back if persistence fails. The latest run remains playable; the UI accurately reports that the new morning was not saved.
+Behavior:
 
-After `sleep()` succeeds, close the sleep-confirm dialog so the existing morning summary is visible during the write. Keep `Start Day N` disabled while `saving`; after success or failure it can be acknowledged normally. The existing pending summary already locks world input, so no new `InputGate` reason is needed.
+- if `result` is not successful `day-advanced`, return `false` without calling `save()`;
+- if it is `day-advanced` and repository is unavailable, throw a clear storage error;
+- otherwise write `createSaveFile(state)` exactly once and return `true` after resolution;
+- propagate repository rejection.
+
+This is not a service locator or state owner; it is a small dependency-injected transaction seam for the riskiest new branch logic.
+
+`App.svelte::confirmSleep()` becomes asynchronous with this ordering:
+
+1. guard duplicate submission;
+2. call `commands.sleep()` exactly once;
+3. the existing `publishCommand()` synchronously publishes the post-sleep snapshot before `sleep()` returns;
+4. hide the confirmation prompt once the command returns;
+5. for successful `day-advanced`, read `commands.state()` and set `saveStatus = 'saving'`;
+6. await `persistOvernightSave(...)`;
+7. set `saved` only after resolution, or `error` on rejection;
+8. clear submission state after the attempt settles.
+
+The day transition is not rolled back when storage fails.
+
+While saving, the existing pending morning summary remains visible and continues to lock world input. `Start Day N` is disabled while `saveStatus === 'saving'`. Success or failure re-enables it. No new `InputGate` reason is needed.
 
 ## Save feedback
 
-Use only:
+Use:
 
 ```ts
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 ```
 
-`Overlay.svelte` renders one stable `data-save-status` element for:
+`Overlay.svelte` renders one stable `data-save-status` surface:
 
 - `Saving…`
 - `Saved`
 - `Save failed: <message>`
 
-`Saved` can remain until the next save attempt. No timer, toast framework, retry queue, animation, or log panel.
+No toast system, timer, retries, progress bar, log view, or save history is added.
 
-## Error behavior
+## Existing E2E wiring changes
 
-- No save: Continue disabled, no error.
-- Malformed localStorage JSON: Continue disabled, clear error, New Game enabled.
-- Unsupported version: same.
-- Structurally invalid V1: same.
-- Tauri Store init/load failure: Continue disabled, storage error shown, New Game enabled.
-- Save write failure: gameplay remains advanced; status becomes error, never saved.
-- Restore rejected by `GameSession`: use the existing world error path; do not mutate/repair data.
+The title and save gate alter shared acceptance helpers, so they are part of the feature tasks rather than deferred cleanup.
 
-Do not auto-delete a bad save. A later successful New Game sleep naturally overwrites it.
+### `waitForWorld`
+
+`tests/e2e/helpers.ts::waitForWorld` currently navigates directly and waits for `World ready`. After HPA-596 it must:
+
+1. `page.goto('/')`;
+2. wait for `data-title-screen`;
+3. click `data-new-game`;
+4. wait for `World ready` and the existing observation hook.
+
+This keeps every existing farming/economy/social/world/lifecycle/sleep test on the normal New Game path without touching each spec.
+
+### `confirmAndStartDay`
+
+After clicking Confirm and validating the morning summary, the helper must wait for persistence to settle before clicking Start Day:
+
+- wait for `data-save-status` to read `Saved` in the normal localStorage path;
+- wait for `Start Day N` to be enabled;
+- then click it and perform the existing summary-clear/input-unlock assertions.
+
+Do not add arbitrary sleeps or loosen Playwright timeouts.
 
 ## Testing strategy
 
-### Unit/pure tests
+### Core/unit
 
-Extend `GameSession.test.ts` with full restore fixtures proving every mutable gameplay field restores while player world position does not.
+`GameSession.test.ts` covers:
 
-Create `saveFile.test.ts` for V1 creation/deep clone, every current state field, unknown version, malformed state, and absence of static/render fields.
+- `state()` deep-clone behavior;
+- `snapshot()` preserving current read-model shape while deriving from state;
+- representative full-state restore;
+- exact current farm-cell identity rejection;
+- relationship-state restore;
+- fixed authored spawn after restore;
+- a post-restore farm command proving `farmTilesByKey` points to restored tiles.
 
-Create `saveRepository.test.ts` with a tiny fake `Storage` and narrow Store fake. Prove local missing/load/save/malformed behavior and factory selection. The Tauri failure case must not fall back to localStorage.
+`saveFile.test.ts` covers the V1 envelope and structural parser, including unknown version and malformed nested structures, while explicitly avoiding authored farm-cell identity checks.
+
+`saveRepository.test.ts` covers localStorage, Store adapter behavior, missing-platform browser selection, Tauri Store selection, and no fallback on Store initialization failure.
+
+`persistOvernightSave.test.ts` covers:
+
+- successful `day-advanced` writes exactly once;
+- repository rejection propagates;
+- unavailable repository rejects;
+- non-`day-advanced` results never save.
+
+These tests count toward the existing Bun coverage gate; Playwright does not replace them.
 
 ### Browser Playwright
 
-Create `tests/e2e/persistence.pw.ts`:
+Create `tests/e2e/persistence.pw.ts` for:
 
-1. fresh title -> Continue disabled -> New Game;
-2. perform representative farming + social interaction, sleep, observe Saved, reload, Continue, verify same pending morning/gameplay state at authored spawn, then Start Day;
-3. place malformed browser storage, reload, verify error + disabled Continue + usable New Game.
+1. fresh title, Continue disabled, New Game launch;
+2. real gameplay change -> sleep -> `Saved` -> reload -> Continue -> same pending morning/gameplay state at authored spawn -> Start Day;
+3. malformed localStorage -> title error + disabled Continue + working New Game.
 
-Keep `window.__PHOENIX_TEST__` observation-only.
-
-The existing economy E2E already proves the long buy/grow/ship journey. The persistence round-trip unit fixture covers non-zero pending shipment state directly, while the browser test proves the actual autosave/reload orchestration without duplicating that long route.
+Keep `window.__PHOENIX_TEST__` observation-only. No teleport, weather setter, save injection method, or command hook is added.
 
 ### Tauri Store smoke
 
-Do not add a desktop WebDriver harness solely for this ticket. The implementation PR must record one focused `bun run tauri:dev` close/reopen smoke:
+Do not add desktop WebDriver infrastructure.
+
+The implementation PR validation notes must include one manual `bun run tauri:dev` close/reopen smoke:
 
 1. New Game;
-2. make a visible change;
-3. sleep and observe Saved on morning summary;
-4. close;
-5. relaunch;
-6. Continue;
-7. verify same morning gameplay state at authored spawn.
+2. make one visible gameplay change;
+3. sleep and observe `Saved`;
+4. close the Tauri window;
+5. relaunch `bun run tauri:dev`;
+6. verify Continue is enabled;
+7. Continue and verify the same morning state at the authored spawn.
 
-The existing Tauri build remains a required gate.
+The existing unsigned Tauri build remains the packaging gate.
 
-## Dependency/configuration impact
+## Expected file impact
 
-Expected dependency/platform changes are limited to:
-
-- `package.json` / `bun.lock`: add `@tauri-apps/plugin-store` 2.4.4;
-- `vite.config.ts`: expose `TAURI_ENV_*` alongside `VITE_`;
-- `src-tauri/Cargo.toml` / `Cargo.lock`: add `tauri-plugin-store = "=2.4.4"`;
-- `src-tauri/src/lib.rs`: register Store;
-- `src-tauri/capabilities/default.json`: add `store:default`;
-- `tests/config/scaffold.test.ts`: update exact dependency/config assertions.
-
-No gameplay Rust code is added.
-
-## Expected file ownership
-
-Create:
-
-- `src/persistence/saveFile.ts`
-- `src/persistence/saveRepository.ts`
-- `src/components/TitleScreen.svelte`
-- `tests/game/saveFile.test.ts`
-- `tests/game/saveRepository.test.ts`
-- `tests/e2e/persistence.pw.ts`
-
-Modify:
+### Core state
 
 - `src/game/core/types.ts`
 - `src/game/core/GameSession.ts`
-- `src/game/phaser/ProofScene.ts`
-- `src/components/GameHost.svelte`
-- `src/components/Overlay.svelte`
-- `src/App.svelte`
-- `src/app.css`
+- `tests/game/GameSession.test.ts`
+
+### Persistence
+
+- `src/persistence/saveFile.ts`
+- `src/persistence/saveRepository.ts`
+- `src/persistence/persistOvernightSave.ts`
+- `tests/game/saveFile.test.ts`
+- `tests/game/saveRepository.test.ts`
+- `tests/game/persistOvernightSave.test.ts`
+
+### Desktop/platform
+
 - `vite.config.ts`
+- `src/vite-env.d.ts`
 - `package.json`
 - `bun.lock`
 - `src-tauri/Cargo.toml`
 - `src-tauri/Cargo.lock`
 - `src-tauri/src/lib.rs`
 - `src-tauri/capabilities/default.json`
-- `tests/game/GameSession.test.ts`
 - `tests/config/scaffold.test.ts`
+
+### Title/game bridge
+
+- `src/components/TitleScreen.svelte`
+- `src/App.svelte`
+- `src/components/GameHost.svelte`
+- `src/game/phaser/ProofScene.ts`
+- `src/app.css`
+
+### Acceptance/handoff
+
+- `tests/e2e/helpers.ts`
+- `tests/e2e/persistence.pw.ts`
 - `README.md`
 - `tests/config/handoff.test.ts`
 
-No planned changes:
-
-- authored map or generated sprite assets;
-- `ProofWorld`, projection, collision, camera, `InputGate`, or daily-rhythm rules;
-- crop/villager definitions;
-- CI workflow structure or Playwright config.
-
-## Non-goals
-
-Multiple slots, manual save-anywhere, delete/rename UI, overwrite confirmation, save thumbnails, backups, atomic rotation, compression, encryption, cloud/Steam sync, cross-device transfer, migration infrastructure, backwards compatibility for development saves, arbitrary player-position persistence, camera/UI restoration, pause-menu title navigation, telemetry, database storage, and custom Rust persistence commands are outside HPA-596.
+No planned changes: authored assets/map, `ProofWorld.ts`, `InputGate.ts`, `dailyRhythm.ts`, crop/villager definitions, `loadProofMap.ts`, CI workflow, or Playwright configuration.
 
 ## Acceptance mapping
 
-- **One save after sleep:** App saves only after one successful `day-advanced`; Tauri Store plugin autosave is disabled.
-- **Equivalent desktop restore:** `GameState` includes every mutable gameplay field; native smoke closes/reopens.
-- **Browser development:** normal browser path selects localStorage and does not dynamically import Store.
-- **No render/runtime state:** save excludes world/player/camera/Tiled/Phaser/Svelte fields.
-- **Continue availability:** only a successfully parsed V1 enables Continue.
-- **Bad save recovery:** title reports error while New Game remains available.
-- **Visible failures:** `saved` is assigned only after repository resolution; rejection is displayed.
-- **Complete round trip:** unit tests compare every current mutable gameplay field.
-- **Farming/shipping/social:** representative state fixture covers all domains; browser E2E proves the real save/reload flow.
+- **One save after sleep:** only successful `day-advanced` reaches `persistOvernightSave`; Store auto-save is disabled.
+- **Equivalent restore:** `GameSession.state()` contains every mutable gameplay field; restore tests and Tauri smoke cover the round trip.
+- **Fixed spawn:** world position/facing/target are absent from `GameState`; `ProofWorld` constructs from the authored spawn.
+- **Browser development:** missing Tauri platform selects localStorage and never loads Store.
+- **Desktop backend:** `TAURI_ENV_PLATFORM` is exposed with literal prefix `TAURI_ENV_`; Store failure never falls back.
+- **Bad save recovery:** structural parser errors stay on title; map-identity restore errors return to title; New Game remains available.
+- **Visible failure:** `Saved` is assigned only after the repository write resolves.
+- **Existing E2E:** `waitForWorld` enters New Game and `confirmAndStartDay` waits for the new save gate.
+- **Coverage:** autosave success/skip/failure branches have Bun unit coverage, not only Playwright coverage.
