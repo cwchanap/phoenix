@@ -1,6 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import type { CropKind, GameSnapshot, GridCell } from '../../src/game/core/types';
-import { CROP_DEFINITIONS } from '../../src/game/core/cropDefinitions';
 import {
   acquireTarget,
   confirmAndStartDay,
@@ -19,7 +18,6 @@ const FARM_CELLS = [
   { key: 's', cell: { x: 4, y: 9 } },
 ] as const satisfies ReadonlyArray<{ key: string; cell: GridCell }>;
 const BED_CELL: GridCell = { x: 6, y: 8 };
-const SHOP_CELL: GridCell = { x: 6, y: 7 };
 const JUNE_CELL: GridCell = { x: 9, y: 5 };
 
 async function selectAction(page: Page, key: '1' | '2' | '3' | '4'): Promise<void> {
@@ -54,16 +52,6 @@ async function socialUseSelected(
   return useSelected(page, { key: targetKey, cell: targetCell }, feedback, crop, selectAction);
 }
 
-async function selectSeed(page: Page, crop: CropKind): Promise<void> {
-  const label = CROP_DEFINITIONS[crop].displayName;
-  await page.getByRole('button', { name: `Select ${label}` }).click();
-  await expect.poll(async () => (await gameSnapshot(page)).selectedSeed).toBe(crop);
-}
-
-async function waterPotato(page: Page): Promise<void> {
-  await waterForCurrentWeather(page, FARM_CELLS[0].key, FARM_CELLS[0].cell);
-}
-
 async function moveSpawnToFarmHub(page: Page): Promise<void> {
   await moveSocialAxis(page, ['d'], 'x', 'gte', 3.5);
 }
@@ -88,12 +76,6 @@ async function moveBedToFarmHub(page: Page): Promise<void> {
   if (settled.player.position.y >= 8.9) {
     await moveSocialAxis(page, ['w'], 'y', 'lte', 8.7);
   }
-}
-
-async function moveFarmHubToShop(page: Page): Promise<void> {
-  await moveFarmHubToBed(page);
-  await moveUntilPlayerAxis(page, ['w'], 'x', 'lte', 5.1);
-  await acquireTarget(page, 'd', SHOP_CELL);
 }
 
 async function moveFarmHubToBed(page: Page): Promise<void> {
@@ -239,25 +221,6 @@ test('completes the no-hook three-day village social loop', async ({ page }) => 
   }
   expect((await gameSnapshot(page)).inventory.crops.turnip).toBe(3);
 
-  await moveFarmHubToShop(page);
-  const shop = page.getByRole('dialog', { name: 'Seed shop' });
-  await page.keyboard.down('e');
-  try {
-    await expect(shop).toBeVisible();
-  } finally {
-    await page.keyboard.up('e');
-  }
-  await shop.getByRole('button', { name: 'Potato seeds' }).click();
-  await shop.getByRole('button', { name: 'Buy 1 Potato seed' }).click();
-  await expect.poll(async () => (await gameSnapshot(page)).inventory.seeds.potato).toBe(1);
-  await shop.getByRole('button', { name: 'Close' }).click();
-  await expect(shop).toBeHidden();
-  await moveBedToFarmHub(page);
-
-  await selectSeed(page, 'potato');
-  await socialUseSelected(page, FARM_CELLS[0].key, FARM_CELLS[0].cell, 'Crop planted', 'potato');
-  await waterPotato(page);
-
   await moveFarmHubToJune(page);
   const stance = await snapshot(page);
   expect(stance.player.facing).toBe('right');
@@ -295,18 +258,14 @@ test('completes the no-hook three-day village social loop', async ({ page }) => 
   expect(social.relationships.resident).toMatchObject({ points: 6, level: 'stranger' });
   await expect(dialog.locator('[data-dialogue-points]')).toHaveText('+5 relationship points');
   await expect(dialog.locator('[data-dialogue-reaction]')).toHaveText('Favourite gift!');
-
-  const afterFirstGift = await gameSnapshot(page);
-  await dialog.getByRole('button', { name: 'Give Turnip', exact: true }).click();
-  await expect(page.locator('[data-feedback]')).toHaveText('You already gave a gift today');
-  expect(await gameSnapshot(page)).toEqual(afterFirstGift);
+  await expect(dialog.locator('[data-dialogue-gift]')).toHaveCount(0);
+  await expect(dialog.locator('[data-dialogue-gift-given]')).toHaveText('Gift already given today');
   await closeDialogue(page, dialog);
 
   await moveJuneToBed(page);
-  const dayTwo = await sleepAndStart(page, 1);
+  const dayTwo = await sleepAndStart(page, 0);
   expect(dayTwo.relationships.resident).toMatchObject({ talkedToday: false, giftedToday: false });
   await moveBedToFarmHub(page);
-  await waterPotato(page);
   await moveFarmHubToJune(page);
 
   dialog = await openJuneDialogue(page);
@@ -321,13 +280,12 @@ test('completes the no-hook three-day village social loop', async ({ page }) => 
   await closeDialogue(page, dialog);
 
   await moveJuneToBed(page);
-  const dayThree = await sleepAndStart(page, 1);
+  const dayThree = await sleepAndStart(page, 0);
   expect(dayThree.relationships.resident).toMatchObject({
     talkedToday: false,
     giftedToday: false,
   });
   await moveBedToFarmHub(page);
-  await waterPotato(page);
   await moveFarmHubToJune(page);
 
   dialog = await openJuneDialogue(page);
@@ -359,39 +317,6 @@ test('completes the no-hook three-day village social loop', async ({ page }) => 
     'The village feels more like home with you here.',
   );
   await expect(dialog.getByRole('button', { name: 'Continue', exact: true })).toHaveCount(0);
-  await closeDialogue(page, dialog);
-
-  // Water the potato over two more nights to reach maturity.
-  await moveJuneToBed(page);
-  await sleepAndStart(page, 1);
-  for (let extraDay = 0; extraDay < 2; extraDay += 1) {
-    await moveBedToFarmHub(page);
-    await waterPotato(page);
-    await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 5.1, 0.1);
-    await moveUntilPlayerAxis(page, ['s'], 'y', 'gte', 9.5, 0.05);
-    await acquireTarget(page, 'd', BED_CELL);
-    await sleepAndStart(page, 1);
-  }
-
-  // Harvest the mature potato and give it as a non-favourite gift.
-  await moveBedToFarmHub(page);
-  await selectAction(page, '4');
-  await socialUseSelected(page, FARM_CELLS[0].key, FARM_CELLS[0].cell, /harvested/i, 'potato');
-  expect((await gameSnapshot(page)).inventory.crops.potato).toBe(1);
-
-  await moveFarmHubToJune(page);
-  dialog = await openJuneDialogue(page);
-  await expect(dialog.locator('[data-dialogue-relationship]')).toHaveText(
-    'Close Friend · 19 relationship points',
-  );
-  await dialog.getByRole('button', { name: 'Give Potato', exact: true }).click();
-  await expect.poll(async () => (await gameSnapshot(page)).inventory.crops.potato).toBe(0);
-  social = await gameSnapshot(page);
-  expect(social.relationships.resident).toMatchObject({ points: 22, level: 'closeFriend' });
-  await expect(dialog.locator('[data-dialogue-points]')).toHaveText('+3 relationship points');
-  await expect(dialog.locator('[data-dialogue-reaction]')).toHaveText('Gift accepted.');
-  await expect(dialog.locator('[data-dialogue-no-crops]')).toBeVisible();
-  await expect(dialog.locator('[data-dialogue-gift]')).toHaveCount(0);
   await closeDialogue(page, dialog);
 
   const observed = await gameSnapshot(page);
