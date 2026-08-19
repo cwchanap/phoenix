@@ -11,3 +11,4 @@ src-tauri/icons/
 bun.lock
 src-tauri/Cargo.lock
 docs/superpowers/
+.superpowers/
