@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { InputGate } from '../game/core/InputGate';
-  import type { CommandResult, GameSnapshot } from '../game/core/types';
+  import type { CommandResult, GameSnapshot, GameState } from '../game/core/types';
   import { GameLifecycle } from '../game/phaser/GameLifecycle';
   import { createGame } from '../game/phaser/createGame';
   import type {
@@ -13,6 +13,7 @@
 
   interface Props {
     inputGate: InputGate;
+    initialState: GameState | null;
     onStatus: (status: string) => void;
     onError: (error: Error) => void;
     onReady: (commands: SceneCommands) => void;
@@ -23,6 +24,7 @@
 
   let {
     inputGate,
+    initialState,
     onStatus,
     onError,
     onReady,
@@ -101,6 +103,7 @@
 
     dependencies = {
       inputGate,
+      initialState,
       onReady: (commands) => {
         onStatus('World ready');
         onReady(commands);

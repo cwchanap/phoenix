@@ -22,6 +22,10 @@ interface ExpectedDayTransition {
 
 export async function waitForWorld(page: Page): Promise<void> {
   await page.goto('/');
+  await expect(page.locator('[data-title-screen]')).toBeVisible();
+  const newGame = page.locator('[data-new-game]');
+  await expect(newGame).toBeEnabled();
+  await newGame.click();
   await expect(page.getByText('World ready')).toBeVisible();
   await page.waitForFunction(() => Boolean(window.__PHOENIX_TEST__?.snapshot()));
 }

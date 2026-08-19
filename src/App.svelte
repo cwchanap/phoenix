@@ -2,12 +2,17 @@
   import { onMount } from 'svelte';
   import GameHost from './components/GameHost.svelte';
   import Overlay from './components/Overlay.svelte';
+  import TitleScreen from './components/TitleScreen.svelte';
   import StageFrame from './components/StageFrame.svelte';
   import { InputGate } from './game/core/InputGate';
+  import { loadTitleState } from './persistence/loadTitleState';
+  import type { SaveFileV1 } from './persistence/saveFile';
+  import type { SaveRepository } from './persistence/saveRepository';
   import type {
     CommandResult,
     CropKind,
     GameSnapshot,
+    GameState,
     SocialFeedback,
     VillagerId,
   } from './game/core/types';
@@ -16,8 +21,21 @@
   import DialoguePanel from './components/DialoguePanel.svelte';
 
   type LifecycleStatus = 'loading' | 'ready' | 'error';
+  type AppPhase = 'loading-save' | 'title' | 'playing';
+  type LaunchSource = 'new' | 'continue' | null;
+  type AppHmrData = { appPhase?: AppPhase; saveRepository?: SaveRepository | null };
 
   const inputGate = new InputGate();
+  const hmrData = import.meta.hot?.data as AppHmrData | undefined;
+  const restorePlayingFromHmr = hmrData?.appPhase === 'playing';
+  let appPhase = $state<AppPhase>('loading-save');
+  if (restorePlayingFromHmr) appPhase = 'playing';
+  let launchSource = $state<LaunchSource>(null);
+  let saveRepository = $state.raw<SaveRepository | null>(null);
+  if (restorePlayingFromHmr) saveRepository = hmrData?.saveRepository ?? null;
+  let loadedSave = $state.raw<SaveFileV1 | null>(null);
+  let initialState = $state.raw<GameState | null>(null);
+  let titleError = $state<string | null>(null);
   let status = $state<LifecycleStatus>('loading');
   let error = $state<string | null>(null);
   let gameSnapshot = $state.raw<GameSnapshot | null>(null);
@@ -72,6 +90,19 @@
   }
 
   function handleError(nextError: Error): void {
+    if (launchSource !== null) {
+      const failedLaunch = launchSource;
+      resetGamePresentation();
+      appPhase = 'title';
+      titleError = nextError.message;
+      if (failedLaunch === 'continue') {
+        loadedSave = null;
+        initialState = null;
+      }
+      launchSource = null;
+      return;
+    }
+
     error = nextError.message;
     status = 'error';
     resetGamePresentation();
@@ -81,6 +112,22 @@
     commands = nextCommands;
     status = 'ready';
     error = null;
+    launchSource = null;
+  }
+
+  function startNewGame(): void {
+    launchSource = 'new';
+    initialState = null;
+    titleError = null;
+    appPhase = 'playing';
+  }
+
+  function continueGame(): void {
+    if (!loadedSave) return;
+    launchSource = 'continue';
+    initialState = structuredClone(loadedSave.state);
+    titleError = null;
+    appPhase = 'playing';
   }
 
   function handleGameSnapshot(nextSnapshot: GameSnapshot): void {
@@ -181,11 +228,33 @@
   const handleBlur = () => inputGate.set('window-blur', true);
   const handleFocus = () => inputGate.set('window-blur', false);
 
-  onMount(() => () => {
-    resetGamePresentation();
-    handleFocus();
-    inputGate.set('day-transition', false);
-    inputGate.set('economy-panel', false);
+  $effect(() => {
+    if (import.meta.hot) {
+      import.meta.hot.data.appPhase = appPhase;
+      import.meta.hot.data.saveRepository = saveRepository;
+    }
+  });
+
+  onMount(() => {
+    let disposed = false;
+
+    if (!restorePlayingFromHmr) {
+      void loadTitleState().then((titleState) => {
+        if (disposed) return;
+        saveRepository = titleState.repository;
+        loadedSave = titleState.save;
+        titleError = titleState.error;
+        appPhase = 'title';
+      });
+    }
+
+    return () => {
+      disposed = true;
+      resetGamePresentation();
+      handleFocus();
+      inputGate.set('day-transition', false);
+      inputGate.set('economy-panel', false);
+    };
   });
 </script>
 
@@ -193,43 +262,54 @@
 
 <main data-app-shell>
   <StageFrame>
-    <GameHost
-      {inputGate}
-      onStatus={handleStatus}
-      onError={handleError}
-      onReady={handleReady}
-      onGameSnapshot={handleGameSnapshot}
-      onCommandResult={handleCommandResult}
-      onInteractIntent={handleInteractIntent}
-    />
-    <Overlay
-      {inputGate}
-      {status}
-      {error}
-      snapshot={gameSnapshot}
-      result={commandResult}
-      {commands}
-      {sleepPromptVisible}
-      {sleepSubmitting}
-      {summarySubmitting}
-      {dayTransitionActive}
-      {economyPanel}
-      dialogueOpen={dialoguePanel !== null}
-      onConfirmSleep={confirmSleep}
-      onCancelSleep={cancelSleep}
-      onStartDay={startDay}
-      onCloseEconomyPanel={closeEconomyPanel}
-    />
-    {#if dialoguePanel && gameSnapshot}
-      {#key dialoguePanel.social}
-        <DialoguePanel
-          villagerId={dialoguePanel.villagerId}
-          social={dialoguePanel.social}
-          snapshot={gameSnapshot}
-          onGift={giftDialogueCrop}
-          onClose={closeDialoguePanel}
-        />
-      {/key}
+    {#if appPhase === 'playing'}
+      <GameHost
+        {inputGate}
+        {initialState}
+        onStatus={handleStatus}
+        onError={handleError}
+        onReady={handleReady}
+        onGameSnapshot={handleGameSnapshot}
+        onCommandResult={handleCommandResult}
+        onInteractIntent={handleInteractIntent}
+      />
+      <Overlay
+        {inputGate}
+        {status}
+        {error}
+        snapshot={gameSnapshot}
+        result={commandResult}
+        {commands}
+        {sleepPromptVisible}
+        {sleepSubmitting}
+        {summarySubmitting}
+        {dayTransitionActive}
+        {economyPanel}
+        dialogueOpen={dialoguePanel !== null}
+        onConfirmSleep={confirmSleep}
+        onCancelSleep={cancelSleep}
+        onStartDay={startDay}
+        onCloseEconomyPanel={closeEconomyPanel}
+      />
+      {#if dialoguePanel && gameSnapshot}
+        {#key dialoguePanel.social}
+          <DialoguePanel
+            villagerId={dialoguePanel.villagerId}
+            social={dialoguePanel.social}
+            snapshot={gameSnapshot}
+            onGift={giftDialogueCrop}
+            onClose={closeDialoguePanel}
+          />
+        {/key}
+      {/if}
+    {:else}
+      <TitleScreen
+        loading={appPhase === 'loading-save'}
+        canContinue={loadedSave !== null}
+        error={titleError}
+        onNewGame={startNewGame}
+        onContinue={continueGame}
+      />
     {/if}
   </StageFrame>
 </main>
