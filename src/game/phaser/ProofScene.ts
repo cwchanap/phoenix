@@ -11,6 +11,7 @@ import type {
   Facing,
   FarmingAction,
   GameSnapshot,
+  GameState,
   GridCell,
   GridPoint,
   SceneryKind,
@@ -68,6 +69,7 @@ export interface DebugSnapshot {
 }
 
 export interface SceneCommands {
+  state(): GameState;
   selectAction(action: FarmingAction): CommandResult;
   selectSeed(kind: CropKind): CommandResult;
   buySeeds(kind: CropKind, quantity: number): CommandResult;
@@ -80,6 +82,7 @@ export interface SceneCommands {
 
 export interface ProofSceneDependencies {
   inputGate: InputGate;
+  initialState: GameState | null;
   onReady(commands: SceneCommands): void;
   onError(error: Error): void;
   onSnapshot(snapshot: DebugSnapshot): void;
@@ -189,6 +192,7 @@ export class ProofScene extends Phaser.Scene {
         shopCell: parsed.shopCell,
         shippingCell: parsed.shippingCell,
         villagerCells: parsed.villagerCells,
+        initialState: this.dependencies.initialState ?? undefined,
       });
       for (const placement of parsed.scenery) {
         const sprite = this.add
@@ -237,6 +241,7 @@ export class ProofScene extends Phaser.Scene {
       this.keyboard = new KeyboardController(movementKeys, this.dependencies.inputGate);
       this.actionController = new ActionController(actionKeys, this.dependencies.inputGate);
       const commands: SceneCommands = {
+        state: () => this.requireSession().state(),
         selectAction: (action) => this.selectAction(action),
         selectSeed: (kind) => this.selectSeed(kind),
         buySeeds: (kind, quantity) => this.buySeeds(kind, quantity),

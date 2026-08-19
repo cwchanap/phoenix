@@ -372,3 +372,72 @@ body {
   outline: 3px solid #ffffff;
   outline-offset: 2px;
 }
+
+[data-title-screen] {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #17251f;
+  color: #f4f6ef;
+  text-align: center;
+}
+
+.title-panel {
+  width: min(360px, calc(100% - 32px));
+  padding: 22px 24px 24px;
+  border: 2px solid #f6d365;
+  border-radius: 4px;
+  background: rgb(16 22 20 / 88%);
+  box-shadow: 0 5px 0 rgb(16 22 20 / 55%);
+}
+
+.title-panel h1 {
+  margin: 0;
+  color: #f6d365;
+  font-size: 32px;
+  line-height: 1.1;
+}
+
+.title-panel p {
+  margin: 10px 0 0;
+}
+
+.title-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+[data-title-screen] button {
+  padding: 8px 12px;
+  border: 2px solid #f6d365;
+  border-radius: 3px;
+  background: #17251f;
+  color: #f4f6ef;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+[data-title-screen] button:hover {
+  background: #294337;
+}
+
+[data-title-screen] button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+[data-title-screen] button:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+[data-title-error] {
+  color: #ffb4a2;
+  font-weight: 700;
+}
