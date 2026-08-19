@@ -9,6 +9,7 @@ import type {
   VillagerId,
   WorldPoint,
 } from '../core/types';
+import { createValueParser } from '../core/parse';
 import { VILLAGER_IDS } from '../core/villagerDefinitions';
 
 export interface VillagerPlacement {
@@ -108,43 +109,7 @@ const allowedMarkerNames = new Set<string>(['player-spawn', ...cellMarkerNames])
 
 const snap = (value: number) => Math.round(value * 1_000_000_000) / 1_000_000_000;
 
-function fail(reason: string): never {
-  throw new Error(`proof-map: ${reason}`);
-}
-
-function record(value: unknown, context: string): RecordValue {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    fail(`${context} must be an object`);
-  }
-  return value as RecordValue;
-}
-
-function array(value: unknown, context: string): unknown[] {
-  if (!Array.isArray(value)) fail(`${context} must be an array`);
-  return value;
-}
-
-function string(value: unknown, context: string): string {
-  if (typeof value !== 'string') fail(`${context} must be a string`);
-  return value;
-}
-
-function number(value: unknown, context: string): number {
-  if (typeof value !== 'number' || !Number.isFinite(value))
-    fail(`${context} must be a finite number`);
-  return value;
-}
-
-function integer(value: unknown, context: string): number {
-  const result = number(value, context);
-  if (!Number.isInteger(result)) fail(`${context} must be an integer`);
-  return result;
-}
-
-function boolean(value: unknown, context: string): boolean {
-  if (typeof value !== 'boolean') fail(`${context} must be a boolean`);
-  return value;
-}
+const { fail, record, array, string, number, integer, boolean } = createValueParser('proof-map');
 
 function validateLayerMetadata(layer: RecordValue, name: string, objectLayer: boolean): void {
   if (number(layer.opacity, `${name}.opacity`) !== 1) fail(`${name} opacity must be 1`);
@@ -164,7 +129,7 @@ function findLayer(raw: RecordValue, name: string): RecordValue {
     record(value, `layers[${index}]`),
   );
   const layer = layers.find((candidate) => candidate.name === name);
-  if (!layer) fail(`missing ${name} layer`);
+  if (!layer) return fail(`missing ${name} layer`);
   return layer;
 }
 
@@ -494,7 +459,7 @@ function parseMarkers(raw: RecordValue, projection: ProjectionAdapter): ParsedMa
   }
 
   const marker = markers.get('player-spawn');
-  if (!marker) fail('expected exactly one player-spawn marker');
+  if (!marker) return fail('expected exactly one player-spawn marker');
   if (integer(marker.id, 'player-spawn.id') !== 5) fail('player-spawn id must be 5');
   if (marker.point !== true) fail('player-spawn marker must be a point');
   if (
@@ -527,7 +492,7 @@ function parseMarkers(raw: RecordValue, projection: ProjectionAdapter): ParsedMa
   const cellMarkerWorlds = {} as Record<CellMarkerName, WorldPoint>;
   for (const name of cellMarkerNames) {
     const candidate = markers.get(name);
-    if (!candidate) fail(`expected exactly one ${name} marker`);
+    if (!candidate) return fail(`expected exactly one ${name} marker`);
     const contract = cellMarkerContract[name];
     if (integer(candidate.id, `${name}.id`) !== contract.objectId) {
       fail(`${name}.id must be ${contract.objectId}`);
