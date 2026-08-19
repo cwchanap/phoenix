@@ -14,6 +14,7 @@
   import type { SceneCommands } from '../game/phaser/ProofScene';
 
   type LifecycleStatus = 'loading' | 'ready' | 'error';
+  type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
   type EconomyPanel = 'shop' | 'shipping' | null;
 
   interface Props {
@@ -26,6 +27,8 @@
     sleepPromptVisible: boolean;
     sleepSubmitting: boolean;
     summarySubmitting: boolean;
+    saveStatus: SaveStatus;
+    saveError: string | null;
     dayTransitionActive: boolean;
     economyPanel: EconomyPanel;
     dialogueOpen: boolean;
@@ -56,6 +59,8 @@
     sleepPromptVisible,
     sleepSubmitting,
     summarySubmitting,
+    saveStatus,
+    saveError,
     dayTransitionActive,
     economyPanel,
     dialogueOpen,
@@ -99,7 +104,7 @@
   $effect(() => {
     if (sleepPromptVisible) {
       void tick().then(() => requestAnimationFrame(() => confirmButton?.focus()));
-    } else if (summary) {
+    } else if (summary && saveStatus !== 'saving') {
       void tick().then(() => requestAnimationFrame(() => startDayButton?.focus()));
     }
   });
@@ -293,6 +298,18 @@
   {:else}
     <p data-world-status>{status === 'ready' ? 'World ready' : 'Loading world…'}</p>
 
+    {#if saveStatus !== 'idle'}
+      <p data-save-status>
+        {#if saveStatus === 'saving'}
+          Saving…
+        {:else if saveStatus === 'saved'}
+          Saved
+        {:else}
+          Save failed: {saveError ?? 'Unknown error'}
+        {/if}
+      </p>
+    {/if}
+
     <section data-farming-hud aria-label="Farming status">
       <div class="hud-stats">
         <p>Day {snapshot?.day ?? '—'}</p>
@@ -481,7 +498,7 @@
             bind:this={startDayButton}
             type="button"
             onclick={onStartDay}
-            disabled={summarySubmitting || commands === null}
+            disabled={summarySubmitting || commands === null || saveStatus === 'saving'}
           >
             Start Day {summary.nextDay}
           </button>
