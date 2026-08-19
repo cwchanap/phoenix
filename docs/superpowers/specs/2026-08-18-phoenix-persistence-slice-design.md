@@ -44,6 +44,7 @@ The implementation adds one explicit persistence layer with one save envelope, o
 - Keep the existing pending-day-summary/InputGate behavior; do not add another input-lock reason.
 - Give save status an explicit lifecycle: `idle -> saving -> saved|error -> idle` when the morning summary is dismissed.
 - Return a failed pre-ready Continue launch to the title screen so New Game remains usable.
+- Preserve the existing morning-summary focus contract: Start Day receives focus once saving has settled and the button is enabled.
 - Verify the Tauri Store wiring once when it is introduced, then perform the full close/reopen acceptance at final verification.
 
 ## Architecture and dependency direction
@@ -64,7 +65,7 @@ src/game/core  <-  src/persistence  <-  src/App.svelte
 src/game/phaser           Tauri Store/localStorage adapters
 ```
 
-`src/game/core/` never imports from `src/persistence/`. `ProofScene` never imports a storage adapter. `App.svelte` is the only production runtime consumer that coordinates the persistence layer with the game scene.
+`src/game/core/` never imports from `src/persistence/`. `ProofScene` never imports a storage adapter. `App.svelte` is the only production runtime consumer that coordinates persistence with the game scene.
 
 `CLAUDE.md` must document this new layer and dependency direction in the same PR so later work does not drag browser/Tauri APIs into the rules authority.
 
@@ -134,7 +135,7 @@ Add:
 state(): GameState;
 ```
 
-`state()` is the single plain-data projection of mutable rule state and deep-clones nested data. It reuses/extents the clone helpers already local to `GameSession.ts`; do not create a parallel family of persistence-only crop/count/relationship clones.
+`state()` is the single plain-data projection of mutable rule state and deep-clones nested data. It reuses/extends the clone helpers already local to `GameSession.ts`; do not create a parallel family of persistence-only crop/count/relationship clones.
 
 Type `GameSnapshot` from `GameState` so mutable-field additions flow into the read model by construction:
 
@@ -176,7 +177,7 @@ initialState?: GameState;
 Construction still validates the authored map/world/farm/interaction configuration first. When `initialState` exists:
 
 1. validate current rule invariants;
-2. require the saved farm tile positions to match the current authored farm-cell set exactly;
+2. require saved farm tile positions to match the current authored farm-cell set exactly;
 3. require all current villager relationship records;
 4. clone scalar/inventory/shipment/relationship state into the current session;
 5. replace the contents of `farmTiles` with cloned saved tile objects;
@@ -184,7 +185,7 @@ Construction still validates the authored map/world/farm/interaction configurati
 
 The lookup rebuild is explicit. A restored snapshot that looks right while `farmTilesByKey` still points at default untilled objects is invalid.
 
-Tests must execute a farm command after restore, not merely compare `snapshot().farmTiles`.
+Tests execute a farm command after restore, not merely compare `snapshot().farmTiles`.
 
 ### Current rule invariants
 
@@ -215,10 +216,11 @@ Use a compact test-only authored config where shop, shipping bin, bed, and one v
 4. harvest crops;
 5. deposit one crop for shipping;
 6. talk to and gift one villager;
-7. sleep once more so the shipment appears in a pending morning summary;
-8. export `state()` and construct a second `GameSession` with that state.
+7. restore once before sleep to prove pending shipment/daily social flags;
+8. sleep once more so shipment income appears in a pending morning summary;
+9. restore again.
 
-Compare the restored and original `snapshot()` values after removing only transient `player` and `target`. Separately assert the restored player starts at the authored spawn. Keep small targeted fixtures for invalid boundaries/daily flags, but do not make a hand-written full-state literal the main round-trip acceptance test.
+Compare restored/original `snapshot()` values after removing only transient `player` and `target`. Separately assert the restored player starts at the authored spawn. Keep small targeted invalid-boundary fixtures, but do not make a hand-written full-state literal the primary acceptance test.
 
 ## Shared plain-value parsing
 
@@ -236,23 +238,11 @@ export function createValueParser(prefix: string) {
 The factory only captures the error prefix. Example prefixes:
 
 ```ts
-const {
-  fail,
-  record,
-  array,
-  string,
-  number,
-  integer,
-  boolean,
-} = createValueParser('proof-map');
+const { fail, record, array, string, number, integer, boolean } =
+  createValueParser('proof-map');
 
-const {
-  record,
-  array,
-  safeInteger,
-  boolean,
-  oneOf,
-} = createValueParser('Invalid save');
+const { record, array, safeInteger, boolean, oneOf } =
+  createValueParser('Invalid save');
 ```
 
 This keeps the existing parser call style in `loadProofMap.ts` while deleting its duplicate primitive implementations. It is not a schema framework: no schema objects, decorators, migration/version registry, or generic object decoder are added.
@@ -283,10 +273,10 @@ export function parseSaveFile(value: unknown): SaveFileV1;
 - exact `schemaVersion === 1`;
 - required current fields;
 - current closed unions;
-- integer/boolean/record/array shape;
+- safe-integer/boolean/record/array shape;
 - crop/relationship/day-summary nested structure.
 
-It does **not** assert the current nine authored farm positions or current-domain ranges such as `MAX_DAY`, `MAX_STAMINA`, action cutoff, or crop maturity. Those belong to `GameSession`.
+It does **not** assert the current nine authored farm positions or current-domain ranges such as `MAX_DAY`, `MAX_STAMINA`, action cutoff, non-negative counts, or crop maturity. Those belong to `GameSession`.
 
 There is no coercion or repair path. Invalid save structure throws `Invalid save: ...`. There is no migration registry, schema library, or compatibility fallback.
 
@@ -387,7 +377,7 @@ export async function loadTitleState(
 ): Promise<TitleLoadState>;
 ```
 
-Production defaults to `createSaveRepository`. Tests inject a tiny factory.
+Production defaults to `createSaveRepository`; tests inject a tiny factory.
 
 Behavior:
 
@@ -399,7 +389,7 @@ Behavior:
 
 Keeping the repository after a load/parse failure lets New Game overwrite the one slot on the next successful sleep. Do not auto-delete or repair the bad save.
 
-`App.svelte` only assigns returned repository/save/error values and moves from `loading-save` to `title`.
+`App.svelte` keeps Svelte lifecycle synchronous. Its `onMount` starts `loadTitleState()` without returning the promise, guards late resolution with a disposed/cancelled flag, and returns the existing synchronous cleanup function. App only assigns the helper result and moves from `loading-save` to `title`.
 
 ## Title and launch flow
 
@@ -418,19 +408,22 @@ Only `playing` mounts `GameHost`, `Overlay`, and dialogue UI. `GameHost` carries
 
 Starting New Game does not delete the old save immediately. The next successful overnight write replaces the slot.
 
-### Pre-ready world failure
+### Launch completion and failure
+
+`launchSource` exists only while a world is starting. `handleReady()` clears it immediately when `onReady` fires. This prevents a later runtime error from being mistaken for a failed New Game/Continue launch.
 
 A structurally valid V1 can still be incompatible with the current authored map or current rule invariants. `GameSession` discovers that only after `ProofScene.create()` has parsed the map.
 
-If `GameHost` reports an error before `onReady`:
+If `GameHost` reports an error while `launchSource` is still non-null:
 
 - stop/reset the failed world presentation;
 - return `AppPhase` to `title`;
 - show the error on the title;
 - keep New Game enabled;
-- if launch source was Continue, clear the in-memory loaded save so Continue is disabled instead of retrying the same incompatible state forever.
+- if launch source was Continue, clear the in-memory loaded save so Continue is disabled instead of retrying the same incompatible state forever;
+- clear `launchSource`.
 
-Do not strand this error in gameplay Overlay; HPA-596 has no return-to-title menu.
+Post-ready errors use the existing gameplay error path.
 
 ## Unit-testable overnight persistence
 
@@ -468,7 +461,7 @@ This helper is dependency-injected transaction logic, not a service locator or s
 
 The day transition is not rolled back when storage fails.
 
-## Save-status lifecycle
+## Save-status and morning-focus lifecycle
 
 Use:
 
@@ -493,6 +486,14 @@ This is required for both UX and test correctness. Leaving `Saved` visible all d
 
 While saving, the existing pending morning summary remains visible and continues to lock world input. `Start Day N` is disabled while `saveStatus === 'saving'`; success or failure re-enables it. No new `InputGate` reason is needed.
 
+The current Overlay focus effect focuses Start Day when the summary appears. Because the new button is disabled during `saving`, update that effect to focus only when:
+
+```ts
+summary !== null && saveStatus !== 'saving'
+```
+
+Referencing `saveStatus` makes the effect rerun when the write settles, restoring focus to the now-enabled Start Day button on both `saved` and `error`. Preserve the existing focus expectation instead of weakening E2E accessibility coverage.
+
 `Overlay.svelte` renders one stable `data-save-status` surface only when status is not `idle`:
 
 - `Saving…`
@@ -511,24 +512,25 @@ The title and save gate alter shared acceptance helpers, so those helper changes
 
 1. `page.goto('/')`;
 2. wait for `data-title-screen`;
-3. click `data-new-game`;
-4. wait for `World ready` and the existing observation hook.
+3. wait for `data-new-game` to be enabled;
+4. click New Game;
+5. wait for `World ready` and the existing observation hook.
 
 Every existing farming/economy/social/world/lifecycle/sleep test therefore uses the normal New Game entry without per-spec patches.
 
-Because every existing spec calls this helper, the title task must run the **full** `bun run test:e2e` suite immediately after changing it, not a grep subset.
+Because every existing spec calls this helper, the title task runs the **full** `bun run test:e2e` suite immediately after changing it, not a grep subset.
 
 ### `confirmAndStartDay`
 
 After clicking Confirm and validating the morning summary, the helper waits for the current night's persistence attempt to settle:
 
 1. wait for `data-save-status` to read `Saved` on the normal browser path;
-2. wait for `Start Day N` to be enabled;
+2. wait for `Start Day N` to be enabled and focused;
 3. click it;
 4. assert summary cleared/input unlocked;
 5. assert save status returns to `idle`/the status surface is absent.
 
-Because `startDay()` reset the previous night's `Saved`, this wait cannot pass on stale state during multi-night farming/economy/social loops.
+Because `startDay()` resets the previous night's `Saved`, this wait cannot pass on stale state during multi-night farming/economy/social loops.
 
 Do not add arbitrary sleeps or loosen Playwright timeouts.
 
@@ -551,7 +553,7 @@ Do not add arbitrary sleeps or loosen Playwright timeouts.
 
 Put new persistence tests under `tests/persistence/`:
 
-- `saveFile.test.ts` — V1 envelope, structural parser, error prefixes, no authored-map identity checks;
+- `saveFile.test.ts` — V1 envelope, structural parser, error prefixes, no authored-map/rule-range checks;
 - `saveRepository.test.ts` — localStorage, Store adapter fakes, exact backend selection, no Store fallback;
 - `loadTitleState.test.ts` — repository-create failure, empty save, load failure, parse failure, valid save;
 - `persistOvernightSave.test.ts` — exactly-once success, skip branch, missing repository, repository rejection.
@@ -564,7 +566,8 @@ Create `tests/e2e/persistence.pw.ts` for:
 
 1. fresh title, Continue disabled, New Game launch;
 2. real gameplay change -> sleep -> `Saved` -> reload -> Continue -> same pending morning/gameplay state at authored spawn -> Start Day;
-3. malformed localStorage -> title error + disabled Continue + working New Game.
+3. malformed localStorage -> title error + disabled Continue + working New Game;
+4. structurally valid but current-rule-invalid saved state -> Continue attempt returns to title, disables that candidate, and leaves New Game working.
 
 Keep `window.__PHOENIX_TEST__` observation-only. No teleport, weather setter, save injection method, or command hook is added.
 
@@ -574,9 +577,8 @@ Do not wait until final acceptance to discover Store wiring problems.
 
 When the Tauri Store adapter/configuration is introduced, run a minimal real `bun run tauri:dev` smoke before moving on:
 
-- confirm the webview starts with `TAURI_ENV_PLATFORM` taking the Tauri repository branch;
-- confirm Store initialization/load succeeds under the configured `store:default` capability;
-- from devtools, perform one temporary Store write/read using a separate smoke store/key, then remove/overwrite that smoke value so it cannot affect the Phoenix save slot.
+- force the real repository factory to execute inside the Tauri webview and ensure Store load initializes without permission errors;
+- perform one temporary Store write/read/delete using a separate `phoenix-store-smoke.json` probe so the Phoenix save slot remains untouched.
 
 This is a manual integration gate for environment/plugin/permission wiring; unit fakes and `cargo check` cannot prove it.
 
@@ -596,8 +598,8 @@ No desktop WebDriver harness is added.
 
 Update:
 
-- `README.md` for the title/Continue/autosave behavior and desktop smoke;
-- `tests/config/handoff.test.ts` for any newly pinned README handoff text;
+- `README.md` for title/Continue/autosave behavior and desktop smoke;
+- `tests/config/handoff.test.ts` for newly pinned README handoff text;
 - `CLAUDE.md` with the `src/persistence/` architecture bullet and dependency direction.
 
 Do not change the active delivery model, CI workflow shape, or unrelated controls/content documentation.
@@ -608,13 +610,13 @@ Do not change the active delivery model, CI workflow shape, or unrelated control
 
 **Risk:** unit fakes and compilation can pass while the real webview takes the browser branch or Store calls are denied.
 
-**Control:** exact Vite prefix/type/config contract + Task 3 real `tauri:dev` Store initialization/write/read smoke + final close/reopen acceptance.
+**Control:** exact Vite prefix/type/config contract + early real `tauri:dev` Store initialization/write/read/delete smoke + final close/reopen acceptance.
 
 ### Shared E2E helper coupling
 
 **Risk:** title/save changes affect every existing Playwright spec through `waitForWorld` and multi-night tests through `confirmAndStartDay`.
 
-**Control:** change those helpers in the feature tasks, reset save status to `idle` after each started day, and run the full E2E suite after the title helper change and again after autosave wiring.
+**Control:** change those helpers in the feature tasks, reset save status to `idle` after each started day, preserve Start Day focus after saving settles, and run the full E2E suite after title and autosave wiring.
 
 ## Expected file impact
 
@@ -677,7 +679,7 @@ No planned changes: authored assets/map, `ProofWorld.ts`, `InputGate.ts`, `daily
 - **No runtime-render state:** `GameState` excludes world/player/camera/Tiled/Phaser/Svelte state.
 - **Continue availability:** only structurally parsed V1 enables Continue; incompatible current-domain/map state returns to title and disables that candidate.
 - **Bad save recovery:** title remains usable and New Game can later overwrite the slot.
-- **Visible failures:** `saved` is assigned only after repository resolution; failures surface as `error` and Start Day becomes usable once the attempt settles.
+- **Visible failures:** `saved` is assigned only after repository resolution; failures surface as `error` and Start Day becomes usable/focused once the attempt settles.
 - **Complete round trip:** command-driven test exercises farming, economy, shipping, social interaction, overnight transition, and restoration without a full hand-enumerated expected state.
 - **Current-rule safety:** impossible day/time/stamina/count/growth values are rejected by `GameSession` before play.
 - **Existing suite stability:** shared title/save helpers are updated at the behavior-introducing tasks and exercised by the full Playwright suite.
