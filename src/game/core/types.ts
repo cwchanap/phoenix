@@ -76,12 +76,15 @@ export type CropCounts = Record<CropKind, number>;
 export type VillagerId = 'shopkeeper' | 'farmer' | 'resident';
 export type RelationshipLevel = 'stranger' | 'friend' | 'closeFriend';
 
-export interface RelationshipSnapshot {
+export interface RelationshipState {
   points: number;
-  level: RelationshipLevel;
   talkedToday: boolean;
   giftedToday: boolean;
   closeFriendDialogueSeen: boolean;
+}
+
+export interface RelationshipSnapshot extends RelationshipState {
+  level: RelationshipLevel;
 }
 
 export interface SocialFeedback {
@@ -139,11 +142,10 @@ export interface InventorySnapshot {
   crops: CropCounts;
 }
 
-export interface GameSnapshot extends WorldSnapshot {
+export interface GameState {
   day: number;
   timeMinutes: number;
   stamina: number;
-  maxStamina: number;
   weather: Weather;
   pendingDaySummary: DaySummary | null;
   selectedAction: FarmingAction;
@@ -152,12 +154,18 @@ export interface GameSnapshot extends WorldSnapshot {
   inventory: InventorySnapshot;
   pendingShipment: CropCounts;
   farmTiles: FarmTileSnapshot[];
-  relationships: Record<VillagerId, RelationshipSnapshot>;
-  villagerCells: Record<VillagerId, GridCell>;
-  bedCell: GridCell;
-  shopCell: GridCell;
-  shippingCell: GridCell;
+  relationships: Record<VillagerId, RelationshipState>;
 }
+
+export type GameSnapshot = WorldSnapshot &
+  Omit<GameState, 'relationships'> & {
+    maxStamina: number;
+    relationships: Record<VillagerId, RelationshipSnapshot>;
+    villagerCells: Record<VillagerId, GridCell>;
+    bedCell: GridCell;
+    shopCell: GridCell;
+    shippingCell: GridCell;
+  };
 
 export type SuccessCode =
   | 'action-selected'

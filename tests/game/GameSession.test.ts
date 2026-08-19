@@ -1,9 +1,17 @@
 import { describe, expect, test } from 'bun:test';
 import { GameSession, type GameSessionConfig } from '../../src/game/core/GameSession';
 import { CROP_DEFINITIONS, CROP_KINDS, isMature } from '../../src/game/core/cropDefinitions';
+import {
+  ACTION_CUTOFF_MINUTES,
+  DAY_START_MINUTES,
+  MAX_DAY,
+  MAX_STAMINA,
+} from '../../src/game/core/dailyRhythm';
 import type {
   CropKind,
   FarmingAction,
+  GameSnapshot,
+  GameState,
   GridCell,
   VillagerId,
   Weather,
@@ -19,6 +27,18 @@ const farmCells = [
   { x: 2, y: 9 },
   { x: 3, y: 9 },
   { x: 4, y: 9 },
+];
+
+const roundTripFarmCells = [
+  { x: 6, y: 2 },
+  { x: 7, y: 2 },
+  { x: 8, y: 2 },
+  { x: 6, y: 3 },
+  { x: 7, y: 3 },
+  { x: 8, y: 3 },
+  { x: 6, y: 4 },
+  { x: 7, y: 4 },
+  { x: 8, y: 4 },
 ];
 
 const bedCell = { x: 6, y: 8 };
@@ -71,6 +91,40 @@ function config(overrides: Partial<GameSessionConfig> = {}): GameSessionConfig {
     nextWeather: () => 'sunny',
     ...overrides,
   };
+}
+
+function roundTripConfig(overrides: Partial<GameSessionConfig> = {}): GameSessionConfig {
+  return {
+    world: {
+      width: 12,
+      height: 12,
+      spawn: { x: 3.5, y: 8.5 },
+      footprints: [],
+    },
+    metrics: { tileWidth: 64, tileHeight: 32, origin: { x: 384, y: 0 } },
+    farmCells: roundTripFarmCells,
+    bedCell: { x: 4, y: 9 },
+    shopCell: { x: 4, y: 7 },
+    shippingCell: { x: 2, y: 9 },
+    villagerCells: {
+      shopkeeper: { x: 2, y: 7 },
+      farmer: { x: 9, y: 5 },
+      resident: { x: 10, y: 5 },
+    },
+    nextWeather: () => 'sunny',
+    ...overrides,
+  };
+}
+
+function face(session: GameSession, screenX: number, screenY: number): void {
+  session.stepMovement({ screenX, screenY }, 0);
+}
+
+function withoutWorld(snapshot: GameSnapshot) {
+  const { player: _player, target: _target, ...rest } = snapshot;
+  void _player;
+  void _target;
+  return rest;
 }
 
 function sessionWithConfig(overrides: Partial<GameSessionConfig> = {}): GameSession {
@@ -832,6 +886,126 @@ describe('GameSession', () => {
 
     expect(() => session.sleep()).toThrow('GameSession: nextWeather returned an unsupported value');
     expect(session.snapshot()).toEqual(before);
+  });
+
+  describe('restorable state', () => {
+    test('round-trips command-driven state without moving the restored world', () => {
+      const session = new GameSession(roundTripConfig());
+
+      face(session, 1, 0); // right -> shop {4,7}
+      expect(session.buySeeds('potato', 1)).toEqual({ ok: true, code: 'seeds-purchased' });
+
+      for (const cell of roundTripFarmCells.slice(0, 2)) {
+        expect(session.hoe(cell)).toEqual({ ok: true, code: 'soil-tilled' });
+        expect(session.plant(cell)).toEqual({ ok: true, code: 'crop-planted' });
+        expect(session.water(cell)).toEqual({ ok: true, code: 'crop-watered' });
+      }
+      expect(session.hoe(roundTripFarmCells[2])).toEqual({ ok: true, code: 'soil-tilled' });
+
+      for (let night = 0; night < 3; night += 1) {
+        face(session, 0, 1); // down -> bed {4,9}
+        expect(session.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+        expect(session.acknowledgeDaySummary()).toEqual({ ok: true, code: 'day-started' });
+        if (night < 2) {
+          for (const cell of roundTripFarmCells.slice(0, 2)) {
+            expect(session.water(cell)).toEqual({ ok: true, code: 'crop-watered' });
+          }
+        }
+      }
+
+      for (const cell of roundTripFarmCells.slice(0, 2)) {
+        expect(session.harvest(cell)).toEqual({ ok: true, code: 'crop-harvested' });
+      }
+
+      face(session, -1, 0); // left -> shipping {2,9}
+      expect(session.depositCrop('turnip', 1)).toEqual({ ok: true, code: 'crop-deposited' });
+
+      face(session, 0, -1); // up -> shopkeeper {2,7}
+      expect(session.talkTo('shopkeeper').ok).toBe(true);
+      expect(session.giftCrop('shopkeeper', 'turnip').ok).toBe(true);
+      expect(session.selectAction('hands')).toEqual({ ok: true, code: 'action-selected' });
+      expect(session.selectSeed('potato')).toEqual({ ok: true, code: 'seed-selected' });
+
+      const beforeSleepState = session.state();
+      const restoredBeforeSleep = new GameSession(
+        roundTripConfig({ initialState: structuredClone(beforeSleepState) }),
+      );
+      expect(withoutWorld(restoredBeforeSleep.snapshot())).toEqual(
+        withoutWorld(session.snapshot()),
+      );
+      expect(restoredBeforeSleep.snapshot().player.position).toEqual({ x: 3.5, y: 8.5 });
+
+      expect(restoredBeforeSleep.selectSeed('potato')).toEqual({ ok: true, code: 'seed-selected' });
+      expect(restoredBeforeSleep.plant(roundTripFarmCells[2])).toEqual({
+        ok: true,
+        code: 'crop-planted',
+      });
+
+      face(session, 0, 1);
+      expect(session.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+      const morningState = session.state();
+      const restoredMorning = new GameSession(
+        roundTripConfig({ initialState: structuredClone(morningState) }),
+      );
+      expect(withoutWorld(restoredMorning.snapshot())).toEqual(withoutWorld(session.snapshot()));
+      expect(restoredMorning.snapshot().pendingDaySummary?.shippingIncome).toBeGreaterThan(0);
+
+      const first = session.state();
+      const second = session.state();
+      expect(first).toEqual(second);
+      expect(first).not.toBe(second);
+      first.inventory.seeds.turnip += 999;
+      expect(session.state()).toEqual(second);
+    });
+
+    test('rejects initial state outside current rules or authored identity', () => {
+      const validState = new GameSession(roundTripConfig()).state();
+      const invalidCases: Array<[string, (state: GameState) => void]> = [
+        ['day below range', (state) => (state.day = 0)],
+        ['day above range', (state) => (state.day = MAX_DAY + 1)],
+        ['time before day start', (state) => (state.timeMinutes = DAY_START_MINUTES - 1)],
+        ['time after cutoff', (state) => (state.timeMinutes = ACTION_CUTOFF_MINUTES + 1)],
+        ['negative stamina', (state) => (state.stamina = -1)],
+        ['stamina over max', (state) => (state.stamina = MAX_STAMINA + 1)],
+        ['negative money', (state) => (state.money = -1)],
+        ['negative seed count', (state) => (state.inventory.seeds.turnip = -1)],
+        ['negative crop count', (state) => (state.inventory.crops.turnip = -1)],
+        ['negative shipment count', (state) => (state.pendingShipment.turnip = -1)],
+        ['negative relationship points', (state) => (state.relationships.shopkeeper.points = -1)],
+        [
+          'growth past maturity',
+          (state) => {
+            state.farmTiles[0].crop = {
+              kind: 'turnip',
+              growth: CROP_DEFINITIONS.turnip.growthDays + 1,
+              wateredToday: false,
+            };
+          },
+        ],
+        [
+          'duplicate saved farm coordinate',
+          (state) => (state.farmTiles[1].position = { ...state.farmTiles[0].position }),
+        ],
+        [
+          'foreign saved farm coordinate',
+          (state) => (state.farmTiles[0].position = { x: 0, y: 0 }),
+        ],
+        [
+          'missing villager relationship',
+          (state) => {
+            delete (state.relationships as Partial<GameState['relationships']>).shopkeeper;
+          },
+        ],
+      ];
+
+      for (const [name, mutate] of invalidCases) {
+        const state = structuredClone(validState);
+        mutate(state);
+        expect(() => new GameSession(roundTripConfig({ initialState: state })), name).toThrow(
+          /^GameSession: invalid initial state/,
+        );
+      }
+    });
   });
 
   describe('selected action dispatch', () => {

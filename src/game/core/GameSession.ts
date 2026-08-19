@@ -1,6 +1,7 @@
 import { intersects } from './collision';
-import { CROP_DEFINITIONS, isMature, shipmentPayout } from './cropDefinitions';
+import { CROP_DEFINITIONS, CROP_KINDS, isMature, shipmentPayout } from './cropDefinitions';
 import {
+  ACTION_CUTOFF_MINUTES,
   DAY_START_MINUTES,
   defaultNextWeather,
   evaluateActionBudget,
@@ -28,6 +29,7 @@ import type {
   FarmingAction,
   Footprint,
   GameSnapshot,
+  GameState,
   GridCell,
   InventorySnapshot,
   MovementInput,
@@ -35,6 +37,7 @@ import type {
   ProofMap,
   GiftResult,
   RelationshipSnapshot,
+  RelationshipState,
   TalkResult,
   VillagerId,
   Weather,
@@ -50,6 +53,7 @@ export interface GameSessionConfig {
   shippingCell: GridCell;
   villagerCells: Record<VillagerId, GridCell>;
   nextWeather?: () => Weather;
+  initialState?: GameState;
 }
 
 interface MutableCrop {
@@ -62,13 +66,6 @@ interface MutableFarmTile {
   position: GridCell;
   soil: 'untilled' | 'tilled';
   crop: MutableCrop | null;
-}
-
-interface MutableRelationship {
-  points: number;
-  talkedToday: boolean;
-  giftedToday: boolean;
-  closeFriendDialogueSeen: boolean;
 }
 
 type LookupResult = MutableFarmTile | { ok: false; code: 'no-target' | 'not-farm-cell' };
@@ -85,7 +82,7 @@ export class GameSession {
   private readonly shopCell: GridCell;
   private readonly shippingCell: GridCell;
   private readonly villagerCells: Record<VillagerId, GridCell>;
-  private readonly relationships: Record<VillagerId, MutableRelationship>;
+  private readonly relationships: Record<VillagerId, RelationshipState>;
   private readonly nextWeather: () => Weather;
   private day = 1;
   private timeMinutes = DAY_START_MINUTES;
@@ -179,6 +176,7 @@ export class GameSession {
       .sort((a, b) => a.y - b.y || a.x - b.x)
       .map((position) => ({ position, soil: 'untilled', crop: null }));
     this.farmTilesByKey = new Map(this.farmTiles.map((tile) => [cellKey(tile.position), tile]));
+    if (config.initialState) this.restoreInitialState(config.initialState);
   }
 
   stepMovement(input: MovementInput, deltaMs: number): void {
@@ -186,34 +184,30 @@ export class GameSession {
     this.world.step(input, deltaMs);
   }
 
-  snapshot(): GameSnapshot {
-    const worldSnapshot: WorldSnapshot = this.world.snapshot();
+  state(): GameState {
     return {
-      ...worldSnapshot,
       day: this.day,
       timeMinutes: this.timeMinutes,
       stamina: this.stamina,
-      maxStamina: this.maxStamina,
       weather: this.weather,
-      pendingDaySummary: this.pendingDaySummary
-        ? {
-            ...this.pendingDaySummary,
-            shipments: this.pendingDaySummary.shipments.map((line) => ({ ...line })),
-          }
-        : null,
+      pendingDaySummary: cloneDaySummary(this.pendingDaySummary),
       selectedAction: this.selectedAction,
       selectedSeed: this.selectedSeed,
       money: this.money,
-      inventory: {
-        seeds: cloneCounts(this.inventory.seeds),
-        crops: cloneCounts(this.inventory.crops),
-      },
+      inventory: cloneInventory(this.inventory),
       pendingShipment: cloneCounts(this.pendingShipment),
-      farmTiles: this.farmTiles.map((tile): FarmTileSnapshot => ({
-        position: { ...tile.position },
-        soil: tile.soil,
-        crop: tile.crop ? { ...tile.crop } : null,
-      })),
+      farmTiles: this.farmTiles.map(cloneFarmTile),
+      relationships: cloneRelationshipState(this.relationships),
+    };
+  }
+
+  snapshot(): GameSnapshot {
+    const worldSnapshot: WorldSnapshot = this.world.snapshot();
+    const state = this.state();
+    return {
+      ...worldSnapshot,
+      ...state,
+      maxStamina: this.maxStamina,
       relationships: cloneRelationships(this.relationships),
       villagerCells: cloneVillagerCells(this.villagerCells),
       bedCell: { ...this.bedCell },
@@ -480,6 +474,44 @@ export class GameSession {
     return { ok: true, code: 'day-started' };
   }
 
+  private restoreInitialState(initialState: GameState): void {
+    validateInitialStateInvariants(initialState);
+
+    const savedKeys = new Set<string>();
+    for (const tile of initialState.farmTiles) {
+      const key = cellKey(tile.position);
+      if (savedKeys.has(key)) invalidInitialState(`duplicate farm coordinate ${key}`);
+      if (!this.farmTilesByKey.has(key)) invalidInitialState(`foreign farm coordinate ${key}`);
+      savedKeys.add(key);
+    }
+    if (savedKeys.size !== this.farmTiles.length) {
+      invalidInitialState('missing authored farm coordinate');
+    }
+
+    const restoredTiles = initialState.farmTiles.map(cloneFarmTile);
+    this.farmTiles.splice(0, this.farmTiles.length, ...restoredTiles);
+    this.farmTilesByKey.clear();
+    for (const tile of this.farmTiles) {
+      this.farmTilesByKey.set(cellKey(tile.position), tile);
+    }
+
+    this.day = initialState.day;
+    this.timeMinutes = initialState.timeMinutes;
+    this.stamina = initialState.stamina;
+    this.weather = initialState.weather;
+    this.pendingDaySummary = cloneDaySummary(initialState.pendingDaySummary);
+    this.selectedAction = initialState.selectedAction;
+    this.selectedSeed = initialState.selectedSeed;
+    this.money = initialState.money;
+    this.inventory = cloneInventory(initialState.inventory);
+    this.pendingShipment = cloneCounts(initialState.pendingShipment);
+
+    const restoredRelationships = cloneRelationshipState(initialState.relationships);
+    for (const id of VILLAGER_IDS) {
+      this.relationships[id] = restoredRelationships[id];
+    }
+  }
+
   private activeDayFailure(): CommandResult | null {
     return this.pendingDaySummary ? { ok: false, code: 'day-summary-pending' } : null;
   }
@@ -515,6 +547,25 @@ function cloneCounts(counts: CropCounts): CropCounts {
   return { turnip: counts.turnip, potato: counts.potato, pumpkin: counts.pumpkin };
 }
 
+function cloneFarmTile(tile: FarmTileSnapshot): MutableFarmTile {
+  return {
+    position: { ...tile.position },
+    soil: tile.soil,
+    crop: tile.crop ? { ...tile.crop } : null,
+  };
+}
+
+function cloneDaySummary(summary: DaySummary | null): DaySummary | null {
+  return summary ? { ...summary, shipments: summary.shipments.map((line) => ({ ...line })) } : null;
+}
+
+function cloneInventory(inventory: InventorySnapshot): InventorySnapshot {
+  return {
+    seeds: cloneCounts(inventory.seeds),
+    crops: cloneCounts(inventory.crops),
+  };
+}
+
 function cloneVillagerCells(cells: Record<VillagerId, GridCell>): Record<VillagerId, GridCell> {
   return Object.fromEntries(VILLAGER_IDS.map((id) => [id, { ...cells[id] }])) as Record<
     VillagerId,
@@ -522,17 +573,26 @@ function cloneVillagerCells(cells: Record<VillagerId, GridCell>): Record<Village
   >;
 }
 
-function createRelationships(): Record<VillagerId, MutableRelationship> {
+function createRelationships(): Record<VillagerId, RelationshipState> {
   return Object.fromEntries(
     VILLAGER_IDS.map((id) => [
       id,
       { points: 0, talkedToday: false, giftedToday: false, closeFriendDialogueSeen: false },
     ]),
-  ) as Record<VillagerId, MutableRelationship>;
+  ) as Record<VillagerId, RelationshipState>;
+}
+
+function cloneRelationshipState(
+  relationships: Record<VillagerId, RelationshipState>,
+): Record<VillagerId, RelationshipState> {
+  return Object.fromEntries(VILLAGER_IDS.map((id) => [id, { ...relationships[id] }])) as Record<
+    VillagerId,
+    RelationshipState
+  >;
 }
 
 function cloneRelationships(
-  relationships: Record<VillagerId, MutableRelationship>,
+  relationships: Record<VillagerId, RelationshipState>,
 ): Record<VillagerId, RelationshipSnapshot> {
   return Object.fromEntries(
     VILLAGER_IDS.map((id) => {
@@ -549,6 +609,67 @@ function cloneRelationships(
       ];
     }),
   ) as Record<VillagerId, RelationshipSnapshot>;
+}
+
+function invalidInitialState(reason: string): never {
+  throw new Error(`GameSession: invalid initial state ${reason}`);
+}
+
+function validateInitialStateInvariants(state: GameState): void {
+  if (!Number.isSafeInteger(state.day) || state.day < 1 || state.day > MAX_DAY) {
+    invalidInitialState('day is outside the current rule range');
+  }
+  if (
+    !Number.isSafeInteger(state.timeMinutes) ||
+    state.timeMinutes < DAY_START_MINUTES ||
+    state.timeMinutes > ACTION_CUTOFF_MINUTES
+  ) {
+    invalidInitialState('time is outside the current rule range');
+  }
+  if (!Number.isSafeInteger(state.stamina) || state.stamina < 0 || state.stamina > MAX_STAMINA) {
+    invalidInitialState('stamina is outside the current rule range');
+  }
+  assertNonnegativeSafeInteger(state.money, 'money must be a nonnegative safe integer');
+
+  for (const kind of CROP_KINDS) {
+    assertNonnegativeSafeInteger(
+      state.inventory.seeds[kind],
+      `${kind} seed count must be a nonnegative safe integer`,
+    );
+    assertNonnegativeSafeInteger(
+      state.inventory.crops[kind],
+      `${kind} crop count must be a nonnegative safe integer`,
+    );
+    assertNonnegativeSafeInteger(
+      state.pendingShipment[kind],
+      `${kind} shipment count must be a nonnegative safe integer`,
+    );
+  }
+
+  for (const tile of state.farmTiles) {
+    if (!tile.crop) continue;
+    const growthDays = CROP_DEFINITIONS[tile.crop.kind].growthDays;
+    if (
+      !Number.isSafeInteger(tile.crop.growth) ||
+      tile.crop.growth < 0 ||
+      tile.crop.growth > growthDays
+    ) {
+      invalidInitialState(`crop growth for ${tile.crop.kind} is outside the current rule range`);
+    }
+  }
+
+  for (const id of VILLAGER_IDS) {
+    const relationship = state.relationships?.[id];
+    if (!relationship) invalidInitialState(`missing relationship ${id}`);
+    assertNonnegativeSafeInteger(
+      relationship.points,
+      `${id} relationship points must be a nonnegative safe integer`,
+    );
+  }
+}
+
+function assertNonnegativeSafeInteger(value: number, reason: string): void {
+  if (!Number.isSafeInteger(value) || value < 0) invalidInitialState(reason);
 }
 
 function isIntegerCellInBounds(cell: GridCell, world: ProofMap): boolean {
