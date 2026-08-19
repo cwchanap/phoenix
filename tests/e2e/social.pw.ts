@@ -1,13 +1,16 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import type { FarmingAction, GameSnapshot, GridCell } from '../../src/game/core/types';
+import type { CropKind, GameSnapshot, GridCell } from '../../src/game/core/types';
+import { CROP_DEFINITIONS } from '../../src/game/core/cropDefinitions';
 import {
   acquireTarget,
   confirmAndStartDay,
   gameSnapshot,
   moveUntilPlayerAxis,
   snapshot,
+  useSelected,
   waitForWorld,
   waterForCurrentWeather,
+  type ActionSelection,
 } from './helpers';
 
 const FARM_CELLS = [
@@ -16,6 +19,7 @@ const FARM_CELLS = [
   { key: 's', cell: { x: 4, y: 9 } },
 ] as const satisfies ReadonlyArray<{ key: string; cell: GridCell }>;
 const BED_CELL: GridCell = { x: 6, y: 8 };
+const SHOP_CELL: GridCell = { x: 6, y: 7 };
 const JUNE_CELL: GridCell = { x: 9, y: 5 };
 
 async function selectAction(page: Page, key: '1' | '2' | '3' | '4'): Promise<void> {
@@ -27,72 +31,37 @@ async function selectAction(page: Page, key: '1' | '2' | '3' | '4'): Promise<voi
   }
 }
 
-async function useSelected(
+const SOCIAL_ACTION_SELECTION: Readonly<Record<string, ActionSelection>> = {
+  'Soil tilled': { key: '1', action: 'hoe', resetKey: '2', resetAction: 'seeds' },
+  'Crop planted': { key: '2', action: 'seeds', resetKey: '1', resetAction: 'hoe' },
+};
+const HARVEST_ACTION_SELECTION: ActionSelection = {
+  key: '4',
+  action: 'hands',
+  resetKey: '1',
+  resetAction: 'hoe',
+};
+
+async function socialUseSelected(
   page: Page,
   targetKey: string,
   targetCell: GridCell,
   feedback: string | RegExp,
+  crop: CropKind = 'turnip',
 ): Promise<GameSnapshot> {
-  await acquireTarget(page, targetKey, targetCell);
-  const action =
-    feedback === 'Soil tilled'
-      ? { key: '1', action: 'hoe' as FarmingAction }
-      : feedback === 'Crop planted'
-        ? { key: '2', action: 'seeds' as FarmingAction }
-        : { key: '4', action: 'hands' as FarmingAction };
-  const resetKey = action.key === '1' ? '2' : '1';
-  const resetAction = action.key === '1' ? 'seeds' : 'hoe';
-  await page.keyboard.down(resetKey);
-  try {
-    await expect.poll(async () => (await gameSnapshot(page)).selectedAction).toBe(resetAction);
-  } finally {
-    await page.keyboard.up(resetKey);
-  }
-  await page.keyboard.down(action.key);
-  try {
-    await expect.poll(async () => (await gameSnapshot(page)).selectedAction).toBe(action.action);
-  } finally {
-    await page.keyboard.up(action.key);
-  }
-  const before = await gameSnapshot(page);
-  await page.keyboard.down('Space');
-  try {
-    if (action.action === 'hoe') {
-      await expect
-        .poll(
-          async () =>
-            (await gameSnapshot(page)).farmTiles.find(
-              ({ position }) => position.x === targetCell.x && position.y === targetCell.y,
-            )?.soil,
-        )
-        .toBe('tilled');
-    } else if (action.action === 'seeds') {
-      await expect
-        .poll(
-          async () =>
-            (await gameSnapshot(page)).farmTiles.find(
-              ({ position }) => position.x === targetCell.x && position.y === targetCell.y,
-            )?.crop?.kind,
-        )
-        .toBe('turnip');
-    } else {
-      await expect
-        .poll(async () => (await gameSnapshot(page)).inventory.crops.turnip)
-        .toBe(before.inventory.crops.turnip + 1);
-      await expect
-        .poll(
-          async () =>
-            (await gameSnapshot(page)).farmTiles.find(
-              ({ position }) => position.x === targetCell.x && position.y === targetCell.y,
-            )?.crop,
-        )
-        .toBeNull();
-    }
-    await expect(page.locator('[data-feedback]')).toHaveText(feedback);
-  } finally {
-    await page.keyboard.up('Space');
-  }
-  return gameSnapshot(page);
+  const selectAction =
+    typeof feedback === 'string' ? SOCIAL_ACTION_SELECTION[feedback] : HARVEST_ACTION_SELECTION;
+  return useSelected(page, { key: targetKey, cell: targetCell }, feedback, crop, selectAction);
+}
+
+async function selectSeed(page: Page, crop: CropKind): Promise<void> {
+  const label = CROP_DEFINITIONS[crop].displayName;
+  await page.getByRole('button', { name: `Select ${label}` }).click();
+  await expect.poll(async () => (await gameSnapshot(page)).selectedSeed).toBe(crop);
+}
+
+async function waterPotato(page: Page): Promise<void> {
+  await waterForCurrentWeather(page, FARM_CELLS[0].key, FARM_CELLS[0].cell);
 }
 
 async function moveSpawnToFarmHub(page: Page): Promise<void> {
@@ -119,6 +88,12 @@ async function moveBedToFarmHub(page: Page): Promise<void> {
   if (settled.player.position.y >= 8.9) {
     await moveSocialAxis(page, ['w'], 'y', 'lte', 8.7);
   }
+}
+
+async function moveFarmHubToShop(page: Page): Promise<void> {
+  await moveFarmHubToBed(page);
+  await moveUntilPlayerAxis(page, ['w'], 'x', 'lte', 5.1);
+  await acquireTarget(page, 'd', SHOP_CELL);
 }
 
 async function moveFarmHubToBed(page: Page): Promise<void> {
@@ -218,19 +193,19 @@ function cropAt(
 }
 
 test('completes the no-hook three-day village social loop', async ({ page }) => {
-  // This real three-day journey exceeds Playwright's default 30 s budget on CI.
-  test.setTimeout(60_000);
+  // This real multi-day journey exceeds Playwright's default 30 s budget on CI.
+  test.setTimeout(120_000);
   await waitForWorld(page);
   await moveSpawnToFarmHub(page);
 
   await selectAction(page, '1');
   for (const { key, cell } of FARM_CELLS) {
-    await useSelected(page, key, cell, 'Soil tilled');
+    await socialUseSelected(page, key, cell, 'Soil tilled');
   }
 
   await selectAction(page, '2');
   for (const { key, cell } of FARM_CELLS) {
-    await useSelected(page, key, cell, 'Crop planted');
+    await socialUseSelected(page, key, cell, 'Crop planted');
   }
 
   await selectAction(page, '3');
@@ -260,9 +235,28 @@ test('completes the no-hook three-day village social loop', async ({ page }) => 
   await moveBedToFarmHub(page);
   await selectAction(page, '4');
   for (const { key, cell } of FARM_CELLS) {
-    await useSelected(page, key, cell, /harvested/i);
+    await socialUseSelected(page, key, cell, /harvested/i);
   }
   expect((await gameSnapshot(page)).inventory.crops.turnip).toBe(3);
+
+  await moveFarmHubToShop(page);
+  const shop = page.getByRole('dialog', { name: 'Seed shop' });
+  await page.keyboard.down('e');
+  try {
+    await expect(shop).toBeVisible();
+  } finally {
+    await page.keyboard.up('e');
+  }
+  await shop.getByRole('button', { name: 'Potato seeds' }).click();
+  await shop.getByRole('button', { name: 'Buy 1 Potato seed' }).click();
+  await expect.poll(async () => (await gameSnapshot(page)).inventory.seeds.potato).toBe(1);
+  await shop.getByRole('button', { name: 'Close' }).click();
+  await expect(shop).toBeHidden();
+  await moveBedToFarmHub(page);
+
+  await selectSeed(page, 'potato');
+  await socialUseSelected(page, FARM_CELLS[0].key, FARM_CELLS[0].cell, 'Crop planted', 'potato');
+  await waterPotato(page);
 
   await moveFarmHubToJune(page);
   const stance = await snapshot(page);
@@ -274,7 +268,7 @@ test('completes the no-hook three-day village social loop', async ({ page }) => 
   let dialog = await openJuneDialogue(page);
   await expectDialogueLockedHud(page);
   await expect(dialog.locator('[data-dialogue-relationship]')).toHaveText(
-    'Stranger · 1 relationship points',
+    'Stranger · 1 relationship point',
   );
   await expect(dialog.locator('[data-dialogue-line]')).toHaveText(
     'It is quieter here than the road makes it look.',
@@ -292,7 +286,7 @@ test('completes the no-hook three-day village social loop', async ({ page }) => 
   dialog = await openJuneDialogue(page);
   await expect(dialog.locator('[data-dialogue-points]')).toHaveCount(0);
   await expect(dialog.locator('[data-dialogue-relationship]')).toHaveText(
-    'Stranger · 1 relationship points',
+    'Stranger · 1 relationship point',
   );
 
   await dialog.getByRole('button', { name: 'Give Turnip', exact: true }).click();
@@ -309,9 +303,10 @@ test('completes the no-hook three-day village social loop', async ({ page }) => 
   await closeDialogue(page, dialog);
 
   await moveJuneToBed(page);
-  const dayTwo = await sleepAndStart(page, 0);
+  const dayTwo = await sleepAndStart(page, 1);
   expect(dayTwo.relationships.resident).toMatchObject({ talkedToday: false, giftedToday: false });
   await moveBedToFarmHub(page);
+  await waterPotato(page);
   await moveFarmHubToJune(page);
 
   dialog = await openJuneDialogue(page);
@@ -326,12 +321,13 @@ test('completes the no-hook three-day village social loop', async ({ page }) => 
   await closeDialogue(page, dialog);
 
   await moveJuneToBed(page);
-  const dayThree = await sleepAndStart(page, 0);
+  const dayThree = await sleepAndStart(page, 1);
   expect(dayThree.relationships.resident).toMatchObject({
     talkedToday: false,
     giftedToday: false,
   });
   await moveBedToFarmHub(page);
+  await waterPotato(page);
   await moveFarmHubToJune(page);
 
   dialog = await openJuneDialogue(page);
@@ -363,6 +359,40 @@ test('completes the no-hook three-day village social loop', async ({ page }) => 
     'The village feels more like home with you here.',
   );
   await expect(dialog.getByRole('button', { name: 'Continue', exact: true })).toHaveCount(0);
+  await closeDialogue(page, dialog);
+
+  // Water the potato over two more nights to reach maturity.
+  await moveJuneToBed(page);
+  await sleepAndStart(page, 1);
+  for (let extraDay = 0; extraDay < 2; extraDay += 1) {
+    await moveBedToFarmHub(page);
+    await waterPotato(page);
+    await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 5.1, 0.1);
+    await moveUntilPlayerAxis(page, ['s'], 'y', 'gte', 9.5, 0.05);
+    await acquireTarget(page, 'd', BED_CELL);
+    await sleepAndStart(page, 1);
+  }
+
+  // Harvest the mature potato and give it as a non-favourite gift.
+  await moveBedToFarmHub(page);
+  await selectAction(page, '4');
+  await socialUseSelected(page, FARM_CELLS[0].key, FARM_CELLS[0].cell, /harvested/i, 'potato');
+  expect((await gameSnapshot(page)).inventory.crops.potato).toBe(1);
+
+  await moveFarmHubToJune(page);
+  dialog = await openJuneDialogue(page);
+  await expect(dialog.locator('[data-dialogue-relationship]')).toHaveText(
+    'Close Friend · 19 relationship points',
+  );
+  await dialog.getByRole('button', { name: 'Give Potato', exact: true }).click();
+  await expect.poll(async () => (await gameSnapshot(page)).inventory.crops.potato).toBe(0);
+  social = await gameSnapshot(page);
+  expect(social.relationships.resident).toMatchObject({ points: 22, level: 'closeFriend' });
+  await expect(dialog.locator('[data-dialogue-points]')).toHaveText('+3 relationship points');
+  await expect(dialog.locator('[data-dialogue-reaction]')).toHaveText('Gift accepted.');
+  await expect(dialog.locator('[data-dialogue-no-crops]')).toBeVisible();
+  await expect(dialog.locator('[data-dialogue-gift]')).toHaveCount(0);
+  await closeDialogue(page, dialog);
 
   const observed = await gameSnapshot(page);
   const roundTrip = JSON.parse(JSON.stringify(observed)) as GameSnapshot;

@@ -82,6 +82,8 @@
   });
 </script>
 
+<svelte:window onkeydown={handleKeydown} />
+
 <div class="sleep-modal-layer dialogue-modal-layer" data-dialogue-layer>
   <div
     class="sleep-dialog dialogue-dialog"
@@ -90,7 +92,6 @@
     tabindex="-1"
     aria-modal="true"
     aria-labelledby="dialogue-panel-title"
-    onkeydown={handleKeydown}
     bind:this={dialog}
   >
     <div class="dialogue-header">
@@ -102,7 +103,8 @@
     </div>
 
     <p class="dialogue-relationship" data-dialogue-relationship>
-      {relationshipLabel(relationship.level)} · {relationship.points} relationship points
+      {relationshipLabel(relationship.level)} · {relationship.points} relationship
+      {relationship.points === 1 ? 'point' : 'points'}
     </p>
 
     <p class="dialogue-line" data-dialogue-line>{currentLine}</p>

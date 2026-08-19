@@ -1,14 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { readFileSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import {
-  acquireTarget,
-  gameSnapshot,
-  holdKey,
-  moveUntilPlayerAxis,
-  snapshot,
-  waitForWorld,
-} from './helpers';
+import { gameSnapshot, holdKey, moveToShop, snapshot, waitForWorld } from './helpers';
 
 const appPath = fileURLToPath(new URL('../../src/App.svelte', import.meta.url));
 
@@ -19,18 +12,6 @@ async function listenerCensus(page: Parameters<typeof waitForWorld>[0]): Promise
   return page.evaluate(() =>
     (window as unknown as ListenerCensusWindow).__PHOENIX_LISTENER_CENSUS__(),
   );
-}
-
-async function moveLifecycleToShop(page: Page): Promise<void> {
-  await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 5.1);
-  await moveUntilPlayerAxis(page, ['w'], 'y', 'lte', 9.8);
-  await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 5.1);
-  await moveUntilPlayerAxis(page, ['w'], 'x', 'lte', 4.5);
-  await moveUntilPlayerAxis(page, ['d'], 'x', 'gte', 5.1);
-  const player = (await snapshot(page)).player.position;
-  expect(Math.floor(player.x)).toBe(5);
-  expect(Math.floor(player.y)).toBe(8);
-  await acquireTarget(page, 'd', { x: 6, y: 7 });
 }
 
 async function openShop(page: Page): Promise<Locator> {
@@ -109,7 +90,7 @@ test('synthetic window blur prevents movement until focus returns', async ({ pag
 
 test('economy panel owns focus and clears its lock on Escape and remount', async ({ page }) => {
   await waitForWorld(page);
-  await moveLifecycleToShop(page);
+  await moveToShop(page);
   const dialog = await openShop(page);
   await expect(dialog.getByRole('button', { name: 'Turnip seeds' })).toBeFocused();
   await expectInputLock(page, true);
@@ -235,7 +216,7 @@ test('keeps one input handler across a real Vite HMR update', async ({ page }) =
   expect(beforeListeners).toEqual({ keydown: 1, keyup: 1 });
   const beforeHmr = await measure();
   expect(beforeHmr).toBeGreaterThan(0.1);
-  await moveLifecycleToShop(page);
+  await moveToShop(page);
   const hmrShop = await openShop(page);
   await page.keyboard.press('Escape');
   await expect(hmrShop).toBeHidden();

@@ -2,7 +2,13 @@ import { expect, type Page } from '@playwright/test';
 import { Buffer } from 'node:buffer';
 import { gridToWorld } from '../../src/game/core/isometric';
 import type { DebugSnapshot } from '../../src/game/phaser/ProofScene';
-import type { GameSnapshot, GridCell, ShipmentLine } from '../../src/game/core/types';
+import type {
+  CropKind,
+  FarmingAction,
+  GameSnapshot,
+  GridCell,
+  ShipmentLine,
+} from '../../src/game/core/types';
 import { CROP_DEFINITIONS } from '../../src/game/core/cropDefinitions';
 
 interface ExpectedDayTransition {
@@ -411,4 +417,101 @@ export async function moveUntilKeys(
   latest = await snapshot(page);
   assertCameraWithinBounds(latest);
   return latest;
+}
+
+const SHOP_CELL: GridCell = { x: 6, y: 7 };
+
+export async function moveToShop(page: Page): Promise<void> {
+  await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 5.1);
+  await moveUntilPlayerAxis(page, ['w'], 'y', 'lte', 9.8);
+  await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 5.1);
+  await moveUntilPlayerAxis(page, ['w'], 'x', 'lte', 4.5);
+  await moveUntilPlayerAxis(page, ['d'], 'x', 'gte', 5.1);
+  const player = (await snapshot(page)).player.position;
+  expect(Math.floor(player.x)).toBe(5);
+  expect(Math.floor(player.y)).toBe(8);
+  await acquireTarget(page, 'd', SHOP_CELL);
+}
+
+export interface ActionSelection {
+  key: '1' | '2' | '3' | '4';
+  action: FarmingAction;
+  resetKey: '1' | '2';
+  resetAction: FarmingAction;
+}
+
+export async function useSelected(
+  page: Page,
+  target: { key: string; cell: GridCell },
+  feedback: string | RegExp,
+  crop: CropKind,
+  selectAction?: ActionSelection,
+): Promise<GameSnapshot> {
+  await acquireTarget(page, target.key, target.cell);
+  if (selectAction) {
+    await page.keyboard.down(selectAction.resetKey);
+    try {
+      await expect
+        .poll(async () => (await gameSnapshot(page)).selectedAction)
+        .toBe(selectAction.resetAction);
+    } finally {
+      await page.keyboard.up(selectAction.resetKey);
+    }
+    await page.keyboard.down(selectAction.key);
+    try {
+      await expect
+        .poll(async () => (await gameSnapshot(page)).selectedAction)
+        .toBe(selectAction.action);
+    } finally {
+      await page.keyboard.up(selectAction.key);
+    }
+  }
+  const before = await gameSnapshot(page);
+  await page.keyboard.down('Space');
+  try {
+    if (feedback === 'Soil tilled') {
+      await expect
+        .poll(
+          async () =>
+            (await gameSnapshot(page)).farmTiles.find(
+              ({ position }) => position.x === target.cell.x && position.y === target.cell.y,
+            )?.soil,
+        )
+        .toBe('tilled');
+    } else if (typeof feedback === 'string' && feedback.endsWith(' planted')) {
+      await expect
+        .poll(
+          async () =>
+            (await gameSnapshot(page)).farmTiles.find(
+              ({ position }) => position.x === target.cell.x && position.y === target.cell.y,
+            )?.crop?.kind,
+        )
+        .toBe(crop);
+    } else if (feedback === 'Crop watered') {
+      await expect
+        .poll(
+          async () =>
+            (await gameSnapshot(page)).farmTiles.find(
+              ({ position }) => position.x === target.cell.x && position.y === target.cell.y,
+            )?.crop?.wateredToday,
+        )
+        .toBe(true);
+    } else if (feedback instanceof RegExp) {
+      await expect
+        .poll(async () => (await gameSnapshot(page)).inventory.crops[crop])
+        .toBe(before.inventory.crops[crop] + 1);
+      await expect
+        .poll(
+          async () =>
+            (await gameSnapshot(page)).farmTiles.find(
+              ({ position }) => position.x === target.cell.x && position.y === target.cell.y,
+            )?.crop,
+        )
+        .toBeNull();
+    }
+    await expect(page.locator('[data-feedback]')).toHaveText(feedback);
+  } finally {
+    await page.keyboard.up('Space');
+  }
+  return gameSnapshot(page);
 }
