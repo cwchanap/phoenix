@@ -1,99 +1,295 @@
 # Phoenix Persistence Slice Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Use TDD for core state/parser/repository/orchestration work, keep each task type-green before moving on, and deliver HPA-596 in this single PR.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Use TDD for core state/parser/repository/orchestration work, keep each task type-green before moving on, and deliver HPA-596 in this single PR.
 
-**Goal:** Deliver HPA-596 with one versioned autosave slot, New Game/Continue title flow, browser `localStorage`, Tauri Store persistence, complete current gameplay-state round trips, fixed-spawn restore, and visible save failures.
+**Goal:** Deliver HPA-596 with one versioned autosave slot, New Game/Continue title flow, browser `localStorage`, Tauri Store persistence, current-rule-safe restores, fixed-spawn resume, and visible save failures.
 
-**Architecture:** `GameSession` remains the only mutable gameplay authority and gains the canonical `state(): GameState` projection. `GameSnapshot` derives from that state plus world/presentation data. `SaveFileV1` only wraps/parses the state envelope; `SaveRepository` owns storage adapters; `persistOvernightSave` is the small testable transaction seam used by App after `sleep()`. Phaser carries optional initial state and exposes a read-only `SceneCommands.state()` accessor. Tauri only supplies Store.
+**Architecture:** `GameSession` remains the only mutable gameplay authority and gains the canonical `state(): GameState` projection. `GameSnapshot` derives from that state plus transient world/derived read-model data. `src/persistence/` owns the V1 envelope, two storage adapters, title bootstrap, and the one-write overnight transaction; it depends on `game/core`, never the reverse. Svelte owns phase/status presentation, Phaser forwards optional initial state and exposes one read-only state accessor, and Tauri only supplies Store.
 
 **Tech Stack:** Bun 1.3.1 and `bun:test`, Svelte 5.56.8, Phaser 4.2.1, Playwright 1.62.1, Vite 8.2.1, Tauri 2.11.x, `@tauri-apps/plugin-store` 2.4.4, current Rust/Cargo toolchain.
 
 **Spec:** `docs/superpowers/specs/2026-08-18-phoenix-persistence-slice-design.md`
 
-## Global constraints
+## Global Constraints
 
 - Implement only HPA-596. Do not start HPA-597 finale/content or HPA-599 release polish.
 - Keep HPA-596 as one PR; continue implementation on this planning PR after approval.
 - Keep `GameSession` as the only mutable gameplay authority.
-- Persist mutable gameplay state only; never persist player position/facing/target, camera, projected/world coordinates, Tiled objects, Phaser objects, or Svelte state.
-- Continue always reconstructs `ProofWorld` from the current authored map and therefore resumes at the authored map spawn.
+- Persist `GameState`, never `GameSnapshot`.
+- Never persist player position/facing/target, camera, projected/world coordinates, authored interaction cells, Tiled objects, Phaser objects, or Svelte state.
+- Continue always reconstructs `ProofWorld` from the current authored map and therefore resumes at the authored spawn.
 - Persist `pendingDaySummary`, selected action/seed, farming/economy/shipment state, relationship daily flags, and one-time dialogue flags.
 - Derive `maxStamina` and relationship level; do not save them redundantly.
 - Save only after successful `sleep()` returns `day-advanced`.
 - One successful overnight transition performs exactly one repository `save()` call.
 - Tauri Store uses `autoSave: false` plus explicit `store.save()`.
 - Do not roll back a successful day transition when persistence fails.
-- Continue is enabled only for a structurally parsed V1 and is disabled if restore later proves incompatible with the current authored map.
-- Malformed/unsupported/incompatible saves must return to a usable title with New Game enabled.
-- No migrations, backwards compatibility, backups, save rotation, multiple slots, manual save, cloud sync, compression, encryption, or custom Rust save command.
-- Do not add state-management, schema, JSDOM, service-locator, registry, or plugin frameworks.
+- Continue is enabled only for a structurally parsed V1; current-rule/map incompatibility is rejected by `GameSession` and returns to title.
+- Malformed/unsupported/incompatible saves must never strand the player away from New Game.
+- No migrations, backwards compatibility, backups, save rotation, slots, manual save, cloud sync, compression, encryption, repair/coercion, or custom Rust save command.
+- Do not add a state-management library, schema library, JSDOM, service locator, registry, or desktop WebDriver harness.
 - Keep `window.__PHOENIX_TEST__` observation-only.
-- Keep existing Playwright retries/timeouts; fix shared helpers rather than adding sleeps.
+- Keep existing Playwright retries/timeouts; fix shared helpers rather than adding sleeps or per-spec workarounds.
 - Use exact Vite `envPrefix: ['VITE_', 'TAURI_ENV_']`; `*` is not a glob in Vite prefix matching.
+- Give save status the explicit lifecycle `idle -> saving -> saved|error -> idle` when the morning summary is dismissed/reset.
+- Reuse extracted value-parser primitives from `game/core`; do not maintain a second private parser implementation in persistence.
 
-## File map
+## File Map
 
-### Core state/restore
+### Core state and shared parsing
 
-- Modify `src/game/core/types.ts`
-- Modify `src/game/core/GameSession.ts`
-- Modify `tests/game/GameSession.test.ts`
+- Create: `src/game/core/parse.ts`
+- Modify: `src/game/core/types.ts`
+- Modify: `src/game/core/GameSession.ts`
+- Modify: `src/game/phaser/loadProofMap.ts`
+- Test: `tests/game/GameSession.test.ts`
+- Test: `tests/game/loadProofMap.test.ts` only where imports/error assertions require adjustment
 
-### Save format/storage/orchestration
+### Persistence layer
 
-- Create `src/persistence/saveFile.ts`
-- Create `src/persistence/saveRepository.ts`
-- Create `src/persistence/persistOvernightSave.ts`
-- Create `tests/game/saveFile.test.ts`
-- Create `tests/game/saveRepository.test.ts`
-- Create `tests/game/persistOvernightSave.test.ts`
+- Create: `src/persistence/saveFile.ts`
+- Create: `src/persistence/saveRepository.ts`
+- Create: `src/persistence/loadTitleState.ts`
+- Create: `src/persistence/persistOvernightSave.ts`
+- Create: `tests/persistence/saveFile.test.ts`
+- Create: `tests/persistence/saveRepository.test.ts`
+- Create: `tests/persistence/loadTitleState.test.ts`
+- Create: `tests/persistence/persistOvernightSave.test.ts`
 
 ### Tauri/Vite integration
 
-- Modify `vite.config.ts`
-- Modify `src/vite-env.d.ts`
-- Modify `package.json`
-- Modify `bun.lock`
-- Modify `src-tauri/Cargo.toml`
-- Modify `src-tauri/Cargo.lock`
-- Modify `src-tauri/src/lib.rs`
-- Modify `src-tauri/capabilities/default.json`
-- Modify `tests/config/scaffold.test.ts`
+- Modify: `vite.config.ts`
+- Modify: `src/vite-env.d.ts`
+- Modify: `package.json`
+- Modify: `bun.lock`
+- Modify: `src-tauri/Cargo.toml`
+- Modify: `src-tauri/Cargo.lock`
+- Modify: `src-tauri/src/lib.rs`
+- Modify: `src-tauri/capabilities/default.json`
+- Modify: `tests/config/scaffold.test.ts`
 
-### Title/game bridge
+### Title/game/save UI bridge
 
-- Create `src/components/TitleScreen.svelte`
-- Modify `src/App.svelte`
-- Modify `src/components/GameHost.svelte`
-- Modify `src/game/phaser/ProofScene.ts`
-- Modify `src/app.css`
-- Modify `tests/e2e/helpers.ts`
+- Create: `src/components/TitleScreen.svelte`
+- Modify: `src/App.svelte`
+- Modify: `src/components/GameHost.svelte`
+- Modify: `src/components/Overlay.svelte`
+- Modify: `src/game/phaser/ProofScene.ts`
+- Modify: `src/app.css`
+- Modify: `tests/e2e/helpers.ts`
+- Create: `tests/e2e/persistence.pw.ts`
 
-### Autosave presentation
+### Architecture and handoff
 
-- Modify `src/App.svelte`
-- Modify `src/components/Overlay.svelte`
-- Modify `tests/e2e/helpers.ts`
+- Modify: `CLAUDE.md`
+- Modify: `README.md`
+- Modify: `tests/config/handoff.test.ts`
 
-### Acceptance/handoff
+No planned changes: `src/assets/**`, `tools/generate-proof-assets.ts`, `src/game/core/ProofWorld.ts`, `src/game/core/InputGate.ts`, `src/game/core/dailyRhythm.ts`, crop/villager content values, `.github/workflows/ci.yml`, `playwright.config.ts`, or a new desktop E2E framework.
 
-- Create `tests/e2e/persistence.pw.ts`
-- Modify `README.md`
-- Modify `tests/config/handoff.test.ts`
+## Risks
 
-No planned changes: `src/assets/**`, `tools/generate-proof-assets.ts`, `src/game/core/ProofWorld.ts`, `src/game/core/InputGate.ts`, `src/game/core/dailyRhythm.ts`, crop/villager definitions, `src/game/phaser/loadProofMap.ts`, `.github/workflows/ci.yml`, or `playwright.config.ts`.
+### Store environment/capability wiring
+
+The Store adapter can compile and pass fake-backed unit tests while the real webview takes the wrong backend or is denied by Tauri permissions. Task 3 therefore includes a real `tauri:dev` Store initialization/write/read smoke when the plugin is introduced; Task 7 keeps the full product close/reopen acceptance.
+
+### Shared E2E helper coupling
+
+`waitForWorld` is used by every existing Playwright spec, and `confirmAndStartDay` is used by multi-night farming/economy/social flows. Tasks 4 and 5 update those helpers with the feature behavior and run the full E2E suite immediately rather than deferring breakage discovery.
 
 ---
 
-## Task 1: Make `GameSession.state()` the single persisted projection and restore it safely
+## Task 1: Make `GameSession.state()` canonical and restore only valid current-rule state
 
-**Files**
+**Files:**
+- Modify: `src/game/core/types.ts`
+- Modify: `src/game/core/GameSession.ts`
+- Test: `tests/game/GameSession.test.ts`
 
-- Modify `src/game/core/types.ts`
-- Modify `src/game/core/GameSession.ts`
-- Modify `tests/game/GameSession.test.ts`
+**Interfaces:**
+- Produces: `RelationshipState`, `GameState`, `GameSession.state(): GameState`, `GameSessionConfig.initialState?: GameState`
+- Preserves: existing `GameSnapshot` consumer shape, existing commands, existing `ProofWorld` spawn behavior
 
-**Produces**
+- [ ] **Step 1: Write RED tests for canonical state, current-rule invariants, and real round trips**
+
+Add the shared types to the test imports only after the implementation step; first write behavior tests against the planned API.
+
+Use this compact test-only authored arrangement for the command-driven round trip so all non-farm interaction targets are reachable from one spawn by changing facing:
+
+```ts
+const roundTripFarmCells = [
+  { x: 6, y: 2 },
+  { x: 7, y: 2 },
+  { x: 8, y: 2 },
+  { x: 6, y: 3 },
+  { x: 7, y: 3 },
+  { x: 8, y: 3 },
+  { x: 6, y: 4 },
+  { x: 7, y: 4 },
+  { x: 8, y: 4 },
+];
+
+function roundTripConfig(overrides: Partial<GameSessionConfig> = {}): GameSessionConfig {
+  return {
+    world: {
+      width: 12,
+      height: 12,
+      spawn: { x: 3.5, y: 8.5 },
+      footprints: [],
+    },
+    metrics: { tileWidth: 64, tileHeight: 32, origin: { x: 384, y: 0 } },
+    farmCells: roundTripFarmCells,
+    bedCell: { x: 4, y: 9 },
+    shopCell: { x: 4, y: 7 },
+    shippingCell: { x: 2, y: 9 },
+    villagerCells: {
+      shopkeeper: { x: 2, y: 7 },
+      farmer: { x: 9, y: 5 },
+      resident: { x: 10, y: 5 },
+    },
+    nextWeather: () => 'sunny',
+    ...overrides,
+  };
+}
+
+function face(session: GameSession, screenX: number, screenY: number): void {
+  session.stepMovement({ screenX, screenY }, 0);
+}
+
+function withoutWorld(snapshot: GameSnapshot) {
+  const { player: _player, target: _target, ...rest } = snapshot;
+  return rest;
+}
+```
+
+Drive the real commands instead of constructing one giant expected-state literal:
+
+```ts
+const session = new GameSession(roundTripConfig());
+
+face(session, 1, 0); // right -> shop {4,7}
+expect(session.buySeeds('potato', 1)).toEqual({ ok: true, code: 'seeds-purchased' });
+
+for (const cell of roundTripFarmCells.slice(0, 2)) {
+  expect(session.hoe(cell)).toEqual({ ok: true, code: 'soil-tilled' });
+  expect(session.plant(cell)).toEqual({ ok: true, code: 'crop-planted' });
+  expect(session.water(cell)).toEqual({ ok: true, code: 'crop-watered' });
+}
+expect(session.hoe(roundTripFarmCells[2])).toEqual({ ok: true, code: 'soil-tilled' });
+
+for (let night = 0; night < 3; night += 1) {
+  face(session, 0, 1); // down -> bed {4,9}
+  expect(session.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+  expect(session.acknowledgeDaySummary()).toEqual({ ok: true, code: 'day-started' });
+  if (night < 2) {
+    for (const cell of roundTripFarmCells.slice(0, 2)) {
+      expect(session.water(cell)).toEqual({ ok: true, code: 'crop-watered' });
+    }
+  }
+}
+
+for (const cell of roundTripFarmCells.slice(0, 2)) {
+  expect(session.harvest(cell)).toEqual({ ok: true, code: 'crop-harvested' });
+}
+
+face(session, -1, 0); // left -> shipping {2,9}
+expect(session.depositCrop('turnip', 1)).toEqual({ ok: true, code: 'crop-deposited' });
+
+face(session, 0, -1); // up -> shopkeeper {2,7}
+expect(session.talkTo('shopkeeper').ok).toBe(true);
+expect(session.giftCrop('shopkeeper', 'turnip').ok).toBe(true);
+expect(session.selectAction('hands')).toEqual({ ok: true, code: 'action-selected' });
+expect(session.selectSeed('potato')).toEqual({ ok: true, code: 'seed-selected' });
+```
+
+At the pre-sleep checkpoint, export and restore. This must preserve non-zero pending shipment and same-day social flags:
+
+```ts
+const beforeSleepState = session.state();
+const restoredBeforeSleep = new GameSession(
+  roundTripConfig({ initialState: structuredClone(beforeSleepState) }),
+);
+expect(withoutWorld(restoredBeforeSleep.snapshot())).toEqual(withoutWorld(session.snapshot()));
+expect(restoredBeforeSleep.snapshot().player.position).toEqual({ x: 3.5, y: 8.5 });
+```
+
+Then prove the rebuilt farm lookup references restored tile objects by planting into the saved tilled-empty third tile:
+
+```ts
+expect(restoredBeforeSleep.selectSeed('potato')).toEqual({ ok: true, code: 'seed-selected' });
+expect(restoredBeforeSleep.plant(roundTripFarmCells[2])).toEqual({
+  ok: true,
+  code: 'crop-planted',
+});
+```
+
+Finally advance the original session once more so shipping becomes a pending morning summary, then round-trip again:
+
+```ts
+face(session, 0, 1);
+expect(session.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+const morningState = session.state();
+const restoredMorning = new GameSession(
+  roundTripConfig({ initialState: structuredClone(morningState) }),
+);
+expect(withoutWorld(restoredMorning.snapshot())).toEqual(withoutWorld(session.snapshot()));
+expect(restoredMorning.snapshot().pendingDaySummary?.shippingIncome).toBeGreaterThan(0);
+```
+
+Add a deep-clone assertion:
+
+```ts
+const first = session.state();
+const second = session.state();
+expect(first).toEqual(second);
+expect(first).not.toBe(second);
+first.inventory.seeds.turnip += 999;
+expect(session.state()).toEqual(second);
+```
+
+Add table-driven invalid restore cases starting from one valid exported state. Include exactly these rule failures:
+
+```ts
+const invalidCases: Array<[string, (state: GameState) => void]> = [
+  ['day below range', (state) => (state.day = 0)],
+  ['day above range', (state) => (state.day = MAX_DAY + 1)],
+  ['time before day start', (state) => (state.timeMinutes = DAY_START_MINUTES - 1)],
+  ['time after cutoff', (state) => (state.timeMinutes = ACTION_CUTOFF_MINUTES + 1)],
+  ['negative stamina', (state) => (state.stamina = -1)],
+  ['stamina over max', (state) => (state.stamina = MAX_STAMINA + 1)],
+  ['negative money', (state) => (state.money = -1)],
+  ['negative seed count', (state) => (state.inventory.seeds.turnip = -1)],
+  ['negative crop count', (state) => (state.inventory.crops.turnip = -1)],
+  ['negative shipment count', (state) => (state.pendingShipment.turnip = -1)],
+  ['negative relationship points', (state) => (state.relationships.shopkeeper.points = -1)],
+  [
+    'growth past maturity',
+    (state) => {
+      state.farmTiles[0].crop = {
+        kind: 'turnip',
+        growth: CROP_DEFINITIONS.turnip.growthDays + 1,
+        wateredToday: false,
+      };
+    },
+  ],
+];
+```
+
+Every invalid state must throw with prefix `GameSession: invalid initial state`.
+
+Keep/add the existing map-identity invalid cases: duplicate saved farm coordinate, foreign saved farm coordinate, and missing villager relationship.
+
+Run:
+
+```bash
+bun test tests/game/GameSession.test.ts
+```
+
+Expected RED: `GameState`, `RelationshipState`, `state()`, and `initialState` do not exist.
+
+- [ ] **Step 2: Promote relationship state and type `GameSnapshot` from `GameState`**
+
+In `src/game/core/types.ts` add:
 
 ```ts
 export interface RelationshipState {
@@ -101,6 +297,10 @@ export interface RelationshipState {
   talkedToday: boolean;
   giftedToday: boolean;
   closeFriendDialogueSeen: boolean;
+}
+
+export interface RelationshipSnapshot extends RelationshipState {
+  level: RelationshipLevel;
 }
 
 export interface GameState {
@@ -117,69 +317,7 @@ export interface GameState {
   farmTiles: FarmTileSnapshot[];
   relationships: Record<VillagerId, RelationshipState>;
 }
-```
 
-### Step 1: Write `state()` and restore RED tests
-
-Add tests to `GameSession.test.ts` for a non-default representative session state.
-
-The fixture/arrangement must exercise:
-
-- non-default day/time/stamina/weather;
-- selected action/seed;
-- money and all crop-count records;
-- at least one tilled empty tile and one growing crop;
-- non-zero pending shipment;
-- all three relationships with daily flags and one `closeFriendDialogueSeen: true`;
-- a non-null pending morning summary.
-
-Assert:
-
-```ts
-expect(session.state()).toEqual(expectedState);
-expect(session.state()).not.toBe(session.state());
-expect(restored.snapshot().player.position).toEqual({ x: 2.5, y: 9.5 });
-```
-
-Mutate nested values on one returned state and prove the next `state()` call is unchanged.
-
-Add current-map identity RED cases:
-
-- one saved farm cell moved to a foreign coordinate;
-- duplicate saved farm coordinate;
-- missing current villager relationship.
-
-Expected failure prefix:
-
-```text
-GameSession: invalid initial state
-```
-
-Finally add a post-restore behavior assertion. Restore a tile that is already tilled and empty, target it normally, select seeds, and plant successfully. This test must fail if `farmTilesByKey` still points at default untilled objects.
-
-Run:
-
-```bash
-bun test tests/game/GameSession.test.ts
-```
-
-Expected RED: `RelationshipState`, `GameState`, `state()`, and `initialState` do not exist.
-
-### Step 2: Promote relationship state and define `GameState`
-
-Replace the private `MutableRelationship` shape with imported `RelationshipState`.
-
-Keep snapshot relationship level derived:
-
-```ts
-export interface RelationshipSnapshot extends RelationshipState {
-  level: RelationshipLevel;
-}
-```
-
-Define `GameSnapshot` so current mutable fields come from `GameState` rather than being repeated independently:
-
-```ts
 export type GameSnapshot = WorldSnapshot &
   Omit<GameState, 'relationships'> & {
     maxStamina: number;
@@ -191,11 +329,13 @@ export type GameSnapshot = WorldSnapshot &
   };
 ```
 
-This makes future `GameState` fields flow into the snapshot type automatically.
+Delete the private `MutableRelationship` interface from `GameSession.ts`; use `RelationshipState` for the mutable record.
 
-### Step 3: Add the canonical `state()` method
+- [ ] **Step 3: Add `GameSession.state()` by reusing/extending existing clone helpers**
 
-Implement `GameSession.state()` by cloning the mutable fields once:
+Do not create persistence-only clones. Keep/extend the existing `cloneCounts`, farm-tile cloning, day-summary cloning, and relationship cloning near the bottom of `GameSession.ts`.
+
+Implement:
 
 ```ts
 state(): GameState {
@@ -216,28 +356,35 @@ state(): GameState {
 }
 ```
 
-Use small local clone helpers; do not create a generic serializer.
+Change `snapshot()` to call `const state = this.state()` and spread `...state`, overriding only relationships with derived `level` plus the existing world/maxStamina/interaction-cell fields.
 
-Change `snapshot()` to begin with:
+- [ ] **Step 4: Validate current-rule invariants and restore into the existing containers**
 
-```ts
-const state = this.state();
-const worldSnapshot = this.world.snapshot();
-```
+Add `ACTION_CUTOFF_MINUTES` to the existing `dailyRhythm` imports. Reuse the already imported `CROP_DEFINITIONS`.
 
-and spread `...state`, overriding only relationships with their derived levels and adding the existing world/maxStamina/interaction-cell fields.
-
-### Step 4: Restore into existing containers and rebuild the farm lookup map
-
-Extend config:
+Add a small local assertion helper:
 
 ```ts
-initialState?: GameState;
+function invalidInitialState(reason: string): never {
+  throw new Error(`GameSession: invalid initial state ${reason}`);
+}
 ```
 
-After current authored config validation and default container creation, validate the saved farm-cell set against the current authored farm cells.
+Before applying `initialState`, assert:
 
-Apply restored farm tiles explicitly:
+```ts
+1 <= state.day && state.day <= MAX_DAY
+DAY_START_MINUTES <= state.timeMinutes && state.timeMinutes <= ACTION_CUTOFF_MINUTES
+0 <= state.stamina && state.stamina <= MAX_STAMINA
+state.money >= 0
+all inventory/shipment counts >= 0 and safe integers
+all relationship points >= 0 and safe integers
+0 <= crop.growth <= CROP_DEFINITIONS[crop.kind].growthDays
+```
+
+The save parser handles shape/unions; this code handles current-rule ranges only.
+
+Preserve exact current farm identity. After validating/cloning restored tiles, replace the array contents and rebuild the lookup map:
 
 ```ts
 const restoredTiles = initialState.farmTiles.map(cloneFarmTile);
@@ -248,9 +395,9 @@ for (const tile of this.farmTiles) {
 }
 ```
 
-Clone scalar/count/relationship/day-summary fields into the current session. Do not replace `ProofWorld`; it stays constructed from the current authored map.
+Clone scalar/count/day-summary/relationship fields into the current session. Never replace or hydrate `ProofWorld`.
 
-### Step 5: Verify
+- [ ] **Step 5: Verify Task 1**
 
 Run:
 
@@ -259,9 +406,9 @@ bun test tests/game/GameSession.test.ts
 bun run check
 ```
 
-Expected GREEN, including the post-restore plant/lookup regression.
+Expected: GREEN, including both command-driven checkpoints, invariant rejection, fixed spawn, and post-restore plant command.
 
-### Step 6: Commit
+- [ ] **Step 6: Commit Task 1**
 
 ```bash
 git add src/game/core/types.ts src/game/core/GameSession.ts tests/game/GameSession.test.ts
@@ -270,21 +417,167 @@ git commit -m "feat: add restorable Phoenix game state"
 
 ---
 
-## Task 2: Add the V1 envelope with structural validation only
+## Task 2: Share plain-value parsing and add the structural V1 save envelope
 
-**Files**
+**Files:**
+- Create: `src/game/core/parse.ts`
+- Modify: `src/game/phaser/loadProofMap.ts`
+- Create: `src/persistence/saveFile.ts`
+- Create: `tests/persistence/saveFile.test.ts`
+- Modify: `tests/game/loadProofMap.test.ts` only if imports/error assertions require adjustment
+- Modify: `CLAUDE.md`
 
-- Create `src/persistence/saveFile.ts`
-- Create `tests/game/saveFile.test.ts`
+**Interfaces:**
+- Produces: `createValueParser(prefix)` with `fail/record/array/string/number/integer/safeInteger/boolean/oneOf`
+- Produces: `SaveFileV1`, `createSaveFile(state)`, `parseSaveFile(value)`
+- Dependency rule: persistence may import core; core never imports persistence
 
-**Consumes**
+- [ ] **Step 1: Record the existing map-parser baseline**
 
-```ts
-GameState
-RelationshipState
+Run before refactoring:
+
+```bash
+bun test tests/game/loadProofMap.test.ts
 ```
 
-**Produces**
+Expected: GREEN. Preserve exact existing `proof-map: ...` error behavior.
+
+- [ ] **Step 2: Extract the existing parser primitives without changing map behavior**
+
+Create `src/game/core/parse.ts`:
+
+```ts
+export function createValueParser(prefix: string) {
+  const fail = (reason: string): never => {
+    throw new Error(`${prefix}: ${reason}`);
+  };
+
+  const record = (value: unknown, context: string): Record<string, unknown> => {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      fail(`${context} must be an object`);
+    }
+    return value as Record<string, unknown>;
+  };
+
+  const array = (value: unknown, context: string): unknown[] => {
+    if (!Array.isArray(value)) fail(`${context} must be an array`);
+    return value;
+  };
+
+  const string = (value: unknown, context: string): string => {
+    if (typeof value !== 'string') fail(`${context} must be a string`);
+    return value;
+  };
+
+  const number = (value: unknown, context: string): number => {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      fail(`${context} must be a finite number`);
+    }
+    return value;
+  };
+
+  const integer = (value: unknown, context: string): number => {
+    const result = number(value, context);
+    if (!Number.isInteger(result)) fail(`${context} must be an integer`);
+    return result;
+  };
+
+  const safeInteger = (value: unknown, context: string): number => {
+    const result = number(value, context);
+    if (!Number.isSafeInteger(result)) fail(`${context} must be a safe integer`);
+    return result;
+  };
+
+  const boolean = (value: unknown, context: string): boolean => {
+    if (typeof value !== 'boolean') fail(`${context} must be a boolean`);
+    return value;
+  };
+
+  const oneOf = <T extends string>(
+    value: unknown,
+    allowed: readonly T[],
+    context: string,
+  ): T => {
+    const result = string(value, context);
+    if (!allowed.includes(result as T)) {
+      fail(`${context} must be one of ${allowed.join(', ')}`);
+    }
+    return result as T;
+  };
+
+  return { fail, record, array, string, number, integer, safeInteger, boolean, oneOf };
+}
+```
+
+In `loadProofMap.ts`, replace only the private primitive definitions with:
+
+```ts
+const { fail, record, array, string, number, integer, boolean } =
+  createValueParser('proof-map');
+```
+
+Do not refactor the map contract or parser structure beyond this extraction.
+
+Run:
+
+```bash
+bun test tests/game/loadProofMap.test.ts
+```
+
+Expected: GREEN with unchanged map contract/error prefixes.
+
+- [ ] **Step 3: Write RED save-envelope/parser tests**
+
+Create `tests/persistence/saveFile.test.ts`.
+
+Use a valid `GameState` fixture built from `new GameSession(testConfig).state()` rather than repeating the whole state shape by hand where possible.
+
+Cover:
+
+```ts
+const file = createSaveFile(state);
+expect(file).toEqual({ schemaVersion: 1, state });
+expect(parseSaveFile(structuredClone(file))).toEqual(file);
+```
+
+Mutate nested source state after `createSaveFile()` and prove the file is unchanged.
+
+Reject:
+
+- non-object top level;
+- missing/wrong `schemaVersion`;
+- missing current state fields;
+- invalid weather/action/seed/crop/villager IDs;
+- non-safe-integer numeric fields;
+- malformed count records;
+- malformed farm tile/crop object shape;
+- malformed relationship records;
+- malformed pending-day-summary shipment lines.
+
+Critically, structural parsing must **not** own current rule/map invariants. Add passing cases such as:
+
+```ts
+const structurallyValidButImpossible = structuredClone(file);
+structurallyValidButImpossible.state.day = 999;
+structurallyValidButImpossible.state.stamina = 500;
+structurallyValidButImpossible.state.inventory.seeds.turnip = -1;
+structurallyValidButImpossible.state.farmTiles[0].position = { x: 11, y: 11 };
+expect(() => parseSaveFile(structurallyValidButImpossible)).not.toThrow();
+```
+
+`GameSession` rejects those values later using current rule/authored-map knowledge.
+
+Run:
+
+```bash
+bun test tests/persistence/saveFile.test.ts
+```
+
+Expected RED: persistence module missing.
+
+- [ ] **Step 4: Implement `SaveFileV1` using the shared parser**
+
+Create:
 
 ```ts
 export const SAVE_SCHEMA_VERSION = 1 as const;
@@ -298,122 +591,86 @@ export function createSaveFile(state: GameState): SaveFileV1;
 export function parseSaveFile(value: unknown): SaveFileV1;
 ```
 
-### Step 1: Write envelope/parser RED tests
-
-Cover:
+Initialize the parser with:
 
 ```ts
-const file = createSaveFile(state);
-expect(file).toEqual({ schemaVersion: 1, state });
-expect(parseSaveFile(structuredClone(file))).toEqual(file);
+const { record, array, safeInteger, boolean, oneOf } =
+  createValueParser('Invalid save');
 ```
 
-Mutate the original nested state after `createSaveFile()` and prove the file is unchanged.
+Use current closed unions (`CROP_KINDS`, farming actions, weather values, `VILLAGER_IDS`) to validate strings. Parse integers structurally as safe integers but do not apply domain ranges/minimums in this module.
 
-Reject:
+`createSaveFile()` and `parseSaveFile()` must return fresh nested data. Do not add version registries, schemas, migrations, coercion, or map-cell checks.
 
-- non-object input;
-- missing/wrong `schemaVersion`;
-- missing current state fields;
-- unsupported weather/action/seed/crop IDs;
-- unsafe/fractional numeric values;
-- malformed crop-count records;
-- malformed farm tile/crop object shape;
-- malformed relationship records;
-- malformed pending day-summary shipment lines.
+- [ ] **Step 5: Document the new layer immediately**
 
-Do **not** reject a structurally valid farm tile array merely because its coordinates do not match the current authored nine-cell farm. Add an explicit test proving such a file passes `parseSaveFile()`; Task 1 `GameSession` owns that rejection.
+In `CLAUDE.md` Architecture add one bullet after core:
+
+```markdown
+- **`src/persistence/` — save/application boundary.** Owns the V1 save envelope, browser/Tauri storage adapters, title-load orchestration, and overnight save transaction. It may depend on framework-free `game/core` types/helpers; `game/core` never imports persistence. `App.svelte` is the only production runtime coordinator between persistence and the game scene.
+```
+
+Update the core bullet to mention `parse.ts` as a framework-free shared plain-value validation helper used by map/save parsing.
+
+- [ ] **Step 6: Verify Task 2**
 
 Run:
 
 ```bash
-bun test tests/game/saveFile.test.ts
-```
-
-Expected RED: module missing.
-
-### Step 2: Implement small explicit structural helpers
-
-Keep all helpers private to `saveFile.ts`, for example:
-
-```ts
-function record(value: unknown, path: string): Record<string, unknown>;
-function safeInt(value: unknown, path: string): number;
-function oneOf<T extends string>(value: unknown, values: readonly T[], path: string): T;
-function parseCounts(value: unknown, path: string): CropCounts;
-function parseFarmTiles(value: unknown): FarmTileSnapshot[];
-function parseRelationships(value: unknown): Record<VillagerId, RelationshipState>;
-function parseDaySummary(value: unknown): DaySummary | null;
-```
-
-Every thrown parser error starts with:
-
-```text
-Invalid save:
-```
-
-No Zod, JSON Schema, version registry, migration table, or map coordinates belong here.
-
-### Step 3: Implement V1 wrap/clone
-
-`createSaveFile()` deep-clones the plain `GameState`. `parseSaveFile()` returns a fresh `SaveFileV1`, not the caller's original nested references.
-
-Run:
-
-```bash
-bun test tests/game/saveFile.test.ts
+bun test tests/game/loadProofMap.test.ts tests/persistence/saveFile.test.ts
 bun run check
+bun run coverage:check
 ```
 
-Expected GREEN.
+Expected: GREEN; `loadProofMap` behavior unchanged, V1 parsing structural-only, and shared parser lines exercised through the two consumers.
 
-### Step 4: Commit
+- [ ] **Step 7: Commit Task 2**
 
 ```bash
-git add src/persistence/saveFile.ts tests/game/saveFile.test.ts
+git add src/game/core/parse.ts src/game/phaser/loadProofMap.ts src/persistence/saveFile.ts tests/persistence/saveFile.test.ts tests/game/loadProofMap.test.ts CLAUDE.md
 git commit -m "feat: add Phoenix V1 save envelope"
 ```
 
 ---
 
-## Task 3: Add localStorage/Tauri Store repositories with the correct Vite selector
+## Task 3: Add browser/Tauri repositories and verify the real Store wiring immediately
 
-**Files**
+**Files:**
+- Create: `src/persistence/saveRepository.ts`
+- Create: `tests/persistence/saveRepository.test.ts`
+- Modify: `vite.config.ts`
+- Modify: `src/vite-env.d.ts`
+- Modify: `package.json`
+- Modify: `bun.lock`
+- Modify: `src-tauri/Cargo.toml`
+- Modify: `src-tauri/Cargo.lock`
+- Modify: `src-tauri/src/lib.rs`
+- Modify: `src-tauri/capabilities/default.json`
+- Modify: `tests/config/scaffold.test.ts`
 
-- Create `src/persistence/saveRepository.ts`
-- Create `tests/game/saveRepository.test.ts`
-- Modify `vite.config.ts`
-- Modify `src/vite-env.d.ts`
-- Modify `package.json`
-- Modify `bun.lock`
-- Modify `src-tauri/Cargo.toml`
-- Modify `src-tauri/Cargo.lock`
-- Modify `src-tauri/src/lib.rs`
-- Modify `src-tauri/capabilities/default.json`
-- Modify `tests/config/scaffold.test.ts`
+**Interfaces:**
+- Produces: `SaveRepository.load(): Promise<unknown | null>`
+- Produces: `SaveRepository.save(file: SaveFileV1): Promise<void>`
+- Produces: `createSaveRepository(): Promise<SaveRepository>`
+- Selector: only `import.meta.env.TAURI_ENV_PLATFORM`
 
-### Step 1: Write repository RED tests
+- [ ] **Step 1: Write RED repository and factory tests**
 
-Define:
+Create `tests/persistence/saveRepository.test.ts` with a tiny in-memory `Storage` fake; do not add JSDOM.
+
+Test browser behavior:
 
 ```ts
-export interface SaveRepository {
-  load(): Promise<unknown | null>;
-  save(file: SaveFileV1): Promise<void>;
-}
+const repository = new LocalStorageSaveRepository(storage);
+expect(await repository.load()).toBeNull();
+await repository.save(file);
+expect(storage.getItem('phoenix.save.v1')).toBe(JSON.stringify(file));
+expect(await repository.load()).toEqual(file);
 ```
 
-Use a tiny fake `Storage` object; do not add JSDOM.
+Test malformed JSON and storage exceptions propagate.
 
-Browser adapter tests:
-
-- absent `phoenix.save.v1` -> `null`;
-- one save writes exactly that key;
-- load JSON-parses the stored object;
-- malformed JSON rejects;
-- storage exceptions propagate.
-
-Factory/Tauri tests use a narrow injected environment seam:
+Use one narrow factory seam for tests:
 
 ```ts
 interface SaveRepositoryEnvironment {
@@ -425,25 +682,35 @@ interface SaveRepositoryEnvironment {
 
 Assert:
 
-- missing `tauriPlatform` chooses localStorage and never calls Store loader;
-- present `tauriPlatform` calls Store loader once;
-- Store load failure rejects and does not fall back to localStorage;
-- Store save performs one `set('save', file)` and one explicit `save()`;
-- missing Store `save` entry loads as `null`.
+```ts
+missing tauriPlatform -> localStorage adapter; Store loader call count 0
+present tauriPlatform -> Store loader call count 1
+Store loader rejection -> rejects; no localStorage fallback
+Tauri save -> set('save', file) exactly once + save() exactly once
+Tauri load missing 'save' -> null
+```
 
-### Step 2: Fix Vite env exposure and TypeScript typing
+Run:
 
-Update `vite.config.ts` exactly:
+```bash
+bun test tests/persistence/saveRepository.test.ts
+```
+
+Expected RED: repository module missing.
+
+- [ ] **Step 2: Configure the exact Vite Tauri environment prefix and typing**
+
+Update `vite.config.ts`:
 
 ```ts
 export default defineConfig({
   plugins: [svelte()],
   envPrefix: ['VITE_', 'TAURI_ENV_'],
-  // existing server config
+  server: {
+    // preserve current server config exactly
+  },
 });
 ```
-
-Do not use `TAURI_ENV_*`; Vite checks literal prefixes.
 
 In `src/vite-env.d.ts` add:
 
@@ -457,101 +724,242 @@ interface ImportMeta {
 }
 ```
 
-Keep the existing Phoenix test-hook declarations.
+Keep current test-hook declarations unchanged.
 
-### Step 3: Add the Store dependency and adapters
+- [ ] **Step 3: Add the Store JS/Rust dependencies and adapters**
 
-Add exactly:
+Add exactly to runtime dependencies:
 
 ```json
 "@tauri-apps/plugin-store": "2.4.4"
 ```
 
-to runtime dependencies and regenerate `bun.lock` with Bun.
+Do not add a direct `@tauri-apps/api` dependency solely for environment detection.
 
-Production selection is one branch in `createSaveRepository()`:
+Regenerate with:
+
+```bash
+bun install
+```
+
+In production repository creation:
 
 ```ts
 const tauriPlatform = import.meta.env.TAURI_ENV_PLATFORM;
-```
-
-When absent, return `LocalStorageSaveRepository(window.localStorage)`.
-
-When present, dynamically import Store and load:
-
-```ts
+if (!tauriPlatform) {
+  return new LocalStorageSaveRepository(window.localStorage);
+}
 const { load } = await import('@tauri-apps/plugin-store');
 const store = await load('phoenix-save.json', {
   defaults: {},
   autoSave: false,
 });
+return new TauriStoreSaveRepository(store);
 ```
 
-Do not statically import Store into the browser path and do not catch Store initialization to fall back to localStorage.
+Tauri adapter behavior:
 
-### Step 4: Register the Tauri plugin
+```ts
+async load(): Promise<unknown | null> {
+  return (await this.store.get<unknown>('save')) ?? null;
+}
 
-Add:
+async save(file: SaveFileV1): Promise<void> {
+  await this.store.set('save', file);
+  await this.store.save();
+}
+```
+
+- [ ] **Step 4: Register Store and grant the default Store capability**
+
+Add to `src-tauri/Cargo.toml`:
 
 ```toml
 tauri-plugin-store = "=2.4.4"
 ```
 
-Register:
+Register in `src-tauri/src/lib.rs`:
 
 ```rs
 tauri::Builder::default()
     .plugin(tauri_plugin_store::Builder::default().build())
+    .run(tauri::generate_context!())
+    .expect("error while running Phoenix");
 ```
 
-Add `"store:default"` to `src-tauri/capabilities/default.json`.
+Add `"store:default"` beside `"core:default"` in `src-tauri/capabilities/default.json`.
 
-Regenerate `Cargo.lock` through Cargo.
+Regenerate Cargo lockfile through Cargo:
 
-### Step 5: Update scaffold contract tests
+```bash
+cargo check --manifest-path src-tauri/Cargo.toml
+```
 
-`tests/config/scaffold.test.ts` currently pins direct JS dependencies exactly. Update it for Store and add exact assertions for:
+- [ ] **Step 5: Update exact scaffold contract tests**
+
+`tests/config/scaffold.test.ts` currently pins direct JS dependencies exactly. Add the Store dependency and these contract assertions:
 
 ```ts
 expect(viteConfigText).toContain("envPrefix: ['VITE_', 'TAURI_ENV_']");
 expect(viteConfigText).not.toContain('TAURI_ENV_*');
+expect(viteEnvText).toContain('readonly TAURI_ENV_PLATFORM?: string');
+expect(cargoTomlText).toContain('tauri-plugin-store = "=2.4.4"');
+expect(libRsText).toContain('.plugin(tauri_plugin_store::Builder::default().build())');
+expect(capability.permissions).toEqual(expect.arrayContaining(['core:default', 'store:default']));
 ```
-
-Also assert the Cargo Store pin, Rust plugin registration, and `store:default` capability.
 
 Run:
 
 ```bash
-bun test tests/game/saveRepository.test.ts tests/config/scaffold.test.ts
+bun test tests/persistence/saveRepository.test.ts tests/config/scaffold.test.ts
 bun run check
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
 
-Expected GREEN.
+Expected: GREEN.
 
-### Step 6: Commit
+- [ ] **Step 6: Perform the early real Tauri Store smoke before leaving Task 3**
+
+Run:
 
 ```bash
-git add vite.config.ts src/vite-env.d.ts package.json bun.lock src/persistence/saveRepository.ts tests/game/saveRepository.test.ts src-tauri tests/config/scaffold.test.ts
+bun run tauri:dev
+```
+
+Open the webview devtools console. First make the real Phoenix factory execute its Tauri branch and load Store:
+
+```js
+const { createSaveRepository } = await import('/src/persistence/saveRepository.ts');
+const repository = await createSaveRepository();
+await repository.load();
+```
+
+Expected: resolves without a Tauri permission/init error. This call must occur in the Tauri webview, not the normal browser dev server.
+
+Then verify actual Store write/read/delete on a **separate** smoke store so the Phoenix slot is untouched:
+
+```js
+const { Store } = await import('@tauri-apps/plugin-store');
+const smoke = await Store.load('phoenix-store-smoke.json', { autoSave: false });
+await smoke.set('probe', 'ok');
+await smoke.save();
+console.log(await smoke.get('probe'));
+await smoke.delete('probe');
+await smoke.save();
+```
+
+Expected console value:
+
+```text
+ok
+```
+
+If this fails, do not proceed to title/UI work. Fix environment selection, plugin registration, or capability wiring in Task 3.
+
+- [ ] **Step 7: Commit Task 3**
+
+```bash
+git add vite.config.ts src/vite-env.d.ts package.json bun.lock src/persistence/saveRepository.ts tests/persistence/saveRepository.test.ts src-tauri tests/config/scaffold.test.ts
 git commit -m "feat: add Phoenix save repositories"
 ```
 
 ---
 
-## Task 4: Add title bootstrap, restore bridge, and update shared New Game E2E entry
+## Task 4: Add unit-tested title bootstrap, title UI, and the loaded-state scene bridge
 
-**Files**
+**Files:**
+- Create: `src/persistence/loadTitleState.ts`
+- Create: `tests/persistence/loadTitleState.test.ts`
+- Create: `src/components/TitleScreen.svelte`
+- Modify: `src/App.svelte`
+- Modify: `src/components/GameHost.svelte`
+- Modify: `src/game/phaser/ProofScene.ts`
+- Modify: `src/app.css`
+- Modify: `tests/e2e/helpers.ts`
 
-- Create `src/components/TitleScreen.svelte`
-- Modify `src/App.svelte`
-- Modify `src/components/GameHost.svelte`
-- Modify `src/game/phaser/ProofScene.ts`
-- Modify `src/app.css`
-- Modify `tests/e2e/helpers.ts`
+**Interfaces:**
+- Produces: `TitleLoadState { repository, save, error }`
+- Produces: `loadTitleState(createRepository?)`
+- Produces: `SceneCommands.state(): GameState`
+- Carries: `initialState: GameState | null` App -> GameHost -> ProofScene -> GameSession
 
-### Step 1: Add the title component
+- [ ] **Step 1: Write RED title-bootstrap unit tests for all startup branches**
 
-`TitleScreen.svelte` props:
+Create `tests/persistence/loadTitleState.test.ts`.
+
+Use:
+
+```ts
+interface TitleLoadState {
+  repository: SaveRepository | null;
+  save: SaveFileV1 | null;
+  error: string | null;
+}
+```
+
+Test exactly:
+
+```text
+repository factory rejects -> repository null, save null, error present
+repository loads null -> repository retained, save null, error null
+repository load rejects -> repository retained, save null, error present
+repository returns malformed/unsupported save -> repository retained, save null, Invalid save error
+repository returns valid V1 -> repository retained, parsed save returned, error null
+```
+
+The repository remains available after load/parse failure so New Game can overwrite the one slot on its next successful sleep.
+
+Run:
+
+```bash
+bun test tests/persistence/loadTitleState.test.ts
+```
+
+Expected RED: helper missing.
+
+- [ ] **Step 2: Implement the small bootstrap helper**
+
+Create:
+
+```ts
+export interface TitleLoadState {
+  repository: SaveRepository | null;
+  save: SaveFileV1 | null;
+  error: string | null;
+}
+
+export async function loadTitleState(
+  createRepository: () => Promise<SaveRepository> = createSaveRepository,
+): Promise<TitleLoadState> {
+  try {
+    const repository = await createRepository();
+    try {
+      const value = await repository.load();
+      if (value === null) return { repository, save: null, error: null };
+      return { repository, save: parseSaveFile(value), error: null };
+    } catch (error) {
+      return { repository, save: null, error: errorMessage(error) };
+    }
+  } catch (error) {
+    return { repository: null, save: null, error: errorMessage(error) };
+  }
+}
+```
+
+Use one private `errorMessage()` helper that returns `error.message` for `Error` and `String(error)` otherwise. Do not add retries, deletion, or repair.
+
+Run:
+
+```bash
+bun test tests/persistence/loadTitleState.test.ts
+bun run check
+```
+
+Expected: GREEN.
+
+- [ ] **Step 3: Add the minimal title component**
+
+Create `TitleScreen.svelte` with props:
 
 ```ts
 interface Props {
@@ -563,7 +971,7 @@ interface Props {
 }
 ```
 
-Stable selectors:
+Render stable selectors:
 
 ```text
 data-title-screen
@@ -572,9 +980,11 @@ data-continue
 data-title-error
 ```
 
-Continue is disabled while loading or without a usable save. New Game remains enabled after load/validation errors.
+Continue is disabled while loading or when no parsed save is available. New Game stays enabled once bootstrap has settled, even when `error` is present.
 
-### Step 2: Add App phase/bootstrap state
+Keep title presentation inside the existing `StageFrame`; do not create routing/navigation infrastructure.
+
+- [ ] **Step 4: Add App phases and delegate startup branch logic to `loadTitleState()`**
 
 In `App.svelte` add:
 
@@ -583,82 +993,94 @@ type AppPhase = 'loading-save' | 'title' | 'playing';
 type LaunchSource = 'new' | 'continue' | null;
 ```
 
-Startup `onMount` sequence:
+State:
 
-1. `createSaveRepository()`;
-2. `repository.load()`;
-3. absent -> title/no Continue;
-4. `parseSaveFile()` success -> title/Continue enabled;
-5. rejection -> title error/Continue disabled/New Game enabled.
+```ts
+let appPhase = $state<AppPhase>('loading-save');
+let launchSource = $state<LaunchSource>(null);
+let saveRepository = $state.raw<SaveRepository | null>(null);
+let loadedSave = $state.raw<SaveFileV1 | null>(null);
+let initialState = $state.raw<GameState | null>(null);
+let titleError = $state<string | null>(null);
+```
 
-Keep repository `null` if repository initialization itself fails. New Game can still launch; Task 5 will surface save-unavailable on sleep.
+On mount, call only the helper and assign its result:
 
-### Step 3: Mount Phaser only in playing phase
-
-Render `TitleScreen` inside `StageFrame` for loading/title phases. Render `GameHost`, `Overlay`, and dialogue only for `playing`.
+```ts
+const titleState = await loadTitleState();
+saveRepository = titleState.repository;
+loadedSave = titleState.save;
+titleError = titleState.error;
+appPhase = 'title';
+```
 
 New Game:
 
 ```ts
-initialState = null;
 launchSource = 'new';
-phase = 'playing';
+initialState = null;
+titleError = null;
+appPhase = 'playing';
 ```
 
 Continue:
 
 ```ts
-initialState = structuredClone(loadedSave!.state);
+if (!loadedSave) return;
 launchSource = 'continue';
-phase = 'playing';
+initialState = structuredClone(loadedSave.state);
+titleError = null;
+appPhase = 'playing';
 ```
 
-Do not delete the old save on New Game.
+Only `playing` mounts GameHost/Overlay/dialogue.
 
-### Step 4: Thread initial state and expose read-only scene state
+- [ ] **Step 5: Carry initial state through Phaser without adding persistence imports there**
 
-Add `initialState: GameState | null` to `GameHost` props and `ProofSceneDependencies`.
-
-Construct:
+Add `initialState: GameState | null` to `GameHost` props/dependencies. Add to `ProofSceneDependencies` and construct:
 
 ```ts
 this.session = new GameSession({
-  // existing authored map config
+  // existing parsed authored config
   initialState: this.dependencies.initialState ?? undefined,
 });
 ```
 
-Add to `SceneCommands`:
+Add one read-only command:
 
 ```ts
-state(): GameState;
+export interface SceneCommands {
+  state(): GameState;
+  // existing commands unchanged
+}
 ```
 
-with implementation:
+and implement it as direct delegation to `GameSession.state()`.
+
+No save repository/import belongs in Phaser.
+
+- [ ] **Step 6: Route pre-ready Continue restore failures back to title**
+
+Track whether the scene has reached `onReady`. In App error handling, when a launch fails before ready:
 
 ```ts
-state: () => this.requireSession().state(),
+resetGamePresentation();
+appPhase = 'title';
+titleError = nextError.message;
+if (launchSource === 'continue') {
+  loadedSave = null;
+  initialState = null;
+}
+launchSource = null;
 ```
 
-No separate `onGameState` callback is added.
+New Game remains available. Continue becomes disabled after an incompatible Continue attempt rather than re-launching the same state forever.
 
-### Step 5: Return pre-ready world failures to title
+Keep ordinary post-ready world errors on the existing gameplay error path; HPA-596 only needs restore/startup recovery.
 
-Track whether current launch has reached `handleReady`.
+- [ ] **Step 7: Update the shared `waitForWorld` helper in the same task**
 
-When `handleError` occurs before ready:
-
-- call existing presentation reset;
-- set `phase = 'title'`;
-- show the error as `titleError`;
-- keep New Game enabled;
-- if `launchSource === 'continue'`, set `loadedSave = null` so Continue is disabled.
-
-This handles a structurally valid V1 whose authored farm identity is rejected by `GameSession` and avoids stranding the player in Overlay error with no return-to-title path.
-
-### Step 6: Fix `waitForWorld` in the same task
-
-Change `tests/e2e/helpers.ts::waitForWorld` from direct world wait to the normal New Game flow:
+Change `tests/e2e/helpers.ts`:
 
 ```ts
 export async function waitForWorld(page: Page): Promise<void> {
@@ -670,296 +1092,377 @@ export async function waitForWorld(page: Page): Promise<void> {
 }
 ```
 
-Do not patch every existing E2E spec individually.
+Do not patch each existing spec.
 
-### Step 7: Verify
+- [ ] **Step 8: Run the full E2E suite immediately because every spec uses `waitForWorld`**
 
 Run:
 
 ```bash
+bun test tests/persistence/loadTitleState.test.ts
 bun run check
-bun run test:e2e --grep "world|lifecycle"
+bun run test:e2e
 ```
 
-Expected: existing world/lifecycle tests enter through New Game and reach the same world.
+Expected: all existing Playwright specs enter through New Game and remain green. Do not use a grep subset here.
 
-### Step 8: Commit
+- [ ] **Step 9: Commit Task 4**
 
 ```bash
-git add src/components/TitleScreen.svelte src/App.svelte src/components/GameHost.svelte src/game/phaser/ProofScene.ts src/app.css tests/e2e/helpers.ts
+git add src/persistence/loadTitleState.ts tests/persistence/loadTitleState.test.ts src/components/TitleScreen.svelte src/App.svelte src/components/GameHost.svelte src/game/phaser/ProofScene.ts src/app.css tests/e2e/helpers.ts
 git commit -m "feat: add Phoenix title and continue bootstrap"
 ```
 
 ---
 
-## Task 5: Unit-test the overnight save transaction and wire save feedback/gating
+## Task 5: Add unit-tested overnight save orchestration and a non-stale save-status lifecycle
 
-**Files**
+**Files:**
+- Create: `src/persistence/persistOvernightSave.ts`
+- Create: `tests/persistence/persistOvernightSave.test.ts`
+- Modify: `src/App.svelte`
+- Modify: `src/components/Overlay.svelte`
+- Modify: `tests/e2e/helpers.ts`
 
-- Create `src/persistence/persistOvernightSave.ts`
-- Create `tests/game/persistOvernightSave.test.ts`
-- Modify `src/App.svelte`
-- Modify `src/components/Overlay.svelte`
-- Modify `tests/e2e/helpers.ts`
+**Interfaces:**
+- Produces: `persistOvernightSave({ result, state, repository }): Promise<boolean>`
+- Produces UI state: `SaveStatus = 'idle' | 'saving' | 'saved' | 'error'`
+- Preserves: existing pending morning summary as the only day-transition lock surface
 
-### Step 1: Write transaction RED tests before changing App
+- [ ] **Step 1: Write RED transaction tests before touching App async behavior**
 
-Implement tests around this exact interface:
+Create `tests/persistence/persistOvernightSave.test.ts`.
+
+Test successful `day-advanced`:
+
+```ts
+const save = mock(() => Promise.resolve());
+const repository = { load: async () => null, save } satisfies SaveRepository;
+const wrote = await persistOvernightSave({
+  result: { ok: true, code: 'day-advanced' },
+  state,
+  repository,
+});
+expect(wrote).toBe(true);
+expect(save).toHaveBeenCalledTimes(1);
+expect(save.mock.calls[0][0]).toEqual(createSaveFile(state));
+```
+
+Test skip behavior for both a failure and another success code:
+
+```ts
+for (const result of [
+  { ok: false, code: 'not-at-bed' } as const,
+  { ok: true, code: 'action-selected' } as const,
+]) {
+  expect(await persistOvernightSave({ result, state, repository })).toBe(false);
+}
+expect(save).not.toHaveBeenCalled();
+```
+
+Test `day-advanced` with `repository: null` rejects and test repository rejection propagates. Neither branch may report success.
+
+Run:
+
+```bash
+bun test tests/persistence/persistOvernightSave.test.ts
+```
+
+Expected RED: helper missing.
+
+- [ ] **Step 2: Implement the narrow transaction helper**
+
+Create:
 
 ```ts
 export async function persistOvernightSave(input: {
   result: CommandResult;
   state: GameState;
   repository: SaveRepository | null;
-}): Promise<boolean>;
-```
-
-Use a fake repository with a save-call counter.
-
-Cases:
-
-```ts
-expect(await persistOvernightSave({
-  result: { ok: true, code: 'day-advanced' },
-  state,
-  repository,
-})).toBe(true);
-expect(saveCalls).toBe(1);
-```
-
-Also verify:
-
-- repository rejection rejects and still records only one attempted save;
-- `repository: null` with `day-advanced` rejects `Save storage unavailable`;
-- `{ ok: true, code: 'soil-tilled' }` returns `false` and does not save;
-- a failure result returns `false` and does not save.
-
-Run:
-
-```bash
-bun test tests/game/persistOvernightSave.test.ts
-```
-
-Expected RED: helper missing.
-
-### Step 2: Implement the narrow transaction helper
-
-Implementation shape:
-
-```ts
-export async function persistOvernightSave({ result, state, repository }: Input) {
-  if (!result.ok || result.code !== 'day-advanced') return false;
-  if (!repository) throw new Error('Save storage unavailable');
-  await repository.save(createSaveFile(state));
+}): Promise<boolean> {
+  if (!input.result.ok || input.result.code !== 'day-advanced') return false;
+  if (!input.repository) throw new Error('Save storage is unavailable');
+  await input.repository.save(createSaveFile(input.state));
   return true;
 }
 ```
 
-Do not put UI status, retries, environment detection, or state ownership in this helper.
+No status, Svelte, Phaser, retries, rollback, or global repository access belongs here.
 
-### Step 3: Add save presentation state
+Run:
 
-In `App.svelte`:
+```bash
+bun test tests/persistence/persistOvernightSave.test.ts
+bun run check
+```
+
+Expected: GREEN.
+
+- [ ] **Step 3: Add the exact save-status lifecycle to App**
+
+Add:
 
 ```ts
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+let saveStatus = $state<SaveStatus>('idle');
+let saveError = $state<string | null>(null);
 ```
 
-Track `saveStatus` and `saveError` for the current gameplay run.
-
-Pass both to `Overlay.svelte`.
-
-`Overlay` renders:
-
-```text
-data-save-status
-```
-
-with exact user-visible states:
-
-```text
-Saving…
-Saved
-Save failed: <message>
-```
-
-No toast/timer/retry UI.
-
-### Step 4: Convert `confirmSleep` to the tested transaction ordering
-
-Keep the command itself synchronous and call it once:
+At the start of/reset presentation:
 
 ```ts
-const result = currentCommands.sleep();
-sleepPromptVisible = false;
-```
-
-For `day-advanced`:
-
-```ts
-saveStatus = 'saving';
+saveStatus = 'idle';
 saveError = null;
-try {
-  await persistOvernightSave({
-    result,
-    state: currentCommands.state(),
-    repository: saveRepository,
-  });
-  saveStatus = 'saved';
-} catch (error) {
-  saveStatus = 'error';
-  saveError = error instanceof Error ? error.message : String(error);
-} finally {
-  sleepSubmitting = false;
+```
+
+Make `confirmSleep()` async with exact ordering:
+
+```ts
+async function confirmSleep(): Promise<void> {
+  if (!sleepPromptVisible || sleepSubmitting) return;
+  const currentCommands = commands;
+  if (!currentCommands) {
+    sleepPromptVisible = false;
+    syncDayTransition();
+    return;
+  }
+
+  sleepSubmitting = true;
   syncDayTransition();
+  try {
+    const result = currentCommands.sleep();
+    sleepPromptVisible = false;
+    syncDayTransition();
+    if (!result.ok || result.code !== 'day-advanced') return;
+
+    saveStatus = 'saving';
+    saveError = null;
+    try {
+      await persistOvernightSave({
+        result,
+        state: currentCommands.state(),
+        repository: saveRepository,
+      });
+      saveStatus = 'saved';
+    } catch (error) {
+      saveStatus = 'error';
+      saveError = error instanceof Error ? error.message : String(error);
+    }
+  } finally {
+    sleepSubmitting = false;
+    syncDayTransition();
+  }
 }
 ```
 
-For non-`day-advanced`, clear submission state without saving.
+Do not roll back the already-completed day transition.
 
-Do not roll back `GameSession.sleep()` if storage fails.
+In `startDay()`, capture the command result. After successful `day-started`, reset:
 
-### Step 5: Gate Start Day only while a write is in flight
+```ts
+saveStatus = 'idle';
+saveError = null;
+```
 
-Change the morning-summary button condition to include:
+This reset is required every morning; `Saved` must not remain visible into the next day.
+
+- [ ] **Step 4: Add only the required Overlay save surface/gate**
+
+Pass `saveStatus` and `saveError` to `Overlay.svelte`.
+
+Render:
+
+```svelte
+{#if saveStatus !== 'idle'}
+  <p data-save-status>
+    {#if saveStatus === 'saving'}
+      Saving…
+    {:else if saveStatus === 'saved'}
+      Saved
+    {:else}
+      Save failed: {saveError ?? 'Unknown error'}
+    {/if}
+  </p>
+{/if}
+```
+
+Change the existing Start Day button disable condition to include:
 
 ```svelte
 disabled={summarySubmitting || commands === null || saveStatus === 'saving'}
 ```
 
-The existing pending summary remains the input lock; do not add another `InputGate` reason.
+No new `InputGate` reason, toast, timer, retry button, spinner framework, or log panel.
 
-### Step 6: Fix `confirmAndStartDay` in the same task
+- [ ] **Step 5: Fix the shared multi-night helper so it waits for this night's save, not stale text**
 
-After existing morning-summary assertions, change the shared helper to wait for persistence:
+In `tests/e2e/helpers.ts::confirmAndStartDay`, after the existing morning-summary assertions:
 
 ```ts
+const start = page.getByRole('button', { name: 'Start Day ' + nextDay });
 await expect(page.locator('[data-save-status]')).toHaveText('Saved');
 await expect(start).toBeEnabled();
 await start.click();
+await expect(dialog).toBeHidden();
+await expect(page.locator('[data-save-status]')).toHaveCount(0);
 ```
 
-Keep the existing focus, summary-clear, and input-unlock assertions. Do not use a fixed timeout/sleep.
+Keep the existing focus, pending-summary-clear, and input-unlock assertions around this sequence.
 
-### Step 7: Verify unit and targeted browser behavior
+Because Task 5 resets status to `idle` after each successful Start Day, night 2+ cannot satisfy the `Saved` wait from night 1.
+
+- [ ] **Step 6: Verify transaction coverage and all multi-night browser flows**
 
 Run:
 
 ```bash
-bun test tests/game/persistOvernightSave.test.ts
+bun test tests/persistence/persistOvernightSave.test.ts
 bun run check
-bun run test:e2e tests/e2e/sleep-confirmation.pw.ts
+bun run test:e2e
+bun run test:coverage
+bun run coverage:check
 ```
 
-Expected GREEN, and the existing sleep helper no longer races the save gate.
+Expected: GREEN. Farming/economy/social multi-night loops must pass without arbitrary waits.
 
-### Step 8: Commit
+- [ ] **Step 7: Commit Task 5**
 
 ```bash
-git add src/persistence/persistOvernightSave.ts tests/game/persistOvernightSave.test.ts src/App.svelte src/components/Overlay.svelte tests/e2e/helpers.ts
-git commit -m "feat: autosave completed Phoenix mornings"
+git add src/persistence/persistOvernightSave.ts tests/persistence/persistOvernightSave.test.ts src/App.svelte src/components/Overlay.svelte tests/e2e/helpers.ts
+git commit -m "feat: autosave Phoenix overnight state"
 ```
 
 ---
 
-## Task 6: Add persistence acceptance without mutating test hooks
+## Task 6: Prove browser persistence, Continue, bad-save recovery, and incompatible-restore recovery
 
-**Files**
+**Files:**
+- Create: `tests/e2e/persistence.pw.ts`
 
-- Create `tests/e2e/persistence.pw.ts`
+**Interfaces:**
+- Consumes only normal title/game UI, `localStorage`, and the existing observation-only test hook
+- Adds no production test mutators
 
-### Step 1: Fresh-title acceptance
+- [ ] **Step 1: Add fresh-title/New Game acceptance**
 
-Navigate directly without `waitForWorld` because this test needs the title itself.
+Create a Playwright test that does not call `waitForWorld` before checking title:
+
+```ts
+await page.goto('/');
+await expect(page.locator('[data-title-screen]')).toBeVisible();
+await expect(page.locator('[data-continue]')).toBeDisabled();
+await page.locator('[data-new-game]').click();
+await expect(page.getByText('World ready')).toBeVisible();
+```
+
+- [ ] **Step 2: Add save/reload/Continue acceptance**
+
+Use normal gameplay helpers to make one observable state change, reach bed, confirm sleep, and wait for `Saved`.
+
+Before reload, capture:
+
+```ts
+const savedMorning = await gameSnapshot(page);
+expect(savedMorning.pendingDaySummary).not.toBeNull();
+```
+
+Reload:
+
+```ts
+await page.reload();
+await expect(page.locator('[data-title-screen]')).toBeVisible();
+await expect(page.locator('[data-continue]')).toBeEnabled();
+await page.locator('[data-continue]').click();
+await expect(page.getByText('World ready')).toBeVisible();
+```
+
+Assert restored gameplay state matches the saved morning for mutable/read-model fields, while the player is at the authored map spawn rather than the pre-sleep world position. Verify the same pending morning summary appears, then Start Day and confirm it clears normally.
+
+- [ ] **Step 3: Add malformed browser storage recovery**
+
+Before navigation:
+
+```ts
+await page.addInitScript(() => {
+  localStorage.setItem('phoenix.save.v1', '{broken json');
+});
+```
 
 Assert:
 
-```ts
-await expect(page.locator('[data-title-screen]')).toBeVisible();
-await expect(page.locator('[data-continue]')).toBeDisabled();
-await expect(page.locator('[data-new-game]')).toBeEnabled();
+```text
+title visible
+Continue disabled
+title error visible
+New Game enabled
+New Game reaches World ready
 ```
 
-Click New Game and wait for the existing observation-only world hook.
+- [ ] **Step 4: Add structurally valid but current-rule-invalid Continue recovery**
 
-### Step 2: Real autosave/reload/continue acceptance
+Create a real browser save through the normal sleep path, then mutate only its `day` in `localStorage` to `999` while keeping valid JSON/V1 structure. Reload and verify Continue is initially enabled because structural parsing succeeds. Click Continue.
 
-Through normal UI/input:
+Expected:
 
-1. make one representative farm or social mutation;
-2. reach the bed and open sleep confirmation;
-3. Confirm;
-4. assert `data-save-status` becomes `Saved` while the morning summary is visible;
-5. capture the pending `gameSnapshot()` fields relevant to the mutation/day transition;
-6. reload the page;
-7. assert title Continue enabled;
-8. click Continue;
-9. assert the restored pending summary/gameplay fields equal the pre-reload state;
-10. assert player position is the authored spawn rather than the pre-sleep travel position;
-11. Start Day and verify the summary clears.
-
-Do not add setters/teleports/save hooks to `window.__PHOENIX_TEST__`.
-
-### Step 3: Malformed browser save recovery
-
-Use Playwright browser storage setup only to place malformed raw localStorage before application bootstrap:
-
-```js
-localStorage.setItem('phoenix.save.v1', '{bad json');
+```text
+GameSession rejects initial state before ready
+title becomes visible again
+error is shown
+Continue is now disabled for that in-memory candidate
+New Game remains enabled and can launch
 ```
 
-Reload and assert:
+This proves the split between structural parsing and current-rule validation plus the pre-ready return-to-title path.
 
-- title error visible;
-- Continue disabled;
-- New Game enabled;
-- New Game still launches the world.
+- [ ] **Step 5: Run persistence acceptance and full regression suite**
 
-This is storage setup, not a game-state mutation hook.
-
-### Step 4: Run the focused spec, then the full E2E suite
+Run:
 
 ```bash
 bun run test:e2e tests/e2e/persistence.pw.ts
 bun run test:e2e
 ```
 
-The full suite is required here because the title and save gate affect every test using shared helpers.
+Expected: GREEN.
 
-### Step 5: Commit
+- [ ] **Step 6: Commit Task 6**
 
 ```bash
 git add tests/e2e/persistence.pw.ts
-git commit -m "test: cover Phoenix save and continue flow"
+git commit -m "test: cover Phoenix persistence flow"
 ```
 
 ---
 
-## Task 7: Update handoff contracts and run the complete release-quality verification
+## Task 7: Document the shipped persistence behavior and perform full desktop/clean verification
 
-**Files**
+**Files:**
+- Modify: `README.md`
+- Modify: `tests/config/handoff.test.ts`
+- Review: `CLAUDE.md` persistence architecture bullet added in Task 2
 
-- Modify `README.md`
-- Modify `tests/config/handoff.test.ts`
+**Interfaces:**
+- No new production API
+- Final acceptance of browser + desktop behavior for HPA-596
 
-### Step 1: Document only shipped HPA-596 behavior
+- [ ] **Step 1: Update README handoff facts only**
 
-README adds concise player/developer facts:
+Document:
 
-- title has New Game and Continue;
-- Continue uses the one autosave slot;
-- autosave occurs after successful sleep/new-morning transition;
+- title screen has New Game and Continue;
+- Continue is disabled without a valid save;
+- sleeping autosaves the completed next-morning state;
 - browser development uses localStorage;
-- Tauri uses Store;
-- restore starts at the authored morning spawn;
-- malformed/unsupported saves disable Continue but leave New Game available;
-- save failure is visible.
+- Tauri uses the Store plugin;
+- Continue resumes gameplay at the authored spawn while preserving farm/economy/social/day-summary state;
+- malformed/unsupported/incompatible saves leave New Game usable;
+- save failures are visible and do not roll back the completed day transition.
 
-Do not document slots, manual save, migrations, backups, or cloud sync.
+Do not add migration/backups/manual-save claims or rewrite unrelated control/content sections.
 
-### Step 2: Update pinned handoff assertions
+- [ ] **Step 2: Update handoff contract tests for the new pinned README claims**
 
-Update `tests/config/handoff.test.ts` only for the new README facts. Keep the existing verification-command and CI-job contracts unchanged.
+In `tests/config/handoff.test.ts`, add focused phrase assertions for the persistence facts that future tickets must preserve. Do not pin implementation details such as class/file names that belong in CLAUDE/spec rather than player-facing README.
 
 Run:
 
@@ -967,9 +1470,9 @@ Run:
 bun test tests/config/handoff.test.ts
 ```
 
-Expected GREEN.
+Expected: GREEN.
 
-### Step 3: Run full automated verification
+- [ ] **Step 3: Run the full clean verification matrix**
 
 Run:
 
@@ -987,9 +1490,9 @@ bun run tauri:build -- --no-sign
 bun run verify:clean
 ```
 
-Do not declare completion if any gate is red.
+Expected: all commands GREEN. Do not waive the 90% line/function coverage gate.
 
-### Step 4: Perform the required real Tauri Store smoke
+- [ ] **Step 4: Perform the final product-level Tauri close/reopen acceptance**
 
 Run:
 
@@ -997,39 +1500,58 @@ Run:
 bun run tauri:dev
 ```
 
-Manual smoke:
+In the Tauri app:
 
-1. New Game.
-2. Make one visible gameplay change.
-3. Sleep and observe `Saved` before starting the new day.
-4. Close the Tauri window.
-5. Relaunch `bun run tauri:dev`.
-6. Verify Continue is enabled.
-7. Continue.
-8. Verify the same pending morning/gameplay state at the authored spawn.
-9. Start the day successfully.
+1. verify title appears;
+2. New Game;
+3. make one visible gameplay change;
+4. sleep;
+5. observe `Saved` while the morning summary is present;
+6. close the Tauri window;
+7. relaunch `bun run tauri:dev`;
+8. verify Continue is enabled;
+9. Continue;
+10. verify the same morning state is restored at the authored player spawn;
+11. Start Day and verify the save-status surface returns to idle/hidden.
 
-Record this exact smoke in the PR validation notes. Do not replace it with a browser-localStorage result.
+Record this smoke explicitly in the implementation PR validation notes. This is the product proof that the early Task 3 plugin smoke cannot provide.
 
-### Step 5: Commit
+- [ ] **Step 5: Run final diff/scope checks**
+
+Run:
+
+```bash
+git diff --check main...HEAD
+git status --short
+```
+
+Review the diff and confirm no authored map/assets, `InputGate`, gameplay cost/content values, CI workflow shape, desktop WebDriver setup, migration framework, or unrelated refactor entered HPA-596.
+
+- [ ] **Step 6: Commit handoff updates**
 
 ```bash
 git add README.md tests/config/handoff.test.ts
-git commit -m "docs: document Phoenix autosave and continue"
+git commit -m "docs: document Phoenix persistence"
 ```
 
 ---
 
-## Self-review checklist before implementation starts
+## Plan Self-Review
 
-- Every HPA-596 acceptance criterion maps to a task above.
-- `GameSession.state()` is the only mutable-rule projection; `saveFile.ts` does not maintain a second field-selection list.
-- `parseSaveFile` checks structure; `GameSession` checks authored farm identity.
-- Restored farm tiles rebuild `farmTilesByKey`, and a command-after-restore test proves it.
-- Vite prefix is literal `TAURI_ENV_`, not `TAURI_ENV_*`.
-- `src/vite-env.d.ts` types `TAURI_ENV_PLATFORM`.
-- `waitForWorld` clicks New Game in Task 4, so existing E2E specs are not stranded at title.
-- `confirmAndStartDay` waits for `Saved`/enabled Start Day in Task 5, so existing E2E specs do not race autosave.
-- `persistOvernightSave` has Bun unit tests for success, rejection, unavailable repository, and skip branches before App wiring.
-- A pre-ready restore failure returns to title and disables Continue for the incompatible loaded save.
-- No new input-lock reason, desktop WebDriver harness, migration system, state library, or custom Rust persistence command was introduced.
+- HPA-596 remains one PR and one coherent persistence slice.
+- `GameState` is canonical and `GameSnapshot` derives mutable fields from it.
+- Primary round-trip proof is command-driven across farming, economy/shipping, social, and overnight behavior rather than a hand-enumerated full-state fixture.
+- `GameSession` owns current-rule ranges and authored farm identity; `parseSaveFile` owns only structural V1 parsing.
+- Rule-invalid state cannot boot into day/time/stamina/count/growth soft-locks.
+- Restored farm tiles explicitly rebuild `farmTilesByKey`, and a real post-restore plant command proves it.
+- Shared parser primitives are extracted once from `loadProofMap.ts`; persistence does not fork them.
+- `loadTitleState` unit-tests repository creation/load/parse branches before Svelte wiring.
+- `persistOvernightSave` unit-tests exactly-once/skip/unavailable/rejection branches before App wiring.
+- Vite prefix is literal `TAURI_ENV_`, typed in `src/vite-env.d.ts`, and pinned by scaffold tests.
+- Task 3 performs a real Tauri Store smoke immediately after plugin/capability wiring.
+- Save status resets to `idle` on successful Start Day and presentation reset, so multi-night `Saved` waits cannot pass stale.
+- Task 4 runs full E2E after changing `waitForWorld`; Task 5 runs full E2E after changing `confirmAndStartDay`.
+- `tests/persistence/` mirrors the new top-level persistence layer rather than misclassifying application/platform tests as game rules.
+- `CLAUDE.md` documents persistence -> core dependency direction and App as the runtime coordinator.
+- Risks explicitly cover Store runtime wiring and shared E2E helper coupling.
+- No new input-lock reason, test-hook mutator, state framework, schema framework, migration system, Store fallback, custom Rust save command, or desktop WebDriver harness is introduced.
