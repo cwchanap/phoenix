@@ -1486,7 +1486,16 @@ bun test tests/config/handoff.test.ts
 
 Expected: GREEN.
 
-- [ ] **Step 3: Run the full clean verification matrix**
+- [ ] **Step 3: Commit handoff updates before clean-checkout verification**
+
+`verify:clean` validates a git archive of `HEAD`, so the README/handoff changes must be committed before running it.
+
+```bash
+git add README.md tests/config/handoff.test.ts
+git commit -m "docs: document Phoenix persistence"
+```
+
+- [ ] **Step 4: Run the full verification matrix on committed `HEAD`**
 
 Run:
 
@@ -1506,7 +1515,7 @@ bun run verify:clean
 
 Expected: all GREEN. Do not waive the 90% line/function coverage gate.
 
-- [ ] **Step 4: Perform final product-level Tauri close/reopen acceptance**
+- [ ] **Step 5: Perform final product-level Tauri close/reopen acceptance**
 
 Run:
 
@@ -1531,7 +1540,7 @@ In the Tauri app:
 
 Record this smoke explicitly in implementation PR validation notes. This is the product proof the Task 3 plugin smoke cannot provide.
 
-- [ ] **Step 5: Run final diff/scope checks**
+- [ ] **Step 6: Run final diff/scope checks**
 
 Run:
 
@@ -1541,13 +1550,6 @@ git status --short
 ```
 
 Review diff and confirm no authored map/assets, `InputGate`, gameplay cost/content values, CI workflow shape, desktop WebDriver setup, migration framework, or unrelated refactor entered HPA-596.
-
-- [ ] **Step 6: Commit handoff updates**
-
-```bash
-git add README.md tests/config/handoff.test.ts
-git commit -m "docs: document Phoenix persistence"
-```
 
 ---
 
@@ -1571,5 +1573,6 @@ git commit -m "docs: document Phoenix persistence"
 - Task 4 runs full E2E after changing `waitForWorld`; Task 5 runs full E2E after changing `confirmAndStartDay`.
 - `tests/persistence/` mirrors the new top-level persistence layer rather than misclassifying application/platform tests as game rules.
 - `CLAUDE.md` documents persistence -> core dependency direction and App as runtime coordinator.
+- README/handoff updates are committed before `verify:clean`, so clean-checkout validation sees the final documented state.
 - Risks explicitly cover Store runtime wiring and shared E2E helper coupling.
 - No new input-lock reason, test-hook mutator, state framework, schema framework, migration system, Store fallback, custom Rust save command, or desktop WebDriver harness is introduced.
