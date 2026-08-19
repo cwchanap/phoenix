@@ -35,6 +35,7 @@
   const currentLine = $derived(social.lines[lineIndex] ?? '');
   const hasMoreLines = $derived(lineIndex < social.lines.length - 1);
   const carriedCrops = $derived(CROP_KINDS.filter((kind) => snapshot.inventory.crops[kind] > 0));
+  const giftAlreadyGiven = $derived(relationship.giftedToday);
 
   function relationshipLabel(level: RelationshipLevel): string {
     switch (level) {
@@ -73,6 +74,7 @@
 
   function handleKeydown(event: KeyboardEvent): void {
     if (event.key !== 'Escape') return;
+    if (social.closeFriendSequence && hasMoreLines) return;
     event.preventDefault();
     onClose();
   }
@@ -82,8 +84,6 @@
   });
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
-
 <div class="sleep-modal-layer dialogue-modal-layer" data-dialogue-layer>
   <div
     class="sleep-dialog dialogue-dialog"
@@ -92,6 +92,7 @@
     tabindex="-1"
     aria-modal="true"
     aria-labelledby="dialogue-panel-title"
+    onkeydown={handleKeydown}
     bind:this={dialog}
   >
     <div class="dialogue-header">
@@ -128,7 +129,9 @@
     {:else}
       <section class="dialogue-gifts" aria-label="Give a harvested crop">
         <h3>Give a gift</h3>
-        {#if carriedCrops.length > 0}
+        {#if giftAlreadyGiven}
+          <p data-dialogue-gift-given>Gift already given today</p>
+        {:else if carriedCrops.length > 0}
           <div class="dialogue-gift-list">
             {#each carriedCrops as kind (kind)}
               <button type="button" data-dialogue-gift onclick={() => onGift(kind)}>

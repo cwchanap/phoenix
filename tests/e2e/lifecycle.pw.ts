@@ -1,18 +1,18 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { readFileSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { gameSnapshot, holdKey, moveToShop, snapshot, waitForWorld } from './helpers';
+import {
+  gameSnapshot,
+  holdKey,
+  installListenerCensus,
+  listenerCensus,
+  moveToShop,
+  moveToJune,
+  snapshot,
+  waitForWorld,
+} from './helpers';
 
 const appPath = fileURLToPath(new URL('../../src/App.svelte', import.meta.url));
-
-type ListenerCensus = { keydown: number; keyup: number };
-type ListenerCensusWindow = Window & { __PHOENIX_LISTENER_CENSUS__: () => ListenerCensus };
-
-async function listenerCensus(page: Parameters<typeof waitForWorld>[0]): Promise<ListenerCensus> {
-  return page.evaluate(() =>
-    (window as unknown as ListenerCensusWindow).__PHOENIX_LISTENER_CENSUS__(),
-  );
-}
 
 async function openShop(page: Page): Promise<Locator> {
   const dialog = page.getByRole('dialog', { name: 'Seed shop' });
@@ -117,6 +117,30 @@ test('economy panel owns focus and clears its lock on Escape and remount', async
   await expectInputLock(page, false);
 });
 
+test('social dialog does not add a second window keydown listener', async ({ page }) => {
+  test.setTimeout(60_000);
+  await installListenerCensus(page);
+  await waitForWorld(page);
+  expect(await listenerCensus(page)).toEqual({ keydown: 1, keyup: 1 });
+
+  await moveToJune(page);
+  const dialog = page.getByRole('dialog', { name: 'June' });
+  await page.keyboard.down('e');
+  try {
+    await expect(dialog).toBeVisible();
+  } finally {
+    await page.keyboard.up('e');
+  }
+  await expect.poll(async () => (await snapshot(page)).locked).toBe(true);
+
+  expect(await listenerCensus(page)).toEqual({ keydown: 1, keyup: 1 });
+
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect.poll(async () => (await snapshot(page)).locked).toBe(false);
+  expect(await listenerCensus(page)).toEqual({ keydown: 1, keyup: 1 });
+});
+
 test('keeps the overlay and canvas aligned at supported sizes', async ({ page }) => {
   await waitForWorld(page);
   for (const [width, height, scale, left, top] of [
@@ -149,59 +173,7 @@ test('keeps the overlay and canvas aligned at supported sizes', async ({ page })
 
 test('keeps one input handler across a real Vite HMR update', async ({ page }) => {
   test.setTimeout(60_000);
-  await page.addInitScript(() => {
-    const active = new Map<
-      string,
-      Array<{ listener: EventListenerOrEventListenerObject; capture: boolean }>
-    >();
-    type ListenerOptions = boolean | AddEventListenerOptions;
-    const originalAdd = window.addEventListener.bind(window) as (
-      type: string,
-      listener: EventListenerOrEventListenerObject | null,
-      options?: ListenerOptions,
-    ) => void;
-    const originalRemove = window.removeEventListener.bind(window) as (
-      type: string,
-      listener: EventListenerOrEventListenerObject | null,
-      options?: ListenerOptions,
-    ) => void;
-    const captureOf = (options?: ListenerOptions) =>
-      typeof options === 'boolean' ? options : Boolean(options?.capture);
-    const tracked = (type: string) => type === 'keydown' || type === 'keyup';
-    window.addEventListener = ((
-      type: string,
-      listener: EventListenerOrEventListenerObject | null,
-      options?: boolean | AddEventListenerOptions,
-    ) => {
-      if (listener && tracked(type)) {
-        const records = active.get(type) ?? [];
-        const capture = captureOf(options);
-        if (!records.some((record) => record.listener === listener && record.capture === capture))
-          records.push({ listener, capture });
-        active.set(type, records);
-      }
-      return originalAdd(type, listener, options);
-    }) as typeof window.addEventListener;
-    window.removeEventListener = ((
-      type: string,
-      listener: EventListenerOrEventListenerObject | null,
-      options?: ListenerOptions,
-    ) => {
-      if (listener && tracked(type)) {
-        const records = active.get(type) ?? [];
-        const capture = captureOf(options);
-        const index = records.findIndex(
-          (record) => record.listener === listener && record.capture === capture,
-        );
-        if (index >= 0) records.splice(index, 1);
-      }
-      return originalRemove(type, listener, options);
-    }) as typeof window.removeEventListener;
-    (window as unknown as ListenerCensusWindow).__PHOENIX_LISTENER_CENSUS__ = () => ({
-      keydown: active.get('keydown')?.length ?? 0,
-      keyup: active.get('keyup')?.length ?? 0,
-    });
-  });
+  await installListenerCensus(page);
   await waitForWorld(page);
   const original = statSync(appPath);
   const originalSource = readFileSync(appPath, 'utf8');

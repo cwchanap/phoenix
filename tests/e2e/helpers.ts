@@ -433,6 +433,84 @@ export async function moveToShop(page: Page): Promise<void> {
   await acquireTarget(page, 'd', SHOP_CELL);
 }
 
+const JUNE_CELL: GridCell = { x: 9, y: 5 };
+
+export async function moveToJune(page: Page): Promise<void> {
+  await moveUntilPlayerAxis(page, ['d'], 'x', 'gte', 3.5, 0.25);
+  await moveUntilPlayerAxis(page, ['d'], 'x', 'gte', 6.4, 0.25);
+  await moveUntilPlayerAxis(page, ['s'], 'y', 'gte', 6.7, 0.25);
+  await moveUntilPlayerAxis(page, ['d'], 'x', 'gte', 7.5, 0.25);
+  await moveUntilPlayerAxis(page, ['s'], 'y', 'gte', 6.7, 0.25);
+  await acquireTarget(page, 'd', JUNE_CELL);
+}
+
+export type ListenerCensus = { keydown: number; keyup: number };
+type ListenerCensusWindow = Window & {
+  __PHOENIX_LISTENER_CENSUS__: () => ListenerCensus;
+};
+
+export async function installListenerCensus(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const active = new Map<
+      string,
+      Array<{ listener: EventListenerOrEventListenerObject; capture: boolean }>
+    >();
+    type ListenerOptions = boolean | AddEventListenerOptions;
+    const originalAdd = window.addEventListener.bind(window) as (
+      type: string,
+      listener: EventListenerOrEventListenerObject | null,
+      options?: ListenerOptions,
+    ) => void;
+    const originalRemove = window.removeEventListener.bind(window) as (
+      type: string,
+      listener: EventListenerOrEventListenerObject | null,
+      options?: ListenerOptions,
+    ) => void;
+    const captureOf = (options?: ListenerOptions) =>
+      typeof options === 'boolean' ? options : Boolean(options?.capture);
+    const tracked = (type: string) => type === 'keydown' || type === 'keyup';
+    window.addEventListener = ((
+      type: string,
+      listener: EventListenerOrEventListenerObject | null,
+      options?: boolean | AddEventListenerOptions,
+    ) => {
+      if (listener && tracked(type)) {
+        const records = active.get(type) ?? [];
+        const capture = captureOf(options);
+        if (!records.some((record) => record.listener === listener && record.capture === capture))
+          records.push({ listener, capture });
+        active.set(type, records);
+      }
+      return originalAdd(type, listener, options);
+    }) as typeof window.addEventListener;
+    window.removeEventListener = ((
+      type: string,
+      listener: EventListenerOrEventListenerObject | null,
+      options?: ListenerOptions,
+    ) => {
+      if (listener && tracked(type)) {
+        const records = active.get(type) ?? [];
+        const capture = captureOf(options);
+        const index = records.findIndex(
+          (record) => record.listener === listener && record.capture === capture,
+        );
+        if (index >= 0) records.splice(index, 1);
+      }
+      return originalRemove(type, listener, options);
+    }) as typeof window.removeEventListener;
+    (window as unknown as ListenerCensusWindow).__PHOENIX_LISTENER_CENSUS__ = () => ({
+      keydown: active.get('keydown')?.length ?? 0,
+      keyup: active.get('keyup')?.length ?? 0,
+    });
+  });
+}
+
+export async function listenerCensus(page: Page): Promise<ListenerCensus> {
+  return page.evaluate(() =>
+    (window as unknown as ListenerCensusWindow).__PHOENIX_LISTENER_CENSUS__(),
+  );
+}
+
 export interface ActionSelection {
   key: '1' | '2' | '3' | '4';
   action: FarmingAction;
