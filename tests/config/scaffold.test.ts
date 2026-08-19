@@ -8,7 +8,11 @@ describe('Phoenix scaffold', () => {
   test('pins the approved direct JavaScript dependencies', async () => {
     const pkg = await Bun.file(resolve(root, 'package.json')).json();
     expect(pkg.packageManager).toBe('bun@1.3.1');
-    expect(pkg.dependencies).toEqual({ phaser: '4.2.1', svelte: '5.56.8' });
+    expect(pkg.dependencies).toEqual({
+      '@tauri-apps/plugin-store': '2.4.4',
+      phaser: '4.2.1',
+      svelte: '5.56.8',
+    });
     expect(pkg.devDependencies).toEqual({
       '@eslint/js': '10.0.1',
       '@playwright/test': '1.62.1',
@@ -44,6 +48,23 @@ describe('Phoenix scaffold', () => {
       '*.{js,mjs,cjs,ts,svelte}': ['eslint --fix', 'prettier --write'],
       '*.{json,css,md,yml,yaml}': 'prettier --write',
     });
+  });
+
+  test('wires the Tauri Store environment and capability', async () => {
+    const viteConfigText = await Bun.file(resolve(root, 'vite.config.ts')).text();
+    const viteEnvText = await Bun.file(resolve(root, 'src/vite-env.d.ts')).text();
+    const cargoTomlText = await Bun.file(resolve(root, 'src-tauri/Cargo.toml')).text();
+    const libRsText = await Bun.file(resolve(root, 'src-tauri/src/lib.rs')).text();
+    const capability = await Bun.file(resolve(root, 'src-tauri/capabilities/default.json')).json();
+
+    expect(viteConfigText).toContain("envPrefix: ['VITE_', 'TAURI_ENV_']");
+    expect(viteConfigText).not.toContain('TAURI_ENV_*');
+    expect(viteEnvText).toContain('readonly TAURI_ENV_PLATFORM?: string');
+    expect(cargoTomlText).toContain('tauri-plugin-store = "=2.4.4"');
+    expect(libRsText).toContain('.plugin(tauri_plugin_store::Builder::default().build())');
+    expect(capability.permissions).toEqual(
+      expect.arrayContaining(['core:default', 'store:default']),
+    );
   });
 
   test('uses only Bun and Cargo lockfiles', () => {

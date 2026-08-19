@@ -3,6 +3,7 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [svelte()],
+  envPrefix: ['VITE_', 'TAURI_ENV_'],
   server: {
     host: 'localhost',
     port: 1420,
