@@ -421,7 +421,7 @@ describe('proof-map contract validation', () => {
         };
         collision.objects = collision.objects.filter(({ name }) => name !== 'villager-farmer');
       },
-      /proof-map: Collision.objects must contain exactly six supported footprints/,
+      /proof-map: Collision.objects must contain exactly 6 supported footprints/,
     ],
     [
       'extra collision footprint',
@@ -431,7 +431,7 @@ describe('proof-map contract validation', () => {
         };
         collision.objects.push({ ...collision.objects[0], id: 17 });
       },
-      /proof-map: Collision.objects must contain exactly six supported footprints/,
+      /proof-map: Collision.objects must contain exactly 6 supported footprints/,
     ],
     [
       'malformed villager footprint',
@@ -513,7 +513,7 @@ describe('proof-map contract validation', () => {
         };
         collision.objects = collision.objects.filter(({ name }) => name !== 'building');
       },
-      /proof-map: Collision.objects must contain exactly six supported footprints/,
+      /proof-map: Collision.objects must contain exactly 6 supported footprints/,
     ],
     [
       'wrong tree footprint dimensions',

@@ -434,7 +434,7 @@ function parseCollision(raw: RecordValue, projection: ProjectionAdapter): Footpr
     record(value, `Collision.objects[${index}]`),
   );
   if (objects.length !== collisionOrder.length) {
-    fail('Collision.objects must contain exactly six supported footprints');
+    fail(`Collision.objects must contain exactly ${collisionOrder.length} supported footprints`);
   }
   const seen = new Set<string>();
   const footprints = objects.map((object) => {

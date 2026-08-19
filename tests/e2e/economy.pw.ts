@@ -1,14 +1,16 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { Buffer } from 'node:buffer';
-import type { CropKind, GameSnapshot, GridCell } from '../../src/game/core/types';
+import type { CropKind, GridCell } from '../../src/game/core/types';
 import { CROP_DEFINITIONS, CROP_KINDS, isMature } from '../../src/game/core/cropDefinitions';
 import {
   acquireTarget,
   captureCropSprite,
   confirmAndStartDay,
   gameSnapshot,
+  moveToShop,
   moveUntilPlayerAxis,
   snapshot,
+  useSelected,
   waitForWorld,
   waterForCurrentWeather,
 } from './helpers';
@@ -26,18 +28,6 @@ const FARM_TARGET_KEY = {
   potato: 'd',
   pumpkin: 's',
 } as const satisfies Record<CropKind, string>;
-
-async function moveToShop(page: Page): Promise<void> {
-  await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 5.1);
-  await moveUntilPlayerAxis(page, ['w'], 'y', 'lte', 9.8);
-  await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 5.1);
-  await moveUntilPlayerAxis(page, ['w'], 'x', 'lte', 4.5);
-  await moveUntilPlayerAxis(page, ['d'], 'x', 'gte', 5.1);
-  const player = (await snapshot(page)).player.position;
-  expect(Math.floor(player.x)).toBe(5);
-  expect(Math.floor(player.y)).toBe(8);
-  await acquireTarget(page, 'd', SHOP_CELL);
-}
 
 async function openInteraction(page: Page, name: string): Promise<Locator> {
   const dialog = page.getByRole('dialog', { name });
@@ -102,54 +92,6 @@ async function selectAction(page: Page, key: '1' | '2' | '3' | '4'): Promise<voi
   } finally {
     await page.keyboard.up(key);
   }
-}
-
-async function useSelected(
-  page: Page,
-  crop: CropKind,
-  feedback: string | RegExp,
-): Promise<GameSnapshot> {
-  await acquireTarget(page, FARM_TARGET_KEY[crop], FARM_CELLS[crop]);
-  await page.keyboard.down('Space');
-  try {
-    await expect(page.locator('[data-feedback]')).toHaveText(feedback);
-    if (feedback === 'Soil tilled') {
-      await expect
-        .poll(
-          async () =>
-            (await gameSnapshot(page)).farmTiles.find(
-              ({ position }) =>
-                position.x === FARM_CELLS[crop].x && position.y === FARM_CELLS[crop].y,
-            )?.soil,
-        )
-        .toBe('tilled');
-    } else if (typeof feedback === 'string' && feedback.endsWith(' planted')) {
-      await expect
-        .poll(
-          async () =>
-            (await gameSnapshot(page)).farmTiles.find(
-              ({ position }) =>
-                position.x === FARM_CELLS[crop].x && position.y === FARM_CELLS[crop].y,
-            )?.crop?.kind,
-        )
-        .toBe(crop);
-    } else if (feedback === 'Crop watered') {
-      await expect
-        .poll(
-          async () =>
-            (await gameSnapshot(page)).farmTiles.find(
-              ({ position }) =>
-                position.x === FARM_CELLS[crop].x && position.y === FARM_CELLS[crop].y,
-            )?.crop?.wateredToday,
-        )
-        .toBe(true);
-    } else if (feedback instanceof RegExp) {
-      await expect.poll(async () => (await gameSnapshot(page)).inventory.crops[crop]).toBe(1);
-    }
-  } finally {
-    await page.keyboard.up('Space');
-  }
-  return gameSnapshot(page);
 }
 
 async function selectSeed(page: Page, crop: CropKind): Promise<void> {
@@ -218,12 +160,22 @@ test('buys, grows, ships, pays, and reinvests across all three crops', async ({ 
   await moveShopToFarmHub(page);
   await selectAction(page, '1');
   for (const crop of CROP_KINDS) {
-    await useSelected(page, crop, 'Soil tilled');
+    await useSelected(
+      page,
+      { key: FARM_TARGET_KEY[crop], cell: FARM_CELLS[crop] },
+      'Soil tilled',
+      crop,
+    );
   }
   await selectAction(page, '2');
   for (const crop of CROP_KINDS) {
     await selectSeed(page, crop);
-    await useSelected(page, crop, 'Crop planted');
+    await useSelected(
+      page,
+      { key: FARM_TARGET_KEY[crop], cell: FARM_CELLS[crop] },
+      'Crop planted',
+      crop,
+    );
   }
 
   for (let night = 1; night <= 7; night += 1) {
@@ -267,7 +219,13 @@ test('buys, grows, ships, pays, and reinvests across all three crops', async ({ 
     }
   }
   await selectAction(page, '4');
-  for (const crop of CROP_KINDS) await useSelected(page, crop, /harvested/i);
+  for (const crop of CROP_KINDS)
+    await useSelected(
+      page,
+      { key: FARM_TARGET_KEY[crop], cell: FARM_CELLS[crop] },
+      /harvested/i,
+      crop,
+    );
   expect((await gameSnapshot(page)).inventory.crops).toEqual({
     turnip: 1,
     potato: 1,
