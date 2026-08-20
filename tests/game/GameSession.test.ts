@@ -1073,6 +1073,33 @@ describe('GameSession', () => {
           (state) => (state.pendingDaySummary!.shipments[0].lineTotal = 0),
         ],
         [
+          'pending shippingIncome exceeds moneyAfterShipping',
+          (state) => {
+            state.money = state.pendingDaySummary!.shippingIncome - 1;
+            state.pendingDaySummary!.moneyAfterShipping = state.money;
+          },
+        ],
+        [
+          'pending staminaRestored negative',
+          (state) => (state.pendingDaySummary!.staminaRestored = -1),
+        ],
+        [
+          'pending staminaRestored exceeds max',
+          (state) => (state.pendingDaySummary!.staminaRestored = MAX_STAMINA + 1),
+        ],
+        [
+          'pending cropsAdvanced negative',
+          (state) => (state.pendingDaySummary!.cropsAdvanced = -1),
+        ],
+        [
+          'pending cropsAdvanced exceeds planted count',
+          (state) => {
+            let planted = 0;
+            for (const tile of state.farmTiles) if (tile.crop) planted += 1;
+            state.pendingDaySummary!.cropsAdvanced = planted + 1;
+          },
+        ],
+        [
           'pending duplicate shipment crop',
           (state) => {
             state.pendingDaySummary!.shipments.push({ ...state.pendingDaySummary!.shipments[0] });
