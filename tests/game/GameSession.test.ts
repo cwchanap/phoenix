@@ -973,6 +973,12 @@ describe('GameSession', () => {
         ['negative shipment count', (state) => (state.pendingShipment.turnip = -1)],
         ['negative relationship points', (state) => (state.relationships.shopkeeper.points = -1)],
         [
+          'closeFriendDialogueSeen below threshold',
+          (state) => {
+            state.relationships.shopkeeper.closeFriendDialogueSeen = true;
+          },
+        ],
+        [
           'growth past maturity',
           (state) => {
             state.farmTiles[0].soil = 'tilled';
@@ -1067,12 +1073,28 @@ describe('GameSession', () => {
           (state) => (state.pendingDaySummary!.shipments[0].lineTotal = 0),
         ],
         [
+          'pending duplicate shipment crop',
+          (state) => {
+            state.pendingDaySummary!.shipments.push({ ...state.pendingDaySummary!.shipments[0] });
+          },
+        ],
+        [
           'pending talkedToday not reset',
           (state) => (state.relationships.shopkeeper.talkedToday = true),
         ],
         [
           'pending giftedToday not reset',
           (state) => (state.relationships.farmer.giftedToday = true),
+        ],
+        ['pending time not at day start', (state) => (state.timeMinutes = DAY_START_MINUTES + 10)],
+        ['pending stamina not at max', (state) => (state.stamina = MAX_STAMINA - 1)],
+        ['pending shipment not cleared', (state) => (state.pendingShipment.turnip = 1)],
+        [
+          'pending crop still watered',
+          (state) => {
+            state.farmTiles[0].soil = 'tilled';
+            state.farmTiles[0].crop = { kind: 'turnip', growth: 0, wateredToday: true };
+          },
         ],
       ];
 

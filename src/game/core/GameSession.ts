@@ -666,12 +666,35 @@ function validateInitialStateInvariants(state: GameState): void {
       relationship.points,
       `${id} relationship points must be a nonnegative safe integer`,
     );
+    if (
+      relationship.closeFriendDialogueSeen &&
+      relationshipLevel(relationship.points) !== 'closeFriend'
+    ) {
+      invalidInitialState(`${id} closeFriendDialogueSeen set below close friend threshold`);
+    }
   }
 
   if (state.pendingDaySummary) validatePendingDaySummary(state.pendingDaySummary, state);
 }
 
 function validatePendingDaySummary(summary: DaySummary, state: GameState): void {
+  if (state.timeMinutes !== DAY_START_MINUTES) {
+    invalidInitialState('pending day summary requires restored time at day start');
+  }
+  if (state.stamina !== MAX_STAMINA) {
+    invalidInitialState('pending day summary requires restored stamina at max');
+  }
+  for (const kind of CROP_KINDS) {
+    if (state.pendingShipment[kind] !== 0) {
+      invalidInitialState(`pending day summary requires ${kind} pending shipment to be zero`);
+    }
+  }
+  for (const tile of state.farmTiles) {
+    if (tile.crop?.wateredToday) {
+      invalidInitialState('pending day summary requires all crops to be unwatered');
+    }
+  }
+
   if (!Number.isSafeInteger(summary.completedDay) || summary.completedDay !== state.day - 1) {
     invalidInitialState('pending day summary completedDay does not precede restored day');
   }
@@ -691,6 +714,7 @@ function validatePendingDaySummary(summary: DaySummary, state: GameState): void 
   if (!Array.isArray(summary.shipments)) {
     invalidInitialState('pending day summary shipments must be an array');
   }
+  const seenShipmentCrops = new Set<CropKind>();
   let aggregate = 0;
   for (const line of summary.shipments) {
     if (!line || typeof line.crop !== 'string') {
@@ -700,6 +724,10 @@ function validatePendingDaySummary(summary: DaySummary, state: GameState): void 
       invalidInitialState(`pending day summary shipment crop ${String(line.crop)} is unknown`);
     }
     const kind = line.crop as CropKind;
+    if (seenShipmentCrops.has(kind)) {
+      invalidInitialState(`pending day summary shipment crop ${kind} appears more than once`);
+    }
+    seenShipmentCrops.add(kind);
     if (!Number.isSafeInteger(line.quantity) || line.quantity <= 0) {
       invalidInitialState(
         `pending day summary ${kind} shipment quantity must be a positive safe integer`,
