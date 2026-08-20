@@ -667,6 +667,76 @@ function validateInitialStateInvariants(state: GameState): void {
       `${id} relationship points must be a nonnegative safe integer`,
     );
   }
+
+  if (state.pendingDaySummary) validatePendingDaySummary(state.pendingDaySummary, state);
+}
+
+function validatePendingDaySummary(summary: DaySummary, state: GameState): void {
+  if (!Number.isSafeInteger(summary.completedDay) || summary.completedDay !== state.day - 1) {
+    invalidInitialState('pending day summary completedDay does not precede restored day');
+  }
+  if (!Number.isSafeInteger(summary.nextDay) || summary.nextDay !== state.day) {
+    invalidInitialState('pending day summary nextDay does not match restored day');
+  }
+  if (summary.nextWeather !== state.weather) {
+    invalidInitialState('pending day summary nextWeather does not match restored weather');
+  }
+  if (
+    !Number.isSafeInteger(summary.moneyAfterShipping) ||
+    summary.moneyAfterShipping !== state.money
+  ) {
+    invalidInitialState('pending day summary moneyAfterShipping does not match restored money');
+  }
+
+  if (!Array.isArray(summary.shipments)) {
+    invalidInitialState('pending day summary shipments must be an array');
+  }
+  let aggregate = 0;
+  for (const line of summary.shipments) {
+    if (!line || typeof line.crop !== 'string') {
+      invalidInitialState('pending day summary shipment line is malformed');
+    }
+    if (!(CROP_KINDS as readonly string[]).includes(line.crop)) {
+      invalidInitialState(`pending day summary shipment crop ${String(line.crop)} is unknown`);
+    }
+    const kind = line.crop as CropKind;
+    if (!Number.isSafeInteger(line.quantity) || line.quantity <= 0) {
+      invalidInitialState(
+        `pending day summary ${kind} shipment quantity must be a positive safe integer`,
+      );
+    }
+    if (line.unitValue !== CROP_DEFINITIONS[kind].saleValue) {
+      invalidInitialState(
+        `pending day summary ${kind} shipment unitValue does not match crop definition`,
+      );
+    }
+    const expectedLineTotal = line.quantity * line.unitValue;
+    if (!Number.isSafeInteger(expectedLineTotal) || line.lineTotal !== expectedLineTotal) {
+      invalidInitialState(
+        `pending day summary ${kind} shipment lineTotal does not match quantity * unitValue`,
+      );
+    }
+    const nextAggregate = aggregate + line.lineTotal;
+    if (!Number.isSafeInteger(nextAggregate)) {
+      invalidInitialState('pending day summary shipping income exceeds safe integer range');
+    }
+    aggregate = nextAggregate;
+  }
+  if (!Number.isSafeInteger(summary.shippingIncome) || summary.shippingIncome !== aggregate) {
+    invalidInitialState(
+      'pending day summary shippingIncome does not match aggregate shipment line totals',
+    );
+  }
+
+  for (const id of VILLAGER_IDS) {
+    const relationship = state.relationships[id];
+    if (relationship.talkedToday) {
+      invalidInitialState(`pending day summary requires ${id} talkedToday to be reset`);
+    }
+    if (relationship.giftedToday) {
+      invalidInitialState(`pending day summary requires ${id} giftedToday to be reset`);
+    }
+  }
 }
 
 function assertNonnegativeSafeInteger(value: number, reason: string): void {

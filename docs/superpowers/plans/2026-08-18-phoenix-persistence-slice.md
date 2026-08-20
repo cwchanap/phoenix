@@ -258,6 +258,7 @@ const invalidCases: Array<[string, (state: GameState) => void]> = [
   [
     'growth past maturity',
     (state) => {
+      state.farmTiles[0].soil = 'tilled';
       state.farmTiles[0].crop = {
         kind: 'turnip',
         growth: CROP_DEFINITIONS.turnip.growthDays + 1,
