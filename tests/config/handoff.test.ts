@@ -174,6 +174,7 @@ describe('Phoenix handoff contract', () => {
     for (const expected of [
       'name: CI',
       'push:',
+      'push:\n    branches:\n      - main',
       'pull_request:',
       'workflow_dispatch:',
       'group: ${{ github.workflow }}-${{ github.ref }}',
