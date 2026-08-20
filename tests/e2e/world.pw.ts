@@ -48,9 +48,10 @@ async function moveWorldToShop(page: Page): Promise<void> {
   await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 5.1);
   await moveUntilPlayerAxis(page, ['w'], 'x', 'lte', 4.5);
   await moveUntilPlayerAxis(page, ['d'], 'x', 'gte', 5.1);
-  const player = (await snapshot(page)).player.position;
-  expect(Math.floor(player.x)).toBe(5);
-  expect(Math.floor(player.y)).toBe(8);
+  // acquireTarget navigates to the required cell and centers with margin
+  // before turning, so we no longer assert the exact cell here — the route's
+  // y-drift (steps 4-5 both decrease y) can leave the player in cell (5,7)
+  // instead of (5,8), and acquireTarget will recover.
   await acquireTarget(page, 'd', SHOP_CELL);
 }
 

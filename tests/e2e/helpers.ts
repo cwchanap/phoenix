@@ -33,6 +33,22 @@ export async function waitForWorld(page: Page): Promise<void> {
 export const snapshot = (page: Page): Promise<DebugSnapshot> =>
   page.evaluate(() => window.__PHOENIX_TEST__!.snapshot());
 
+// Facing-derived target offsets mirror ProofWorld.TARGET_OFFSETS: pressing a
+// movement key both turns the player and nudges them one grid step along the
+// facing vector, so the cell the player must stand in to face `target` is
+// `target - offset`. `acquireTarget` uses this to navigate the player into the
+// required cell and recover from boundary crossings.
+const TARGET_KEY_OFFSETS: Record<string, GridCell> = {
+  w: { x: -1, y: -1 },
+  d: { x: 1, y: -1 },
+  s: { x: 1, y: 1 },
+  a: { x: -1, y: 1 },
+};
+// Keep the player this far from each edge of the required cell so a turn press
+// (one frame of movement, ~0.05 cells for the fastest keys) can never cross a
+// boundary. 0.15 gives 0.10 margin after a worst-case turn press.
+const REQUIRED_CELL_MARGIN = 0.15;
+
 export async function acquireTarget(page: Page, key: string, target: GridCell): Promise<void> {
   const initial = await snapshot(page);
   if (initial.visibleTarget && initial.target?.x === target.x && initial.target?.y === target.y) {
@@ -40,7 +56,20 @@ export async function acquireTarget(page: Page, key: string, target: GridCell): 
     return;
   }
 
+  const offset = TARGET_KEY_OFFSETS[key];
+  const requiredCell: GridCell = { x: target.x - offset.x, y: target.y - offset.y };
+  const inRequiredCell = (value: DebugSnapshot): boolean =>
+    Math.floor(value.player.position.x) === requiredCell.x &&
+    Math.floor(value.player.position.y) === requiredCell.y;
+
   const deadline = Date.now() + 3_000;
+  // Navigate the player into the required cell and center with margin before
+  // turning. A movement key both turns and nudges the player; if the player is
+  // in the wrong cell (due to drift from prior turns or route helper
+  // imprecision) or on a cell boundary, the turn would cross the boundary and
+  // never acquire the correct target. Centering with margin ensures the turn
+  // only changes facing.
+  await navigateAndCenterInCell(page, requiredCell, deadline);
   const waitForSettledFrame = async (timeout: number): Promise<void> => {
     await page.evaluate(
       (timeoutMs) =>
@@ -116,6 +145,23 @@ export async function acquireTarget(page: Page, key: string, target: GridCell): 
         assertCameraWithinBounds(released);
         return;
       }
+
+      // A turn press also nudges the player along the facing vector. When the
+      // player starts on a cell boundary, a single frame of movement crosses
+      // it, flipping the facing-derived target cell. Every further
+      // same-direction press moves further away, so the loop would never
+      // recover. Detect the crossing and navigate back to the required cell
+      // before retrying the turn.
+      if (!inRequiredCell(released)) {
+        const recoverTimeout = deadline - Date.now();
+        if (recoverTimeout <= 0) break;
+        try {
+          await navigateAndCenterInCell(page, requiredCell, recoverTimeout);
+        } catch (error) {
+          waitError = error;
+          break;
+        }
+      }
     }
   } catch (error) {
     waitError = error;
@@ -127,6 +173,83 @@ export async function acquireTarget(page: Page, key: string, target: GridCell): 
       ? waitError.message
       : `Target ${JSON.stringify(target)} was not acquired before the 3-second deadline`;
   throw new Error(`${timeoutError}; snapshots: ${JSON.stringify({ initial, released })}`);
+}
+
+// Navigate the player into the target cell and center with margin using
+// axis-by-axis correction with two-key combos. With tileWidth=64 and
+// tileHeight=32, `d`+`s` moves mostly +x (slightly +y), `a`+`w` mostly -x
+// (slightly -y), `a`+`s` mostly +y (slightly +x), `d`+`w` mostly -y (slightly
+// -x). Each correction holds the keys until the target axis crosses its
+// threshold; the cross-axis drift is corrected in the next iteration.
+// Converges because each correction is smaller than the last. Uses a per-call
+// timeout derived from the remaining deadline so one blocked correction
+// cannot consume the entire budget.
+async function navigateAndCenterInCell(
+  page: Page,
+  cell: GridCell,
+  deadline: number,
+): Promise<void> {
+  const lowX = cell.x + REQUIRED_CELL_MARGIN;
+  const highX = cell.x + 1 - REQUIRED_CELL_MARGIN;
+  const lowY = cell.y + REQUIRED_CELL_MARGIN;
+  const highY = cell.y + 1 - REQUIRED_CELL_MARGIN;
+
+  for (let iteration = 0; iteration < 8 && Date.now() < deadline; iteration++) {
+    const pos = (await snapshot(page)).player.position;
+    if (pos.x >= lowX && pos.x <= highX && pos.y >= lowY && pos.y <= highY) return;
+
+    // Correct x toward center band.
+    if (pos.x < lowX) {
+      await holdKeysUntilAxis(page, ['d', 's'], 'x', 'gte', lowX, deadline);
+    } else if (pos.x > highX) {
+      await holdKeysUntilAxis(page, ['a', 'w'], 'x', 'lte', highX, deadline);
+    }
+
+    if (Date.now() >= deadline) return;
+
+    // Correct y toward center band.
+    const pos2 = (await snapshot(page)).player.position;
+    if (pos2.y < lowY) {
+      await holdKeysUntilAxis(page, ['a', 's'], 'y', 'gte', lowY, deadline);
+    } else if (pos2.y > highY) {
+      await holdKeysUntilAxis(page, ['d', 'w'], 'y', 'lte', highY, deadline);
+    }
+  }
+}
+
+// Hold movement keys until the player's position on the target axis crosses a
+// threshold, or the deadline passes. Releases keys and waits one frame for
+// movement to settle. Swallows errors (collision, timeout) so the caller can
+// try correcting the other axis.
+async function holdKeysUntilAxis(
+  page: Page,
+  keys: string[],
+  axis: 'x' | 'y',
+  comparison: 'gte' | 'lte',
+  target: number,
+  deadline: number,
+): Promise<void> {
+  const timeout = deadline - Date.now();
+  if (timeout <= 0) return;
+  for (const key of keys) await page.keyboard.down(key);
+  try {
+    await page.waitForFunction(
+      ({ axis, comparison, target }) => {
+        const position = window.__PHOENIX_TEST__!.snapshot().player.position;
+        const value = position[axis];
+        return comparison === 'gte' ? value >= target : value <= target;
+      },
+      { axis, comparison, target },
+      { timeout, polling: 'raf' },
+    );
+  } catch {
+    // Collision or timeout — release keys and let the caller try the other axis.
+  } finally {
+    for (const key of [...keys].reverse()) await page.keyboard.up(key);
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+    );
+  }
 }
 
 export async function gameSnapshot(page: Page): Promise<GameSnapshot> {
@@ -434,9 +557,10 @@ export async function moveToShop(page: Page): Promise<void> {
   await moveUntilPlayerAxis(page, ['d', 's'], 'x', 'gte', 5.1);
   await moveUntilPlayerAxis(page, ['w'], 'x', 'lte', 4.5);
   await moveUntilPlayerAxis(page, ['d'], 'x', 'gte', 5.1);
-  const player = (await snapshot(page)).player.position;
-  expect(Math.floor(player.x)).toBe(5);
-  expect(Math.floor(player.y)).toBe(8);
+  // acquireTarget navigates to the required cell and centers with margin
+  // before turning, so we no longer assert the exact cell here — the route's
+  // y-drift (steps 4-5 both decrease y) can leave the player in cell (5,7)
+  // instead of (5,8), and acquireTarget will recover.
   await acquireTarget(page, 'd', SHOP_CELL);
 }
 
