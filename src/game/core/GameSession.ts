@@ -695,6 +695,9 @@ function validatePendingDaySummary(summary: DaySummary, state: GameState): void 
     }
   }
 
+  if (state.day < 2) {
+    invalidInitialState('pending day summary requires restored day to have advanced past day 1');
+  }
   if (!Number.isSafeInteger(summary.completedDay) || summary.completedDay !== state.day - 1) {
     invalidInitialState('pending day summary completedDay does not precede restored day');
   }

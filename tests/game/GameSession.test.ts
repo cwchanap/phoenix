@@ -1047,6 +1047,14 @@ describe('GameSession', () => {
         ['pending completedDay mismatch', (state) => (state.pendingDaySummary!.completedDay += 1)],
         ['pending nextDay mismatch', (state) => (state.pendingDaySummary!.nextDay += 1)],
         [
+          'pending restored day still at day 1',
+          (state) => {
+            state.day = 1;
+            state.pendingDaySummary!.completedDay = 0;
+            state.pendingDaySummary!.nextDay = 1;
+          },
+        ],
+        [
           'pending nextWeather mismatch',
           (state) => {
             state.pendingDaySummary!.nextWeather = state.weather === 'sunny' ? 'rainy' : 'sunny';
