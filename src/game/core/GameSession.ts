@@ -711,6 +711,29 @@ function validatePendingDaySummary(summary: DaySummary, state: GameState): void 
     invalidInitialState('pending day summary moneyAfterShipping does not match restored money');
   }
 
+  if (
+    !Number.isSafeInteger(summary.staminaRestored) ||
+    summary.staminaRestored < 0 ||
+    summary.staminaRestored > MAX_STAMINA
+  ) {
+    invalidInitialState(
+      'pending day summary staminaRestored must be a safe integer in [0, MAX_STAMINA]',
+    );
+  }
+  let plantedCropCount = 0;
+  for (const tile of state.farmTiles) {
+    if (tile.crop) plantedCropCount += 1;
+  }
+  if (
+    !Number.isSafeInteger(summary.cropsAdvanced) ||
+    summary.cropsAdvanced < 0 ||
+    summary.cropsAdvanced > plantedCropCount
+  ) {
+    invalidInitialState(
+      'pending day summary cropsAdvanced must be a safe integer in [0, planted crop count]',
+    );
+  }
+
   if (!Array.isArray(summary.shipments)) {
     invalidInitialState('pending day summary shipments must be an array');
   }
@@ -754,6 +777,9 @@ function validatePendingDaySummary(summary: DaySummary, state: GameState): void 
     invalidInitialState(
       'pending day summary shippingIncome does not match aggregate shipment line totals',
     );
+  }
+  if (summary.shippingIncome > summary.moneyAfterShipping) {
+    invalidInitialState('pending day summary shippingIncome cannot exceed moneyAfterShipping');
   }
 
   for (const id of VILLAGER_IDS) {
