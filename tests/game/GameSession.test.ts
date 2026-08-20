@@ -983,6 +983,13 @@ describe('GameSession', () => {
           },
         ],
         [
+          'crop on untilled soil',
+          (state) => {
+            state.farmTiles[0].soil = 'untilled';
+            state.farmTiles[0].crop = { kind: 'turnip', growth: 0, wateredToday: false };
+          },
+        ],
+        [
           'duplicate saved farm coordinate',
           (state) => (state.farmTiles[1].position = { ...state.farmTiles[0].position }),
         ],
