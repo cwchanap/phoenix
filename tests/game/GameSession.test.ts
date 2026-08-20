@@ -975,6 +975,7 @@ describe('GameSession', () => {
         [
           'growth past maturity',
           (state) => {
+            state.farmTiles[0].soil = 'tilled';
             state.farmTiles[0].crop = {
               kind: 'turnip',
               growth: CROP_DEFINITIONS.turnip.growthDays + 1,
@@ -1007,6 +1008,76 @@ describe('GameSession', () => {
 
       for (const [name, mutate] of invalidCases) {
         const state = structuredClone(validState);
+        mutate(state);
+        expect(() => new GameSession(roundTripConfig({ initialState: state })), name).toThrow(
+          /^GameSession: invalid initial state/,
+        );
+      }
+    });
+
+    test('rejects pending day summary that contradicts restored state', () => {
+      const session = new GameSession(roundTripConfig());
+      preparePlanted(session, roundTripFarmCells[0]);
+      for (let night = 0; night < CROP_DEFINITIONS.turnip.growthDays; night += 1) {
+        expect(session.water(roundTripFarmCells[0])).toEqual({ ok: true, code: 'crop-watered' });
+        face(session, 0, 1); // down -> bed {4,9}
+        expect(session.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+        expect(session.acknowledgeDaySummary()).toEqual({ ok: true, code: 'day-started' });
+      }
+      expect(session.harvest(roundTripFarmCells[0])).toEqual({ ok: true, code: 'crop-harvested' });
+      face(session, -1, 0); // left -> shipping {2,9}
+      expect(session.depositCrop('turnip', 1)).toEqual({ ok: true, code: 'crop-deposited' });
+      face(session, 0, 1); // down -> bed {4,9}
+      expect(session.sleep()).toEqual({ ok: true, code: 'day-advanced' });
+
+      const baseState = session.state();
+      expect(baseState.pendingDaySummary).not.toBeNull();
+      expect(baseState.pendingDaySummary!.shipments.length).toBeGreaterThan(0);
+      expect(
+        () => new GameSession(roundTripConfig({ initialState: structuredClone(baseState) })),
+      ).not.toThrow();
+
+      const summaryCases: Array<[string, (state: GameState) => void]> = [
+        ['pending completedDay mismatch', (state) => (state.pendingDaySummary!.completedDay += 1)],
+        ['pending nextDay mismatch', (state) => (state.pendingDaySummary!.nextDay += 1)],
+        [
+          'pending nextWeather mismatch',
+          (state) => {
+            state.pendingDaySummary!.nextWeather = state.weather === 'sunny' ? 'rainy' : 'sunny';
+          },
+        ],
+        [
+          'pending moneyAfterShipping mismatch',
+          (state) => (state.pendingDaySummary!.moneyAfterShipping += 1),
+        ],
+        [
+          'pending shippingIncome mismatch',
+          (state) => (state.pendingDaySummary!.shippingIncome += 1),
+        ],
+        [
+          'pending shipment quantity zero',
+          (state) => (state.pendingDaySummary!.shipments[0].quantity = 0),
+        ],
+        [
+          'pending shipment unitValue wrong',
+          (state) => (state.pendingDaySummary!.shipments[0].unitValue = 0),
+        ],
+        [
+          'pending shipment lineTotal wrong',
+          (state) => (state.pendingDaySummary!.shipments[0].lineTotal = 0),
+        ],
+        [
+          'pending talkedToday not reset',
+          (state) => (state.relationships.shopkeeper.talkedToday = true),
+        ],
+        [
+          'pending giftedToday not reset',
+          (state) => (state.relationships.farmer.giftedToday = true),
+        ],
+      ];
+
+      for (const [name, mutate] of summaryCases) {
+        const state = structuredClone(baseState);
         mutate(state);
         expect(() => new GameSession(roundTripConfig({ initialState: state })), name).toThrow(
           /^GameSession: invalid initial state/,
