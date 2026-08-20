@@ -9,6 +9,16 @@ income; and reinvest the proceeds. HPA-592 adds an action-driven clock and
 stamina, sunny and rainy days, and a blocking morning summary. This macOS-first
 farming MVP is verified on macOS only; it does not claim acceptance for Windows or Linux.
 
+## Persistence
+
+The title screen offers New Game and Continue. Continue is disabled without a valid save.
+Sleeping autosaves the completed next-morning state. Browser development uses localStorage.
+Tauri uses Store.
+
+Continue resumes gameplay at the authored spawn while preserving farm, economy, social, and
+day-summary state. Malformed, unsupported, or incompatible saves leave New Game usable.
+Save failures are visible and do not roll back the completed day transition.
+
 ## Prerequisites
 
 - macOS

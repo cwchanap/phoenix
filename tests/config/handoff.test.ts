@@ -100,6 +100,23 @@ describe('Phoenix handoff contract', () => {
     }
   });
 
+  test('documents Phoenix persistence behavior', async () => {
+    const readme = await Bun.file(resolve(root, 'README.md')).text();
+    const normalizedReadme = readme.replace(/\s+/g, ' ').toLowerCase();
+    for (const persistenceText of [
+      'The title screen offers New Game and Continue.',
+      'Continue is disabled without a valid save.',
+      'Sleeping autosaves the completed next-morning state.',
+      'Browser development uses localStorage.',
+      'Tauri uses Store.',
+      'Continue resumes gameplay at the authored spawn while preserving farm, economy, social, and day-summary state.',
+      'Malformed, unsupported, or incompatible saves leave New Game usable.',
+      'Save failures are visible and do not roll back the completed day transition.',
+    ]) {
+      expect(normalizedReadme).toContain(persistenceText.toLowerCase());
+    }
+  });
+
   test('verifies an exact committed archive with the approved eleven-command matrix', async () => {
     const verifierPath = resolve(root, 'tools/verify-clean-checkout.ts');
     expect(existsSync(verifierPath)).toBe(true);
