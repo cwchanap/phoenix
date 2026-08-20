@@ -648,6 +648,7 @@ function validateInitialStateInvariants(state: GameState): void {
 
   for (const tile of state.farmTiles) {
     if (!tile.crop) continue;
+    if (tile.soil !== 'tilled') invalidInitialState('crop on untilled soil');
     const growthDays = CROP_DEFINITIONS[tile.crop.kind].growthDays;
     if (
       !Number.isSafeInteger(tile.crop.growth) ||
