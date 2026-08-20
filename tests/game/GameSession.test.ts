@@ -1114,6 +1114,21 @@ describe('GameSession', () => {
           },
         ],
         [
+          'pending shipments not an array',
+          (state) => {
+            (state.pendingDaySummary as unknown as { shipments: unknown }).shipments = {
+              crop: 'turnip',
+              quantity: 1,
+            };
+          },
+        ],
+        [
+          'pending shipment crop unknown',
+          (state) => {
+            state.pendingDaySummary!.shipments[0].crop = 'kale' as CropKind;
+          },
+        ],
+        [
           'pending talkedToday not reset',
           (state) => (state.relationships.shopkeeper.talkedToday = true),
         ],

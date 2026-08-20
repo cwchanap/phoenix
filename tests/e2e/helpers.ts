@@ -156,7 +156,7 @@ export async function acquireTarget(page: Page, key: string, target: GridCell): 
         const recoverTimeout = deadline - Date.now();
         if (recoverTimeout <= 0) break;
         try {
-          await navigateAndCenterInCell(page, requiredCell, recoverTimeout);
+          await navigateAndCenterInCell(page, requiredCell, deadline);
         } catch (error) {
           waitError = error;
           break;
