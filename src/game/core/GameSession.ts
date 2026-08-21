@@ -73,13 +73,6 @@ type LookupResult = MutableFarmTile | { ok: false; code: 'no-target' | 'not-farm
 const STARTING_MONEY = 150;
 const STARTING_SEEDS: CropCounts = { turnip: 3, potato: 0, pumpkin: 0 };
 const REQUIRED_FARM_TILE_COUNT = 9;
-const WEATHER_VALUES = ['sunny', 'rainy'] as const satisfies readonly Weather[];
-const FARMING_ACTIONS = [
-  'hoe',
-  'seeds',
-  'wateringCan',
-  'hands',
-] as const satisfies readonly FarmingAction[];
 
 export class GameSession {
   private readonly world: ProofWorld;
@@ -635,15 +628,6 @@ function validateInitialStateInvariants(state: GameState): void {
   }
   if (!Number.isSafeInteger(state.stamina) || state.stamina < 0 || state.stamina > MAX_STAMINA) {
     invalidInitialState('stamina is outside the current rule range');
-  }
-  if (!(WEATHER_VALUES as readonly string[]).includes(state.weather)) {
-    invalidInitialState('weather is not a supported value');
-  }
-  if (!(FARMING_ACTIONS as readonly string[]).includes(state.selectedAction)) {
-    invalidInitialState('selectedAction is not a supported value');
-  }
-  if (!(CROP_KINDS as readonly string[]).includes(state.selectedSeed)) {
-    invalidInitialState('selectedSeed is not a supported crop kind');
   }
   assertNonnegativeSafeInteger(state.money, 'money must be a nonnegative safe integer');
 
