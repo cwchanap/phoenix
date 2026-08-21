@@ -386,24 +386,24 @@ git commit -m "feat(game): add persisted onboarding progress"
 
 - [ ] **Step 1: Write RED pure finale boundary tests first**
 
-Create `tests/game/harvestFinale.test.ts` using plain `GameState` fixtures. Pin the exact tier boundaries:
+Create `tests/game/harvestFinale.test.ts` using plain `GameState` fixtures. Keep the evaluator grounded in realizable shipment totals while pinning both sides of the exact 150G/300G thresholds:
 
 ```text
-149G shipped + all Stranger             -> New Beginning
+145G shipped + all Stranger             -> New Beginning
 0G shipped + any Friend                 -> Promising Farmer
 150G shipped + all Stranger             -> Promising Farmer
-299G shipped + any Close Friend         -> Promising Farmer
+295G shipped + any Close Friend         -> Promising Farmer
 300G shipped + no Close Friend          -> Promising Farmer
 300G shipped + any Close Friend         -> Heart of the Harvest
 ```
 
-Because crop denominations cannot always produce every integer with real counts, build the threshold fixtures from valid crop-count combinations where possible and use a small exported evaluator input helper only if needed. Prefer testing `buildHarvestResult(GameState)` with realizable totals:
+Use real crop-count combinations:
 
-- 140G = one Pumpkin;
+- 145G = two Turnips + one Potato;
 - 150G = two Potatoes;
-- 280G = two Pumpkins;
+- 295G = two Turnips + three Potatoes;
 - 300G = four Potatoes;
-- 315G = nine Turnips.
+- 315G = nine Turnips for an additional above-threshold value case if useful.
 
 Also pin:
 
@@ -687,7 +687,7 @@ Run:
 bun test tests/game/loadProofMap.test.ts
 ```
 
-- [ ] **Step 4: Wire market rendering/depth and typed interaction intent into Phaser**
+- [ ] **Step 4: Wire market rendering/depth and both new typed commands into Phaser**
 
 In `interactionIntent.ts`:
 
@@ -704,8 +704,8 @@ In `ProofScene.ts`:
 - add `'market-stall'` to the depth entity id union/result initialization;
 - include its sprite in `updateDepths()` with the other scenery;
 - pass `parsed.marketCell` to `GameSession`;
-- add `triggerHarvestFinale()` to `SceneCommands`;
-- delegate it through `publishCommand()` like other commands.
+- add both `acknowledgeIntro()` and `triggerHarvestFinale()` to `SceneCommands`;
+- delegate both through `publishCommand()` like other commands.
 
 The existing generic scenery loop already creates the actual sprite; do not add a dedicated `marketSprite` rendering branch unless the type system proves it necessary.
 
@@ -1267,7 +1267,7 @@ Before moving the PR out of draft:
 - [ ] Authored market exists at cell 8,6 through generator + strict parser.
 - [ ] Market cannot finish before Day 14.
 - [ ] Day 14 market and sleep both settle pending shipping exactly once and never advance to Day 15.
-- [ ] New Beginning, Promising Farmer, and Heart of the Harvest exact boundaries are unit-tested.
+- [ ] New Beginning, Promising Farmer, and Heart of the Harvest exact boundaries are unit-tested with reachable values bracketing 150G/300G.
 - [ ] Each villager contributes one result line based on relationship level.
 - [ ] Final state saves immediately and Continue returns completed saves to ResultScreen.
 - [ ] Result screen has only New Game / Return to Title; no post-game/free-play.
