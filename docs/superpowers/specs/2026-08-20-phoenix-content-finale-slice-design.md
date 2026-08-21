@@ -266,7 +266,7 @@ New success/failure codes:
 ```ts
 // SuccessCode
 'finale-triggered'
-' intro-acknowledged' // without the leading space in code
+'intro-acknowledged'
 
 // FailureCode
 'harvest-market-not-ready'
@@ -275,14 +275,12 @@ New success/failure codes:
 'intro-already-acknowledged'
 ```
 
-The actual success literal is `intro-acknowledged`; the formatting above only separates it from prose.
-
 `triggerHarvestFinale()` requires:
 
 1. no pending morning summary;
-2. current day exactly `MAX_DAY`;
-3. current target equals `marketCell`;
-4. finale has not already triggered.
+2. finale has not already triggered;
+3. current day exactly `MAX_DAY`;
+4. current target equals `marketCell`.
 
 It then delegates to one private `completeFinale()`.
 
@@ -378,10 +376,10 @@ It writes exactly when the supplied command result is `finale-triggered`, return
 
 1. read `commands.state()` after final settlement;
 2. derive `HarvestResult` with `buildHarvestResult()`;
-3. try `persistFinaleSave()`;
-4. on success, replace in-memory `loadedSave` with the returned final file;
-5. on failure, retain the result and expose the persistence error on `ResultScreen`;
-6. move to `result` and unmount the world.
+3. move to the terminal `result` phase before awaiting storage so the world is already unmounted;
+4. try `persistFinaleSave()`;
+5. on success, replace in-memory `loadedSave` with the returned final file;
+6. on failure, retain the result and expose the persistence error on `ResultScreen`.
 
 A failed save never rolls the completed in-memory run back into gameplay.
 
@@ -428,16 +426,18 @@ Extend `GameSession.test.ts` for:
 - equivalent Day 14 market/sleep states producing the same final `GameState` facts used by the evaluator;
 - repeated finale attempts never double-pay or retrigger.
 
-Add `tests/game/harvestFinale.test.ts` with exact boundary cases:
+Add `tests/game/harvestFinale.test.ts` with reachable values around the exact thresholds:
 
-- 149G and no Friend → New Beginning;
+- 145G and no Friend → New Beginning;
 - Friend with low shipping → Promising Farmer;
 - 150G and no Friend → Promising Farmer;
-- 299G plus Close Friend → Promising Farmer;
+- 295G plus Close Friend → Promising Farmer;
 - 300G without Close Friend → Promising Farmer;
 - 300G plus Close Friend → Heart of the Harvest;
 - villager line selection for Stranger/Friend/Close Friend;
 - exact shipped count/value derivation from crop counts.
+
+These are the nearest reachable below-threshold values under the current 35G/75G/140G crop denominations, so the tests stay on the real `GameState` evaluator rather than introducing a separate scoring input just to manufacture 149G/299G totals.
 
 ### Persistence tests
 
