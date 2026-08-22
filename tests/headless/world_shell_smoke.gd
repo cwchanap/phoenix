@@ -97,9 +97,9 @@ func _place_player(player: CharacterBody2D, logical_position: Vector2) -> void:
     player.velocity = Vector2.ZERO
 
 func _expected_tile(cell: Vector2i) -> Vector2i:
-    if cell.x >= 3 and cell.x <= 9 and cell.y == 6:
+    if WorldContract.PATH_ROW.has_point(cell):
         return PATH_TILE
-    if cell.x >= 2 and cell.x <= 4 and cell.y >= 7 and cell.y <= 9:
+    if WorldContract.FARM_PATCH.has_point(cell):
         return FARM_TILE
     return DEFAULT_TILE
 
@@ -404,7 +404,7 @@ func _run() -> void:
         return
     if not _expect(is_equal_approx(diagonal_velocity.length(), cardinal_velocity.length()), "diagonal normalization"):
         return
-    if not _expect(is_equal_approx(diagonal_velocity.length(), 96.0), "diagonal requested speed"):
+    if not _expect(is_equal_approx(diagonal_velocity.length(), WorldContract.MOVE_SPEED), "diagonal requested speed"):
         return
 
     _place_player(player, WorldContract.PLAYER_SPAWN)
