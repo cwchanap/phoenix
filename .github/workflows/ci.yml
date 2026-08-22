@@ -34,6 +34,19 @@ jobs:
       - name: Frontend build
         run: bun run build
 
+  godot-smoke:
+    name: Godot smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: chickensoft-games/setup-godot@v2.4.1
+        with:
+          version: 4.7.1
+          use-dotnet: false
+          include-templates: false
+      - run: godot --version
+      - run: ./tools/verify-clean.sh
+
   unit-test:
     name: Unit test
     runs-on: ubuntu-latest

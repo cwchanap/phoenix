@@ -181,8 +181,15 @@ describe('Phoenix handoff contract', () => {
       'cancel-in-progress: true',
       'permissions:\n  contents: read',
       'name: Build',
+      'name: Godot smoke',
       'name: Unit test',
       'name: E2E',
+      'chickensoft-games/setup-godot@v2.4.1',
+      'version: 4.7.1',
+      'use-dotnet: false',
+      'include-templates: false',
+      'godot --version',
+      './tools/verify-clean.sh',
       'runs-on: ubuntu-latest',
       'name: Tauri build',
       'runs-on: macos-latest',
@@ -208,7 +215,7 @@ describe('Phoenix handoff contract', () => {
       expect(workflow).toContain(expected);
     }
 
-    expect(workflow.match(/runs-on:/g)).toHaveLength(4);
+    expect(workflow.match(/runs-on:/g)).toHaveLength(5);
     const [workflowJobs, tauriBuild] = workflow.split('\n  tauri-build:\n');
     expect(workflowJobs.match(/id-token: write/g) ?? []).toHaveLength(1);
     expect(tauriBuild).toBeDefined();
