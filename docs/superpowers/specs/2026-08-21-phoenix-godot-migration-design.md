@@ -30,22 +30,30 @@ No farming rules, economy, social systems, persistence, or finale content are in
 - Use statically typed GDScript.
 - Keep Godot scenes/resources as the authored world source of truth.
 - Reuse existing proof sprites where useful.
-- Keep the existing 12x12 map contract and 64x32 diamond projection.
+- Do not import the old JSON map format or recreate its parser.
+- Keep the existing world contract and projection numbers.
 - Replace Phaser-owned rendering/input with Godot-native nodes.
 - Do not preserve a second runnable web runtime.
 
-## World structure
+## World contract
 
-The main scene owns:
+The Godot scene must preserve the existing proof-world behavior contract:
 
-- TileMapLayer ground;
-- scenery nodes with collision;
-- CharacterBody2D player;
-- Camera2D;
-- target highlight node; and
-- minimal debug smoke UI if required.
+| Property | Value |
+| --- | --- |
+| Map size | 12x12 logical cells |
+| Ground diamond | 64x32 |
+| Projection origin | (384, 0) |
+| Player spawn | (2.5, 9.5) |
+| Player half extent | 0.18 logical cells |
+| Farm patch | x=2..4, y=7..9 |
+| Path row | x=3..9, y=6 |
+| Tree footprint | x=7.2, y=4.2, width=0.6, height=0.6 |
+| Building footprint | x=7, y=7, width=2, height=2 |
 
-The map remains one elevation plane. There are no 3D meshes, camera rotation, dynamic lighting, or terrain layers.
+Shipping bin and villager placement are owned by later slices and are not part of HPA-590's contract.
+
+The scene should be authored from this table rather than approximated visually. Future gameplay slices depend on these logical positions.
 
 ## Runtime ownership
 
@@ -56,6 +64,15 @@ Godot owns:
 - input mapping;
 - camera behavior;
 - sprite ordering.
+
+A small framework-free typed GDScript module owns shared world math:
+
+- isometric grid/world conversion;
+- facing enum;
+- facing target offsets;
+- target-cell calculation.
+
+CharacterBody2D owns movement execution only. It does not become the owner of targeting or projection rules.
 
 The first gameplay authority is intentionally deferred to HPA-589. HPA-590 should not invent GameSession, registries, service layers, or event frameworks.
 
@@ -72,6 +89,12 @@ The existing facing contract remains:
 | Down | (+1,+1) |
 | Left | (-1,+1) |
 
+Facing policy remains:
+
+- dominant screen axis determines facing;
+- horizontal wins ties;
+- idle retains the previous facing.
+
 The target highlight is hidden when the projected target leaves the map.
 
 ## Depth ordering
@@ -85,13 +108,20 @@ The implementation should not recreate the previous manual Phaser depth sorter u
 Required proof:
 
 - project opens without import errors;
+- headless smoke validates map size, projection constants, spawn, target offsets, off-map target hiding, and collision contract;
 - player movement works;
 - collision prevents entering tree/building footprints;
 - camera follows within bounds;
 - target highlight matches facing direction;
 - player can move in front of and behind scenery.
 
-Automated coverage should focus on Godot startup/headless smoke. Gameplay rule tests belong to HPA-589 when authoritative state exists.
+Do not add GUT or broad gameplay test infrastructure in HPA-590. Direct gameplay rule tests belong to HPA-589 when authoritative state exists.
+
+## Presentation contract
+
+- Viewport remains 640x360.
+- Pixel art uses nearest filtering.
+- No debug HUD is required; deterministic headless assertions are preferred.
 
 ## Non-goals
 
