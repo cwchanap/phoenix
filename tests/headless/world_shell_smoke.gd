@@ -446,7 +446,9 @@ func _run() -> void:
     player.move_and_slide()
     var high_motion_stop := WorldMath.world_to_grid(player.global_position)
     if not _expect(
-        high_motion_stop.x <= 7.021
+        high_motion_stop.x >= 7.017
+        and high_motion_stop.x <= 7.021
+        and player.get_slide_collision_count() > 0
         and _outside_footprint(high_motion_stop, WorldContract.TREE_FOOTPRINT),
         "high-motion tree collision",
     ):
