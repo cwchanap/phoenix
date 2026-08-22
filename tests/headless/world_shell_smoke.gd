@@ -233,7 +233,7 @@ func _run() -> void:
     if not _expect_names(entities, ["Player", "Tree", "Building"], "Entities"):
         return
     if not _expect_child_order(
-        entities, ["Tree", "Building", "Player"], "Entities scene-tree order"
+        entities, ["Player", "Tree", "Building"], "Entities scene-tree order"
     ):
         return
     var scenery_texture_path := "res://assets/sprites/proof-scenery.png"
