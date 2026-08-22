@@ -213,6 +213,23 @@ func _run() -> void:
     var entities := world.get_node("Entities") as Node2D
     if not _expect(entities.y_sort_enabled, "Entities must enable y-sort"):
         return
+    var enabled_y_sort_nodes: Array[CanvasItem] = []
+    if world.y_sort_enabled:
+        enabled_y_sort_nodes.append(world)
+    for node in world.find_children("*", "CanvasItem", true, false):
+        var canvas_item := node as CanvasItem
+        if canvas_item.y_sort_enabled:
+            enabled_y_sort_nodes.append(canvas_item)
+    if not _expect(
+        enabled_y_sort_nodes.size() == 1,
+        "World must have exactly one enabled y-sort CanvasItem",
+    ):
+        return
+    if not _expect(
+        enabled_y_sort_nodes[0] == entities,
+        "Entities must be the only enabled y-sort CanvasItem",
+    ):
+        return
     if not _expect_names(entities, ["Tree", "Building", "Player"], "Entities"):
         return
     if not _expect_child_order(
