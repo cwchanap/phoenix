@@ -22,8 +22,8 @@ static func grid_to_world(point: Vector2) -> Vector2:
 static func world_to_grid(point: Vector2) -> Vector2:
     var offset := point - WorldContract.PROJECTION_ORIGIN
     return Vector2(
-        offset.x / 64.0 + offset.y / 32.0,
-        offset.y / 32.0 - offset.x / 64.0,
+        offset.x / WorldContract.TILE_SIZE.x + offset.y / WorldContract.TILE_SIZE.y,
+        offset.y / WorldContract.TILE_SIZE.y - offset.x / WorldContract.TILE_SIZE.x,
     )
 
 static func grid_cell_at_world(point: Vector2) -> Vector2i:
@@ -46,12 +46,15 @@ static func facing_for_input(input: Vector2, previous: Facing) -> Facing:
         return Facing.RIGHT if input.x > 0.0 else Facing.LEFT
     return Facing.DOWN if input.y > 0.0 else Facing.UP
 
-static func target_cell(
-    position: Vector2, facing: Facing, map_size: Vector2i = WorldContract.MAP_SIZE
-) -> Variant:
+static func target_cell(position: Vector2, facing: Facing) -> Variant:
     var offset: Vector2i = TARGET_OFFSETS[facing]
     var target := Vector2i(floori(position.x), floori(position.y)) + offset
-    if target.x < 0 or target.x >= map_size.x or target.y < 0 or target.y >= map_size.y:
+    if (
+        target.x < 0
+        or target.x >= WorldContract.MAP_SIZE.x
+        or target.y < 0
+        or target.y >= WorldContract.MAP_SIZE.y
+    ):
         return null
     return target
 
