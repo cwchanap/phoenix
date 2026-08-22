@@ -4,7 +4,7 @@
 
 **Goal:** Restore farming, repeatable days, weather, the three-crop economy, shipping, and reinvestment on the Godot runtime in one HPA-589 PR.
 
-**Architecture:** Keep one statically typed `GameSession` as the only mutable gameplay authority. Put closed tables/pure formulas in `GameRules`; let `WorldShell` coordinate Godot input/UI, `FarmView` render snapshots, and one consolidated `GameHud` own presentation-only panels.
+**Architecture:** Keep one statically typed `GameSession` as the only mutable gameplay authority. Put closed tables and pure formulas in `GameRules`; let `WorldShell` coordinate Godot input/UI, `FarmView` render snapshots, and one consolidated `GameHud` own presentation-only panels.
 
 **Tech Stack:** Godot 4.7.1 standard build, statically typed GDScript, GUT 9.7.1, existing headless smoke scripts and GitHub Actions verifier.
 
@@ -20,7 +20,7 @@
 - Day 14 remains playable and cannot advance or settle shipping into Day 15.
 - `GameSession` is the only mutable gameplay-rules authority. World position, rendering nodes, and presentation state remain outside its snapshot.
 - Expected invalid gameplay commands return stable results and do not partially mutate state.
-- Do not add managers/services/event buses/registries/generic item systems/persistence/social/finale behavior.
+- Do not add managers, services, event buses, registries, generic item systems, persistence, social behavior, or finale behavior.
 - Start every production change with focused RED evidence and end each task with its focused GREEN command before committing.
 
 ---
@@ -61,7 +61,7 @@
 
 **Interfaces:**
 - Produces: `GameRules.CropKind`, `GameRules.FarmingAction`, `GameRules.Weather`.
-- Produces: `crop_definition`, `crop_key`, `visual_stage`, `is_mature`, `action_cost`, `evaluate_action_budget`, `shipment_payout`, `weather_from_roll`, `format_time`.
+- Produces: `crop_definition`, `crop_key`, `crop_kind_from_key`, `visual_stage`, `is_mature`, `action_cost`, `evaluate_action_budget`, `shipment_payout`, `weather_from_roll`, `format_time`.
 - Consumed by: every later task.
 
 - [ ] **Step 1: Vendor exactly GUT 9.7.1**
@@ -78,7 +78,7 @@ Expected: GUT help is printed with exit code `0`.
 
 - [ ] **Step 2: Write RED tests for the closed crop/action tables**
 
-Create `tests/unit/test_game_rules.gd` beginning with these exact expectations:
+Create `tests/unit/test_game_rules.gd` with these expectations:
 
 ```gdscript
 extends GutTest
@@ -88,12 +88,14 @@ func test_crop_values_are_frozen() -> void:
         "key": &"turnip", "display_name": "Turnip", "growth_nights": 3,
         "seed_price": 20, "sale_value": 35,
     })
-    assert_eq(GameRules.crop_definition(GameRules.CropKind.POTATO)["growth_nights"], 5)
-    assert_eq(GameRules.crop_definition(GameRules.CropKind.POTATO)["seed_price"], 40)
-    assert_eq(GameRules.crop_definition(GameRules.CropKind.POTATO)["sale_value"], 75)
-    assert_eq(GameRules.crop_definition(GameRules.CropKind.PUMPKIN)["growth_nights"], 7)
-    assert_eq(GameRules.crop_definition(GameRules.CropKind.PUMPKIN)["seed_price"], 70)
-    assert_eq(GameRules.crop_definition(GameRules.CropKind.PUMPKIN)["sale_value"], 140)
+    assert_eq(GameRules.crop_definition(GameRules.CropKind.POTATO), {
+        "key": &"potato", "display_name": "Potato", "growth_nights": 5,
+        "seed_price": 40, "sale_value": 75,
+    })
+    assert_eq(GameRules.crop_definition(GameRules.CropKind.PUMPKIN), {
+        "key": &"pumpkin", "display_name": "Pumpkin", "growth_nights": 7,
+        "seed_price": 70, "sale_value": 140,
+    })
 
 func test_action_costs_are_frozen() -> void:
     assert_eq(GameRules.action_cost(GameRules.FarmingAction.HOE), {"minutes": 30, "stamina": 3})
@@ -110,9 +112,9 @@ godot --headless --path . -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/tes
 
 Expected: FAIL because `GameRules` does not exist.
 
-- [ ] **Step 3: Implement the closed enums/constants and table accessors**
+- [ ] **Step 3: Implement the closed enums/constants and complete table accessors**
 
-Create `scripts/game/game_rules.gd` with this public shape:
+Create `scripts/game/game_rules.gd` with this concrete base:
 
 ```gdscript
 class_name GameRules
@@ -127,23 +129,52 @@ const ACTION_CUTOFF_MINUTES: int = 1320
 const MAX_STAMINA: int = 20
 const MAX_DAY: int = 14
 const RAIN_CHANCE: float = 0.25
+const CROP_ORDER: Array[CropKind] = [CropKind.TURNIP, CropKind.POTATO, CropKind.PUMPKIN]
 
 static func crop_definition(kind: CropKind) -> Dictionary:
-    # Return a duplicate of the closed definition selected by kind.
-    ...
+    match kind:
+        CropKind.TURNIP:
+            return {"key": &"turnip", "display_name": "Turnip", "growth_nights": 3, "seed_price": 20, "sale_value": 35}
+        CropKind.POTATO:
+            return {"key": &"potato", "display_name": "Potato", "growth_nights": 5, "seed_price": 40, "sale_value": 75}
+        CropKind.PUMPKIN:
+            return {"key": &"pumpkin", "display_name": "Pumpkin", "growth_nights": 7, "seed_price": 70, "sale_value": 140}
+    assert(false, "unknown crop kind")
+    return {}
 
 static func crop_key(kind: CropKind) -> StringName:
-    ...
+    return crop_definition(kind)["key"] as StringName
+
+static func crop_kind_from_key(key: StringName) -> CropKind:
+    match key:
+        &"turnip":
+            return CropKind.TURNIP
+        &"potato":
+            return CropKind.POTATO
+        &"pumpkin":
+            return CropKind.PUMPKIN
+    assert(false, "unknown crop key")
+    return CropKind.TURNIP
 
 static func action_cost(action: FarmingAction) -> Dictionary:
-    ...
+    match action:
+        FarmingAction.HOE:
+            return {"minutes": 30, "stamina": 3}
+        FarmingAction.SEEDS:
+            return {"minutes": 20, "stamina": 1}
+        FarmingAction.WATERING_CAN:
+            return {"minutes": 20, "stamina": 2}
+        FarmingAction.HANDS:
+            return {"minutes": 20, "stamina": 1}
+    assert(false, "unknown farming action")
+    return {}
 ```
 
-Replace the ellipses during implementation with exhaustive `match` branches returning the exact values in the spec. Do not use a fallback/default crop or action; an impossible value must assert as programmer error.
+Do not add fallback/default crop or action behavior beyond the unreachable typed return after the assertion.
 
 - [ ] **Step 4: Add RED boundary tests for visual stages, budgets, weather, and payout**
 
-Add table-driven assertions covering:
+Add assertions covering every valid growth endpoint, plus:
 
 ```gdscript
 assert_eq(GameRules.visual_stage(GameRules.CropKind.TURNIP, 0), 0)
@@ -170,7 +201,7 @@ Run the focused file and confirm it fails on missing helpers.
 
 - [ ] **Step 5: Implement the pure helpers minimally**
 
-Use exactly:
+Use exactly this stage formula:
 
 ```gdscript
 static func visual_stage(kind: CropKind, progress: int) -> int:
@@ -179,7 +210,7 @@ static func visual_stage(kind: CropKind, progress: int) -> int:
     return mini(3, floori(float(progress * 3) / float(growth_nights)))
 ```
 
-`evaluate_action_budget` checks completion time first, stamina second, and returns a new dictionary. `shipment_payout` iterates Turnip → Potato → Pumpkin, skips zero counts, derives all values from the crop table, and returns `{ "lines": Array, "total": int }`. `format_time` returns zero-padded `HH:MM`.
+`evaluate_action_budget` checks completion time first, stamina second, and returns a new dictionary. `shipment_payout` iterates `CROP_ORDER`, skips zero counts, derives every unit value from the crop table, and returns `{ "lines": Array, "total": int }`. `weather_from_roll` accepts `[0.0, 1.0)` and uses `< 0.25` for rain. `format_time` returns zero-padded `HH:MM`.
 
 - [ ] **Step 6: Run GREEN and commit**
 
@@ -236,14 +267,16 @@ func _init(weather_roll_source: Callable = Callable()) -> void:
 
 If the callable is invalid, production weather rolls use a private callable around `randf()`. Keep that callable private and out of snapshots.
 
-Make `snapshot()` duplicate every nested farm/inventory/shipment/summary collection so this assertion passes:
+Prove deep copies by mutating one caller-owned snapshot, not by value inequality:
 
 ```gdscript
 var first := session.snapshot()
 var second := session.snapshot()
-assert_ne(first, second)
-assert_ne(first["inventory"], second["inventory"])
-assert_ne(first["farm"], second["farm"])
+first["inventory"]["seeds"][&"turnip"] = 99
+first["farm"][0]["soil"] = &"tilled"
+assert_eq(second["inventory"]["seeds"][&"turnip"], 3)
+assert_eq(second["farm"][0]["soil"], &"untilled")
+assert_eq(session.snapshot()["inventory"]["seeds"][&"turnip"], 3)
 ```
 
 - [ ] **Step 3: Add RED tests for ordered guards and full-snapshot atomicity**
@@ -258,7 +291,7 @@ Use the first farm cell from `WorldContract.farm_cells()` and prove:
 - Water again → `already-watered`, no budget change.
 - Harvest immature → `crop-immature`, no budget change.
 
-Use a helper local to the test file:
+Use this test helper:
 
 ```gdscript
 func assert_failure_is_atomic(session: GameSession, call: Callable, expected_code: StringName) -> void:
@@ -271,15 +304,15 @@ func assert_failure_is_atomic(session: GameSession, call: Callable, expected_cod
 
 - [ ] **Step 4: Implement the four direct farming commands and selected-action dispatch**
 
-Add the design signatures. Each method performs all target/farm/prerequisite validation before applying `GameRules.evaluate_action_budget` and mutates crop/inventory/time/stamina only after every check passes.
+Implement the design signatures. Each method performs all target/farm/prerequisite validation before applying `GameRules.evaluate_action_budget` and mutates crop/inventory/time/stamina only after every check passes.
 
 `apply_selected_action` is one exhaustive `match` over `selected_action`; do not add a command object or map of callbacks.
 
 Use these result codes exactly: `action-selected`, `seed-selected`, `soil-tilled`, `crop-planted`, `crop-watered`, `crop-harvested`, `no-target`, `not-farm-cell`, `crop-present`, `already-tilled`, `soil-untilled`, `no-selected-seeds`, `no-crop`, `crop-mature`, `already-watered`, `crop-immature`, `action-too-late`, `insufficient-stamina`, `rain-waters-crops`, `day-summary-pending`.
 
-- [ ] **Step 5: Add rainy-water and budget precedence tests**
+- [ ] **Step 5: Prove successful budget application and reachable stamina exhaustion**
 
-Inject a deterministic weather roll for later tasks, directly set up the rainy state only through successful sleeps once sleep exists in Task 3, and keep the pure 22:00/time-before-stamina boundary in `test_game_rules.gd`. At this task boundary, prove GameSession applies successful budgets exactly once and reachable stamina exhaustion is atomic; do not add a test-only clock setter.
+Use normal farming commands until stamina is below the next valid action cost, then assert `insufficient-stamina` and complete snapshot equality. Keep the unreachable near-22:00 boundary in `test_game_rules.gd`; do not add a test-only clock setter.
 
 - [ ] **Step 6: Run GREEN and commit**
 
@@ -299,7 +332,7 @@ git commit -m "feat: add authoritative farming session"
 
 **Interfaces:**
 - Produces: `buy_seeds`, `deposit_crop`, `sleep`, `acknowledge_morning_summary`.
-- Snapshot gains: money, complete seed/crop counts, pending shipment, current weather, fixed interaction cells, and pending morning summary.
+- Snapshot gains: complete seed/crop counts, pending shipment, current weather, fixed interaction cells, and pending morning summary.
 
 - [ ] **Step 1: Add RED economy transaction tests**
 
@@ -333,7 +366,7 @@ Prove morning summary blocks farming, buying, depositing, seed/action selection,
 
 - [ ] **Step 4: Add RED shipping settlement tests**
 
-With pending `{turnip: 2, potato: 1, pumpkin: 0}`, one successful sleep must:
+With pending `{turnip: 2, potato: 1, pumpkin: 0}`, one successful sleep must produce:
 
 ```text
 shipping lines: Turnip 2 × 35 = 70; Potato 1 × 75 = 75
@@ -404,13 +437,13 @@ Expected: FAIL on the new missing constants/entity.
 
 Extend `WorldContract` only with the fixed values above.
 
-In `world.tscn`, add a `ShippingBin` under `Entities`, using frame `2` of `proof-scenery.png`, anchored at `WorldMath.grid_to_world(Vector2(6.5, 10.5))`. Add one `ShippingCollision` polygon under `StaticCollision`; `WorldShell._ready()` derives its polygon through `WorldMath.footprint_to_polygon(WorldContract.SHIPPING_FOOTPRINT)`.
+In `world.tscn`, add `ShippingBin` under `Entities`, using frame `2` of `proof-scenery.png`, anchored at `WorldMath.grid_to_world(Vector2(6.5, 10.5))`. Add `ShippingCollision` under `StaticCollision`; `WorldShell._ready()` derives its polygon through `WorldMath.footprint_to_polygon(WorldContract.SHIPPING_FOOTPRINT)`.
 
 Keep Player first under `Entities` so HPA-590 exact-Y ordering remains intact; place Tree, Building, and ShippingBin after Player.
 
 - [ ] **Step 3: Add target exposure and movement gating to `PlayerController`**
 
-Refactor `_update_target()` to use one stored `current_target` value and expose it:
+Refactor target calculation to store one value and expose it:
 
 ```gdscript
 var input_enabled: bool = true
@@ -438,9 +471,16 @@ res://assets/sprites/proof-soil.png
 res://assets/sprites/proof-crops.png
 ```
 
-Crop frame formula is `int(kind) * 4 + GameRules.visual_stage(kind, growth)` using the stable enum order Turnip/Potato/Pumpkin. Wet soil is selected when `watered_today` or current weather is rainy.
+For each crop snapshot key:
 
-Extend the shell smoke to assert nine aligned farm anchors and that the snapshot-facing renderer owns no `GameSession` reference.
+```gdscript
+var kind := GameRules.crop_kind_from_key(crop["kind"] as StringName)
+var crop_frame := int(kind) * 4 + GameRules.visual_stage(kind, crop["growth"] as int)
+```
+
+Wet soil is selected when `watered_today` is true or the snapshot weather key is `&"rainy"`.
+
+Extend the shell smoke to assert nine aligned farm anchors and that the renderer owns no `GameSession` reference.
 
 - [ ] **Step 5: Run shell GREEN and commit**
 
@@ -488,13 +528,13 @@ Keep existing WASD mappings unchanged.
 
 `game_hud.tscn` contains:
 
-- always-visible status labels for Day/Time/Weather/Stamina/Money;
+- always-visible labels for Day/Time/Weather/Stamina/Money;
 - four action Buttons;
 - three seed Buttons and inventory/pending labels;
 - one context-hint Label;
 - one modal root with mutually exclusive Shop, Shipping, SleepConfirmation, MorningSummary containers.
 
-Shop and Shipping each contain three crop-row buttons, a `SpinBox` with minimum `1`, a Buy/Deposit button, and Close. Keep quantity state in `GameHud` only. Do not create a reusable quantity component for two consumers.
+Shop and Shipping each contain three crop-row buttons, one `SpinBox` with minimum `1`, a `Max` button, an explicit Buy/Deposit button, and Close. The SpinBox supplies minus/plus adjustment. Shop Max is `floor(money / seed_price)`; Shipping Max is the selected crop's carried quantity. Quantity and selected row are UI-only and reset on close. Escape closes Shop/Shipping/SleepConfirmation but never MorningSummary. Do not create a reusable quantity component for two consumers.
 
 - [ ] **Step 3: Implement `GameHud` as a view + intention emitter**
 
@@ -520,18 +560,12 @@ Run it and confirm RED before wiring `WorldShell`.
 
 - [ ] **Step 5: Wire `WorldShell` as the thin coordinator**
 
-On `_ready()`:
-
-```text
-create GameSession
-connect GameHud signals
-refresh FarmView + GameHud from initial snapshot
-```
+On `_ready()`: create `GameSession`, connect GameHud signals, and refresh FarmView + GameHud from the initial snapshot.
 
 On input:
 
 ```text
-1..4 → session.select_action
+1/2/3/4 → session.select_action
 Space → session.apply_selected_action(player.current_target_cell())
 E at shop → open shop
 E at shipping → open shipping
@@ -539,7 +573,7 @@ E at bed → open sleep confirmation
 E elsewhere → presentation-only nothing-to-interact feedback
 ```
 
-HUD transactions call `buy_seeds` / `deposit_crop` with the current target again so the domain revalidates location. Sleep confirmation calls `session.sleep(current target)` exactly once. Every command path then obtains one fresh snapshot and refreshes both views.
+HUD transactions call `buy_seeds` / `deposit_crop` with the current target again so the domain revalidates location. Sleep confirmation calls `session.sleep(current target)` exactly once. Every command path obtains one fresh snapshot and refreshes both views.
 
 Compute world-input enabled state from `not hud.has_blocking_modal()` and `snapshot["pending_morning_summary"] == null`; call `player.set_input_enabled` from that one function. Do not distribute independent lock flags across nodes.
 
@@ -585,7 +619,7 @@ Day 14 cannot become Day 15 or settle shipping
 full buy→farm→ship→payout→reinvest journey
 ```
 
-If any seam is missing, add the focused assertion to the existing two unit files; do not create another test abstraction.
+If a seam is missing, add the focused assertion to the existing two unit files; do not create another test abstraction.
 
 - [ ] **Step 2: Append GUT and gameplay smoke to `verify-clean.sh`**
 
@@ -604,15 +638,7 @@ Do not create a second verification script or CI job.
 
 - [ ] **Step 3: Update handoff documentation to the HPA-589 boundary**
 
-Document:
-
-- `GameSession` as the only mutable gameplay authority;
-- `GameRules` as pure closed content/formulas;
-- `FarmView` and `GameHud` as adapters only;
-- the six gameplay inputs;
-- the full `./tools/verify-clean.sh` command;
-- HPA-594 as the next social port;
-- persistence/social/finale remaining out of HPA-589.
+Document `GameSession` as the only mutable gameplay authority; `GameRules` as pure closed content/formulas; `FarmView` and `GameHud` as adapters only; the six gameplay inputs; the full clean-verifier command; HPA-594 as the next social port; and persistence/social/finale remaining out of HPA-589.
 
 Do not copy the historical TypeScript architecture back into current docs.
 
@@ -629,13 +655,7 @@ Expected: all commands exit `0`; GUT reports zero failures; every headless smoke
 
 - [ ] **Step 5: Perform one bounded manual playthrough in the real scene**
 
-Run:
-
-```bash
-godot --path . --editor project.godot
-```
-
-Play using normal controls and verify:
+Run the project in Godot and use normal controls to verify:
 
 ```text
 shop opens only at shop target
@@ -675,6 +695,7 @@ Before marking the PR ready for review:
 - [ ] Day 14 preserves pending shipment on rejected sleep.
 - [ ] Morning summary blocks movement and gameplay until domain acknowledgment.
 - [ ] Player position/facing/camera/render frames/panel state are absent from `GameSession.snapshot()`.
+- [ ] Shop and Shipping preserve the existing minus/plus, Max, and explicit transaction behavior without a generic UI framework.
 - [ ] GUT is pinned to 9.7.1 and runs inside `./tools/verify-clean.sh`.
 - [ ] Existing HPA-590 world math/shell smokes still pass without weakened assertions.
 - [ ] No social, persistence, finale, generic framework, or second runtime work entered the PR.
