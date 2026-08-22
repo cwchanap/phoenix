@@ -1,10 +1,2 @@
 .DS_Store
-node_modules/
-dist/
-coverage/
-playwright-report/
-test-results/
-.svelte-check/
-src-tauri/target/
-src-tauri/gen/schemas/
 .godot/
