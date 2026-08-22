@@ -31,13 +31,14 @@ No farming rules, economy, social systems, persistence, or finale content are in
 - Use standard non-.NET Godot 4.7.1.
 - Use statically typed GDScript.
 - Use Godot scenes/resources for authored world content and `world_contract.gd` for the small set of fixed shell invariants.
-- Reuse the committed proof PNG assets; do not port `tools/generate-proof-assets.ts`.
+- Re-home all six committed proof PNG sheets unchanged under the Godot asset tree. HPA-590 renders ground/player/scenery; soil/crop/villager sheets are retained only as source assets for their later Godot slices. Do not port `tools/generate-proof-assets.ts`.
 - Do not import the old Tiled JSON map or recreate `loadProofMap.ts`.
 - Preserve the existing logical projection, authored positions, reachable routes, target behavior, and visual front/behind behavior.
 - Replace Phaser-owned rendering/input with Godot-native nodes.
 - Use engine-native `CharacterBody2D` collision response; do not port the old grid-axis collision resolver.
 - Do not preserve a second runnable web runtime or a dormant JavaScript/TypeScript toolchain after HPA-590 merges.
 - Do not invent `GameSession`, registries, service layers, event buses, or plugin abstractions. HPA-589 owns gameplay authority.
+- Change CI only as required to remove obsolete web/Tauri gates and establish one Godot headless smoke path; broader CI, coverage, and export work remain outside HPA-590.
 
 ## Closed world contract
 
@@ -140,8 +141,8 @@ World (Node2D)
 │   ├── BuildingCollision (CollisionPolygon2D)
 │   └── Perimeter collision shapes
 ├── Entities (Node2D, y_sort_enabled=true)
-│   ├── Tree (Sprite2D)
-│   ├── Building (Sprite2D)
+│   ├── Tree (Node2D + Sprite2D)
+│   ├── Building (Node2D + Sprite2D)
 │   └── Player (CharacterBody2D)
 │       ├── Sprite2D
 │       ├── CollisionPolygon2D
@@ -149,7 +150,7 @@ World (Node2D)
 └── TargetHighlight (Line2D)
 ```
 
-The collision root stays outside the Y-sorted visual entity container. Tree/building/player visual roots use bottom-center ground-contact positions.
+The collision root stays outside the Y-sorted visual entity container. Tree/building/player roots use bottom-center ground-contact positions; their child sprites are offset upward so Y-sort uses the ground contact rather than texture centers.
 
 ## Depth ordering
 
@@ -186,7 +187,7 @@ This replaces the old Svelte `StageFrame`; no Godot debug HUD is introduced.
 
 The final HPA-590 branch has one executable/toolchain path: Godot.
 
-After the Godot shell and replacement verification are green, the same PR deletes the obsolete runnable/runtime/tooling surface, including:
+After the Godot shell and replacement verification are green, the same PR deletes only the obsolete runnable/runtime/tooling surface required by the hard cutover, including:
 
 - Phaser/Svelte/Vite application code;
 - `src-tauri/` and Tauri configuration;
@@ -196,9 +197,11 @@ After the Godot shell and replacement verification are green, the same PR delete
 - JavaScript package/lock/config files; and
 - JavaScript asset-generation and clean-checkout scripts.
 
-Do **not** move that code into a `reference/` directory. Git history and the historical specs/plans are the reference for HPA-589/HPA-594/HPA-598. Keeping an unplugged TypeScript rules tree would leave a second maintenance/toolchain burden without a production consumer.
+This is not a general repository-cleanup pass. Unrelated files/history are not reorganized.
 
-The committed PNG assets needed by the Godot shell survive the cutover. Generated import cache under `.godot/` is not committed.
+Do **not** move removed code into a `reference/` directory. Git history and the historical specs/plans are the reference for HPA-589/HPA-594/HPA-598. Keeping an unplugged TypeScript rules tree would leave a second maintenance/toolchain burden without a production consumer.
+
+All six committed proof PNG source sheets are re-homed under `assets/sprites/` before `src/` is removed. The current shell consumes ground/player/scenery; soil/crop/villager sheets remain unused source assets until their owning Godot slices. Generated import cache under `.godot/` is not committed.
 
 ## Verification strategy
 
@@ -212,7 +215,7 @@ The source behavior to port is explicitly taken from:
 
 Port **behavioral cases**, not old-engine internals. In particular, do not reproduce the `8 ms` substep test, `ProjectionAdapter` delegation test, Phaser lifecycle hooks, or browser-only timing helpers.
 
-The replacement verification matrix is:
+The replacement verification matrix is deliberately smaller than the old web/Tauri CI matrix:
 
 1. `godot --version` reports 4.7.1.
 2. Headless editor/import exits successfully with no parse/import errors.
@@ -222,7 +225,7 @@ The replacement verification matrix is:
 
 `tools/verify-clean.sh` runs the deterministic checks from a `git archive` of `HEAD`, preserving the existing clean-checkout guarantee without Bun. CI calls that same verifier.
 
-CI uses a pinned Godot setup action with standard Godot `4.7.1`, non-.NET mode, and no floating `latest` engine version. HPA-590 does not require export templates or a packaged build; HPA-599 owns release packaging verification.
+CI uses a pinned Godot setup action with standard Godot `4.7.1`, non-.NET mode, and no floating `latest` engine version. This is the minimum CI replacement required by the runtime cutover, not the broader CI migration explicitly deferred by HPA-590. HPA-590 does not require coverage infrastructure, export templates, or a packaged build; HPA-599 owns release packaging verification.
 
 ## Risks and mitigations
 
@@ -242,13 +245,13 @@ CI uses a pinned Godot setup action with standard Godot `4.7.1`, non-.NET mode, 
 
 **Risk:** the new repository has no Bun fallback if the pinned Godot install or headless invocation is wrong.
 
-**Mitigation:** establish and run the 4.7.1 headless verifier before deleting the old CI/toolchain, then make the cutover atomically in the same PR.
+**Mitigation:** establish and run the 4.7.1 headless verifier before deleting the old CI/toolchain, then make the minimal cutover atomically in the same PR.
 
 ### Asset import
 
 **Risk:** reusing the six PNGs while deleting the Bun generator could accidentally change filtering or rely on uncommitted import cache.
 
-**Mitigation:** keep the PNG source files, set nearest filtering in project/resource settings, ignore `.godot/`, and prove a clean archive imports successfully.
+**Mitigation:** re-home all six PNG source files unchanged, set nearest filtering in project settings, ignore `.godot/`, and prove a clean archive imports successfully.
 
 ## Delivery
 
@@ -271,6 +274,8 @@ The same draft PR that carries this design/plan becomes the implementation PR af
 - GDExtension;
 - backend/database;
 - GUT;
+- broad CI/coverage/export expansion;
+- unrelated repository cleanup;
 - a second renderer/runtime;
 - a compatibility/reference source tree; and
 - generic framework abstractions.
