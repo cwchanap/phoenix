@@ -49,6 +49,43 @@ func _expect_names(node: Node, expected: Array, label: String) -> bool:
             return false
     return true
 
+func _outside_footprint(position: Vector2, footprint: Rect2) -> bool:
+    var half_extent := WorldContract.PLAYER_HALF_EXTENT
+    return (
+        position.x + half_extent <= footprint.position.x
+        or position.x - half_extent >= footprint.end.x
+        or position.y + half_extent <= footprint.position.y
+        or position.y - half_extent >= footprint.end.y
+    )
+
+func _within_player_bounds(position: Vector2) -> bool:
+    var minimum := WorldContract.PLAYER_HALF_EXTENT
+    var maximum := Vector2(WorldContract.MAP_SIZE) - Vector2.ONE * minimum
+    return (
+        position.x >= minimum
+        and position.y >= minimum
+        and position.x <= maximum.x
+        and position.y <= maximum.y
+    )
+
+func _release_movement_actions() -> void:
+    for action in ["move_up", "move_right", "move_down", "move_left"]:
+        Input.action_release(action)
+
+func _hold_actions(actions: Array, frames: int) -> void:
+    for action in actions:
+        Input.action_press(action)
+    for _frame in frames:
+        await physics_frame
+    for action in actions:
+        Input.action_release(action)
+    await physics_frame
+
+func _place_player(player: CharacterBody2D, logical_position: Vector2) -> void:
+    _release_movement_actions()
+    player.global_position = WorldMath.grid_to_world(logical_position)
+    player.velocity = Vector2.ZERO
+
 func _expected_tile(cell: Vector2i) -> Vector2i:
     if cell.x >= 3 and cell.x <= 9 and cell.y == 6:
         return PATH_TILE
@@ -65,7 +102,7 @@ func _run() -> void:
     root.add_child(world)
     await process_frame
 
-    if not _expect_names(world, ["Ground", "StaticCollision", "Entities"], "World"):
+    if not _expect_names(world, ["Ground", "StaticCollision", "Entities", "TargetHighlight"], "World"):
         return
     var ground := world.get_node("Ground") as TileMapLayer
     if not _expect(ground.position == Vector2(352.0, 0.0), "Ground alignment transform"):
@@ -166,7 +203,7 @@ func _run() -> void:
     var entities := world.get_node("Entities") as Node2D
     if not _expect(entities.y_sort_enabled, "Entities must enable y-sort"):
         return
-    if not _expect_names(entities, ["Tree", "Building"], "Entities"):
+    if not _expect_names(entities, ["Tree", "Building", "Player"], "Entities"):
         return
     var scenery_texture_path := "res://assets/sprites/proof-scenery.png"
     var tree := entities.get_node("Tree") as Node2D
@@ -196,6 +233,226 @@ func _run() -> void:
         ):
             return
 
+    var player := entities.get_node_or_null("Player") as CharacterBody2D
+    if not _expect(player != null, "Entities must contain Player"):
+        return
+    if not _expect_vec2(
+        player.global_position,
+        WorldMath.grid_to_world(WorldContract.PLAYER_SPAWN),
+        "player spawn",
+    ):
+        return
+
+    var player_sprite := player.get_node_or_null("Sprite2D") as Sprite2D
+    if not _expect(player_sprite != null, "Player must contain Sprite2D"):
+        return
+    if not _expect(player_sprite.hframes == 4, "player frame columns"):
+        return
+    if not _expect_vec2(player_sprite.offset, Vector2(0.0, -24.0), "player bottom-center offset"):
+        return
+
+    var player_collision := player.get_node_or_null("CollisionPolygon2D") as CollisionPolygon2D
+    if not _expect(player_collision != null, "Player must contain CollisionPolygon2D"):
+        return
+    var expected_player_polygon := WorldMath.centered_player_footprint_polygon(Vector2.ZERO)
+    var projection_origin := WorldMath.grid_to_world(Vector2.ZERO)
+    for index in expected_player_polygon.size():
+        expected_player_polygon[index] -= projection_origin
+    if not _expect_polygon(player_collision.polygon, expected_player_polygon, "player collision"):
+        return
+
+    var target_highlight := world.get_node_or_null("TargetHighlight") as Line2D
+    if not _expect(target_highlight != null, "World must contain TargetHighlight"):
+        return
+    if not _expect(target_highlight.closed, "TargetHighlight must close its diamond"):
+        return
+
+    var camera := player.get_node_or_null("Camera2D") as Camera2D
+    if not _expect(camera != null, "Player must contain Camera2D"):
+        return
+    if not _expect(camera.enabled, "Camera2D must be enabled"):
+        return
+    if not _expect(camera.position_smoothing_enabled, "Camera2D must use native smoothing"):
+        return
+    var camera_bounds := Rect2(
+        camera.limit_left,
+        camera.limit_top,
+        camera.limit_right - camera.limit_left,
+        camera.limit_bottom - camera.limit_top,
+    )
+    if not _expect(camera_bounds == WorldContract.CAMERA_BOUNDS, "camera bounds"):
+        return
+    if not _expect(root.get_window().min_size == Vector2i(640, 360), "minimum window size"):
+        return
+
+    for entry in [
+        {"action": "move_up", "physical": 87},
+        {"action": "move_left", "physical": 65},
+        {"action": "move_down", "physical": 83},
+        {"action": "move_right", "physical": 68},
+    ]:
+        if not _expect(InputMap.has_action(entry.action), "%s movement action" % entry.action):
+            return
+        var has_key := false
+        for event in InputMap.action_get_events(entry.action):
+            if event is InputEventKey and event.physical_keycode == entry.physical:
+                has_key = true
+        if not _expect(has_key, "%s physical key" % entry.action):
+            return
+
+    _place_player(player, WorldContract.PLAYER_SPAWN)
+    await physics_frame
+    Input.action_press("move_right")
+    await physics_frame
+    var cardinal_velocity := player.velocity
+    Input.action_release("move_right")
+    await physics_frame
+    _place_player(player, WorldContract.PLAYER_SPAWN)
+    await physics_frame
+    Input.action_press("move_right")
+    Input.action_press("move_down")
+    await physics_frame
+    var diagonal_velocity := player.velocity
+    _release_movement_actions()
+    await physics_frame
+    if not _expect(is_equal_approx(cardinal_velocity.length(), WorldContract.MOVE_SPEED), "cardinal speed"):
+        return
+    if not _expect(is_equal_approx(diagonal_velocity.length(), cardinal_velocity.length()), "diagonal normalization"):
+        return
+    if not _expect(is_equal_approx(diagonal_velocity.length(), 96.0), "diagonal requested speed"):
+        return
+
+    _place_player(player, WorldContract.PLAYER_SPAWN)
+    await physics_frame
+    Input.action_press("move_up")
+    Input.action_press("move_right")
+    await physics_frame
+    if not _expect(player.get("facing") == WorldMath.Facing.RIGHT, "player horizontal tie facing"):
+        return
+    _release_movement_actions()
+    await physics_frame
+    if not _expect(player.get("facing") == WorldMath.Facing.RIGHT, "player idle facing retention"):
+        return
+
+    var target_cases := [
+        {"action": "move_up", "facing": WorldMath.Facing.UP, "cell": Vector2i(1, 8)},
+        {"action": "move_right", "facing": WorldMath.Facing.RIGHT, "cell": Vector2i(3, 8)},
+        {"action": "move_down", "facing": WorldMath.Facing.DOWN, "cell": Vector2i(3, 10)},
+        {"action": "move_left", "facing": WorldMath.Facing.LEFT, "cell": Vector2i(1, 10)},
+    ]
+    for entry in target_cases:
+        _place_player(player, WorldContract.PLAYER_SPAWN)
+        await physics_frame
+        Input.action_press(entry.action)
+        await physics_frame
+        Input.action_release(entry.action)
+        await physics_frame
+        if not _expect(player.get("facing") == entry.facing, "%s player facing" % entry.action):
+            return
+        if not _expect(target_highlight.visible, "%s target visible" % entry.action):
+            return
+        if not _expect_polygon(
+            target_highlight.points,
+            WorldMath.cell_diamond(entry.cell),
+            "%s target" % entry.action,
+        ):
+            return
+
+    _place_player(player, Vector2(0.25, 0.25))
+    await physics_frame
+    Input.action_press("move_up")
+    await physics_frame
+    Input.action_release("move_up")
+    await physics_frame
+    if not _expect(player.get("facing") == WorldMath.Facing.UP, "off-map player facing"):
+        return
+    if not _expect(not target_highlight.visible, "off-map target hidden"):
+        return
+    if not _expect(target_highlight.points.is_empty(), "off-map target points cleared"):
+        return
+
+    _place_player(player, Vector2(6.5, 5.5))
+    await physics_frame
+    await _hold_actions(["move_right"], 30)
+    var tree_blocked := WorldMath.world_to_grid(player.global_position)
+    if not _expect(
+        _outside_footprint(tree_blocked, WorldContract.TREE_FOOTPRINT),
+        "tree approach remains outside footprint",
+    ):
+        return
+    if not _expect(tree_blocked.x <= 7.021, "tree approach stops"):
+        return
+    await _hold_actions(["move_right", "move_down"], 180)
+    var tree_detour := WorldMath.world_to_grid(player.global_position)
+    if not _expect(tree_detour.x >= 7.45, "tree detour passes"):
+        return
+    if not _expect(_outside_footprint(tree_detour, WorldContract.TREE_FOOTPRINT), "tree detour clear"):
+        return
+
+    _place_player(player, Vector2(6.5, 7.5))
+    await physics_frame
+    await _hold_actions(["move_down"], 60)
+    var building_edge := WorldMath.world_to_grid(player.global_position)
+    if not _expect(
+        _outside_footprint(building_edge, WorldContract.BUILDING_FOOTPRINT),
+        "building approach remains outside footprint",
+    ):
+        return
+    if not _expect(building_edge.x <= 6.821, "building approach stops"):
+        return
+    if not _expect(building_edge.y > 7.4, "building approach slides"):
+        return
+    await _hold_actions(["move_right", "move_down"], 180)
+    var building_corner := WorldMath.world_to_grid(player.global_position)
+    if not _expect(building_corner.x >= 9.18, "building corner detour passes"):
+        return
+    if not _expect(
+        _outside_footprint(building_corner, WorldContract.BUILDING_FOOTPRINT),
+        "building corner detour clear",
+    ):
+        return
+
+    _place_player(player, Vector2(0.5, 6.0))
+    await physics_frame
+    await _hold_actions(["move_left"], 120)
+    if not _expect(_within_player_bounds(WorldMath.world_to_grid(player.global_position)), "left perimeter"):
+        return
+    _place_player(player, Vector2(11.5, 6.0))
+    await physics_frame
+    await _hold_actions(["move_right"], 120)
+    if not _expect(_within_player_bounds(WorldMath.world_to_grid(player.global_position)), "right perimeter"):
+        return
+    _place_player(player, Vector2(6.0, 0.5))
+    await physics_frame
+    await _hold_actions(["move_up"], 120)
+    if not _expect(_within_player_bounds(WorldMath.world_to_grid(player.global_position)), "top perimeter"):
+        return
+    _place_player(player, Vector2(6.0, 11.5))
+    await physics_frame
+    await _hold_actions(["move_down"], 120)
+    if not _expect(_within_player_bounds(WorldMath.world_to_grid(player.global_position)), "bottom perimeter"):
+        return
+
+    _place_player(player, Vector2(2.5, 7.5))
+    await physics_frame
+    await _hold_actions(["move_down"], 100)
+    var farm_exit := WorldMath.world_to_grid(player.global_position)
+    if not _expect(farm_exit.x > 4.0 and farm_exit.y > 9.0, "farm traversal"):
+        return
+
+    _place_player(player, Vector2(6.5, 5.5))
+    await physics_frame
+    player.velocity = Vector2(12000.0, 0.0)
+    player.move_and_slide()
+    var high_motion_stop := WorldMath.world_to_grid(player.global_position)
+    if not _expect(
+        high_motion_stop.x <= 7.021
+        and _outside_footprint(high_motion_stop, WorldContract.TREE_FOOTPRINT),
+        "high-motion tree collision",
+    ):
+        return
+    player.velocity = Vector2.ZERO
+
     for asset in EXPECTED_ASSETS:
         var texture := load("res://assets/sprites/%s.png" % asset) as Texture2D
         if not _expect(texture != null, "%s must import" % asset):
@@ -206,7 +463,7 @@ func _run() -> void:
         ):
             return
 
-    print("world shell smoke passed: 144 cells, alignment, anchors, collisions, assets")
+    print("world shell smoke passed: 144 cells, alignment, player, camera, collisions, reachability, assets")
     quit(0)
 
 func _init() -> void:

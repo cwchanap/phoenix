@@ -13,6 +13,8 @@ static func perimeter_footprints() -> Array[Rect2]:
     ]
 
 func _ready() -> void:
+    get_window().min_size = Vector2i(640, 360)
+
     var static_collision := get_node("StaticCollision") as StaticBody2D
     var tree_collision := static_collision.get_node("TreeCollision") as CollisionPolygon2D
     var building_collision := static_collision.get_node("BuildingCollision") as CollisionPolygon2D
