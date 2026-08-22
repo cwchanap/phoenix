@@ -1,70 +1,69 @@
-# CLAUDE.md
+# Phoenix handoff
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Runtime
 
-## Project
-
-Phoenix is a macOS-first isometric farming MVP delivered as a browser app (Vite + Svelte 5 + Phaser 4) wrapped in a Tauri 2 desktop shell. Runtime is Bun; there is no npm/yarn lockfile.
-
-## Commands
-
-```bash
-bun install                     # deps (bun.lock is the only JS lockfile)
-bun run test:e2e:install        # one-time: Playwright Chromium
-bun run dev                     # vite on localhost:1420, strictPort
-bun run tauri:dev               # desktop shell
-
-bun run check                   # svelte-check --tsgo (type gate)
-bun run lint                    # eslint .
-bun run format:check            # prettier --check .
-bun test                        # bun unit tests (tests/**/*.test.ts)
-bun run test:coverage           # writes coverage/lcov.info
-bun run coverage:check          # fails under 90% line AND function coverage
-bun run test:e2e                # Playwright; own dev server on port 1422
-bun run build                   # vite build
-bun run tauri:build -- --no-sign
-bun run verify:clean            # full 11-command matrix on a git-archive of HEAD
-bun run assets:generate         # regenerate src/assets/sprites/*.png procedurally
-```
-
-Single tests:
-
-```bash
-bun test tests/game/GameSession.test.ts
-bun test -t "harvest"                    # filter by test name
-bun run test:e2e tests/e2e/economy.pw.ts
-bun run test:e2e --grep "shipping"
-```
-
-E2E runs `fullyParallel: false`, `workers: 1`, and spawns its own `bun run dev -- --port 1422`; do not have `bun run dev` occupying 1422 while running them. Traces land in `test-results/` on failure.
+Phoenix is a Godot 4.7.1 project using the standard non-.NET editor and
+statically typed GDScript. Open the repository in Godot and run
+`scenes/world/world.tscn`; WASD is the complete HPA-590 input surface. There is
+no JavaScript or Tauri runtime in the current checkout.
 
 ## Architecture
 
-Strict layering, enforced by where the logic lives — keep it that way:
+- `scripts/world/world_contract.gd` is the single source for fixed HPA-590
+  constants: map, projection, spawn, movement, footprints, anchors, farm/path
+  cells, perimeter, and camera bounds. Do not duplicate those values in scene
+  checks or gameplay code.
+- `scripts/world/world_math.gd` is framework-free pure math for projection,
+  inverse projection, cell lookup, diamonds, facing, targets, and projected
+  logical footprints. It does not own nodes, input, physics, or gameplay state.
+- `scenes/world/world.tscn` and `scripts/world/world_shell.gd` own the authored
+  world scene. Ground is an authored `TileMapLayer`; shell setup derives the
+  collision geometry from `WorldContract` and `WorldMath`.
+- `scripts/player/player_controller.gd` owns input sampling and a
+  `CharacterBody2D`. `move_and_slide()` supplies Godot-native response against
+  projected logical collision polygons; do not port the old grid-axis resolver.
+- `Entities` is the one Y-sorted container. Tree, building, and player roots
+  are bottom-center ground-contact positions; child sprites are offset upward.
+  They share a z-index and retain scene-tree order for exact-Y ties.
 
-- **`src/game/core/` — framework-free TypeScript, the rules authority.** No Phaser, no Svelte, no DOM. `GameSession` owns day/clock/stamina/weather, farm tiles, crop growth, inventory, money, and shipments; every mutation goes through a method returning `CommandResult` (`{ok:true, code}` / `{ok:false, code}`) from the closed `SuccessCode`/`FailureCode` unions in `core/types.ts`. `ProofWorld` owns position, facing, and the facing-derived target cell. `isometric.ts`/`collision.ts` own projection and movement math. `parse.ts` is the shared framework-free plain-value validation helper used by map/save parsing. Snapshots are always deep-cloned on the way out.
-- **`src/persistence/` — save/application boundary.** Owns the V1 save envelope, browser/Tauri storage adapters, title-load orchestration, and overnight save transaction. It may depend on framework-free `game/core` types/helpers; `game/core` never imports persistence. `App.svelte` is the only production runtime coordinator between persistence and the game scene.
-- **`src/game/phaser/` — render/input adapter.** `ProofScene` samples keyboard, calls into `GameSession`, and mirrors the snapshot onto sprites; it must not encode rules. `loadProofMap.ts` parses the authored Tiled map and _hard-fails_ on any deviation from the committed contract (object ids, gids, world coordinates, footprints, marker cells). `createGame` fixes the canvas at 640×360, `Phaser.Scale.NONE`, pixel-art.
-- **`src/components/` + `src/App.svelte` — screen-space UI.** `StageFrame` scales the 640×360 stage by integer factors only. `Overlay` renders the HUD, action buttons, feedback, sleep confirmation, morning summary, and shop/shipping panels. `App.svelte` owns modal state and drives the input lock.
-- **`src-tauri/` — unchanged desktop shell.** No gameplay logic belongs here.
+## Closed shell contract
 
-### Cross-cutting mechanisms
+The logical map is `12x12` with `64x32` ground diamonds and projection origin
+`(384, 0)`. Player spawn is `(2.5, 9.5)`, half extent is `0.18`, speed is `96`
+projected pixels/second, and player centers stay in `[0.18, 11.82]` on both
+axes. The farm patch is `x=2..4,y=7..9`; the path row is `x=3..9,y=6`.
 
-- **`InputGate`** is a reason-keyed lock (`'day-transition'`, `'economy-panel'`, `'window-blur'`). Any reason set locks world keyboard input. `GateBoundKeys` resets held Phaser keys on entering the lock so a key held across a modal does not resume movement. New modals must set and clear their own reason.
-- **`GameSession.pendingDaySummary`** blocks every command with `day-summary-pending` until `acknowledgeDaySummary()`. Sleep is two-stage: `sleep()` advances the day and stores the summary; the summary is blocking and keyboard-locked until "Start Day N".
-- **Dev-only test hook.** `GameHost.svelte` publishes `window.__PHOENIX_TEST__` (`snapshot()`, `gameSnapshot()`, `remount()`) under `import.meta.env.DEV` only. E2E reads state exclusively through it plus `data-*` attributes (`data-farming-hud`, `data-economy-modal`, `data-shipment-row`, …) — no CSS-class selectors.
-- **E2E timing.** Movement/targeting is frame-based; use `tests/e2e/helpers.ts` (`acquireTarget`, `moveUntil*`, `waitForCameraToSettle`, `confirmAndStartDay`) rather than fixed waits.
+The tree footprint is `(7.2,4.2,0.6,0.6)` with projected anchor `(480,192)`;
+the building footprint is `(7,7,2,2)` with projected anchor `(384,288)`.
+Camera bounds are `Rect2(0,-96,768,480)` with `96` pixels of top padding. The
+project uses a `640x360` viewport, `viewport`/`keep` stretching, integer scale,
+nearest filtering, and a minimum `640x360` window.
 
-## Contract tests that will fail on "unrelated" edits
+## Current boundary
 
-`tests/config/` asserts on repo metadata, so these edits require matching test updates:
+HPA-590 is only the rendered shell: authored ground, movement, facing, target
+highlight, camera follow, collision, perimeter clamping, reachability, and
+front/behind depth ordering. Farming, crops, economy, social behavior, and
+persistence are intentionally later Godot work; shop/bed/shipping-bin cells and
+villagers are not authored here. HPA-589 is the next gameplay-authority port.
 
-- `scaffold.test.ts` pins **exact** dependency versions and script strings in `package.json`. Bumping any dep or renaming a script fails the suite.
-- `handoff.test.ts` asserts that `README.md` contains specific phrases (prerequisites, every verification command, control names, crop prices, the map-contract wording), that `tools/verify-clean-checkout.ts` contains its exact 11 commands, and that `.github/workflows/ci.yml` keeps its four jobs (Build, Unit test, E2E, Tauri build) with specific steps. Change gameplay numbers, CI structure, or the verifier and update README + this test together.
+## Headless workflow
 
-## Conventions
+Run the one clean Godot verifier from the repository root:
 
-- Prettier: 100 cols, single quotes, trailing commas. Husky + lint-staged run eslint --fix and prettier on commit.
-- Commits are conventional and small: `feat:`, `fix:`, `test:`, `docs:`, `ci:`, `chore:`.
-- Design specs and implementation plans live in `docs/superpowers/specs/` and `docs/superpowers/plans/`, dated and named per slice (HPA-5xx). Work is delivered slice by slice; the README documents the current slice's state including temporary boundaries (e.g. Day 14 returns `day-limit-reached` instead of advancing).
-- New rules logic goes in `core/` with a `bun test` unit test; only the visible behaviour of that rule belongs in an e2e test. Coverage gate is 90% lines and functions over `src/` (tests, tools, and `src-tauri` are excluded via `bunfig.toml`).
+```bash
+./tools/verify-clean.sh
+```
+
+It archives committed `HEAD`, then runs exactly:
+
+```bash
+godot --headless --path . --editor --quit
+godot --headless --path . --script res://tests/headless/project_smoke.gd
+godot --headless --path . --script res://tests/headless/world_math_smoke.gd
+godot --headless --path . --script res://tests/headless/world_shell_smoke.gd
+```
+
+The `.godot/` import cache is ignored. Git history and historical
+`docs/superpowers/` documents are the behavior reference; no dormant second
+runtime or TypeScript rules tree is maintained.
