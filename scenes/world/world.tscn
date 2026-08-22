@@ -29,6 +29,9 @@ tile_set = ExtResource("2_6m72w")
 
 [node name="Entities" type="Node2D" parent="." unique_id=721261399]
 y_sort_enabled = true
+z_index = 20
+
+[node name="Player" parent="Entities" instance=ExtResource("4_player")]
 
 [node name="Tree" type="Node2D" parent="Entities" unique_id=1786541055]
 position = Vector2(480, 192)
@@ -46,8 +49,6 @@ texture = ExtResource("3_v5dby")
 offset = Vector2(0, -48)
 hframes = 3
 frame = 1
-
-[node name="Player" parent="Entities" instance=ExtResource("4_player")]
 
 [node name="TargetHighlight" type="Line2D" parent="."]
 z_index = 10

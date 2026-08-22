@@ -230,7 +230,7 @@ func _run() -> void:
         "Entities must be the only enabled y-sort CanvasItem",
     ):
         return
-    if not _expect_names(entities, ["Tree", "Building", "Player"], "Entities"):
+    if not _expect_names(entities, ["Player", "Tree", "Building"], "Entities"):
         return
     if not _expect_child_order(
         entities, ["Tree", "Building", "Player"], "Entities scene-tree order"
@@ -305,7 +305,7 @@ func _run() -> void:
         "tree exact-Y checkpoint",
     ):
         return
-    if not _expect(tree.get_index() < player.get_index(), "tree exact-Y scene-tree order"):
+    if not _expect(player.get_index() < tree.get_index(), "tree exact-Y scene-tree order"):
         return
 
     _place_player(player, Vector2(6.5, 11.5))
@@ -315,7 +315,7 @@ func _run() -> void:
         "building exact-Y checkpoint",
     ):
         return
-    if not _expect(building.get_index() < player.get_index(), "building exact-Y scene-tree order"):
+    if not _expect(player.get_index() < building.get_index(), "building exact-Y scene-tree order"):
         return
 
     _place_player(player, Vector2(6.5, 5.3))
@@ -350,6 +350,12 @@ func _run() -> void:
     if not _expect(target_highlight != null, "World must contain TargetHighlight"):
         return
     if not _expect(target_highlight.closed, "TargetHighlight must close its diamond"):
+        return
+    if not _expect(
+        ground.z_index < target_highlight.z_index
+        and target_highlight.z_index < entities.z_index,
+        "ground renders below target below entities",
+    ):
         return
 
     var camera := player.get_node_or_null("Camera2D") as Camera2D
