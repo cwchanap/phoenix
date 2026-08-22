@@ -49,6 +49,16 @@ func _expect_names(node: Node, expected: Array, label: String) -> bool:
             return false
     return true
 
+func _expect_child_order(node: Node, expected: Array, label: String) -> bool:
+    if not _expect(node.get_child_count() == expected.size(), "%s child count" % label):
+        return false
+    for index in expected.size():
+        if not _expect(
+            node.get_child(index).name == expected[index], "%s[%d]" % [label, index]
+        ):
+            return false
+    return true
+
 func _outside_footprint(position: Vector2, footprint: Rect2) -> bool:
     var half_extent := WorldContract.PLAYER_HALF_EXTENT
     return (
@@ -205,6 +215,10 @@ func _run() -> void:
         return
     if not _expect_names(entities, ["Tree", "Building", "Player"], "Entities"):
         return
+    if not _expect_child_order(
+        entities, ["Tree", "Building", "Player"], "Entities scene-tree order"
+    ):
+        return
     var scenery_texture_path := "res://assets/sprites/proof-scenery.png"
     var tree := entities.get_node("Tree") as Node2D
     var building := entities.get_node("Building") as Node2D
@@ -259,6 +273,60 @@ func _run() -> void:
     for index in expected_player_polygon.size():
         expected_player_polygon[index] -= projection_origin
     if not _expect_polygon(player_collision.polygon, expected_player_polygon, "player collision"):
+        return
+
+    var shared_entity_z_index := tree.z_index
+    if not _expect(building.z_index == shared_entity_z_index, "building shared entity z-index"):
+        return
+    if not _expect(player.z_index == shared_entity_z_index, "player shared entity z-index"):
+        return
+
+    _place_player(player, Vector2(6.5, 5.5))
+    await physics_frame
+    if not _expect(
+        is_equal_approx(player.global_position.y, tree.global_position.y),
+        "tree exact-Y checkpoint",
+    ):
+        return
+    if not _expect(tree.get_index() < player.get_index(), "tree exact-Y scene-tree order"):
+        return
+
+    _place_player(player, Vector2(6.5, 11.5))
+    await physics_frame
+    if not _expect(
+        is_equal_approx(player.global_position.y, building.global_position.y),
+        "building exact-Y checkpoint",
+    ):
+        return
+    if not _expect(building.get_index() < player.get_index(), "building exact-Y scene-tree order"):
+        return
+
+    _place_player(player, Vector2(6.5, 5.3))
+    await physics_frame
+    if not _expect(is_equal_approx(player.global_position.y, 188.8), "tree behind ground Y"):
+        return
+    if not _expect(player.global_position.y < tree.global_position.y, "player ground Y < tree.y"):
+        return
+
+    _place_player(player, Vector2(6.5, 5.7))
+    await physics_frame
+    if not _expect(is_equal_approx(player.global_position.y, 195.2), "tree in-front ground Y"):
+        return
+    if not _expect(player.global_position.y > tree.global_position.y, "player ground Y > tree.y"):
+        return
+
+    _place_player(player, Vector2(6.5, 11.3))
+    await physics_frame
+    if not _expect(is_equal_approx(player.global_position.y, 284.8), "building behind ground Y"):
+        return
+    if not _expect(player.global_position.y < building.global_position.y, "player ground Y < building.y"):
+        return
+
+    _place_player(player, Vector2(6.5, 11.7))
+    await physics_frame
+    if not _expect(is_equal_approx(player.global_position.y, 291.2), "building in-front ground Y"):
+        return
+    if not _expect(player.global_position.y > building.global_position.y, "player ground Y > building.y"):
         return
 
     var target_highlight := world.get_node_or_null("TargetHighlight") as Line2D
