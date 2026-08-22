@@ -20,7 +20,8 @@
 - Use Godot-native collision response with projected logical geometry; do not port the old grid-axis collision resolver.
 - Port behavioral test intent, not Phaser/Bun/browser implementation details such as the `8 ms` substep loop or `ProjectionAdapter` delegation.
 - Do not add GUT, a debug HUD, `GameSession`, managers, service locators, registries, event buses, C#, GDExtension, a Tiled importer, or a compatibility bridge.
-- Keep the committed PNG source assets; do not port the Bun asset generator.
+- Re-home all six committed proof PNG source sheets unchanged; HPA-590 renders only ground/player/scenery and later Godot slices consume soil/crop/villager assets. Do not port the Bun asset generator.
+- Keep CI changes to the minimum required by the hard cutover: one pinned Godot headless verification path. HPA-590 does not add coverage/export infrastructure.
 - HPA-599 owns packaged-release verification; HPA-590 needs headless import/runtime verification, not a release build.
 
 ## Target file structure
@@ -33,6 +34,9 @@ assets/
     proof-tiles.png
     proof-player.png
     proof-scenery.png
+    proof-soil.png
+    proof-crops.png
+    proof-villagers.png
 scenes/
   world/
     world.tscn
@@ -58,7 +62,7 @@ README.md
 CLAUDE.md
 ```
 
-The final cutover deletes the old runnable/tooling tree (`src/`, `src-tauri/`, old TypeScript/Bun/Playwright tests and tools, package/config files) after the Godot replacement checks are green. Historical `docs/superpowers/` planning documents stay in place.
+The final cutover deletes the old runnable/tooling tree (`src/`, `src-tauri/`, old TypeScript/Bun/Playwright tests and tools, package/config files) after all six PNG sources are re-homed and the Godot replacement checks are green. Historical `docs/superpowers/` planning documents stay in place.
 
 ---
 
@@ -176,7 +180,7 @@ Add one Ubuntu job to `.github/workflows/ci.yml` using:
 - run: ./tools/verify-clean.sh
 ```
 
-Do not remove existing Bun/Tauri jobs yet; Task 6 performs the atomic toolchain cutover after the replacement is green.
+Do not remove existing Bun/Tauri jobs yet; Task 6 performs the atomic toolchain cutover after the replacement is green. This temporary addition is only a migration safety gate, not the broad CI migration deferred by HPA-590.
 
 - [ ] **Step 6: Verify GREEN**
 
@@ -333,7 +337,11 @@ git commit -m "feat: port isometric world contract"
 
 **Files:**
 - Move/re-home: `src/assets/sprites/proof-tiles.png` -> `assets/sprites/proof-tiles.png`
+- Move/re-home: `src/assets/sprites/proof-player.png` -> `assets/sprites/proof-player.png`
 - Move/re-home: `src/assets/sprites/proof-scenery.png` -> `assets/sprites/proof-scenery.png`
+- Move/re-home: `src/assets/sprites/proof-soil.png` -> `assets/sprites/proof-soil.png`
+- Move/re-home: `src/assets/sprites/proof-crops.png` -> `assets/sprites/proof-crops.png`
+- Move/re-home: `src/assets/sprites/proof-villagers.png` -> `assets/sprites/proof-villagers.png`
 - Create: `scenes/world/proof_ground_tileset.tres`
 - Create: `scenes/world/world.tscn`
 - Create: `scripts/world/world_shell.gd`
@@ -345,9 +353,15 @@ git commit -m "feat: port isometric world contract"
 
 **Interfaces:**
 - Consumes: `WorldContract`, `WorldMath.footprint_to_polygon()`.
-- Produces: the final `World` scene, authored ground layout, generated logical collision geometry, and stable node names used by later player/depth tests.
+- Produces: the final `World` scene, authored ground layout, generated logical collision geometry, stable node names used by later player/depth tests, and all six proof PNG source sheets under the Godot asset tree.
 
-- [ ] **Step 1: Write the TileMap alignment RED checks before filling the map**
+- [ ] **Step 1: Re-home all six proof PNG source assets unchanged**
+
+Move the existing committed PNG bytes to `assets/sprites/` without regenerating or editing them. HPA-590 immediately consumes only `proof-tiles.png`, `proof-player.png`, and `proof-scenery.png`; the soil/crop/villager sheets are intentionally unused until HPA-589/HPA-594.
+
+Verify checksums before/after the move so the engine cutover does not silently change art bytes.
+
+- [ ] **Step 2: Write the TileMap alignment RED checks before filling the map**
 
 In `world_shell_smoke.gd`, load `res://scenes/world/world.tscn` and assert:
 
@@ -361,7 +375,7 @@ if ground.local_to_map(ground.map_to_local(Vector2i(0, 0))) != Vector2i(0, 0):
 
 Repeat for representative farm/path cells such as `(2,7)`, `(4,9)`, `(3,6)`, `(9,6)`.
 
-- [ ] **Step 2: Run RED**
+- [ ] **Step 3: Run RED**
 
 ```bash
 godot --headless --path . --script res://tests/headless/world_shell_smoke.gd
@@ -369,13 +383,13 @@ godot --headless --path . --script res://tests/headless/world_shell_smoke.gd
 
 Expected: failure because `world.tscn` does not exist.
 
-- [ ] **Step 3: Create only enough TileMapLayer content to solve the origin spike**
+- [ ] **Step 4: Create only enough TileMapLayer content to solve the origin spike**
 
 Create a 3-tile isometric atlas resource from `proof-tiles.png` and a `Ground` `TileMapLayer`. Set its transform/position so Godot cell centers match `WorldMath.grid_to_world(Vector2(cell) + Vector2(0.5, 0.5))`.
 
 Run the alignment smoke immediately. Do **not** author all 144 ground cells until these representative cells pass. If no transform/offset can make the formulas agree, stop the task and return to the design rather than changing `WorldMath` to fit Godot accidentally.
 
-- [ ] **Step 4: Fill the closed 12x12 ground pattern**
+- [ ] **Step 5: Fill the closed 12x12 ground pattern**
 
 Author:
 
@@ -385,7 +399,7 @@ Author:
 
 Extend `world_shell_smoke.gd` to enumerate all 144 cells and assert the exact expected tile kind. This ports the old `loadProofMap.ts` ground contract without recreating a Tiled parser.
 
-- [ ] **Step 5: Author scenery at exact bottom-center anchors**
+- [ ] **Step 6: Author scenery at exact bottom-center anchors**
 
 Under `Entities` (`Node2D`, `y_sort_enabled=true`), add:
 
@@ -394,7 +408,7 @@ Under `Entities` (`Node2D`, `y_sort_enabled=true`), add:
 
 Use the committed 96x96 scenery frames; do not derive positions from texture rectangles.
 
-- [ ] **Step 6: Generate collision polygons from logical rectangles**
+- [ ] **Step 7: Generate collision polygons from logical rectangles**
 
 `world_shell.gd` configures the collision root from `WorldContract`, using `WorldMath.footprint_to_polygon()` for tree/building and four projected outside bands around the logical 12x12 map for the perimeter.
 
@@ -402,7 +416,7 @@ Do not hand-edit polygon vertices in the editor. Extend smoke assertions to comp
 
 This task intentionally accepts Godot normal-based slide response later; here only geometry is pinned.
 
-- [ ] **Step 7: Verify GREEN**
+- [ ] **Step 8: Verify GREEN**
 
 Append world shell smoke to `tools/verify-clean.sh` and run:
 
@@ -412,12 +426,12 @@ godot --headless --path . --script res://tests/headless/world_shell_smoke.gd
 ./tools/verify-clean.sh
 ```
 
-Expected: exact TileMap alignment, 144-cell pattern, anchors, logical collision polygons, and perimeter geometry pass.
+Expected: exact TileMap alignment, 144-cell pattern, anchors, logical collision polygons, and perimeter geometry pass; all six PNG sources import from the clean archive.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add assets/sprites/proof-tiles.png assets/sprites/proof-scenery.png scenes/world scripts/world/world_shell.gd tests/headless/world_shell_smoke.gd project.godot tools/verify-clean.sh
+git add assets/sprites scenes/world scripts/world/world_shell.gd tests/headless/world_shell_smoke.gd project.godot tools/verify-clean.sh
 git commit -m "feat: author Godot isometric world"
 ```
 
@@ -426,7 +440,6 @@ git commit -m "feat: author Godot isometric world"
 ### Task 4: Add player movement, camera, and target highlight with behavioral parity checks
 
 **Files:**
-- Move/re-home: `src/assets/sprites/proof-player.png` -> `assets/sprites/proof-player.png`
 - Create: `scenes/player/player.tscn`
 - Create: `scripts/player/player_controller.gd`
 - Modify: `scenes/world/world.tscn`
@@ -436,7 +449,7 @@ git commit -m "feat: author Godot isometric world"
 - Reference only: `tests/e2e/world.pw.ts`
 
 **Interfaces:**
-- Consumes: `WorldContract.PLAYER_SPAWN`, `MOVE_SPEED`, `PLAYER_HALF_EXTENT`, `CAMERA_BOUNDS`; `WorldMath` facing/target/collision polygon helpers.
+- Consumes: `assets/sprites/proof-player.png`, `WorldContract.PLAYER_SPAWN`, `MOVE_SPEED`, `PLAYER_HALF_EXTENT`, `CAMERA_BOUNDS`; `WorldMath` facing/target/collision polygon helpers.
 - Produces: stable `Player`, `TargetHighlight`, and `Camera2D` behavior for HPA-589.
 
 - [ ] **Step 1: Add RED headless behavior cases**
@@ -514,7 +527,7 @@ Drive the player through fixed physics frames in the headless scene and assert:
 - all four map edges keep the player's logical center within `[0.18,11.82]`; and
 - crossing the `x=2..4`, `y=7..9` farm patch remains unobstructed.
 
-A high requested movement/collision smoke should prove the engine does not tunnel through the tree under the production physics path. Do not reproduce the old `8 ms` internal-substep assertion.
+An engine-level high-motion collision smoke should prove the production Godot path does not tunnel through the tree. Do not reproduce the old `8 ms` internal-substep assertion.
 
 - [ ] **Step 7: Verify GREEN**
 
@@ -528,7 +541,7 @@ Expected: movement/facing/target/camera/collision/reachability cases pass.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add assets/sprites/proof-player.png scenes/player scenes/world/world.tscn scripts/player tests/headless/world_shell_smoke.gd
+git add scenes/player scenes/world/world.tscn scripts/player tests/headless/world_shell_smoke.gd
 git commit -m "feat: add Godot world navigation shell"
 ```
 
@@ -597,10 +610,10 @@ git commit -m "test: lock Godot depth ordering"
 
 ---
 
-### Task 6: Perform the hard runtime/toolchain cutover and rewrite handoff/CI atomically
+### Task 6: Perform the hard runtime/toolchain cutover and minimally replace handoff/CI
 
 **Files:**
-- Delete: old Phaser/Svelte/Vite runtime under `src/` after the three needed PNGs are re-homed
+- Delete: old Phaser/Svelte/Vite runtime under `src/` after all six PNG sources are re-homed
 - Delete: `src-tauri/`
 - Delete: old TypeScript/Bun/Playwright tests, including `tests/config/`, `tests/game/`, `tests/e2e/`, while keeping `tests/headless/`
 - Delete: `package.json`, `bun.lock`, `bunfig.toml`, `playwright.config.ts`, TypeScript/Vite/Svelte/ESLint/Prettier/Husky config files
@@ -610,10 +623,11 @@ git commit -m "test: lock Godot depth ordering"
 - Modify: `README.md`
 - Modify: `CLAUDE.md`
 - Modify: `.gitignore`
+- Preserve: `assets/sprites/proof-*.png`
 - Preserve: `docs/superpowers/` historical specs/plans
 
 **Interfaces:**
-- Produces: the merge-state repository contract: one Godot runtime/toolchain, one clean verifier, one CI path, no dormant TypeScript rules implementation.
+- Produces: the merge-state repository contract: one Godot runtime/toolchain, one clean verifier, one minimal CI path, no dormant TypeScript rules implementation.
 - HPA-589 consumes Git history/historical docs as behavior reference, not a checked-in `reference/` code tree.
 
 - [ ] **Step 1: Strengthen the final verifier before deleting the old contract tests**
@@ -637,11 +651,11 @@ Remove production web/Tauri code, framework-free TypeScript rules/world code, Pl
 
 Do **not** move them to `reference/`. The project roadmap already establishes Git history as the reference, and HPA-589 explicitly reimplements behavior in GDScript rather than copying the previous architecture.
 
-Keep only the re-homed PNG sources needed by Godot and historical planning docs.
+Keep all six re-homed PNG sources and historical planning docs. Do not perform unrelated repository restructuring.
 
-- [ ] **Step 3: Replace CI instead of layering Godot onto the old four-job matrix**
+- [ ] **Step 3: Replace only the obsolete runtime CI gates**
 
-Rewrite `.github/workflows/ci.yml` to a minimal Godot verification job:
+Rewrite `.github/workflows/ci.yml` to one minimal Godot verification job:
 
 ```yaml
 name: CI
@@ -669,7 +683,7 @@ jobs:
       - run: ./tools/verify-clean.sh
 ```
 
-No Bun, Playwright, Rust/Tauri, Codecov, export templates, or packaging job remains in HPA-590 CI.
+No Bun, Playwright, Rust/Tauri, Codecov, export templates, or packaging job remains. Do not add replacement coverage/export matrices in HPA-590; this is only the minimum CI change required for the hard runtime swap.
 
 - [ ] **Step 4: Rewrite README and CLAUDE as Godot-only handoff docs**
 
@@ -705,6 +719,14 @@ git grep -nE 'bun run|tauri:|Phaser|Svelte' -- README.md CLAUDE.md .github/workf
 
 Expected: no current runtime/config references. Historical docs under `docs/superpowers/` are allowed to describe the previous implementation.
 
+Also verify all six Godot asset sources exist:
+
+```bash
+for asset in proof-tiles proof-player proof-scenery proof-soil proof-crops proof-villagers; do
+  test -f "assets/sprites/${asset}.png"
+done
+```
+
 - [ ] **Step 6: Run the final clean verification matrix**
 
 ```bash
@@ -728,7 +750,8 @@ The PR body must retain the HPA-590 non-goals and state explicitly that:
 
 - Godot is the only runnable runtime;
 - collision geometry is preserved while response is Godot-native;
-- old web/Tauri/TypeScript code is available in Git history only; and
+- old web/Tauri/TypeScript code is available in Git history only;
+- CI was changed only as required for the runtime swap; and
 - HPA-589 is the next gameplay-authority port.
 
 Commit:
@@ -749,6 +772,7 @@ Before marking the draft ready for implementation review:
 - [ ] Confirm `CharacterBody2D` uses Godot collision response and no port of `collision.ts` survives.
 - [ ] Confirm the important historical behavioral cases are ported: projection round-trip/edges, facing tie+idle, four targets, off-map null, perimeter clamp intent, tree stop/detour, building corner route, farm traversal, camera limits, tree/building depth reversal.
 - [ ] Confirm old-engine internals are not ported: Phaser lerp `0.12`, 8 ms substeps, `ProjectionAdapter`, Tiled parser, browser lifecycle hooks.
-- [ ] Confirm final CI and clean verifier use Godot only.
+- [ ] Confirm all six proof PNG source sheets survive unchanged under `assets/sprites/` and the Bun generator is gone.
+- [ ] Confirm final CI and clean verifier use Godot only and do not grow into coverage/export work.
 - [ ] Confirm no second runnable or dormant TypeScript rules toolchain remains.
-- [ ] Confirm HPA-590 remains one PR and no gameplay/economy/social/persistence work leaked into scope.
+- [ ] Confirm HPA-590 remains one PR and no gameplay/economy/social/persistence work or unrelated cleanup leaked into scope.
