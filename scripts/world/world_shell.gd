@@ -18,8 +18,10 @@ func _ready() -> void:
     var static_collision := get_node("StaticCollision") as StaticBody2D
     var tree_collision := static_collision.get_node("TreeCollision") as CollisionPolygon2D
     var building_collision := static_collision.get_node("BuildingCollision") as CollisionPolygon2D
+    var shipping_collision := static_collision.get_node("ShippingCollision") as CollisionPolygon2D
     tree_collision.polygon = WorldMath.footprint_to_polygon(WorldContract.TREE_FOOTPRINT)
     building_collision.polygon = WorldMath.footprint_to_polygon(WorldContract.BUILDING_FOOTPRINT)
+    shipping_collision.polygon = WorldMath.footprint_to_polygon(WorldContract.SHIPPING_FOOTPRINT)
 
     var perimeter_names := ["PerimeterTop", "PerimeterRight", "PerimeterBottom", "PerimeterLeft"]
     var perimeter_rects := perimeter_footprints()

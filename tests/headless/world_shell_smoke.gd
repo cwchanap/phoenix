@@ -96,6 +96,9 @@ func _place_player(player: CharacterBody2D, logical_position: Vector2) -> void:
     player.global_position = WorldMath.grid_to_world(logical_position)
     player.velocity = Vector2.ZERO
 
+func _cell_center(cell: Vector2i) -> Vector2:
+    return WorldMath.grid_to_world(Vector2(cell) + Vector2(0.5, 0.5))
+
 func _expected_tile(cell: Vector2i) -> Vector2i:
     if WorldContract.PATH_ROW.has_point(cell):
         return PATH_TILE
@@ -112,7 +115,10 @@ func _run() -> void:
     root.add_child(world)
     await process_frame
 
-    if not _expect_names(world, ["Ground", "StaticCollision", "Entities", "TargetHighlight"], "World"):
+    var world_names := ["Ground", "FarmSoil", "StaticCollision", "Entities", "TargetHighlight"]
+    if not _expect_names(world, world_names, "World"):
+        return
+    if not _expect_child_order(world, world_names, "World scene-tree order"):
         return
     var ground := world.get_node("Ground") as TileMapLayer
     if not _expect(ground.position == Vector2(352.0, 0.0), "Ground alignment transform"):
@@ -167,16 +173,45 @@ func _run() -> void:
             ):
                 return
 
+    var farm_soil := world.get_node("FarmSoil") as Node2D
+    if not _expect(farm_soil != null, "FarmSoil must exist"):
+        return
+    if not _expect(not farm_soil.y_sort_enabled, "FarmSoil must not enable y-sort"):
+        return
+    if not _expect(farm_soil.z_index == 5, "FarmSoil z-index"):
+        return
+    var farm_cells := WorldContract.farm_cells()
+    if not _expect(farm_soil.get_child_count() == farm_cells.size(), "FarmSoil child count"):
+        return
+    for index in farm_cells.size():
+        var soil := farm_soil.get_child(index) as Sprite2D
+        if not _expect(soil != null, "soil sprite %s" % farm_cells[index]):
+            return
+        if not _expect_vec2(
+            soil.position, _cell_center(farm_cells[index]), "soil %s center" % farm_cells[index]
+        ):
+            return
+        if not _expect(
+            soil.texture.resource_path == "res://assets/sprites/proof-soil.png",
+            "soil %s texture" % farm_cells[index],
+        ):
+            return
+        if not _expect(soil.hframes == 2, "soil %s frame columns" % farm_cells[index]):
+            return
+
     var static_collision := world.get_node("StaticCollision") as StaticBody2D
     var collision_names := [
         "TreeCollision",
         "BuildingCollision",
+        "ShippingCollision",
         "PerimeterTop",
         "PerimeterRight",
         "PerimeterBottom",
         "PerimeterLeft",
     ]
     if not _expect_names(static_collision, collision_names, "StaticCollision"):
+        return
+    if not _expect_child_order(static_collision, collision_names, "StaticCollision scene-tree order"):
         return
     if not _expect(
         static_collision.position == Vector2.ZERO, "StaticCollision must be at world origin"
@@ -194,6 +229,12 @@ func _run() -> void:
         "building collision",
     ):
         return
+    if not _expect_polygon(
+        (static_collision.get_node("ShippingCollision") as CollisionPolygon2D).polygon,
+        WorldMath.footprint_to_polygon(WorldContract.SHIPPING_FOOTPRINT),
+        "shipping collision",
+    ):
+        return
     var map_size := Vector2(WorldContract.MAP_SIZE)
     var perimeter_rects := [
         Rect2(0.0, -1.0, map_size.x, 1.0),
@@ -202,7 +243,7 @@ func _run() -> void:
         Rect2(-1.0, 0.0, 1.0, map_size.y),
     ]
     for index in perimeter_rects.size():
-        var collision := static_collision.get_node(collision_names[index + 2]) as CollisionPolygon2D
+        var collision := static_collision.get_node(collision_names[index + 3]) as CollisionPolygon2D
         if not _expect_polygon(
             collision.polygon,
             WorldMath.footprint_to_polygon(perimeter_rects[index]),
@@ -230,22 +271,27 @@ func _run() -> void:
         "Entities must be the only enabled y-sort CanvasItem",
     ):
         return
-    if not _expect_names(entities, ["Player", "Tree", "Building"], "Entities"):
+    var entity_names := ["Player", "Tree", "Building", "Shipping"]
+    for cell in WorldContract.farm_cells():
+        entity_names.append("FarmCrop_%d_%d" % [cell.x, cell.y])
+    if not _expect_names(entities, entity_names, "Entities"):
         return
-    if not _expect_child_order(
-        entities, ["Player", "Tree", "Building"], "Entities scene-tree order"
-    ):
+    if not _expect_child_order(entities, entity_names, "Entities scene-tree order"):
         return
     var scenery_texture_path := "res://assets/sprites/proof-scenery.png"
     var tree := entities.get_node("Tree") as Node2D
     var building := entities.get_node("Building") as Node2D
+    var shipping := entities.get_node("Shipping") as Node2D
     if not _expect_vec2(tree.position, WorldContract.TREE_ANCHOR, "tree anchor"):
         return
     if not _expect_vec2(building.position, WorldContract.BUILDING_ANCHOR, "building anchor"):
         return
+    if not _expect_vec2(shipping.position, _cell_center(WorldContract.SHIPPING_CELL), "shipping anchor"):
+        return
     for entry in [
         {"node": tree, "frame": 0, "label": "tree"},
         {"node": building, "frame": 1, "label": "building"},
+        {"node": shipping, "frame": 2, "label": "shipping"},
     ]:
         var entity: Node2D = entry.node
         if not _expect_names(entity, ["Sprite2D"], "%s entity" % entry.label):
@@ -295,8 +341,32 @@ func _run() -> void:
     var shared_entity_z_index := tree.z_index
     if not _expect(building.z_index == shared_entity_z_index, "building shared entity z-index"):
         return
+    if not _expect(shipping.z_index == shared_entity_z_index, "shipping shared entity z-index"):
+        return
     if not _expect(player.z_index == shared_entity_z_index, "player shared entity z-index"):
         return
+    for cell in WorldContract.farm_cells():
+        var crop_root := entities.get_node("FarmCrop_%d_%d" % [cell.x, cell.y]) as Node2D
+        if not _expect_vec2(crop_root.position, _cell_center(cell), "crop %s center" % cell):
+            return
+        if not _expect(crop_root.z_index == shared_entity_z_index, "crop %s z-index" % cell):
+            return
+        if not _expect_names(crop_root, ["Sprite2D"], "crop %s" % cell):
+            return
+        var crop_sprite := crop_root.get_node("Sprite2D") as Sprite2D
+        if not _expect(
+            crop_sprite.texture.resource_path == "res://assets/sprites/proof-crops.png",
+            "crop %s texture" % cell,
+        ):
+            return
+        if not _expect(crop_sprite.hframes == 4, "crop %s frame columns" % cell):
+            return
+        if not _expect(crop_sprite.vframes == 3, "crop %s frame rows" % cell):
+            return
+        if not _expect_vec2(crop_sprite.offset, Vector2(0.0, -24.0), "crop %s offset" % cell):
+            return
+        if not _expect(not crop_sprite.visible, "crop %s initially hidden" % cell):
+            return
 
     _place_player(player, Vector2(6.5, 5.5))
     await physics_frame
@@ -352,9 +422,10 @@ func _run() -> void:
     if not _expect(target_highlight.closed, "TargetHighlight must close its diamond"):
         return
     if not _expect(
-        ground.z_index < target_highlight.z_index
+        ground.z_index < farm_soil.z_index
+        and farm_soil.z_index < target_highlight.z_index
         and target_highlight.z_index < entities.z_index,
-        "ground renders below target below entities",
+        "ground renders below soil below target below entities",
     ):
         return
 

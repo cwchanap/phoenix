@@ -2,6 +2,7 @@ class_name PlayerController
 extends CharacterBody2D
 
 var facing: WorldMath.Facing = WorldMath.Facing.DOWN
+var _input_enabled := true
 
 @onready var player_sprite: Sprite2D = $Sprite2D
 @onready var player_collision: CollisionPolygon2D = $CollisionPolygon2D
@@ -26,7 +27,19 @@ func _ready() -> void:
     _update_visuals()
     _update_target()
 
+func set_input_enabled(enabled: bool) -> void:
+    _input_enabled = enabled
+    if not enabled:
+        velocity = Vector2.ZERO
+
+func current_target_cell() -> Variant:
+    return WorldMath.target_cell(WorldMath.world_to_grid(global_position), facing)
+
 func _physics_process(_delta: float) -> void:
+    if not _input_enabled:
+        velocity = Vector2.ZERO
+        _update_target()
+        return
     var input_vector := Input.get_vector("move_left", "move_right", "move_up", "move_down")
     facing = WorldMath.facing_for_input(input_vector, facing)
     velocity = input_vector * WorldContract.MOVE_SPEED
@@ -41,8 +54,7 @@ func _update_target() -> void:
     if target_highlight == null:
         return
 
-    var logical_position := WorldMath.world_to_grid(global_position)
-    var target_cell: Variant = WorldMath.target_cell(logical_position, facing)
+    var target_cell: Variant = current_target_cell()
     if target_cell == null:
         target_highlight.points = PackedVector2Array()
         target_highlight.visible = false

@@ -4,6 +4,8 @@
 [ext_resource type="TileSet" path="res://scenes/world/proof_ground_tileset.tres" id="2_6m72w"]
 [ext_resource type="Texture2D" path="res://assets/sprites/proof-scenery.png" id="3_v5dby"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="4_player"]
+[ext_resource type="Texture2D" path="res://assets/sprites/proof-soil.png" id="5_soil"]
+[ext_resource type="Script" path="res://scripts/world/farm_view.gd" id="7_farm_view"]
 
 [node name="World" type="Node2D" unique_id=1894839507]
 script = ExtResource("1_1fp7r")
@@ -13,11 +15,71 @@ position = Vector2(352, 0)
 tile_map_data = PackedByteArray("AAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAACAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAFAAAAAAAAAAAAAAAGAAAAAAAAAAAAAAAHAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAJAAAAAAAAAAAAAAAKAAAAAAAAAAAAAAALAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAABAAEAAAAAAAAAAAACAAEAAAAAAAAAAAADAAEAAAAAAAAAAAAEAAEAAAAAAAAAAAAFAAEAAAAAAAAAAAAGAAEAAAAAAAAAAAAHAAEAAAAAAAAAAAAIAAEAAAAAAAAAAAAJAAEAAAAAAAAAAAAKAAEAAAAAAAAAAAALAAEAAAAAAAAAAAAAAAIAAAAAAAAAAAABAAIAAAAAAAAAAAACAAIAAAAAAAAAAAADAAIAAAAAAAAAAAAEAAIAAAAAAAAAAAAFAAIAAAAAAAAAAAAGAAIAAAAAAAAAAAAHAAIAAAAAAAAAAAAIAAIAAAAAAAAAAAAJAAIAAAAAAAAAAAAKAAIAAAAAAAAAAAALAAIAAAAAAAAAAAAAAAMAAAAAAAAAAAABAAMAAAAAAAAAAAACAAMAAAAAAAAAAAADAAMAAAAAAAAAAAAEAAMAAAAAAAAAAAAFAAMAAAAAAAAAAAAGAAMAAAAAAAAAAAAHAAMAAAAAAAAAAAAIAAMAAAAAAAAAAAAJAAMAAAAAAAAAAAAKAAMAAAAAAAAAAAALAAMAAAAAAAAAAAAAAAQAAAAAAAAAAAABAAQAAAAAAAAAAAACAAQAAAAAAAAAAAADAAQAAAAAAAAAAAAEAAQAAAAAAAAAAAAFAAQAAAAAAAAAAAAGAAQAAAAAAAAAAAAHAAQAAAAAAAAAAAAIAAQAAAAAAAAAAAAJAAQAAAAAAAAAAAAKAAQAAAAAAAAAAAALAAQAAAAAAAAAAAAAAAUAAAAAAAAAAAABAAUAAAAAAAAAAAACAAUAAAAAAAAAAAADAAUAAAAAAAAAAAAEAAUAAAAAAAAAAAAFAAUAAAAAAAAAAAAGAAUAAAAAAAAAAAAHAAUAAAAAAAAAAAAIAAUAAAAAAAAAAAAJAAUAAAAAAAAAAAAKAAUAAAAAAAAAAAALAAUAAAAAAAAAAAAAAAYAAAAAAAAAAAABAAYAAAAAAAAAAAACAAYAAAAAAAAAAAADAAYAAAACAAAAAAAEAAYAAAACAAAAAAAFAAYAAAACAAAAAAAGAAYAAAACAAAAAAAHAAYAAAACAAAAAAAIAAYAAAACAAAAAAAJAAYAAAACAAAAAAAKAAYAAAAAAAAAAAALAAYAAAAAAAAAAAAAAAcAAAAAAAAAAAABAAcAAAAAAAAAAAACAAcAAAABAAAAAAADAAcAAAABAAAAAAAEAAcAAAABAAAAAAAFAAcAAAAAAAAAAAAGAAcAAAAAAAAAAAAHAAcAAAAAAAAAAAAIAAcAAAAAAAAAAAAJAAcAAAAAAAAAAAAKAAcAAAAAAAAAAAALAAcAAAAAAAAAAAAAAAgAAAAAAAAAAAABAAgAAAAAAAAAAAACAAgAAAABAAAAAAADAAgAAAABAAAAAAAEAAgAAAABAAAAAAAFAAgAAAAAAAAAAAAGAAgAAAAAAAAAAAAHAAgAAAAAAAAAAAAIAAgAAAAAAAAAAAAJAAgAAAAAAAAAAAAKAAgAAAAAAAAAAAALAAgAAAAAAAAAAAAAAAkAAAAAAAAAAAABAAkAAAAAAAAAAAACAAkAAAABAAAAAAADAAkAAAABAAAAAAAEAAkAAAABAAAAAAAFAAkAAAAAAAAAAAAGAAkAAAAAAAAAAAAHAAkAAAAAAAAAAAAIAAkAAAAAAAAAAAAJAAkAAAAAAAAAAAAKAAkAAAAAAAAAAAALAAkAAAAAAAAAAAAAAAoAAAAAAAAAAAABAAoAAAAAAAAAAAACAAoAAAAAAAAAAAADAAoAAAAAAAAAAAAEAAoAAAAAAAAAAAAFAAoAAAAAAAAAAAAGAAoAAAAAAAAAAAAHAAoAAAAAAAAAAAAIAAoAAAAAAAAAAAAJAAoAAAAAAAAAAAAKAAoAAAAAAAAAAAALAAoAAAAAAAAAAAAAAAsAAAAAAAAAAAABAAsAAAAAAAAAAAACAAsAAAAAAAAAAAADAAsAAAAAAAAAAAAEAAsAAAAAAAAAAAAFAAsAAAAAAAAAAAAGAAsAAAAAAAAAAAAHAAsAAAAAAAAAAAAIAAsAAAAAAAAAAAAJAAsAAAAAAAAAAAAKAAsAAAAAAAAAAAALAAsAAAAAAAAAAAA=")
 tile_set = ExtResource("2_6m72w")
 
+[node name="FarmSoil" type="Node2D" parent="." unique_id=253862436]
+y_sort_enabled = false
+z_index = 5
+
+[node name="Soil_2_7" type="Sprite2D" parent="FarmSoil"]
+position = Vector2(224, 160)
+texture = ExtResource("5_soil")
+hframes = 2
+visible = false
+
+[node name="Soil_3_7" type="Sprite2D" parent="FarmSoil"]
+position = Vector2(256, 176)
+texture = ExtResource("5_soil")
+hframes = 2
+visible = false
+
+[node name="Soil_4_7" type="Sprite2D" parent="FarmSoil"]
+position = Vector2(288, 192)
+texture = ExtResource("5_soil")
+hframes = 2
+visible = false
+
+[node name="Soil_2_8" type="Sprite2D" parent="FarmSoil"]
+position = Vector2(192, 176)
+texture = ExtResource("5_soil")
+hframes = 2
+visible = false
+
+[node name="Soil_3_8" type="Sprite2D" parent="FarmSoil"]
+position = Vector2(224, 192)
+texture = ExtResource("5_soil")
+hframes = 2
+visible = false
+
+[node name="Soil_4_8" type="Sprite2D" parent="FarmSoil"]
+position = Vector2(256, 208)
+texture = ExtResource("5_soil")
+hframes = 2
+visible = false
+
+[node name="Soil_2_9" type="Sprite2D" parent="FarmSoil"]
+position = Vector2(160, 192)
+texture = ExtResource("5_soil")
+hframes = 2
+visible = false
+
+[node name="Soil_3_9" type="Sprite2D" parent="FarmSoil"]
+position = Vector2(192, 208)
+texture = ExtResource("5_soil")
+hframes = 2
+visible = false
+
+[node name="Soil_4_9" type="Sprite2D" parent="FarmSoil"]
+position = Vector2(224, 224)
+texture = ExtResource("5_soil")
+hframes = 2
+visible = false
+
 [node name="StaticCollision" type="StaticBody2D" parent="." unique_id=216997322]
 
 [node name="TreeCollision" type="CollisionPolygon2D" parent="StaticCollision" unique_id=1591160726]
 
 [node name="BuildingCollision" type="CollisionPolygon2D" parent="StaticCollision" unique_id=1445398184]
+
+[node name="ShippingCollision" type="CollisionPolygon2D" parent="StaticCollision"]
 
 [node name="PerimeterTop" type="CollisionPolygon2D" parent="StaticCollision" unique_id=1237773536]
 
@@ -28,6 +90,7 @@ tile_set = ExtResource("2_6m72w")
 [node name="PerimeterLeft" type="CollisionPolygon2D" parent="StaticCollision" unique_id=1094944804]
 
 [node name="Entities" type="Node2D" parent="." unique_id=721261399]
+script = ExtResource("7_farm_view")
 y_sort_enabled = true
 z_index = 20
 
@@ -49,6 +112,15 @@ texture = ExtResource("3_v5dby")
 offset = Vector2(0, -48)
 hframes = 3
 frame = 1
+
+[node name="Shipping" type="Node2D" parent="Entities"]
+position = Vector2(256, 272)
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/Shipping"]
+texture = ExtResource("3_v5dby")
+offset = Vector2(0, -48)
+hframes = 3
+frame = 2
 
 [node name="TargetHighlight" type="Line2D" parent="."]
 z_index = 10
