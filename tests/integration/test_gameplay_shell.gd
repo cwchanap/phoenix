@@ -518,6 +518,55 @@ func test_close_friend_dialogue_uses_native_focus_and_cancel_progression() -> vo
     assert_false(panel.visible)
     assert_null(get_viewport().gui_get_focus_owner())
 
+func test_close_friend_line_one_cannot_be_closed_or_gifted_early() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var june := VillagerRules.VillagerId.RESIDENT
+    var seeded: Array[int] = [1, 0, 0]
+    world._session.set("_harvested_counts", seeded)
+    var snapshot := world._session.snapshot()
+    var lines: Array[String] = VillagerRules.close_friend_dialogue_lines(june)
+    var result := {
+        "code": GameRules.CommandCode.VILLAGER_TALKED,
+        "lines": lines,
+        "points_gained": 0,
+        "gift_reaction": &"",
+        "close_friend_sequence": true,
+    }
+
+    hud.open_dialogue(june, result, snapshot)
+    var panel := _panel(hud, "DialoguePanel") as DialoguePanel
+    var continue_button := panel.get_node("Panel/Continue") as Button
+    var close_button := panel.get_node("Panel/Close") as Button
+    var gift_buttons := panel.get_node("Panel/GiftButtons") as VBoxContainer
+    assert_false(close_button.visible)
+    assert_eq(gift_buttons.get_child_count(), 0)
+
+    var tab := InputEventAction.new()
+    tab.action = &"ui_focus_next"
+    tab.pressed = true
+    get_viewport().push_input(tab)
+    await get_tree().process_frame
+    assert_eq(get_viewport().gui_get_focus_owner(), continue_button)
+
+    var accept_press := InputEventAction.new()
+    accept_press.action = &"ui_accept"
+    accept_press.pressed = true
+    get_viewport().push_input(accept_press)
+    var accept_release := InputEventAction.new()
+    accept_release.action = &"ui_accept"
+    accept_release.pressed = false
+    get_viewport().push_input(accept_release)
+    await get_tree().process_frame
+
+    assert_eq(panel._line_index, 1)
+    assert_true(close_button.visible)
+    hud.close_dialogue()
+
 func test_gift_button_round_trips_through_session_and_updates_open_panel() -> void:
     var world := _world()
     if world == null:
