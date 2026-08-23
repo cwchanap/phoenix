@@ -92,15 +92,21 @@ func _render() -> void:
     ($Panel/Feedback as Label).text = "\n".join(feedback_lines)
 
     var continue_button := $Panel/Continue as Button
-    continue_button.visible = _line_index < _lines.size() - 1
-    _render_gift_buttons()
+    var more_lines := _line_index < _lines.size() - 1
+    continue_button.visible = more_lines
+    var locked := _close_friend_sequence and more_lines
+    ($Panel/Close as Button).visible = not locked
+    _render_gift_buttons(locked)
 
-func _render_gift_buttons() -> void:
+func _render_gift_buttons(suppressed: bool) -> void:
     var gift_status := $Panel/GiftStatus as Label
     var gifts := $Panel/GiftButtons as VBoxContainer
     for child in gifts.get_children():
         gifts.remove_child(child)
         child.queue_free()
+    if suppressed:
+        gift_status.text = ""
+        return
 
     var relationship := _relationship_snapshot()
     if bool(relationship.get("gifted_today", false)):
