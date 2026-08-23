@@ -213,12 +213,11 @@ func _build_always_visible_hud() -> void:
 
     _add_label(_root, "SeedTitle", "Seeds", Vector2(8, 82), Vector2(52, 20))
     _selected_seed_label = _add_label(_root, "SelectedSeed", "Selected: Turnip", Vector2(64, 82), Vector2(140, 20))
-    var crop_names := ["Turnip", "Potato", "Pumpkin"]
-    for kind in crop_names.size():
+    for kind in range(GameRules.CropKind.size()):
         var button := _add_button(
             _root,
             "Seed_%d" % kind,
-            crop_names[kind],
+            GameRules.crop_display_name(kind),
             Vector2(8 + kind * 72, 102),
             Vector2(68, 22),
         )
@@ -235,11 +234,11 @@ func _build_always_visible_hud() -> void:
         _seed_count_labels.append(count)
 
     _add_label(_root, "HarvestedTitle", "Harvested", Vector2(8, 144), Vector2(72, 20))
-    for kind in crop_names.size():
+    for kind in range(GameRules.CropKind.size()):
         var count := _add_label(
             _root,
             "HarvestedCount_%d" % kind,
-            "%s: 0" % crop_names[kind],
+            "%s: 0" % GameRules.crop_display_name(kind),
             Vector2(8 + kind * 88, 164),
             Vector2(84, 20),
         )
@@ -329,9 +328,9 @@ func _build_summary_panel() -> Control:
     acknowledge_button.pressed.connect(func() -> void: morning_summary_acknowledged.emit())
     return panel
 
-func _add_panel(parent: Control, name: String, title: String, position: Vector2, size: Vector2) -> Control:
+func _add_panel(parent: Control, node_name: String, title: String, position: Vector2, size: Vector2) -> Control:
     var panel := ColorRect.new()
-    panel.name = name
+    panel.name = node_name
     panel.position = position
     panel.size = size
     panel.color = Color(0.08, 0.1, 0.14, 0.96)
@@ -372,21 +371,22 @@ func _add_row(parent: Control, kind: int, action_name: String, y: float) -> Dict
     )
     return {"label": label, "count": _add_label(row, "Count", "", Vector2(0, 25), Vector2(92, 16)), "spin": spin, "max": max_button, "action": action_button}
 
-func _add_label(parent: Node, name: String, text: String, position: Vector2, size: Vector2) -> Label:
+func _add_label(parent: Node, node_name: String, text: String, position: Vector2, size: Vector2) -> Label:
     var label := Label.new()
-    label.name = name
+    label.name = node_name
     label.text = text
     label.position = position
     label.size = size
     parent.add_child(label)
     return label
 
-func _add_button(parent: Node, name: String, text: String, position: Vector2, size: Vector2) -> Button:
+func _add_button(parent: Node, node_name: String, text: String, position: Vector2, size: Vector2) -> Button:
     var button := Button.new()
-    button.name = name
+    button.name = node_name
     button.text = text
     button.position = position
     button.size = size
+    button.focus_mode = Control.FOCUS_NONE
     parent.add_child(button)
     return button
 
@@ -403,22 +403,21 @@ func _refresh_action_selection() -> void:
         _action_buttons[action].modulate = Color(1.0, 0.9, 0.45) if selected else Color.WHITE
 
 func _refresh_seed_selection() -> void:
-    var seed_names := ["Turnip", "Potato", "Pumpkin"]
     _selected_seed_label.text = "Selected: %s" % _display_crop(_selected_seed)
     for kind in _seed_buttons.size():
         var selected: bool = GameRules.crop_key(kind) == _selected_seed
         _seed_buttons[kind].button_pressed = selected
         _seed_buttons[kind].modulate = Color(1.0, 0.9, 0.45) if selected else Color.WHITE
-        _seed_buttons[kind].tooltip_text = seed_names[kind]
+        _seed_buttons[kind].tooltip_text = GameRules.crop_display_name(kind)
 
-func _set_morning_summary_visible(visible: bool) -> void:
+func _set_morning_summary_visible(is_visible: bool) -> void:
     var was_visible := _morning_summary_panel.visible
-    if visible:
+    if is_visible:
         _shop_panel.visible = false
         _shipping_panel.visible = false
         _sleep_panel.visible = false
-    _morning_summary_panel.visible = visible
-    if was_visible != visible:
+    _morning_summary_panel.visible = is_visible
+    if was_visible != is_visible:
         modal_state_changed.emit()
 
 func _open_modal(panel: Control) -> void:
