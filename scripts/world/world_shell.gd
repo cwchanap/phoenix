@@ -50,13 +50,17 @@ func _ready() -> void:
     hud.buy_requested.connect(_on_buy_requested)
     hud.deposit_requested.connect(_on_deposit_requested)
     hud.sleep_requested.connect(_on_sleep_requested)
+    hud.gift_requested.connect(_on_gift_requested)
     hud.morning_summary_acknowledged.connect(_on_morning_summary_acknowledged)
     hud.modal_state_changed.connect(_refresh_world_input_gate)
     _refresh_from_session()
 
 func _process(_delta: float) -> void:
     var target: Variant = player.current_target_cell()
-    if target == WorldContract.SHOP_CELL:
+    var villager_id := WorldContract.villager_at(target)
+    if villager_id >= 0:
+        hud.set_interaction_hint("%s — E" % VillagerRules.display_name(villager_id))
+    elif target == WorldContract.SHOP_CELL:
         hud.set_interaction_hint("Shop — E")
     elif target == WorldContract.BED_CELL:
         hud.set_interaction_hint("Bed — E")
@@ -98,7 +102,10 @@ func interact() -> void:
     if not _world_input_enabled:
         return
     var target: Variant = player.current_target_cell()
-    if target == WorldContract.SHOP_CELL:
+    var villager_id := WorldContract.villager_at(target)
+    if villager_id >= 0:
+        _finish_social_command(villager_id, _session.talk_to(villager_id, target))
+    elif target == WorldContract.SHOP_CELL:
         hud.open_shop()
     elif target == WorldContract.SHIPPING_CELL:
         hud.open_shipping()
@@ -143,8 +150,20 @@ func _on_sleep_requested() -> void:
     var target: Variant = player.current_target_cell()
     _finish_command(_session.sleep(target))
 
+func _on_gift_requested(villager_id: int, crop_kind: int) -> void:
+    var target: Variant = player.current_target_cell()
+    _finish_social_command(villager_id, _session.gift_crop(villager_id, crop_kind, target))
+
 func _on_morning_summary_acknowledged() -> void:
     _finish_command(_session.acknowledge_morning_summary())
+
+func _finish_social_command(villager_id: int, result: Dictionary) -> void:
+    hud.show_feedback(result["code"])
+    _refresh_from_session()
+    if result["code"] == GameRules.CommandCode.VILLAGER_TALKED:
+        hud.open_dialogue(villager_id, result, _session.snapshot())
+    elif result["code"] == GameRules.CommandCode.CROP_GIFTED:
+        hud.update_dialogue(villager_id, result, _session.snapshot())
 
 func _finish_command(code: GameRules.CommandCode) -> void:
     hud.show_feedback(code)
