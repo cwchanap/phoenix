@@ -30,9 +30,9 @@ godot --path .
 | E | Interact with the targeted shop, bed, or shipping-bin cell |
 | Esc | Close the open modal |
 
-The target diamond is hidden when the faced cell is outside the map. Standing
-on the shop cell `(6,7)`, bed cell `(6,8)`, or shipping cell `(6,10)` shows a
-contextual interaction hint (for example `Shop — E`).
+The target diamond is hidden when the faced cell is outside the map. Facing
+the shop cell `(6,7)`, bed cell `(6,8)`, or shipping cell `(6,10)` from an
+adjacent tile shows a contextual interaction hint (for example `Shop — E`).
 
 ## Gameplay loop
 
@@ -45,14 +45,14 @@ contextual interaction hint (for example `Shop — E`).
 2. **Budget the day.** Each action costs clock minutes and stamina; the day
    runs 06:00 to 22:00 and stamina caps at 20. Rain waters every crop for
    free, so the watering can is unneeded on rainy days.
-3. **Shop.** At the shop cell, E opens the seed shop: buy Turnip, Potato, or
-   Pumpkin seeds with the day's money.
-4. **Ship.** At the shipping cell, E opens the bin: deposit harvested crops
-   into the pending shipment.
-5. **Sleep.** At the bed cell, E opens a sleep confirmation. Sleeping pays
-   out the pending shipment, grows watered crops, restores stamina, rolls
-   tomorrow's weather, and advances the day — then a morning summary must be
-   acknowledged before play resumes.
+3. **Shop.** Face the shop cell and press E to open the seed shop: buy
+   Turnip, Potato, or Pumpkin seeds with the day's money.
+4. **Ship.** Face the shipping cell and press E to open the bin: deposit
+   harvested crops into the pending shipment.
+5. **Sleep.** Face the bed cell and press E to open a sleep confirmation.
+   Sleeping pays out the pending shipment, grows watered crops, restores
+   stamina, rolls tomorrow's weather, and advances the day — then a morning
+   summary must be acknowledged before play resumes.
 
 Day 14 is a temporary boundary: the day stays fully playable, but sleeping no
 longer advances the day or settles the pending shipment. The exhaustive crop
