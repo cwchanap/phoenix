@@ -33,7 +33,10 @@ func _ready() -> void:
         soil.visible = false
 
 func refresh(snapshot: Dictionary) -> void:
-    var rainy: bool = snapshot.get("weather", &"sunny") == &"rainy"
+    var rainy: bool = snapshot.get(
+        "weather",
+        GameRules.weather_key(GameRules.Weather.SUNNY),
+    ) == GameRules.weather_key(GameRules.Weather.RAINY)
     for entry_variant in snapshot["farm"]:
         var entry: Dictionary = entry_variant
         var cell: Vector2i = entry["cell"]

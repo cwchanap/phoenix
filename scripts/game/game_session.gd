@@ -28,8 +28,9 @@ func snapshot() -> Dictionary:
         "day": _day,
         "time_minutes": _time_minutes,
         "stamina": _stamina,
-        "weather": &"rainy" if _weather == GameRules.Weather.RAINY else &"sunny",
-        "selected_action": _action_key(_selected_action),
+        "max_stamina": GameRules.MAX_STAMINA,
+        "weather": GameRules.weather_key(_weather),
+        "selected_action": GameRules.action_key(_selected_action),
         "selected_seed": GameRules.crop_key(_selected_seed),
         "money": _money,
         "seeds": _counts_snapshot(_seed_counts),
@@ -276,7 +277,7 @@ func sleep(target_cell: Variant) -> GameRules.CommandCode:
         "completed_day": completed_day,
         "next_day": _day,
         "crops_advanced": crops_advanced,
-        "next_weather": &"rainy" if next_weather == GameRules.Weather.RAINY else &"sunny",
+        "next_weather": GameRules.weather_key(next_weather),
         "stamina_restored": stamina_restored,
         "shipments": payout["lines"].duplicate(true),
         "shipping_income": int(payout["total"]),
@@ -337,16 +338,3 @@ func _farm_snapshot() -> Array[Dictionary]:
             }
         result.append(entry)
     return result
-
-func _action_key(action: GameRules.FarmingAction) -> StringName:
-    match action:
-        GameRules.FarmingAction.HOE:
-            return &"hoe"
-        GameRules.FarmingAction.SEEDS:
-            return &"seeds"
-        GameRules.FarmingAction.WATERING_CAN:
-            return &"watering_can"
-        GameRules.FarmingAction.HANDS:
-            return &"hands"
-    assert(false, "unsupported farming action")
-    return &"hoe"

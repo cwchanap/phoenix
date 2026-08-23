@@ -11,6 +11,8 @@ func test_starter_and_day_constants_are_exact() -> void:
 
 func test_crop_table_is_closed_and_exact() -> void:
     assert_eq(GameRules.CROP_KEYS.size(), GameRules.CropKind.size())
+    assert_eq(GameRules.ACTION_KEYS.size(), GameRules.FarmingAction.size())
+    assert_eq(GameRules.WEATHER_KEYS.size(), GameRules.Weather.size())
     assert_eq(GameRules.CROP_DISPLAY_NAMES.size(), GameRules.CropKind.size())
     assert_eq(GameRules.GROWTH_NIGHTS.size(), GameRules.CropKind.size())
     assert_eq(GameRules.SEED_PRICES.size(), GameRules.CropKind.size())
@@ -33,6 +35,23 @@ func test_crop_table_is_closed_and_exact() -> void:
     assert_eq(GameRules.growth_nights(GameRules.CropKind.PUMPKIN), 7)
     assert_eq(GameRules.seed_price(GameRules.CropKind.PUMPKIN), 70)
     assert_eq(GameRules.sale_value(GameRules.CropKind.PUMPKIN), 140)
+
+func test_action_and_weather_keys_are_closed_and_exact() -> void:
+    var action_cases: Array = [
+        [GameRules.FarmingAction.HOE, &"hoe"],
+        [GameRules.FarmingAction.SEEDS, &"seeds"],
+        [GameRules.FarmingAction.WATERING_CAN, &"watering_can"],
+        [GameRules.FarmingAction.HANDS, &"hands"],
+    ]
+    for case_data in action_cases:
+        assert_eq(GameRules.action_key(case_data[0]), case_data[1])
+
+    var weather_cases: Array = [
+        [GameRules.Weather.SUNNY, &"sunny"],
+        [GameRules.Weather.RAINY, &"rainy"],
+    ]
+    for case_data in weather_cases:
+        assert_eq(GameRules.weather_key(case_data[0]), case_data[1])
 
 func test_maturity_boundaries_are_exact() -> void:
     var cases: Array = [
