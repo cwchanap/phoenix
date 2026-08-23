@@ -81,7 +81,7 @@ It archives committed `HEAD`, then runs exactly:
 
 ```bash
 git archive HEAD              # verifier archives committed state, not the worktree
-curl -fsSL .../Gut/v9.7.1.tar.gz   # fetched into the archive: GUT lives in no git tree
+curl -fsSL .../Gut/v9.7.1.tar.gz   # fetched into the archive + sha256-verified; GUT lives in no git tree
 godot --headless --path . --editor --quit
 godot --headless --path . -s addons/gut/gut_cmdln.gd \
   -gdir=res://tests/unit,res://tests/integration -gexit
