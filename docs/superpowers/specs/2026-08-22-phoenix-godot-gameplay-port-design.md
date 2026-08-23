@@ -55,7 +55,7 @@ HPA-589 extends the shell instead of weakening its contracts:
 
 - Standard non-.NET Godot **4.7.1**.
 - Statically typed GDScript.
-- GUT **9.7.1**, vendored under `addons/gut/`.
+- GUT **9.7.1**, not committed; `tools/verify-clean.sh` fetches the tagged upstream tarball into its temp archive (amended 2026-08-23: addons left the git tree by owner decision; clean runs need network).
 - GUT owns all new rules/session/composition tests; the three existing SceneTree smokes stay as-is except for intentional contract extensions.
 - Keep the existing single GitHub Actions verification job.
 - Keep `./tools/verify-clean.sh` as the single clean-checkout verification entry point.
