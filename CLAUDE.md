@@ -28,8 +28,8 @@ There is no JavaScript or Tauri runtime in the current checkout.
   math, and the `CommandCode` enum returned by every command. It is stateless.
 - VillagerRules owns frozen HPA-595 content and pure relationship policy.
 - `scripts/game/game_session.gd` is the only mutable gameplay authority. All
-  commands go through it and return `GameRules.CommandCode`; views read the
-  immutable `snapshot()` dictionaries and never session internals.
+  commands go through it; existing farming/economy commands return `GameRules.CommandCode`;
+  social commands `talk_to`/`gift_crop` return one narrow result Dictionary local to those methods; views read the immutable `snapshot()` dictionaries and never session internals.
 - GameSession owns relationship points, daily talk/gift flags, and close_friend_dialogue_seen.
 - `FarmSoil` in `scenes/world/world.tscn` holds the non-Y-sorted farm ground
   decals. `Entities` (scripted as `scripts/world/farm_view.gd`, `FarmView`)
