@@ -30,13 +30,10 @@ func _ready() -> void:
     building_collision.polygon = WorldMath.footprint_to_polygon(WorldContract.BUILDING_FOOTPRINT)
     shipping_collision.polygon = WorldMath.footprint_to_polygon(WorldContract.SHIPPING_FOOTPRINT)
 
-    var villager_collision_names := [
-        "VillagerShopkeeperCollision",
-        "VillagerFarmerCollision",
-        "VillagerResidentCollision",
-    ]
     for id in range(VillagerRules.VillagerId.size()):
-        var collision := static_collision.get_node(villager_collision_names[id]) as CollisionPolygon2D
+        var collision := static_collision.get_node(
+            WorldContract.VILLAGER_COLLISION_NAMES[id]
+        ) as CollisionPolygon2D
         collision.polygon = WorldMath.footprint_to_polygon(WorldContract.villager_footprint(id))
 
     var perimeter_names := ["PerimeterTop", "PerimeterRight", "PerimeterBottom", "PerimeterLeft"]

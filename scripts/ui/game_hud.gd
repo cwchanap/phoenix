@@ -468,6 +468,8 @@ func _open_modal(panel: Control) -> void:
     _shop_panel.visible = false
     _shipping_panel.visible = false
     _sleep_panel.visible = false
+    if panel != _dialogue_panel and _dialogue_panel.visible:
+        _dialogue_panel.close_panel()
     panel.visible = true
     modal_state_changed.emit()
 
