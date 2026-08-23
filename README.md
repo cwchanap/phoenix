@@ -42,8 +42,11 @@ adjacent tile shows a contextual interaction hint (for example `Shop — E`).
 
 ## Gameplay loop
 
-`GameSession` is the single gameplay authority; every command returns a
-`GameRules.CommandCode` and the HUD renders the refreshed snapshot.
+`GameSession` is the single gameplay authority; every farming/economy command
+returns a `GameRules.CommandCode` and the HUD renders the refreshed snapshot.
+The social commands `talk_to` and `gift_crop` instead return a narrow result
+dictionary (lines, points gained, gift reaction) that the dialogue panel
+renders.
 
 1. **Farm.** Face a cell in the `3x3` farm patch and press `1`–`4` to select
    an action, then Space to use it: till soil with the hoe, plant the
@@ -111,8 +114,10 @@ and the morning summary, with `GameRules`/`GameSession` as the gameplay
 authority.
 
 Day 14 is a temporary playable boundary — there is no settlement or advance
-past it. Villagers, social systems, and persistence remain intentionally
-later Godot work; HPA-594 is the next social slice.
+past it. HPA-594 added the villagers and social systems: Mira, Rowan, and
+June stand at fixed cells, talking and gifting follow the relationship rules
+above, and `VillagerRules`/`GameSession` hold the frozen content and mutable
+relationship state. Persistence remains intentionally later Godot work.
 
 ## Verification
 

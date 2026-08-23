@@ -25,6 +25,11 @@ const VILLAGER_FOOTPRINTS: Array[Rect2] = [
     Rect2(3.2, 5.2, 0.6, 0.6),
     Rect2(9.2, 5.2, 0.6, 0.6),
 ]
+const VILLAGER_COLLISION_NAMES: Array[String] = [
+    "VillagerShopkeeperCollision",
+    "VillagerFarmerCollision",
+    "VillagerResidentCollision",
+]
 const CAMERA_TOP_PADDING := 96.0
 const CAMERA_BOUNDS := Rect2(0.0, -96.0, 768.0, 480.0)
 

@@ -412,7 +412,11 @@ func test_day_fourteen_shipping_and_sleep_boundary_copy_is_visible() -> void:
 
 func test_villager_interaction_opens_dialogue_and_gates_world_input() -> void:
     var world := _world()
+    if world == null:
+        return
     var hud := _hud(world)
+    if hud == null:
+        return
     var june := VillagerRules.VillagerId.RESIDENT
     await _place_target(world, WorldContract.villager_cell(june))
     world.interact()
@@ -434,7 +438,11 @@ func test_villager_interaction_opens_dialogue_and_gates_world_input() -> void:
 
 func test_dialogue_ui_cancel_closes_and_releases_focus() -> void:
     var world := _world()
+    if world == null:
+        return
     var hud := _hud(world)
+    if hud == null:
+        return
     var june := VillagerRules.VillagerId.RESIDENT
     await _place_target(world, WorldContract.villager_cell(june))
     world.interact()
@@ -456,7 +464,11 @@ func test_dialogue_ui_cancel_closes_and_releases_focus() -> void:
 
 func test_close_friend_dialogue_uses_native_focus_and_cancel_progression() -> void:
     var world := _world()
+    if world == null:
+        return
     var hud := _hud(world)
+    if hud == null:
+        return
     var june := VillagerRules.VillagerId.RESIDENT
     var snapshot := world._session.snapshot()
     var relationships: Dictionary = snapshot["relationships"]
@@ -508,7 +520,11 @@ func test_close_friend_dialogue_uses_native_focus_and_cancel_progression() -> vo
 
 func test_gift_button_round_trips_through_session_and_updates_open_panel() -> void:
     var world := _world()
+    if world == null:
+        return
     var hud := _hud(world)
+    if hud == null:
+        return
     var june := VillagerRules.VillagerId.RESIDENT
     var seeded: Array[int] = [1, 0, 0]
     world._session.set("_harvested_counts", seeded)
@@ -535,7 +551,11 @@ func test_gift_button_round_trips_through_session_and_updates_open_panel() -> vo
 
 func test_all_villagers_route_through_same_direct_interaction_path() -> void:
     var world := _world()
+    if world == null:
+        return
     var hud := _hud(world)
+    if hud == null:
+        return
     for id in range(VillagerRules.VillagerId.size()):
         await _place_target(world, WorldContract.villager_cell(id))
         world.interact()

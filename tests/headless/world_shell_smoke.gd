@@ -213,9 +213,7 @@ func _run() -> void:
         "TreeCollision",
         "BuildingCollision",
         "ShippingCollision",
-        "VillagerShopkeeperCollision",
-        "VillagerFarmerCollision",
-        "VillagerResidentCollision",
+    ] + WorldContract.VILLAGER_COLLISION_NAMES + [
         "PerimeterTop",
         "PerimeterRight",
         "PerimeterBottom",
@@ -247,13 +245,10 @@ func _run() -> void:
         "shipping collision",
     ):
         return
-    var villager_collision_names := [
-        "VillagerShopkeeperCollision",
-        "VillagerFarmerCollision",
-        "VillagerResidentCollision",
-    ]
     for id in range(VillagerRules.VillagerId.size()):
-        var villager_collision := static_collision.get_node(villager_collision_names[id]) as CollisionPolygon2D
+        var villager_collision := static_collision.get_node(
+            WorldContract.VILLAGER_COLLISION_NAMES[id]
+        ) as CollisionPolygon2D
         if not _expect_polygon(
             villager_collision.polygon,
             WorldMath.footprint_to_polygon(WorldContract.villager_footprint(id)),
@@ -437,7 +432,7 @@ func _run() -> void:
         if not _expect(not crop_sprite.visible, "crop %s initially hidden" % cell):
             return
 
-    _place_player(player, Vector2(6.5, 5.5))
+    _place_player(player, Vector2(7.0, 5.0))
     await physics_frame
     if not _expect(
         is_equal_approx(player.global_position.y, tree.global_position.y),
@@ -608,7 +603,7 @@ func _run() -> void:
     if not _expect(target_highlight.points.is_empty(), "off-map target points cleared"):
         return
 
-    _place_player(player, Vector2(6.5, 5.5))
+    _place_player(player, Vector2(6.6, 5.0))
     await physics_frame
     await _hold_actions(["move_right"], 30)
     var tree_blocked := WorldMath.world_to_grid(player.global_position)
