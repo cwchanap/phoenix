@@ -25,7 +25,7 @@
 - Rain advances planted non-mature crops overnight; manual rainy-day watering returns `RAIN_WATERS_CROPS` without mutation.
 - Shipping removes carried crops immediately; one successful sleep settles pending shipment exactly once before the blocking summary.
 - Sleeping on Day 14 cannot consume RNG, settle shipping, or advance to Day 15.
-- Commands return `GameRules.CommandCode` directly. Do not add `ok`, `command_code_key`, generic result objects, or an unused `is_success()` classifier.
+- Public `GameSession` commands return `GameRules.CommandCode` directly. Do not add `ok`, `command_code_key`, generic result objects, or an unused `is_success()` classifier to that public command boundary.
 - `GameSession.snapshot()` is a current read model for FarmView/HUD, not a save-schema design exercise.
 - Player-facing controls use `InputMap`; no raw keycode switch in `WorldShell`.
 - HUD modal state is the only input-gate source; Morning Summary modal state is derived from the session snapshot inside `GameHud.render`.
@@ -101,25 +101,25 @@ Also assert any parallel crop arrays all have size `GameRules.CropKind.size()` s
 
 - [ ] **Step 4: Add RED budget/weather/payout tests**
 
+`evaluate_action_budget` is a pure helper with a small internal discriminated shape because success must carry the next time/stamina while failure carries a `CommandCode`. This `ok` field is **not** the public `GameSession` command contract.
+
 ```gdscript
 func test_action_budget_accepts_exact_2200_boundary() -> void:
     assert_eq(
         GameRules.evaluate_action_budget(1290, 3, GameRules.FarmingAction.HOE),
-        {"code": GameRules.CommandCode.SOIL_TILLED, "time_minutes": 1320, "stamina": 0},
+        {"ok": true, "time_minutes": 1320, "stamina": 0},
     )
 
 func test_action_budget_checks_time_before_stamina() -> void:
     assert_eq(
-        GameRules.evaluate_action_budget(1310, 0, GameRules.FarmingAction.HOE)["code"],
-        GameRules.CommandCode.ACTION_TOO_LATE,
+        GameRules.evaluate_action_budget(1310, 0, GameRules.FarmingAction.HOE),
+        {"ok": false, "code": GameRules.CommandCode.ACTION_TOO_LATE},
     )
 
 func test_weather_threshold_is_exact() -> void:
     assert_eq(GameRules.weather_from_roll(0.249999), GameRules.Weather.RAINY)
     assert_eq(GameRules.weather_from_roll(0.25), GameRules.Weather.SUNNY)
 ```
-
-For `evaluate_action_budget`, use an internal small Dictionary only if needed to return next time/stamina plus a failure code; do **not** reuse that helper shape as the public command contract. An alternative private typed helper shape is fine.
 
 Also table-drive:
 
@@ -133,7 +133,8 @@ Also table-drive:
 - [ ] **Step 5: Run the focused test and verify RED**
 
 ```bash
-godot --headless --path . -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit -gtest=res://tests/unit/test_game_rules.gd -gexit
+godot --headless --path . -s addons/gut/gut_cmdln.gd \
+  -gtest=res://tests/unit/test_game_rules.gd -gexit
 ```
 
 Expected: failure because `GameRules` is absent.
@@ -308,7 +309,8 @@ Also prove:
 - [ ] **Step 3: Run session tests and verify RED**
 
 ```bash
-godot --headless --path . -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit -gtest=res://tests/unit/test_game_session.gd -gexit
+godot --headless --path . -s addons/gut/gut_cmdln.gd \
+  -gtest=res://tests/unit/test_game_session.gd -gexit
 ```
 
 - [ ] **Step 4: Implement one mutable `GameSession`**
@@ -780,15 +782,15 @@ On Day 14:
 
 ```gdscript
 func _process(_delta: float) -> void:
-    match player.current_target_cell():
-        WorldContract.SHOP_CELL:
-            hud.set_interaction_hint("Shop — E")
-        WorldContract.BED_CELL:
-            hud.set_interaction_hint("Bed — E")
-        WorldContract.SHIPPING_CELL:
-            hud.set_interaction_hint("Shipping — E")
-        _:
-            hud.set_interaction_hint("")
+    var target: Variant = player.current_target_cell()
+    if target == WorldContract.SHOP_CELL:
+        hud.set_interaction_hint("Shop — E")
+    elif target == WorldContract.BED_CELL:
+        hud.set_interaction_hint("Bed — E")
+    elif target == WorldContract.SHIPPING_CELL:
+        hud.set_interaction_hint("Shipping — E")
+    else:
+        hud.set_interaction_hint("")
 ```
 
 This is presentation only. Do not write the target cell into `GameSession.snapshot()`.
