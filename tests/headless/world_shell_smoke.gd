@@ -115,7 +115,7 @@ func _run() -> void:
     root.add_child(world)
     await process_frame
 
-    var world_names := ["Ground", "FarmSoil", "StaticCollision", "Entities", "TargetHighlight"]
+    var world_names := ["Ground", "FarmSoil", "StaticCollision", "Entities", "TargetHighlight", "GameHud"]
     if not _expect_names(world, world_names, "World"):
         return
     if not _expect_child_order(world, world_names, "World scene-tree order"):
@@ -452,6 +452,12 @@ func _run() -> void:
         {"action": "move_left", "physical": 65},
         {"action": "move_down", "physical": 83},
         {"action": "move_right", "physical": 68},
+        {"action": "select_hoe", "physical": 49},
+        {"action": "select_seeds", "physical": 50},
+        {"action": "select_water", "physical": 51},
+        {"action": "select_hands", "physical": 52},
+        {"action": "use_action", "physical": 32},
+        {"action": "interact", "physical": 69},
     ]:
         if not _expect(InputMap.has_action(entry.action), "%s movement action" % entry.action):
             return

@@ -6,6 +6,7 @@
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="4_player"]
 [ext_resource type="Texture2D" path="res://assets/sprites/proof-soil.png" id="5_soil"]
 [ext_resource type="Script" path="res://scripts/world/farm_view.gd" id="7_farm_view"]
+[ext_resource type="PackedScene" path="res://scenes/ui/game_hud.tscn" id="8_hud"]
 
 [node name="World" type="Node2D" unique_id=1894839507]
 script = ExtResource("1_1fp7r")
@@ -127,3 +128,5 @@ z_index = 10
 width = 2.0
 default_color = Color(1, 0.85, 0.2, 0.9)
 closed = true
+
+[node name="GameHud" parent="." instance=ExtResource("8_hud")]
