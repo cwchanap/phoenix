@@ -409,3 +409,126 @@ func test_day_fourteen_shipping_and_sleep_boundary_copy_is_visible() -> void:
     hud.show_feedback(GameRules.CommandCode.DAY_LIMIT_REACHED)
     var sleep_feedback := _panel(hud, "SleepPanel").get_node("InlineFeedback") as Label
     assert_true(sleep_feedback.text.contains("cannot advance/pay"))
+
+func test_villager_interaction_opens_dialogue_and_gates_world_input() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var june := VillagerRules.VillagerId.RESIDENT
+    await _place_target(world, WorldContract.villager_cell(june))
+    world.interact()
+
+    var panel := _panel(hud, "DialoguePanel") as DialoguePanel
+    assert_true(panel.visible)
+    assert_false(world._world_input_enabled)
+    assert_eq((panel.get_node("Panel/Name") as Label).text, "June")
+
+    var before := world._session.snapshot()
+    world.select_action_slot(2)
+    world.use_selected_action()
+    world.interact()
+    assert_eq(world._session.snapshot(), before)
+
+    hud.close_dialogue()
+    assert_true(world._world_input_enabled)
+    assert_null(get_viewport().gui_get_focus_owner())
+
+func test_dialogue_ui_cancel_closes_and_releases_focus() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var june := VillagerRules.VillagerId.RESIDENT
+    await _place_target(world, WorldContract.villager_cell(june))
+    world.interact()
+
+    var panel := _panel(hud, "DialoguePanel") as DialoguePanel
+    var close_button := panel.get_node("Panel/Close") as Button
+    close_button.grab_focus()
+    assert_eq(get_viewport().gui_get_focus_owner(), close_button)
+
+    var cancel := InputEventAction.new()
+    cancel.action = &"ui_cancel"
+    cancel.pressed = true
+    get_viewport().push_input(cancel)
+    await get_tree().process_frame
+
+    assert_false(panel.visible)
+    assert_true(world._world_input_enabled)
+    assert_null(get_viewport().gui_get_focus_owner())
+
+func test_close_friend_dialogue_uses_native_focus_and_cancel_progression() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var june := VillagerRules.VillagerId.RESIDENT
+    var snapshot := world._session.snapshot()
+    var relationships: Dictionary = snapshot["relationships"]
+    var june_relationship: Dictionary = relationships[&"resident"]
+    june_relationship["points"] = 18
+    june_relationship["level"] = VillagerRules.relationship_key(VillagerRules.RelationshipLevel.CLOSE_FRIEND)
+    relationships[&"resident"] = june_relationship
+    snapshot["relationships"] = relationships
+    var lines: Array[String] = VillagerRules.close_friend_dialogue_lines(june)
+    var result := {
+        "code": GameRules.CommandCode.VILLAGER_TALKED,
+        "lines": lines,
+        "points_gained": 0,
+        "gift_reaction": &"",
+        "close_friend_sequence": true,
+    }
+
+    hud.open_dialogue(june, result, snapshot)
+    var panel := _panel(hud, "DialoguePanel") as DialoguePanel
+    var continue_button := panel.get_node("Panel/Continue") as Button
+    var close_button := panel.get_node("Panel/Close") as Button
+    var line := panel.get_node("Panel/Line") as Label
+    assert_eq(get_viewport().gui_get_focus_owner(), continue_button)
+    assert_eq(line.text, lines[0])
+
+    var cancel := InputEventAction.new()
+    cancel.action = &"ui_cancel"
+    cancel.pressed = true
+    get_viewport().push_input(cancel)
+    await get_tree().process_frame
+    assert_true(panel.visible)
+    assert_eq(line.text, lines[0])
+
+    var accept_press := InputEventAction.new()
+    accept_press.action = &"ui_accept"
+    accept_press.pressed = true
+    get_viewport().push_input(accept_press)
+    var accept_release := InputEventAction.new()
+    accept_release.action = &"ui_accept"
+    accept_release.pressed = false
+    get_viewport().push_input(accept_release)
+    await get_tree().process_frame
+    assert_eq(line.text, lines[1])
+    assert_eq(panel._line_index, 1)
+
+    close_button.pressed.emit()
+    assert_false(panel.visible)
+    assert_null(get_viewport().gui_get_focus_owner())
+
+func test_gift_button_round_trips_through_session_and_updates_open_panel() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var june := VillagerRules.VillagerId.RESIDENT
+    var seeded: Array[int] = [1, 0, 0]
+    world._session.set("_harvested_counts", seeded)
+    assert_eq(world._session.snapshot()["harvested"][&"turnip"], 1)
+
+    await _place_target(world, WorldContract.villager_cell(june))
+    world.interact()
+    var panel := _panel(hud, "DialoguePanel") as DialoguePanel
+    var gift_buttons := panel.get_node("Panel/GiftButtons") as VBoxContainer
+    assert_eq(gift_buttons.get_child_count(), 1)
+    var give_turnip := gift_buttons.get_child(0) as Button
+    assert_eq(give_turnip.text, "Give Turnip")
+
+    give_turnip.pressed.emit()
+
+    assert_eq(world._session.snapshot()["harvested"][&"turnip"], 0)
+    assert_eq(world._session.snapshot()["relationships"][&"resident"]["points"], 6)
+    assert_eq(
+        (panel.get_node("Panel/Line") as Label).text,
+        VillagerRules.gift_line(june, GameRules.CropKind.TURNIP),
+    )
+    assert_true((panel.get_node("Panel/Feedback") as Label).text.contains("Favourite gift"))
+    assert_eq(gift_buttons.get_child_count(), 0)

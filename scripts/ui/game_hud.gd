@@ -6,6 +6,7 @@ signal select_seed_requested(kind: int)
 signal buy_requested(kind: int, quantity: int)
 signal deposit_requested(kind: int, quantity: int)
 signal sleep_requested
+signal gift_requested(villager_id: int, crop_kind: int)
 signal morning_summary_acknowledged
 signal modal_state_changed
 
@@ -23,6 +24,7 @@ var _summary_body: Label
 var _shop_panel: Control
 var _shipping_panel: Control
 var _sleep_panel: Control
+var _dialogue_panel: DialoguePanel
 var _morning_summary_panel: Control
 var _day14_shipping_boundary: Label
 var _day14_sleep_boundary: Label
@@ -94,6 +96,7 @@ func has_blocking_modal() -> bool:
         _shop_panel.visible
         or _shipping_panel.visible
         or _sleep_panel.visible
+        or _dialogue_panel.visible
         or _morning_summary_panel.visible
     )
 
@@ -117,6 +120,19 @@ func open_sleep_confirmation() -> void:
 
 func close_sleep_confirmation() -> void:
     _close_modal(_sleep_panel)
+
+func open_dialogue(villager_id: int, result: Dictionary, snapshot: Dictionary) -> void:
+    _open_modal(_dialogue_panel)
+    _dialogue_panel.present(villager_id, result, snapshot)
+
+func update_dialogue(villager_id: int, result: Dictionary, snapshot: Dictionary) -> void:
+    _dialogue_panel.present(villager_id, result, snapshot)
+
+func close_dialogue() -> void:
+    if not _dialogue_panel.visible:
+        return
+    _dialogue_panel.close_panel()
+    modal_state_changed.emit()
 
 func show_feedback(code: GameRules.CommandCode) -> void:
     match code:
@@ -185,6 +201,14 @@ func show_feedback(code: GameRules.CommandCode) -> void:
         GameRules.CommandCode.DAY_LIMIT_REACHED:
             _feedback.text = "Day 14 reached: sleeping cannot advance/pay shipping."
             _sleep_inline_feedback.text = "Day 14: sleeping cannot advance/pay shipping."
+        GameRules.CommandCode.VILLAGER_TALKED:
+            _feedback.text = "Talked to villager."
+        GameRules.CommandCode.CROP_GIFTED:
+            _feedback.text = "Gift given."
+        GameRules.CommandCode.NOT_AT_VILLAGER:
+            _feedback.text = "Stand at the villager."
+        GameRules.CommandCode.GIFT_ALREADY_GIVEN:
+            _feedback.text = "Gift already given today."
         GameRules.CommandCode.NOTHING_TO_INTERACT:
             _feedback.text = "Nothing to interact with."
 
@@ -260,9 +284,17 @@ func _build_modals() -> void:
     _shipping_panel = _build_shipping_panel()
     _sleep_panel = _build_sleep_panel()
     _morning_summary_panel = _build_summary_panel()
+    _dialogue_panel = DialoguePanel.new()
+    _dialogue_panel.name = "DialoguePanel"
+    _root.add_child(_dialogue_panel)
+    _dialogue_panel.gift_requested.connect(func(villager_id: int, crop_kind: int) -> void:
+        gift_requested.emit(villager_id, crop_kind)
+    )
+    _dialogue_panel.close_requested.connect(close_dialogue)
     _shop_panel.visible = false
     _shipping_panel.visible = false
     _sleep_panel.visible = false
+    _dialogue_panel.visible = false
     _morning_summary_panel.visible = false
 
 func _build_shop_panel() -> Control:
@@ -424,6 +456,8 @@ func _set_morning_summary_visible(is_visible: bool) -> void:
         _shop_panel.visible = false
         _shipping_panel.visible = false
         _sleep_panel.visible = false
+        if _dialogue_panel.visible:
+            _dialogue_panel.close_panel()
     _morning_summary_panel.visible = is_visible
     if was_visible != is_visible:
         modal_state_changed.emit()
