@@ -34,10 +34,12 @@
 
 ---
 
-### Task 1: Vendor GUT, freeze `GameRules`, and make CI run the unit suite immediately
+### Task 1: Fetch GUT via the verifier, freeze `GameRules`, and make CI run the unit suite immediately
+
+(Amended 2026-08-23: GUT is verifier-fetched, not vendored; the addon left the git tree by owner decision.)
 
 **Files:**
-- Vendor: `addons/gut/**` from GUT `v9.7.1`
+- Modify: `tools/verify-clean.sh` (pinned GUT fetch into its temp archive; `addons/gut/**` is never committed)
 - Create: `scripts/game/game_rules.gd`
 - Create: `tests/unit/test_game_rules.gd`
 - Modify: `tools/verify-clean.sh`
@@ -48,26 +50,29 @@
 - Produces pure helpers: `starting_seed_counts`, `crop_key`, `crop_display_name`, `growth_nights`, `seed_price`, `sale_value`, `action_cost`, `visual_stage`, `is_mature`, `evaluate_action_budget`, `shipment_payout`, `weather_from_roll`, `format_time`
 - Consumes no mutable game/world state
 
-- [ ] **Step 1: Vendor exactly GUT 9.7.1**
+- [ ] **Step 1: Fetch exactly GUT 9.7.1 in the verifier**
 
-Copy upstream `addons/gut/` intact. Do not enable mocks/doubles or add another dependency manager.
+Do not vendor `addons/gut/` into the git tree. Do not enable mocks/doubles or add another dependency manager. Instead, extend `tools/verify-clean.sh` so that, inside its temp archive, it downloads the tagged upstream tarball, validates the pinned sha256 checksum, and extracts only `addons/gut`:
 
-Run the existing clean verifier before changing it:
+```bash
+mkdir -p addons/gut
+curl -fsSL https://github.com/bitwes/Gut/archive/refs/tags/v9.7.1.tar.gz -o gut.tgz
+echo "6da99c4e9228d9bec3fb4bd1730a487770a989f0f511dac82a2897a964613385  gut.tgz" \
+  | shasum -a 256 -c -
+tar -xzf gut.tgz --strip-components=3 -C addons/gut "Gut-9.7.1/addons/gut"
+```
+
+Run the existing clean verifier before adding tests:
 
 ```bash
 ./tools/verify-clean.sh
 ```
 
-Expected: archive editor import and all three existing shell smokes pass with the vendored addon present. This proves the addon itself survives the committed-archive path.
+Expected: archive editor import and all three existing shell smokes pass with the fetched addon present. This proves the pinned fetch works from a clean archive; clean runs need network access.
 
-- [ ] **Step 2: Commit the vendor drop by itself**
+- [ ] **Step 2: Keep the addon out of the git tree**
 
-Keep the several-thousand-file third-party diff isolated from authored code:
-
-```bash
-git add addons/gut
-git commit -m "chore: vendor GUT 9.7.1"
-```
+There is no standalone vendor commit: `addons/gut/**` stays untracked and the pinned verifier fetch above is the single GUT distribution path.
 
 - [ ] **Step 3: Write RED frozen-rule tests**
 
