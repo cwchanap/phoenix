@@ -35,6 +35,23 @@ func _mature_turnip(session: GameSession, cell: Vector2i = FARM_CELL) -> void:
 func test_new_session_has_exact_starter_state() -> void:
     var session := GameSession.new(func() -> float: return 0.9)
     var snapshot := session.snapshot()
+    assert_eq(snapshot.size(), 13)
+    assert_eq(snapshot.keys(), [
+        "day",
+        "time_minutes",
+        "stamina",
+        "max_stamina",
+        "weather",
+        "selected_action",
+        "selected_seed",
+        "money",
+        "seeds",
+        "harvested",
+        "pending_shipment",
+        "farm",
+        "pending_morning_summary",
+    ])
+    assert_eq(snapshot["max_stamina"], GameRules.MAX_STAMINA)
     assert_eq(snapshot["day"], 1)
     assert_eq(snapshot["time_minutes"], GameRules.DAY_START_MINUTES)
     assert_eq(snapshot["stamina"], GameRules.MAX_STAMINA)
@@ -71,19 +88,6 @@ func test_snapshot_is_deeply_isolated() -> void:
     var fresh_planted := session.snapshot()
     assert_eq(fresh_planted["farm"][0]["crop"]["growth"], 0)
     assert_eq(fresh_planted["harvested"][&"turnip"], 0)
-
-func test_snapshot_excludes_presentation_and_world_state() -> void:
-    var snapshot := GameSession.new().snapshot()
-    for key in [
-        "interaction_cells",
-        "player_position",
-        "world_position",
-        "node",
-        "focus",
-        "panel",
-        "weather_roll",
-    ]:
-        assert_false(snapshot.has(key), "snapshot must not contain %s" % key)
 
 func test_turnip_actions_commit_atomically() -> void:
     var session := GameSession.new()
@@ -506,6 +510,38 @@ func test_day_fourteen_sleep_rejects_without_rng_or_shipping_settlement() -> voi
     assert_eq(session.snapshot(), before)
     assert_eq(weather_calls[0], calls_before)
     assert_eq(session.snapshot()["pending_shipment"][&"turnip"], 1)
+
+func test_public_all_crop_lifecycles_are_successful() -> void:
+    var cases: Array = [
+        [GameRules.CropKind.TURNIP, 3],
+        [GameRules.CropKind.POTATO, 5],
+        [GameRules.CropKind.PUMPKIN, 7],
+    ]
+    for case_data in cases:
+        var kind: GameRules.CropKind = case_data[0]
+        var nights: int = case_data[1]
+        var session := GameSession.new(func() -> float: return 0.9)
+        assert_eq(
+            session.buy_seeds(kind, 1, WorldContract.SHOP_CELL),
+            GameRules.CommandCode.SEEDS_PURCHASED,
+        )
+        assert_eq(session.select_seed(kind), GameRules.CommandCode.SEED_SELECTED)
+        assert_eq(session.hoe(FARM_CELL), GameRules.CommandCode.SOIL_TILLED)
+        assert_eq(session.plant(FARM_CELL), GameRules.CommandCode.CROP_PLANTED)
+        for _night in nights:
+            assert_eq(session.water(FARM_CELL), GameRules.CommandCode.CROP_WATERED)
+            assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+            assert_eq(
+                session.acknowledge_morning_summary(),
+                GameRules.CommandCode.DAY_STARTED,
+            )
+        assert_eq(session.harvest(FARM_CELL), GameRules.CommandCode.CROP_HARVESTED)
+
+        var snapshot := session.snapshot()
+        var crop_key := GameRules.crop_key(kind)
+        assert_eq(snapshot["harvested"][crop_key], 1)
+        assert_true(snapshot["farm"][0]["tilled"])
+        assert_null(snapshot["farm"][0]["crop"])
 
 func test_public_potato_loop_reinvests_shipping_income() -> void:
     var session := GameSession.new(func() -> float: return 0.9)

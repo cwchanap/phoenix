@@ -34,8 +34,8 @@ var _harvested_count_labels: Array[Label] = []
 var _shop_count_labels: Array[Label] = []
 var _shipping_count_labels: Array[Label] = []
 var _last_snapshot: Dictionary = {}
-var _selected_action: StringName = &"hoe"
-var _selected_seed: StringName = &"turnip"
+var _selected_action: StringName = GameRules.action_key(GameRules.FarmingAction.HOE)
+var _selected_seed: StringName = GameRules.crop_key(GameRules.CropKind.TURNIP)
 
 func _ready() -> void:
     _root = $HudRoot as Control
@@ -47,7 +47,7 @@ func render(snapshot: Dictionary) -> void:
     _day_label.text = "Day %d" % int(snapshot["day"])
     _time_label.text = GameRules.format_time(int(snapshot["time_minutes"]))
     _weather_label.text = "Weather: %s" % _display_weather(snapshot["weather"])
-    _stamina_label.text = "Stamina: %d/%d" % [int(snapshot["stamina"]), GameRules.MAX_STAMINA]
+    _stamina_label.text = "Stamina: %d/%d" % [int(snapshot["stamina"]), int(snapshot["max_stamina"])]
     _money_label.text = "Money: %dG" % int(snapshot["money"])
 
     _selected_action = snapshot["selected_action"]
@@ -397,9 +397,8 @@ func _on_seed_button_pressed(kind: int) -> void:
     select_seed_requested.emit(kind)
 
 func _refresh_action_selection() -> void:
-    var action_keys := [&"hoe", &"seeds", &"watering_can", &"hands"]
     for action in _action_buttons.size():
-        var selected: bool = action_keys[action] == _selected_action
+        var selected: bool = GameRules.ACTION_KEYS[action] == _selected_action
         _action_buttons[action].button_pressed = selected
         _action_buttons[action].modulate = Color(1.0, 0.9, 0.45) if selected else Color.WHITE
 
@@ -441,7 +440,10 @@ func _render_morning_summary(summary: Dictionary) -> void:
     var lines: Array[String] = [
         "Day %s complete → Day %s" % [summary.get("completed_day", "?"), summary.get("next_day", "?")],
         "Crops advanced: %s" % summary.get("crops_advanced", 0),
-        "Next weather: %s" % _display_weather(summary.get("next_weather", &"sunny")),
+        "Next weather: %s" % _display_weather(summary.get(
+            "next_weather",
+            GameRules.weather_key(GameRules.Weather.SUNNY),
+        )),
         "Stamina restored: %s" % summary.get("stamina_restored", 0),
     ]
     var shipments: Array = summary.get("shipments", [])
@@ -452,7 +454,7 @@ func _render_morning_summary(summary: Dictionary) -> void:
             var shipment: Dictionary = shipment_variant
             lines.append(
                 "%s x%s: %sG" % [
-                    _display_crop(shipment.get("crop", &"turnip")),
+                    _display_crop(shipment.get("crop", GameRules.crop_key(GameRules.CropKind.TURNIP))),
                     shipment.get("quantity", 0),
                     shipment.get("amount", 0),
                 ]
@@ -474,7 +476,7 @@ func _display_crop(key: Variant) -> String:
     return String(key).capitalize()
 
 func _display_weather(key: Variant) -> String:
-    return "Rainy" if key == &"rainy" else "Sunny"
+    return "Rainy" if key == GameRules.weather_key(GameRules.Weather.RAINY) else "Sunny"
 
 func _unhandled_input(event: InputEvent) -> void:
     if not event.is_action_pressed("ui_cancel"):
