@@ -92,7 +92,8 @@ godot --headless --path . --script res://tests/headless/world_shell_smoke.gd
 
 GUT 9.7.1 is not committed: `tools/verify-clean.sh` downloads the tagged
 upstream tarball into its temp archive before running the suite, so clean
-verifications need network access. The `.godot/` import cache and generated
-`.uid`/`.import` sidecars are ignored everywhere. Git history and historical
-`docs/superpowers/` documents are the behavior reference; no dormant second
-runtime or TypeScript rules tree is maintained.
+verifications need network access. Only the `.godot/` import cache is
+ignored; the source-adjacent `.import` and `.uid` sidecars are committed so
+asset import settings and resource UIDs survive clean clones and CI. Git
+history and historical `docs/superpowers/` documents are the behavior
+reference; no dormant second runtime or TypeScript rules tree is maintained.
