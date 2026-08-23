@@ -34,6 +34,12 @@ The target diamond is hidden when the faced cell is outside the map. Facing
 the shop cell `(6,7)`, bed cell `(6,8)`, or shipping cell `(6,10)` from an
 adjacent tile shows a contextual interaction hint (for example `Shop — E`).
 
+- Face Mira, Rowan, or June and press E to talk.
+- The first talk with each villager each day adds 1 relationship point.
+- Give at most one harvested crop per villager per day from the dialogue panel.
+- A normal gift adds 3 points; that villager's favourite crop adds 5 total.
+- Relationship levels are Stranger, Friend at 12 points, and Close Friend at 18 points.
+
 ## Gameplay loop
 
 `GameSession` is the single gameplay authority; every command returns a

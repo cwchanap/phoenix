@@ -532,3 +532,21 @@ func test_gift_button_round_trips_through_session_and_updates_open_panel() -> vo
     )
     assert_true((panel.get_node("Panel/Feedback") as Label).text.contains("Favourite gift"))
     assert_eq(gift_buttons.get_child_count(), 0)
+
+func test_all_villagers_route_through_same_direct_interaction_path() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    for id in range(VillagerRules.VillagerId.size()):
+        await _place_target(world, WorldContract.villager_cell(id))
+        world.interact()
+        var panel := _panel(hud, "DialoguePanel") as DialoguePanel
+        assert_true(panel.visible)
+        assert_eq((panel.get_node("Panel/Name") as Label).text, VillagerRules.display_name(id))
+        assert_eq((panel.get_node("Panel/Role") as Label).text, VillagerRules.role_label(id))
+        assert_eq(
+            (panel.get_node("Panel/Line") as Label).text,
+            VillagerRules.dialogue_line(id, VillagerRules.RelationshipLevel.STRANGER),
+        )
+        hud.close_dialogue()
+        assert_true(world._world_input_enabled)
+        assert_null(get_viewport().gui_get_focus_owner())
