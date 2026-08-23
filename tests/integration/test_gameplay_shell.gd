@@ -352,6 +352,42 @@ func test_blocked_routing_leaves_session_snapshot_unchanged() -> void:
     world.interact()
     assert_eq(world._session.snapshot(), before)
 
+func test_modal_gates_toggle_buttons_so_hud_matches_session_after_close() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var action_button := hud.get_node("HudRoot/Action_1") as Button
+    var potato_button := hud.get_node("HudRoot/Seed_1") as Button
+    assert_not_null(action_button)
+    assert_not_null(potato_button)
+    if action_button == null or potato_button == null:
+        return
+
+    hud.open_shop()
+
+    # While gated, toggles are unclickable, so their local state cannot drift.
+    assert_true(action_button.disabled)
+    assert_true(potato_button.disabled)
+    var before := world._session.snapshot()
+
+    hud.close_shop()
+    assert_false(action_button.disabled)
+    assert_false(potato_button.disabled)
+
+    var snapshot := world._session.snapshot()
+    assert_eq(snapshot, before)
+    assert_eq(
+        action_button.button_pressed,
+        GameRules.action_key(GameRules.FarmingAction.SEEDS) == snapshot["selected_action"],
+    )
+    assert_eq(
+        potato_button.button_pressed,
+        GameRules.crop_key(GameRules.CropKind.POTATO) == snapshot["selected_seed"],
+    )
+
 func test_day_fourteen_shipping_and_sleep_boundary_copy_is_visible() -> void:
     var world := _world()
     if world == null:

@@ -41,6 +41,7 @@ func _ready() -> void:
     _root = $HudRoot as Control
     _build_always_visible_hud()
     _build_modals()
+    modal_state_changed.connect(_update_toggle_enabled)
 
 func render(snapshot: Dictionary) -> void:
     _last_snapshot = snapshot.duplicate(true)
@@ -409,6 +410,13 @@ func _refresh_seed_selection() -> void:
         _seed_buttons[kind].button_pressed = selected
         _seed_buttons[kind].modulate = Color(1.0, 0.9, 0.45) if selected else Color.WHITE
         _seed_buttons[kind].tooltip_text = GameRules.crop_display_name(kind)
+
+func _update_toggle_enabled() -> void:
+    var blocked := has_blocking_modal()
+    for button in _action_buttons:
+        button.disabled = blocked
+    for button in _seed_buttons:
+        button.disabled = blocked
 
 func _set_morning_summary_visible(is_visible: bool) -> void:
     var was_visible := _morning_summary_panel.visible
