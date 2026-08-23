@@ -115,6 +115,15 @@ func _run() -> void:
     root.add_child(world)
     await process_frame
 
+    for id in range(VillagerRules.VillagerId.size()):
+        var cell := WorldContract.villager_cell(id)
+        if not _expect(WorldContract.villager_at(cell) == id, "villager lookup %d" % id):
+            return
+    if not _expect(WorldContract.villager_at(Vector2i(0, 0)) == -1, "unknown villager cell"):
+        return
+    if not _expect(WorldContract.villager_at(Vector2i(6, 5)) == 0, "shopkeeper villager cell"):
+        return
+
     var world_names := ["Ground", "FarmSoil", "StaticCollision", "Entities", "TargetHighlight", "GameHud"]
     if not _expect_names(world, world_names, "World"):
         return
@@ -204,6 +213,9 @@ func _run() -> void:
         "TreeCollision",
         "BuildingCollision",
         "ShippingCollision",
+        "VillagerShopkeeperCollision",
+        "VillagerFarmerCollision",
+        "VillagerResidentCollision",
         "PerimeterTop",
         "PerimeterRight",
         "PerimeterBottom",
@@ -235,6 +247,19 @@ func _run() -> void:
         "shipping collision",
     ):
         return
+    var villager_collision_names := [
+        "VillagerShopkeeperCollision",
+        "VillagerFarmerCollision",
+        "VillagerResidentCollision",
+    ]
+    for id in range(VillagerRules.VillagerId.size()):
+        var villager_collision := static_collision.get_node(villager_collision_names[id]) as CollisionPolygon2D
+        if not _expect_polygon(
+            villager_collision.polygon,
+            WorldMath.footprint_to_polygon(WorldContract.villager_footprint(id)),
+            "%s collision" % villager_collision.name,
+        ):
+            return
     var map_size := Vector2(WorldContract.MAP_SIZE)
     var perimeter_rects := [
         Rect2(0.0, -1.0, map_size.x, 1.0),
@@ -243,7 +268,7 @@ func _run() -> void:
         Rect2(-1.0, 0.0, 1.0, map_size.y),
     ]
     for index in perimeter_rects.size():
-        var collision := static_collision.get_node(collision_names[index + 3]) as CollisionPolygon2D
+        var collision := static_collision.get_node(collision_names[index + 6]) as CollisionPolygon2D
         if not _expect_polygon(
             collision.polygon,
             WorldMath.footprint_to_polygon(perimeter_rects[index]),
@@ -271,7 +296,15 @@ func _run() -> void:
         "Entities must be the only enabled y-sort CanvasItem",
     ):
         return
-    var entity_names := ["Player", "Tree", "Building", "Shipping"]
+    var entity_names := [
+        "Player",
+        "Tree",
+        "Building",
+        "Shipping",
+        "VillagerShopkeeper",
+        "VillagerFarmer",
+        "VillagerResident",
+    ]
     for cell in WorldContract.farm_cells():
         entity_names.append("FarmCrop_%d_%d" % [cell.x, cell.y])
     if not _expect_names(entities, entity_names, "Entities"):
@@ -282,6 +315,11 @@ func _run() -> void:
     var tree := entities.get_node("Tree") as Node2D
     var building := entities.get_node("Building") as Node2D
     var shipping := entities.get_node("Shipping") as Node2D
+    var villagers := [
+        entities.get_node("VillagerShopkeeper") as Node2D,
+        entities.get_node("VillagerFarmer") as Node2D,
+        entities.get_node("VillagerResident") as Node2D,
+    ]
     if not _expect_vec2(tree.position, WorldContract.TREE_ANCHOR, "tree anchor"):
         return
     if not _expect_vec2(building.position, WorldContract.BUILDING_ANCHOR, "building anchor"):
@@ -307,6 +345,31 @@ func _run() -> void:
             return
         if not _expect_vec2(
             sprite.offset, Vector2(0.0, -48.0), "%s bottom-center offset" % entry.label
+        ):
+            return
+
+    for id in range(VillagerRules.VillagerId.size()):
+        var villager: Node2D = villagers[id]
+        if not _expect_vec2(
+            villager.position,
+            WorldMath.grid_to_world(Vector2(WorldContract.villager_cell(id)) + Vector2(0.5, 0.5)),
+            "villager %d anchor" % id,
+        ):
+            return
+        if not _expect_names(villager, ["Sprite2D"], "villager %d entity" % id):
+            return
+        var villager_sprite := villager.get_node("Sprite2D") as Sprite2D
+        if not _expect(
+            villager_sprite.texture.resource_path == "res://assets/sprites/proof-villagers.png",
+            "villager %d texture" % id,
+        ):
+            return
+        if not _expect(villager_sprite.hframes == 3, "villager %d frame columns" % id):
+            return
+        if not _expect(villager_sprite.frame == id, "villager %d frame" % id):
+            return
+        if not _expect_vec2(
+            villager_sprite.offset, Vector2(0.0, -24.0), "villager %d bottom-center offset" % id
         ):
             return
 
@@ -345,6 +408,12 @@ func _run() -> void:
         return
     if not _expect(player.z_index == shared_entity_z_index, "player shared entity z-index"):
         return
+    for id in range(VillagerRules.VillagerId.size()):
+        if not _expect(
+            villagers[id].z_index == shared_entity_z_index,
+            "villager %d shared entity z-index" % id,
+        ):
+            return
     for cell in WorldContract.farm_cells():
         var crop_root := entities.get_node("FarmCrop_%d_%d" % [cell.x, cell.y]) as Node2D
         if not _expect_vec2(crop_root.position, _cell_center(cell), "crop %s center" % cell):
@@ -388,14 +457,14 @@ func _run() -> void:
     if not _expect(player.get_index() < building.get_index(), "building exact-Y scene-tree order"):
         return
 
-    _place_player(player, Vector2(6.5, 5.3))
+    _place_player(player, Vector2(7.0, 4.8))
     await physics_frame
     if not _expect(is_equal_approx(player.global_position.y, 188.8), "tree behind ground Y"):
         return
     if not _expect(player.global_position.y < tree.global_position.y, "player ground Y < tree.y"):
         return
 
-    _place_player(player, Vector2(6.5, 5.7))
+    _place_player(player, Vector2(7.0, 5.2))
     await physics_frame
     if not _expect(is_equal_approx(player.global_position.y, 195.2), "tree in-front ground Y"):
         return
@@ -608,14 +677,14 @@ func _run() -> void:
     if not _expect(farm_exit.x > 4.0 and farm_exit.y > 9.0, "farm traversal"):
         return
 
-    _place_player(player, Vector2(6.5, 5.5))
+    _place_player(player, Vector2(8.5, 3.5))
     await physics_frame
-    player.velocity = Vector2(12000.0, 0.0)
+    player.velocity = Vector2(-12000.0, 0.0)
     player.move_and_slide()
     var high_motion_stop := WorldMath.world_to_grid(player.global_position)
     if not _expect(
-        high_motion_stop.x >= 7.017
-        and high_motion_stop.x <= 7.021
+        high_motion_stop.x >= 7.97
+        and high_motion_stop.x <= 8.02
         and player.get_slide_collision_count() > 0
         and _outside_footprint(high_motion_stop, WorldContract.TREE_FOOTPRINT),
         "high-motion tree collision",
