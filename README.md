@@ -1,8 +1,9 @@
 # Phoenix
 
-Phoenix is a Godot-only isometric farming shell. HPA-590 provides the authored
-world, movement, collision, targeting, camera, and depth-ordering foundation
-for later gameplay ports.
+Phoenix is a Godot-only isometric farming game. HPA-590 provides the
+authored world, movement, collision, targeting, camera, and depth-ordering
+foundation; HPA-589 ports the gameplay authority — the complete farming and
+economy loop — on top of it.
 
 ## Prerequisite
 
@@ -21,8 +22,44 @@ godot --path .
 
 ## Controls
 
-WASD moves the player. The facing direction selects the adjacent target cell;
-the target diamond is hidden when that cell is outside the map.
+| Input | Action |
+| --- | --- |
+| WASD | Move; facing selects the adjacent target cell |
+| `1` / `2` / `3` / `4` | Select Hoe / Seeds / Watering can / Hands |
+| Space | Use the selected action on the targeted farm cell |
+| E | Interact with the targeted shop, bed, or shipping-bin cell |
+| Esc | Close the open modal |
+
+The target diamond is hidden when the faced cell is outside the map. Standing
+on the shop cell `(6,7)`, bed cell `(6,8)`, or shipping cell `(6,10)` shows a
+contextual interaction hint (for example `Shop — E`).
+
+## Gameplay loop
+
+`GameSession` is the single gameplay authority; every command returns a
+`GameRules.CommandCode` and the HUD renders the refreshed snapshot.
+
+1. **Farm.** Face a cell in the `3x3` farm patch and press `1`–`4` to select
+   an action, then Space to use it: till soil with the hoe, plant the
+   selected seed, water the crop, and harvest once it is mature.
+2. **Budget the day.** Each action costs clock minutes and stamina; the day
+   runs 06:00 to 22:00 and stamina caps at 20. Rain waters every crop for
+   free, so the watering can is unneeded on rainy days.
+3. **Shop.** At the shop cell, E opens the seed shop: buy Turnip, Potato, or
+   Pumpkin seeds with the day's money.
+4. **Ship.** At the shipping cell, E opens the bin: deposit harvested crops
+   into the pending shipment.
+5. **Sleep.** At the bed cell, E opens a sleep confirmation. Sleeping pays
+   out the pending shipment, grows watered crops, restores stamina, rolls
+   tomorrow's weather, and advances the day — then a morning summary must be
+   acknowledged before play resumes.
+
+Day 14 is a temporary boundary: the day stays fully playable, but sleeping no
+longer advances the day or settles the pending shipment. The exhaustive crop
+economy, action-budget, and command-code tables are frozen in
+`tests/unit/test_game_rules.gd`, `tests/unit/test_game_session.gd`, and
+`tests/integration/test_gameplay_shell.gd`; those tests are the reference,
+not this README.
 
 ## Presentation contract
 
@@ -59,24 +96,29 @@ Y-sorted container, with shared entity z-order and stable scene-tree tie order.
 
 ## Current feature boundary
 
-HPA-590 includes the 12x12 sprite-isometric shell, WASD movement, facing,
+HPA-590 authored the 12x12 sprite-isometric shell: WASD movement, facing,
 adjacent-cell targeting, authored farm/path ground, tree/building/perimeter
-collision, bounded camera follow, and front/behind depth ordering. The shell
-does not author shop, bed, shipping-bin, villagers, or gameplay interactions.
+collision, bounded camera follow, and front/behind depth ordering. HPA-589
+added the complete single-player farming/economy loop on that shell: tilling,
+planting, watering, harvesting, seed shopping, shipping, sleeping, weather,
+and the morning summary, with `GameRules`/`GameSession` as the gameplay
+authority.
 
-Farming, crops, economy, social systems, and persistence are intentionally
-restored by later Godot tickets. HPA-589 is the next gameplay-authority port.
+Day 14 is a temporary playable boundary — there is no settlement or advance
+past it. Villagers, social systems, and persistence remain intentionally
+later Godot work; HPA-594 is the next social slice.
 
 ## Verification
 
-The clean verifier archives committed `HEAD` and runs the Godot-only import and
-headless smoke checks:
+The clean verifier archives committed `HEAD` and runs the Godot-only import,
+test, and headless smoke checks:
 
 ```bash
 ./tools/verify-clean.sh
 ```
 
-It runs the editor/import smoke, project contract smoke, world-math smoke, and
-world-shell smoke in that order. There is no second JavaScript or desktop-shell
-runtime in the current checkout; historical behavior references remain in Git
-history and `docs/superpowers/`.
+It runs the editor/import smoke, the GUT unit and integration tests, the
+project contract smoke, world-math smoke, and world-shell smoke in that
+order. There is no second JavaScript or desktop-shell runtime in the current
+checkout; historical behavior references remain in Git history and
+`docs/superpowers/`.
