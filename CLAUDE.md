@@ -80,6 +80,8 @@ Run the one clean Godot verifier from the repository root:
 It archives committed `HEAD`, then runs exactly:
 
 ```bash
+git archive HEAD              # verifier archives committed state, not the worktree
+curl -fsSL .../Gut/v9.7.1.tar.gz   # fetched into the archive: GUT lives in no git tree
 godot --headless --path . --editor --quit
 godot --headless --path . -s addons/gut/gut_cmdln.gd \
   -gdir=res://tests/unit,res://tests/integration -gexit
@@ -88,8 +90,9 @@ godot --headless --path . --script res://tests/headless/world_math_smoke.gd
 godot --headless --path . --script res://tests/headless/world_shell_smoke.gd
 ```
 
-The `.godot/` import cache and generated `.uid`/`.import` sidecars
-are ignored everywhere, including inside vendored `addons/`; the
-archive-first verifier re-imports them from scratch. Git history and historical
+GUT 9.7.1 is not committed: `tools/verify-clean.sh` downloads the tagged
+upstream tarball into its temp archive before running the suite, so clean
+verifications need network access. The `.godot/` import cache and generated
+`.uid`/`.import` sidecars are ignored everywhere. Git history and historical
 `docs/superpowers/` documents are the behavior reference; no dormant second
 runtime or TypeScript rules tree is maintained.
