@@ -4,7 +4,7 @@
 
 **Goal:** Restore Phoenix's three-villager talk, gifting, relationship, and one-time Close Friend dialogue loop in the existing Godot gameplay shell.
 
-**Architecture:** Keep the current `GameSession` as the only mutable gameplay authority, add one pure `VillagerRules` content/policy module, and keep authored villager cells/footprints in `WorldContract`. Render the three retained villager frames as static direct children of the existing Y-sorted `Entities`; route facing-derived `E` interactions through `WorldShell`; and add one focused `DialoguePanel` under `GameHud` so the existing modal gate continues to be the only world-input lock.
+**Architecture:** Keep `GameSession` as the only mutable gameplay authority, add one pure `VillagerRules` content/policy module, and keep authored villager cells/footprints in `WorldContract`. Render the retained villager sprite frames as static direct children of the existing Y-sorted `Entities`; route facing-derived `E` interactions directly through `WorldShell`; and add one focused `DialoguePanel` under `GameHud` so the existing modal gate remains the only world-input lock.
 
 **Tech Stack:** Godot 4.7.1 standard non-.NET, statically typed GDScript, GUT 9.7.1 through the existing archive verifier, existing SceneTree headless smokes, GitHub Actions.
 
@@ -13,19 +13,19 @@
 ## Global Constraints
 
 - Deliver HPA-594 in this same branch and PR; do not open a second implementation PR.
-- Preserve the current 12×12 world, 64×32 projection, origin `(384,0)`, player spawn/movement/camera, farm, shop `(6,7)`, bed `(6,8)`, shipping `(6,10)`, and village path `x=3..9,y=6`.
+- Preserve the 12×12 world, 64×32 projection, origin `(384,0)`, current player/camera/farm/economy behavior, shop `(6,7)`, bed `(6,8)`, shipping `(6,10)`, and village path `x=3..9,y=6`.
 - Villagers remain Mira `(6,5)`, Rowan `(3,5)`, June `(9,5)` with `0.6×0.6` footprints and `proof-villagers.png` frames `0/1/2`.
 - Social values remain talk `+1`, gift `+3`, favourite bonus `+2`, Friend `12`, Close Friend `18`.
-- Mira likes Potato, Rowan likes Pumpkin, June likes Turnip; all existing dialogue strings stay exact.
+- Mira likes Potato, Rowan likes Pumpkin, June likes Turnip; all shipped HPA-595 dialogue stays exact.
 - Talking and gifting consume no time or stamina.
-- `GameSession` remains the only mutable social authority; relationship level is derived from points.
-- `WorldContract` remains the authored geometry authority; do not duplicate villager cells into the session snapshot.
-- Existing farming/economy commands continue returning `GameRules.CommandCode` directly. The narrow social result Dictionary is not a generic command-result migration.
+- `GameSession` owns mutable relationships; relationship level is derived from points and never stored redundantly.
+- `WorldContract` owns villager geometry; do not duplicate villager cells into the session snapshot.
+- Existing farming/economy commands continue returning `GameRules.CommandCode` directly. The narrow social result Dictionary is local to talk/gift and is not a generic command-result migration.
 - Successful `sleep()` resets only `talked_today` and `gifted_today`; failed sleep, Day 14 rejection, and pending Morning Summary do not reset social state.
-- `GameHud.has_blocking_modal()` remains the single input-gate source. Do not add another input manager, lock registry, or global event bus.
-- Dialogue uses native focusable Godot `Button` nodes; do not use the HUD helper that sets `FOCUS_NONE`.
-- Keep the existing `./tools/verify-clean.sh` entry point and current GitHub Actions job; do not add a new E2E framework.
-- No NPC schedules/movement/pathfinding, homes, quests, romance, portraits, branching dialogue, generic dialogue/cutscene/event engine, generic item system, persistence/save format, migration, tutorial/finale behavior, localization framework, C#, GDExtension, JavaScript/Tauri compatibility runtime, or unrelated refactor.
+- `GameHud.has_blocking_modal()` remains the sole world-input gate. Do not add another lock registry, input manager, event bus, or generic interaction registry.
+- Dialogue buttons use native focusable Godot `Button` behavior; do not use the HUD helper that sets `FOCUS_NONE`.
+- Keep one `./tools/verify-clean.sh` verification entry point and the current CI job; add no new E2E framework.
+- No NPC schedules/movement/pathfinding, homes, quests, romance, portraits, branching dialogue, dialogue/cutscene/event engine, generic item system, persistence/save format, migration, tutorial/finale behavior, localization framework, C#, GDExtension, JavaScript/Tauri compatibility runtime, or unrelated refactor.
 
 ---
 
@@ -37,18 +37,18 @@
 - Modify: `scripts/game/game_rules.gd`
 
 **Interfaces:**
-- Produces: `VillagerRules.VillagerId`, `RelationshipLevel`, frozen content tables, relationship helpers, and gift helpers.
-- Produces new command codes: `VILLAGER_TALKED`, `CROP_GIFTED`, `NOT_AT_VILLAGER`, `GIFT_ALREADY_GIVEN`.
-- Consumes: `GameRules.CropKind` only; no mutable session/world state.
+- Produces: `VillagerRules.VillagerId`, `RelationshipLevel`, frozen content tables, relationship helpers, gift helpers.
+- Produces `GameRules.CommandCode`: `VILLAGER_TALKED`, `CROP_GIFTED`, `NOT_AT_VILLAGER`, `GIFT_ALREADY_GIVEN`.
+- Consumes: `GameRules.CropKind`; no mutable state or world nodes.
 
-- [ ] **Step 1: Write RED tests for the closed villager table**
+- [ ] **Step 1: Write RED tests for the closed social table**
 
-Create `tests/unit/test_villager_rules.gd` and pin every authored identity/favourite plus parallel table size:
+Create `tests/unit/test_villager_rules.gd`:
 
 ```gdscript
 extends GutTest
 
-func test_villager_tables_are_closed_and_aligned() -> void:
+func test_identity_favourites_and_table_sizes_are_exact() -> void:
     assert_eq(VillagerRules.VillagerId.size(), 3)
     for table in [
         VillagerRules.VILLAGER_KEYS,
@@ -60,31 +60,19 @@ func test_villager_tables_are_closed_and_aligned() -> void:
         VillagerRules.NORMAL_GIFT_LINES,
         VillagerRules.FAVOURITE_GIFT_LINES,
     ]:
-        assert_eq(table.size(), VillagerRules.VillagerId.size())
+        assert_eq(table.size(), 3)
 
-func test_villager_identity_and_favourites_are_exact() -> void:
     assert_eq(VillagerRules.villager_key(VillagerRules.VillagerId.SHOPKEEPER), &"shopkeeper")
     assert_eq(VillagerRules.display_name(VillagerRules.VillagerId.SHOPKEEPER), "Mira")
-    assert_eq(VillagerRules.role_label(VillagerRules.VillagerId.SHOPKEEPER), "Seed-shop keeper")
     assert_eq(VillagerRules.favourite_crop(VillagerRules.VillagerId.SHOPKEEPER), GameRules.CropKind.POTATO)
-
     assert_eq(VillagerRules.villager_key(VillagerRules.VillagerId.FARMER), &"farmer")
     assert_eq(VillagerRules.display_name(VillagerRules.VillagerId.FARMER), "Rowan")
-    assert_eq(VillagerRules.role_label(VillagerRules.VillagerId.FARMER), "Neighbouring farmer")
     assert_eq(VillagerRules.favourite_crop(VillagerRules.VillagerId.FARMER), GameRules.CropKind.PUMPKIN)
-
     assert_eq(VillagerRules.villager_key(VillagerRules.VillagerId.RESIDENT), &"resident")
     assert_eq(VillagerRules.display_name(VillagerRules.VillagerId.RESIDENT), "June")
-    assert_eq(VillagerRules.role_label(VillagerRules.VillagerId.RESIDENT), "Village resident")
     assert_eq(VillagerRules.favourite_crop(VillagerRules.VillagerId.RESIDENT), GameRules.CropKind.TURNIP)
-```
 
-- [ ] **Step 2: Add RED policy and exact-copy tests**
-
-Append tests that pin the thresholds/gains and all player-facing lines:
-
-```gdscript
-func test_relationship_boundaries_and_gift_points_are_exact() -> void:
+func test_thresholds_and_gains_are_exact() -> void:
     assert_eq(VillagerRules.relationship_level(0), VillagerRules.RelationshipLevel.STRANGER)
     assert_eq(VillagerRules.relationship_level(11), VillagerRules.RelationshipLevel.STRANGER)
     assert_eq(VillagerRules.relationship_level(12), VillagerRules.RelationshipLevel.FRIEND)
@@ -93,65 +81,23 @@ func test_relationship_boundaries_and_gift_points_are_exact() -> void:
     assert_eq(VillagerRules.TALK_POINTS, 1)
     assert_eq(VillagerRules.GIFT_POINTS, 3)
     assert_eq(VillagerRules.FAVOURITE_GIFT_BONUS, 2)
-    assert_eq(
-        VillagerRules.gift_points(VillagerRules.VillagerId.RESIDENT, GameRules.CropKind.TURNIP),
-        5,
-    )
-    assert_eq(
-        VillagerRules.gift_points(VillagerRules.VillagerId.RESIDENT, GameRules.CropKind.POTATO),
-        3,
-    )
-
-func test_mira_dialogue_is_exact() -> void:
-    var id := VillagerRules.VillagerId.SHOPKEEPER
-    assert_eq(VillagerRules.dialogue_line(id, VillagerRules.RelationshipLevel.STRANGER), "The seed counter is open whenever you need it.")
-    assert_eq(VillagerRules.dialogue_line(id, VillagerRules.RelationshipLevel.FRIEND), "Your fields are starting to look dependable.")
-    assert_eq(VillagerRules.dialogue_line(id, VillagerRules.RelationshipLevel.CLOSE_FRIEND), "You have made this little farm part of the village.")
-    assert_eq(VillagerRules.close_friend_dialogue_lines(id), [
-        "You kept showing up, even on the slow days.",
-        "The harvest market will feel different with you there.",
-    ])
-    assert_eq(VillagerRules.gift_line(id, GameRules.CropKind.TURNIP), "A useful harvest. Thank you.")
-    assert_eq(VillagerRules.gift_line(id, GameRules.CropKind.POTATO), "Potatoes? You remembered.")
-
-func test_rowan_dialogue_is_exact() -> void:
-    var id := VillagerRules.VillagerId.FARMER
-    assert_eq(VillagerRules.dialogue_line(id, VillagerRules.RelationshipLevel.STRANGER), "Watered soil tells you what tomorrow will bring.")
-    assert_eq(VillagerRules.dialogue_line(id, VillagerRules.RelationshipLevel.FRIEND), "Your rows are getting cleaner every day.")
-    assert_eq(VillagerRules.dialogue_line(id, VillagerRules.RelationshipLevel.CLOSE_FRIEND), "I would trust you with a field of my own.")
-    assert_eq(VillagerRules.close_friend_dialogue_lines(id), [
-        "I noticed when the farm stopped looking neglected.",
-        "You earned that change one ordinary day at a time.",
-    ])
-    assert_eq(VillagerRules.gift_line(id, GameRules.CropKind.TURNIP), "Good produce. I can use this.")
-    assert_eq(VillagerRules.gift_line(id, GameRules.CropKind.PUMPKIN), "A pumpkin this good is hard to ignore.")
-
-func test_june_dialogue_is_exact() -> void:
-    var id := VillagerRules.VillagerId.RESIDENT
-    assert_eq(VillagerRules.dialogue_line(id, VillagerRules.RelationshipLevel.STRANGER), "It is quieter here than the road makes it look.")
-    assert_eq(VillagerRules.dialogue_line(id, VillagerRules.RelationshipLevel.FRIEND), "I keep seeing you around. I like that.")
-    assert_eq(VillagerRules.dialogue_line(id, VillagerRules.RelationshipLevel.CLOSE_FRIEND), "The village feels more like home with you here.")
-    assert_eq(VillagerRules.close_friend_dialogue_lines(id), [
-        "You came here as the new farmer, but that is not how I think of you now.",
-        "You are one of us.",
-    ])
-    assert_eq(VillagerRules.gift_line(id, GameRules.CropKind.POTATO), "That is kind of you.")
-    assert_eq(VillagerRules.gift_line(id, GameRules.CropKind.TURNIP), "Turnips are my favourite. Perfect choice.")
+    assert_eq(VillagerRules.gift_points(VillagerRules.VillagerId.RESIDENT, GameRules.CropKind.TURNIP), 5)
+    assert_eq(VillagerRules.gift_points(VillagerRules.VillagerId.RESIDENT, GameRules.CropKind.POTATO), 3)
 ```
 
-Also mutate the Array returned by `close_friend_dialogue_lines()` and assert a second call still returns the two original strings so callers cannot mutate static content through a returned collection.
+Add exact-string assertions for all three Stranger/Friend/Close Friend lines, all six Close Friend sequence lines, and all six normal/favourite gift replies from the design spec. Mutate an Array returned by `close_friend_dialogue_lines()` and assert a second call still returns the original two strings.
 
-- [ ] **Step 3: Run the clean verifier and confirm RED**
+- [ ] **Step 2: Run the clean verifier and verify RED**
 
 ```bash
 ./tools/verify-clean.sh
 ```
 
-Expected: the GUT suite fails because `VillagerRules` is not defined yet.
+Expected: GUT fails because `VillagerRules` does not exist.
 
-- [ ] **Step 4: Add the four social command codes without changing the public command model**
+- [ ] **Step 3: Add only the four new social command codes**
 
-Append these enum members to `GameRules.CommandCode`:
+Append to `GameRules.CommandCode`:
 
 ```gdscript
 VILLAGER_TALKED,
@@ -160,11 +106,11 @@ NOT_AT_VILLAGER,
 GIFT_ALREADY_GIVEN,
 ```
 
-Do not add a success classifier, string-key conversion, result base class, or generic command envelope.
+Do not add a generic `ok` result, success classifier, result base type, or code-to-string framework.
 
-- [ ] **Step 5: Implement the minimal pure `VillagerRules` module**
+- [ ] **Step 4: Implement `VillagerRules` with the exact frozen content**
 
-Create `scripts/game/villager_rules.gd` with the exact frozen tables and pure helpers:
+Create `scripts/game/villager_rules.gd`:
 
 ```gdscript
 class_name VillagerRules
@@ -207,13 +153,11 @@ const NORMAL_DIALOGUE: Array = [
         "The village feels more like home with you here.",
     ],
 ]
-
 const CLOSE_FRIEND_DIALOGUE: Array = [
     ["You kept showing up, even on the slow days.", "The harvest market will feel different with you there."],
     ["I noticed when the farm stopped looking neglected.", "You earned that change one ordinary day at a time."],
     ["You came here as the new farmer, but that is not how I think of you now.", "You are one of us."],
 ]
-
 const NORMAL_GIFT_LINES: Array[String] = [
     "A useful harvest. Thank you.",
     "Good produce. I can use this.",
@@ -225,6 +169,18 @@ const FAVOURITE_GIFT_LINES: Array[String] = [
     "Turnips are my favourite. Perfect choice.",
 ]
 
+static func villager_key(id: VillagerId) -> StringName:
+    return VILLAGER_KEYS[id]
+
+static func display_name(id: VillagerId) -> String:
+    return DISPLAY_NAMES[id]
+
+static func role_label(id: VillagerId) -> String:
+    return ROLE_LABELS[id]
+
+static func favourite_crop(id: VillagerId) -> GameRules.CropKind:
+    return FAVOURITE_CROPS[id]
+
 static func relationship_level(points: int) -> RelationshipLevel:
     assert(points >= 0)
     if points >= CLOSE_FRIEND_POINTS:
@@ -233,24 +189,40 @@ static func relationship_level(points: int) -> RelationshipLevel:
         return RelationshipLevel.FRIEND
     return RelationshipLevel.STRANGER
 
+static func relationship_key(level: RelationshipLevel) -> StringName:
+    return RELATIONSHIP_KEYS[level]
+
+static func relationship_display_name(level: RelationshipLevel) -> String:
+    return RELATIONSHIP_DISPLAY_NAMES[level]
+
+static func dialogue_line(id: VillagerId, level: RelationshipLevel) -> String:
+    return NORMAL_DIALOGUE[id][level]
+
+static func close_friend_dialogue_lines(id: VillagerId) -> Array[String]:
+    var lines: Array[String] = []
+    for line in CLOSE_FRIEND_DIALOGUE[id]:
+        lines.append(line)
+    return lines
+
 static func is_favourite(id: VillagerId, crop: GameRules.CropKind) -> bool:
     return FAVOURITE_CROPS[id] == crop
 
 static func gift_points(id: VillagerId, crop: GameRules.CropKind) -> int:
     return GIFT_POINTS + (FAVOURITE_GIFT_BONUS if is_favourite(id, crop) else 0)
+
+static func gift_line(id: VillagerId, crop: GameRules.CropKind) -> String:
+    return FAVOURITE_GIFT_LINES[id] if is_favourite(id, crop) else NORMAL_GIFT_LINES[id]
 ```
 
-Add the remaining direct index helpers from the design. `close_friend_dialogue_lines()` must build and return a fresh typed `Array[String]` rather than returning the constant nested Array by reference.
-
-- [ ] **Step 6: Run the verifier and confirm GREEN**
+- [ ] **Step 5: Run the verifier and verify GREEN**
 
 ```bash
 ./tools/verify-clean.sh
 ```
 
-Expected: new `test_villager_rules.gd`, all existing GUT tests, and all three headless smokes pass.
+Expected: all new villager-rule tests, existing unit/integration tests, and all headless smokes pass.
 
-- [ ] **Step 7: Commit the closed social policy**
+- [ ] **Step 6: Commit Task 1**
 
 ```bash
 git add scripts/game/game_rules.gd scripts/game/villager_rules.gd tests/unit/test_villager_rules.gd
@@ -266,41 +238,22 @@ git commit -m "feat: freeze HPA-594 villager rules"
 - Modify: `tests/unit/test_game_session.gd`
 
 **Interfaces:**
-- Consumes: `VillagerRules`, `WorldContract.villager_cell(id)`, existing `_harvested_counts`, existing `_active_day_failure()`, and existing successful `sleep()` transaction.
-- Produces snapshot field: `relationships: Dictionary` keyed by `&"shopkeeper"`, `&"farmer"`, `&"resident"`.
-- Produces: `talk_to(id: VillagerRules.VillagerId, target_cell: Variant) -> Dictionary`.
-- Produces: `gift_crop(id: VillagerRules.VillagerId, crop: GameRules.CropKind, target_cell: Variant) -> Dictionary`.
-- Social result keys are exactly `code`, `lines`, `points_gained`, `gift_reaction`, `close_friend_sequence`.
+- Produces snapshot field `relationships`, keyed by villager key.
+- Produces `talk_to(id: VillagerRules.VillagerId, target_cell: Variant) -> Dictionary`.
+- Produces `gift_crop(id: VillagerRules.VillagerId, crop: GameRules.CropKind, target_cell: Variant) -> Dictionary`.
+- Every social result has exactly `code`, `lines`, `points_gained`, `gift_reaction`, `close_friend_sequence`.
 
-- [ ] **Step 1: Write RED starter-state and deep-isolation tests**
+- [ ] **Step 1: Write RED starter-state/deep-copy tests**
 
-Extend `tests/unit/test_game_session.gd`:
+Extend the current exact snapshot contract:
 
 ```gdscript
 func test_new_session_has_exact_starter_relationships() -> void:
     var snapshot := GameSession.new().snapshot()
     assert_eq(snapshot["relationships"], {
-        &"shopkeeper": {
-            "points": 0,
-            "level": &"stranger",
-            "talked_today": false,
-            "gifted_today": false,
-            "close_friend_dialogue_seen": false,
-        },
-        &"farmer": {
-            "points": 0,
-            "level": &"stranger",
-            "talked_today": false,
-            "gifted_today": false,
-            "close_friend_dialogue_seen": false,
-        },
-        &"resident": {
-            "points": 0,
-            "level": &"stranger",
-            "talked_today": false,
-            "gifted_today": false,
-            "close_friend_dialogue_seen": false,
-        },
+        &"shopkeeper": {"points": 0, "level": &"stranger", "talked_today": false, "gifted_today": false, "close_friend_dialogue_seen": false},
+        &"farmer": {"points": 0, "level": &"stranger", "talked_today": false, "gifted_today": false, "close_friend_dialogue_seen": false},
+        &"resident": {"points": 0, "level": &"stranger", "talked_today": false, "gifted_today": false, "close_friend_dialogue_seen": false},
     })
 
 func test_relationship_snapshot_is_deeply_isolated() -> void:
@@ -310,191 +263,107 @@ func test_relationship_snapshot_is_deeply_isolated() -> void:
     assert_eq(session.snapshot()["relationships"][&"resident"]["points"], 0)
 ```
 
-Update the existing exact snapshot size/key assertion to include `relationships` and no villager coordinate/panel/focus fields.
+Update the existing snapshot size/key assertion to add only `relationships`; do not add villager cells, active dialogue, focus, or node references.
 
-- [ ] **Step 2: Write RED talk-target and duplicate-credit tests**
+- [ ] **Step 2: Write RED talk/gift guard and value tests**
 
-Use the authored target from `WorldContract` and compare complete snapshots on failure:
+Pin talk behavior:
 
 ```gdscript
-func test_talk_requires_matching_villager_target_and_repeat_talk_gains_zero() -> void:
+func test_talk_requires_target_and_repeat_talk_gains_zero() -> void:
     var session := GameSession.new()
-    var id := VillagerRules.VillagerId.RESIDENT
+    var june := VillagerRules.VillagerId.RESIDENT
     var before := session.snapshot()
-    var wrong := session.talk_to(id, Vector2i(0, 0))
-    assert_eq(wrong["code"], GameRules.CommandCode.NOT_AT_VILLAGER)
+    assert_eq(session.talk_to(june, Vector2i.ZERO)["code"], GameRules.CommandCode.NOT_AT_VILLAGER)
     assert_eq(session.snapshot(), before)
 
-    var first := session.talk_to(id, WorldContract.villager_cell(id))
-    assert_eq(first, {
-        "code": GameRules.CommandCode.VILLAGER_TALKED,
-        "lines": ["It is quieter here than the road makes it look."],
-        "points_gained": 1,
-        "gift_reaction": &"",
-        "close_friend_sequence": false,
-    })
+    var first := session.talk_to(june, WorldContract.villager_cell(june))
+    assert_eq(first["code"], GameRules.CommandCode.VILLAGER_TALKED)
+    assert_eq(first["lines"], ["It is quieter here than the road makes it look."])
+    assert_eq(first["points_gained"], 1)
     assert_eq(session.snapshot()["relationships"][&"resident"]["points"], 1)
-    assert_true(session.snapshot()["relationships"][&"resident"]["talked_today"])
 
-    var repeat := session.talk_to(id, WorldContract.villager_cell(id))
+    var repeat := session.talk_to(june, WorldContract.villager_cell(june))
     assert_eq(repeat["code"], GameRules.CommandCode.VILLAGER_TALKED)
     assert_eq(repeat["points_gained"], 0)
     assert_eq(session.snapshot()["relationships"][&"resident"]["points"], 1)
 ```
 
-Also assert a pending Morning Summary returns `DAY_SUMMARY_PENDING` with the standard empty social payload and no mutation.
-
-- [ ] **Step 3: Write RED gift atomicity and favourite-value tests**
-
-The existing unit suite already sets private scalar/array state at explicit test boundaries, so seed only carried crop inventory directly rather than building a multi-day farm fixture for these isolated social rules:
+Pin gifting with isolated carried-inventory setup, matching the private-state style already used by this unit suite:
 
 ```gdscript
-func test_gift_consumes_exactly_one_crop_and_uses_normal_or_favourite_points() -> void:
-    var resident := VillagerRules.VillagerId.RESIDENT
-
-    var normal := GameSession.new()
-    normal.set("_harvested_counts", [0, 1, 0])
-    var normal_result := normal.gift_crop(
-        resident,
-        GameRules.CropKind.POTATO,
-        WorldContract.villager_cell(resident),
-    )
-    assert_eq(normal_result["code"], GameRules.CommandCode.CROP_GIFTED)
-    assert_eq(normal_result["points_gained"], 3)
-    assert_eq(normal_result["gift_reaction"], &"normal")
-    assert_eq(normal.snapshot()["harvested"][&"potato"], 0)
-    assert_eq(normal.snapshot()["relationships"][&"resident"]["points"], 3)
-
-    var favourite := GameSession.new()
-    favourite.set("_harvested_counts", [2, 0, 0])
-    var favourite_result := favourite.gift_crop(
-        resident,
-        GameRules.CropKind.TURNIP,
-        WorldContract.villager_cell(resident),
-    )
-    assert_eq(favourite_result["points_gained"], 5)
-    assert_eq(favourite_result["gift_reaction"], &"favourite")
-    assert_eq(favourite.snapshot()["harvested"][&"turnip"], 1)
-```
-
-Add separate atomicity assertions for this exact guard order:
-
-`active-day failure → villager target → gift-already-given → carried crop availability → mutation`.
-
-A duplicate gift must return `GIFT_ALREADY_GIVEN` without consuming a crop even when the requested crop count is zero. An inventory-invalid first gift returns existing `INSUFFICIENT_CROPS` without setting `gifted_today`.
-
-- [ ] **Step 4: Write RED three-day threshold and one-time dialogue test**
-
-Drive June with the existing sleep/ack flow and three carried favourite Turnips:
-
-```gdscript
-func test_gift_crossing_close_friend_defers_and_talk_consumes_sequence_once() -> void:
-    var session := GameSession.new(func() -> float: return 0.9)
+func test_gift_consumes_one_and_favourite_is_five_points() -> void:
+    var session := GameSession.new()
     var june := VillagerRules.VillagerId.RESIDENT
-    var target := WorldContract.villager_cell(june)
-    session.set("_harvested_counts", [3, 0, 0])
+    session.set("_harvested_counts", [2, 0, 0])
 
-    # Social day 1: 1 + 5 = 6.
-    assert_eq(session.talk_to(june, target)["points_gained"], 1)
-    assert_eq(session.gift_crop(june, GameRules.CropKind.TURNIP, target)["points_gained"], 5)
-    assert_eq(session.snapshot()["relationships"][&"resident"]["points"], 6)
-    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
-    assert_eq(session.acknowledge_morning_summary(), GameRules.CommandCode.DAY_STARTED)
-
-    # Social day 2: 6 + 1 + 5 = 12 (Friend).
-    session.talk_to(june, target)
-    session.gift_crop(june, GameRules.CropKind.TURNIP, target)
-    assert_eq(session.snapshot()["relationships"][&"resident"]["level"], &"friend")
-    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
-    assert_eq(session.acknowledge_morning_summary(), GameRules.CommandCode.DAY_STARTED)
-
-    # Social day 3: talk 13, gift crosses to 18; gift does not consume the sequence.
-    session.talk_to(june, target)
-    var crossing_gift := session.gift_crop(june, GameRules.CropKind.TURNIP, target)
-    assert_false(crossing_gift["close_friend_sequence"])
-    assert_eq(session.snapshot()["relationships"][&"resident"]["level"], &"close_friend")
-    assert_false(session.snapshot()["relationships"][&"resident"]["close_friend_dialogue_seen"])
-
-    var special := session.talk_to(june, target)
-    assert_eq(special["points_gained"], 0)
-    assert_true(special["close_friend_sequence"])
-    assert_eq(special["lines"], [
-        "You came here as the new farmer, but that is not how I think of you now.",
-        "You are one of us.",
-    ])
-    assert_true(session.snapshot()["relationships"][&"resident"]["close_friend_dialogue_seen"])
-
-    var normal_close_friend := session.talk_to(june, target)
-    assert_false(normal_close_friend["close_friend_sequence"])
-    assert_eq(normal_close_friend["lines"], ["The village feels more like home with you here."])
+    var result := session.gift_crop(june, GameRules.CropKind.TURNIP, WorldContract.villager_cell(june))
+    assert_eq(result["code"], GameRules.CommandCode.CROP_GIFTED)
+    assert_eq(result["points_gained"], 5)
+    assert_eq(result["gift_reaction"], &"favourite")
+    assert_eq(session.snapshot()["harvested"][&"turnip"], 1)
+    assert_eq(session.snapshot()["relationships"][&"resident"]["points"], 5)
 ```
 
-- [ ] **Step 5: Write RED daily-reset and Day 14 preservation tests**
+Add complete-snapshot atomicity cases for exact guard order:
 
-Pin successful transition behavior:
+`DAY_SUMMARY_PENDING → NOT_AT_VILLAGER → GIFT_ALREADY_GIVEN → INSUFFICIENT_CROPS → mutation`.
 
-```gdscript
-func test_successful_sleep_resets_only_daily_social_flags() -> void:
-    var session := GameSession.new(func() -> float: return 0.9)
-    var june := VillagerRules.VillagerId.RESIDENT
-    var target := WorldContract.villager_cell(june)
-    session.set("_harvested_counts", [1, 0, 0])
-    session.talk_to(june, target)
-    session.gift_crop(june, GameRules.CropKind.TURNIP, target)
-    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+Also test a normal non-favourite gift gains `3` and returns `&"normal"`.
 
-    var relationship: Dictionary = session.snapshot()["relationships"][&"resident"]
-    assert_eq(relationship["points"], 6)
-    assert_false(relationship["talked_today"])
-    assert_false(relationship["gifted_today"])
-    assert_false(relationship["close_friend_dialogue_seen"])
+- [ ] **Step 3: Write RED threshold/one-time-dialogue/daily-reset tests**
+
+Drive June for three social days using three preloaded Turnips and the real `sleep()`/`acknowledge_morning_summary()` boundary:
+
+```text
+Day 1: talk +1, favourite gift +5 => 6 Stranger
+sleep/ack
+Day 2: talk +1, favourite gift +5 => 12 Friend
+sleep/ack
+Day 3: talk +1 => 13, favourite gift +5 => 18 Close Friend
+same-day follow-up talk => +0 and exact two-line Close Friend sequence
+next talk => +0 and only normal Close Friend line
 ```
 
-Extend the existing Day 14 test by setting one relationship to non-default points/flags before the rejected sleep and asserting the complete relationship snapshot is unchanged afterward.
+Assert the gift crossing to 18 does **not** set `close_friend_dialogue_seen`; the subsequent talk does. Assert successful sleep resets only `talked_today`/`gifted_today`, while points and the one-time flag persist. Extend the existing Day 14 rejection test to prove failed sleep preserves relationship state.
 
-- [ ] **Step 6: Run the verifier and confirm RED**
+- [ ] **Step 4: Run verifier and verify RED**
 
 ```bash
 ./tools/verify-clean.sh
 ```
 
-Expected: the new relationship tests fail because the session has no social state/commands yet.
+Expected: relationship/session tests fail because social state and commands do not exist.
 
-- [ ] **Step 7: Add relationship initialization and snapshot projection**
+- [ ] **Step 5: Implement one mutable relationship entry per villager**
 
-In `GameSession`, initialize exactly one entry per villager:
+Add:
 
 ```gdscript
 var _relationships: Array[Dictionary] = []
-
-func _init(weather_roll: Callable = Callable()) -> void:
-    _weather_roll = weather_roll if weather_roll.is_valid() else Callable(self, "_default_weather_roll")
-    for cell in WorldContract.farm_cells():
-        _farm.append({"cell": cell, "tilled": false, "crop": null})
-    for _id in range(VillagerRules.VillagerId.size()):
-        _relationships.append({
-            "points": 0,
-            "talked_today": false,
-            "gifted_today": false,
-            "close_friend_dialogue_seen": false,
-        })
 ```
 
-Add `"relationships": _relationships_snapshot()` to `snapshot()`. `_relationships_snapshot()` derives `level` with `VillagerRules.relationship_level(points)` and keys with `villager_key(id)`; it returns fresh nested dictionaries.
+and initialize exactly three entries in `_init()`:
 
-- [ ] **Step 8: Implement narrow social-result helpers and `talk_to`**
+```gdscript
+for _id in range(VillagerRules.VillagerId.size()):
+    _relationships.append({
+        "points": 0,
+        "talked_today": false,
+        "gifted_today": false,
+        "close_friend_dialogue_seen": false,
+    })
+```
 
-Keep the result shape local to `GameSession`:
+Add `_relationships_snapshot()` that returns a fresh Dictionary keyed by `VillagerRules.villager_key(id)` and derives `level` via `relationship_key(relationship_level(points))`.
+
+- [ ] **Step 6: Implement the narrow social result and commands**
+
+Use two local helpers:
 
 ```gdscript
 func _social_failure(code: GameRules.CommandCode) -> Dictionary:
-    return {
-        "code": code,
-        "lines": [],
-        "points_gained": 0,
-        "gift_reaction": &"",
-        "close_friend_sequence": false,
-    }
+    return {"code": code, "lines": [], "points_gained": 0, "gift_reaction": &"", "close_friend_sequence": false}
 
 func _social_success(
     code: GameRules.CommandCode,
@@ -512,19 +381,13 @@ func _social_success(
     }
 ```
 
-Implement `talk_to` using the exact order from the spec. Build the normal one-line Array explicitly so it satisfies `Array[String]`:
+Implement `talk_to` in this order: `_active_day_failure()`; exact target match with `WorldContract.villager_cell(id)`; first-talk mutation; derived level; one-time Close Friend sequence; otherwise one normal line.
 
-```gdscript
-var lines: Array[String] = [VillagerRules.dialogue_line(id, level)]
-```
+Implement `gift_crop` in this order: `_active_day_failure()`; exact target; duplicate-gift guard; carried-crop guard; consume one `_harvested_counts[crop]`; set `gifted_today`; add `VillagerRules.gift_points`; return `gift_line` and `&"normal"`/`&"favourite"`.
 
-Do not store dialogue text or relationship level in mutable session state.
+- [ ] **Step 7: Reset only daily flags inside successful `sleep()`**
 
-- [ ] **Step 9: Implement `gift_crop` and extend only successful sleep**
-
-`gift_crop` consumes `_harvested_counts[crop] -= 1` only after every failure guard passes, then marks `gifted_today` and adds `VillagerRules.gift_points(id, crop)`.
-
-At the end of the existing successful `sleep()` transaction—after the day/weather/economy state has advanced and before returning `DAY_ADVANCED`—reset only:
+After the existing day/economy transition has succeeded and before `DAY_ADVANCED` returns:
 
 ```gdscript
 for relationship in _relationships:
@@ -532,17 +395,15 @@ for relationship in _relationships:
     relationship["gifted_today"] = false
 ```
 
-Do not add social reset code to `acknowledge_morning_summary()` or any failed sleep branch.
+Do not reset in failed sleep or `acknowledge_morning_summary()`.
 
-- [ ] **Step 10: Run the verifier and confirm GREEN**
+- [ ] **Step 8: Run verifier and verify GREEN**
 
 ```bash
 ./tools/verify-clean.sh
 ```
 
-Expected: all relationship rules and all previously existing farm/economy/day tests pass without changing old command behavior.
-
-- [ ] **Step 11: Commit the authoritative social state**
+- [ ] **Step 9: Commit Task 2**
 
 ```bash
 git add scripts/game/game_session.gd tests/unit/test_game_session.gd
@@ -561,87 +422,53 @@ git commit -m "feat: restore HPA-594 relationship rules"
 - Modify: `tests/integration/test_gameplay_shell.gd`
 
 **Interfaces:**
-- Produces: `WorldContract.villager_cell(id) -> Vector2i`, `villager_footprint(id) -> Rect2`, `villager_at(cell: Variant) -> int`.
-- Consumes retained asset: `res://assets/sprites/proof-villagers.png` (`96x48`, 3 frames).
-- Preserves: `Entities` as the only Y-sort-enabled `CanvasItem`; villagers are direct children of it.
+- Produces `WorldContract.villager_cell(id)`, `villager_footprint(id)`, `villager_at(cell)`.
+- Consumes retained `res://assets/sprites/proof-villagers.png`; no asset generation.
+- Preserves `Entities` as the one Y-sort-enabled `CanvasItem`.
 
-- [ ] **Step 1: Write RED world-contract tests in the existing headless smoke**
+- [ ] **Step 1: Write RED geometry/scene tests**
 
-Add exact geometry assertions near the other `WorldContract` checks:
+In the headless smoke pin:
 
 ```gdscript
-var villager_cells := [Vector2i(6, 5), Vector2i(3, 5), Vector2i(9, 5)]
-var villager_footprints := [
+var expected_cells := [Vector2i(6, 5), Vector2i(3, 5), Vector2i(9, 5)]
+var expected_footprints := [
     Rect2(6.2, 5.2, 0.6, 0.6),
     Rect2(3.2, 5.2, 0.6, 0.6),
     Rect2(9.2, 5.2, 0.6, 0.6),
 ]
 for id in range(VillagerRules.VillagerId.size()):
-    if not _expect_vec2i(WorldContract.villager_cell(id), villager_cells[id], "villager cell %d" % id):
+    if not _expect_vec2i(WorldContract.villager_cell(id), expected_cells[id], "villager cell %d" % id):
         return
-    if not _expect(WorldContract.villager_footprint(id) == villager_footprints[id], "villager footprint %d" % id):
+    if not _expect(WorldContract.villager_footprint(id) == expected_footprints[id], "villager footprint %d" % id):
         return
-    if not _expect(WorldContract.villager_at(villager_cells[id]) == id, "villager lookup %d" % id):
+    if not _expect(WorldContract.villager_at(expected_cells[id]) == id, "villager lookup %d" % id):
         return
-if not _expect(WorldContract.villager_at(Vector2i(0, 0)) == -1, "off-villager lookup"):
-    return
 ```
 
-- [ ] **Step 2: Write RED scene-contract checks for collisions and entity roots**
+Extend `StaticCollision` expected children with `VillagerShopkeeperCollision`, `VillagerFarmerCollision`, `VillagerResidentCollision` and compare each polygon against `WorldMath.footprint_to_polygon(...)`.
 
-Extend `StaticCollision` expected children with:
+Extend `Entities` authored order to:
 
 ```text
-VillagerShopkeeperCollision
-VillagerFarmerCollision
-VillagerResidentCollision
+Player, Tree, Building, Shipping,
+VillagerShopkeeper, VillagerFarmer, VillagerResident,
+then the nine runtime FarmCrop_* roots
 ```
 
-and compare each polygon to `WorldMath.footprint_to_polygon(WorldContract.villager_footprint(id))`.
+For each villager assert exact cell-center position, `proof-villagers.png`, `hframes=3`, frame=`id`, offset `(0,-24)`, and the shared entity z-index.
 
-Extend the `Entities` expected authored order before the runtime crop roots:
+In `test_gameplay_shell.gd`, table-drive `_place_target(world, WorldContract.villager_cell(id))` and assert `player.current_target_cell()` equals that cell.
 
-```text
-Player
-Tree
-Building
-Shipping
-VillagerShopkeeper
-VillagerFarmer
-VillagerResident
-FarmCrop_2_7
-...
-FarmCrop_4_9
-```
-
-For each villager assert:
-
-```gdscript
-root.position == _cell_center(WorldContract.villager_cell(id))
-sprite.texture.resource_path == "res://assets/sprites/proof-villagers.png"
-sprite.hframes == 3
-sprite.frame == id
-sprite.offset == Vector2(0, -24)
-root.z_index == shared_entity_z_index
-```
-
-The existing asset-size smoke already pins `proof-villagers.png` to `96x48`; do not add a generator.
-
-- [ ] **Step 3: Add RED integration checks for collision-safe, targetable placement**
-
-In `tests/integration/test_gameplay_shell.gd`, add a table-driven test that each authored villager root exists at the expected center and that `_place_target(world, cell)` makes `player.current_target_cell()` equal that same villager cell. This proves targeting uses the shipped facing math rather than an Area2D proximity shortcut.
-
-- [ ] **Step 4: Run the clean verifier and confirm RED**
+- [ ] **Step 2: Run verifier and verify RED**
 
 ```bash
 ./tools/verify-clean.sh
 ```
 
-Expected: world smoke/integration failures for the missing contract constants, collision nodes, and villager entity roots.
+Expected: missing villager geometry/collision/entity assertions fail.
 
-- [ ] **Step 5: Add the narrow authored geometry API**
-
-In `world_contract.gd`:
+- [ ] **Step 3: Add the narrow world contract**
 
 ```gdscript
 const VILLAGER_CELLS: Array[Vector2i] = [
@@ -667,44 +494,32 @@ static func villager_at(cell: Variant) -> int:
     return VILLAGER_CELLS.find(cell)
 ```
 
-Do not create a general interaction-cell registry. Shop/bed/shipping keep their current explicit constants.
+Keep Shop/Bed/Shipping as their current explicit constants; do not create a generic interaction map.
 
-- [ ] **Step 6: Add the three scene collision nodes and static entity roots**
+- [ ] **Step 4: Add exactly three collisions and three static entity roots**
 
-Add `proof-villagers.png` as one `Texture2D` ext_resource in `world.tscn`.
-
-Under `StaticCollision`, add the three empty `CollisionPolygon2D` nodes named above. In `WorldShell._ready()`, assign their polygons exactly as the existing tree/building/shipping polygons are assigned.
-
-Under `Entities`, add the three roots in enum/frame order. Their final authored node shape is:
+In `world.tscn`, add `proof-villagers.png` as one texture resource. Add the three collision nodes under the existing `StaticCollision` and three direct `Entities` children:
 
 ```text
-VillagerShopkeeper (Node2D) position=(416,192)
-└── Sprite2D texture=proof-villagers.png hframes=3 frame=0 offset=(0,-24)
-VillagerFarmer (Node2D) position=(320,144)
-└── Sprite2D texture=proof-villagers.png hframes=3 frame=1 offset=(0,-24)
-VillagerResident (Node2D) position=(512,240)
-└── Sprite2D texture=proof-villagers.png hframes=3 frame=2 offset=(0,-24)
+VillagerShopkeeper position=(416,192), frame=0
+VillagerFarmer      position=(320,144), frame=1
+VillagerResident    position=(512,240), frame=2
 ```
 
-Do not add scripts, `Area2D`, `AnimationPlayer`, or another scene per villager.
+Each root has one `Sprite2D` with `hframes=3` and `offset=(0,-24)`. Add no NPC script, `Area2D`, animation, reusable NPC scene, or second Y-sort root.
 
-- [ ] **Step 7: Run the focused world smoke, then the full verifier**
+In `WorldShell._ready()`, set each collision polygon from `WorldContract.villager_footprint(id)` exactly like the current tree/shipping collision setup.
 
-If the local Godot project is imported, first run:
+- [ ] **Step 5: Run world smoke then full verifier**
 
 ```bash
 godot --headless --path . --script res://tests/headless/world_shell_smoke.gd
-```
-
-Then run the clean-tree gate:
-
-```bash
 ./tools/verify-clean.sh
 ```
 
-Expected: all authored geometry/collision/Y-sort checks and prior tests pass.
+Expected: static geometry, retained asset, collision, targeting, Y-sort, and all previous tests pass.
 
-- [ ] **Step 8: Commit the static village entities**
+- [ ] **Step 6: Commit Task 3**
 
 ```bash
 git add scripts/world/world_contract.gd scenes/world/world.tscn scripts/world/world_shell.gd tests/headless/world_shell_smoke.gd tests/integration/test_gameplay_shell.gd
@@ -713,7 +528,7 @@ git commit -m "feat: restore HPA-594 village residents"
 
 ---
 
-### Task 4: Build the focused dialogue panel and route talk/gifting through the existing modal gate
+### Task 4: Build focused dialogue/gifting UI and route it through the existing modal gate
 
 **Files:**
 - Create: `scenes/ui/dialogue_panel.tscn`
@@ -724,19 +539,19 @@ git commit -m "feat: restore HPA-594 village residents"
 - Modify: `tests/integration/test_gameplay_shell.gd`
 
 **Interfaces:**
-- `DialoguePanel` emits `gift_requested(villager_id: int, crop_kind: int)` and `close_requested`.
-- `DialoguePanel.present(villager_id: int, social: Dictionary, snapshot: Dictionary) -> void` starts/replaces panel content.
-- `DialoguePanel.refresh_snapshot(snapshot: Dictionary) -> void` refreshes read-only relationship/carried-crop presentation.
-- `DialoguePanel.close_panel() -> void` clears its transient content and hides itself.
-- `GameHud` forwards `gift_requested`; adds `open_dialogue`, `update_dialogue`, `close_dialogue`; dialogue visibility participates in `has_blocking_modal()`.
-- `WorldShell` keeps direct target routing and adds `_finish_social_command` plus `_on_gift_requested`.
+- `DialoguePanel` signals: `gift_requested(villager_id: int, crop_kind: int)`, `close_requested`.
+- `DialoguePanel.present(villager_id: int, social: Dictionary, snapshot: Dictionary) -> void`.
+- `DialoguePanel.refresh_snapshot(snapshot: Dictionary) -> void`.
+- `DialoguePanel.close_panel() -> void`.
+- `GameHud` adds `open_dialogue`, `update_dialogue`, `close_dialogue`, and forwards `gift_requested`.
+- `WorldShell` adds `_finish_social_command(villager_id: int, result: Dictionary) -> void` and `_on_gift_requested`.
 
-- [ ] **Step 1: Define the dialogue scene node contract and write RED panel-presence/input-gate tests**
+- [ ] **Step 1: Write RED panel/input-gate/focus tests**
 
-Create tests before the scene exists. The final `dialogue_panel.tscn` must expose these stable node paths so tests do not depend on dynamic label order:
+The scene contract is exactly:
 
 ```text
-DialoguePanel (Control, hidden, full viewport, mouse_filter=STOP)
+DialoguePanel (Control, initially hidden, full viewport, mouse_filter=STOP)
 └── Panel (ColorRect)
     ├── Name (Label)
     ├── Role (Label)
@@ -752,104 +567,38 @@ DialoguePanel (Control, hidden, full viewport, mouse_filter=STOP)
 
 Instance it at `GameHud/HudRoot/DialoguePanel`.
 
-Add a RED integration test:
+Add an integration test that targets June, calls `world.interact()`, and asserts:
 
 ```gdscript
-func test_villager_interaction_opens_dialogue_and_immediately_gates_world_input() -> void:
-    var world := _world()
-    if world == null:
-        return
-    var june := VillagerRules.VillagerId.RESIDENT
-    await _place_target(world, WorldContract.villager_cell(june))
-    world.interact()
-
-    var panel := world.get_node("GameHud/HudRoot/DialoguePanel") as DialoguePanel
-    assert_true(panel.visible)
-    assert_false(world._world_input_enabled)
-    assert_eq((panel.get_node("Panel/Name") as Label).text, "June")
-    assert_eq((panel.get_node("Panel/Line") as Label).text, "It is quieter here than the road makes it look.")
-    assert_eq(world._session.snapshot()["relationships"][&"resident"]["points"], 1)
+var panel := world.get_node("GameHud/HudRoot/DialoguePanel") as DialoguePanel
+assert_true(panel.visible)
+assert_false(world._world_input_enabled)
+assert_eq((panel.get_node("Panel/Name") as Label).text, "June")
+assert_eq((panel.get_node("Panel/Line") as Label).text, "It is quieter here than the road makes it look.")
+assert_eq(world._session.snapshot()["relationships"][&"resident"]["points"], 1)
 ```
 
-Also capture player velocity/session snapshot after opening and assert action selection, farming use, and a repeated `world.interact()` call do not mutate while the modal is open.
+While open, assert movement is stopped and `select_action_slot`, `use_selected_action`, and repeated `world.interact()` leave the session unchanged.
 
-- [ ] **Step 2: Write RED close/Escape restoration tests**
+Add explicit Close and `ui_cancel` tests; both must restore `_world_input_enabled` through `modal_state_changed`, with no manual gate refresh.
 
-Test both explicit Close and `ui_cancel`. After close:
+- [ ] **Step 2: Write RED two-line native-focus and gifting tests**
 
-- `DialoguePanel.visible == false`;
-- `world._world_input_enabled == true`;
-- player can accept movement on the next physics frame;
-- closing itself makes no additional session mutation.
+At the integration boundary, seed June at 18 points with `close_friend_dialogue_seen=false`, target June, and interact. Assert `Continue` is `get_viewport().gui_get_focus_owner()`. Push one pressed/released `ui_accept` `InputEventAction`; assert exactly the second special line appears. On the first special line, `ui_cancel` must be handled without closing; after the last line it may close.
 
-For Escape, push one `InputEventAction` to the viewport:
+For gifting, seed `_harvested_counts = [1,0,0]`, open June, and assert one visible `Give Turnip` native Button receives focus after the final line. Press it once and assert Turnip `1→0`, points `1→6`, reaction `Favourite gift!`, gift response `Turnips are my favourite. Perfect choice.`, and no second gift button remains.
 
-```gdscript
-var cancel := InputEventAction.new()
-cancel.action = &"ui_cancel"
-cancel.pressed = true
-world.get_viewport().push_input(cancel)
-await get_tree().process_frame
-```
-
-Do not call `WorldShell._refresh_world_input_gate()` manually in the test; restoration must occur through `modal_state_changed`.
-
-- [ ] **Step 3: Write RED native-focus and two-line sequence test**
-
-Seed the session relationship directly at the UI integration boundary so this test remains focused on panel behavior:
-
-```gdscript
-var relationships: Array = world._session.get("_relationships")
-relationships[VillagerRules.VillagerId.RESIDENT] = {
-    "points": 18,
-    "talked_today": false,
-    "gifted_today": true,
-    "close_friend_dialogue_seen": false,
-}
-```
-
-Target June and interact. Assert:
-
-- the first special line is visible;
-- `Continue` is `get_viewport().gui_get_focus_owner()`;
-- pushing one pressed/released `ui_accept` action advances to exactly the second line, not past it;
-- `ui_cancel` pushed on the first line leaves the panel visible;
-- after the second line, Close receives focus and cancel can close.
-
-This verifies native focus sequencing without adding an Enter key handler to application code.
-
-- [ ] **Step 4: Write RED gifting UI and mutation test**
-
-Seed one carried June-favourite Turnip:
-
-```gdscript
-world._session.set("_harvested_counts", [1, 0, 0])
-```
-
-Interact with June, then assert the final-line gift area contains one `Give Turnip` Button and that this button is the focus owner before Close. Emit exactly one press on that visible button and assert:
-
-- harvested Turnip becomes `0`;
-- June relationship goes `1 -> 6`;
-- `gifted_today` becomes true;
-- panel line becomes `Turnips are my favourite. Perfect choice.`;
-- `GiftFeedback` is `Favourite gift!`;
-- `GiftStatus` is `Gift already given today`;
-- no gift buttons remain;
-- world input is still locked until Close.
-
-Add a no-crops case that shows `No harvested crops to give` and focuses Close.
-
-- [ ] **Step 5: Run the clean verifier and confirm RED**
+- [ ] **Step 3: Run verifier and verify RED**
 
 ```bash
 ./tools/verify-clean.sh
 ```
 
-Expected: integration failures because the dialogue scene/HUD/world routing do not exist yet.
+Expected: dialogue scene/routing tests fail because the panel is absent.
 
-- [ ] **Step 6: Implement the focused `DialoguePanel` scene and script**
+- [ ] **Step 4: Create the focused `DialoguePanel`**
 
-Use a fixed pixel layout consistent with the existing 640×360 MVP HUD rather than introducing a theme/layout framework. The script keeps only transient presentation fields:
+Use the exact node contract above and a fixed 640×360-compatible panel layout; do not add a theme system. Script state is only transient presentation:
 
 ```gdscript
 class_name DialoguePanel
@@ -858,7 +607,7 @@ extends Control
 signal gift_requested(villager_id: int, crop_kind: int)
 signal close_requested
 
-var _villager_id: int = -1
+var _villager_id := -1
 var _lines: Array[String] = []
 var _line_index := 0
 var _points_gained := 0
@@ -867,21 +616,11 @@ var _close_friend_sequence := false
 var _snapshot: Dictionary = {}
 ```
 
-`present()` copies the social lines/result and snapshot, sets `_line_index = 0`, makes the panel visible, renders, and calls `_focus_primary()` via `call_deferred` so the controls exist in the focus tree.
+`present()` copies the result/snapshot, resets line index to zero, shows the panel, renders, then defers `_focus_primary()`. `refresh_snapshot()` deep-copies the new snapshot and rerenders without changing line index. `close_panel()` hides the panel and clears transient arrays/dictionaries.
 
-`refresh_snapshot()` deep-copies only the read model and rerenders without changing `_line_index`.
+Rebuild `GiftButtons` from current `snapshot["harvested"]`: create one native `Button` per crop count > 0 only after the final line and only if the active relationship has not gifted today. Connect each with `_on_gift_pressed.bind(kind)`.
 
-`_rebuild_gift_buttons()` removes old dynamic buttons and creates one native `Button` for each `GameRules.CropKind` whose latest `snapshot["harvested"][crop_key] > 0`, but only on the final line and only while `gifted_today` is false. Connect with:
-
-```gdscript
-button.pressed.connect(_on_gift_pressed.bind(kind))
-```
-
-Do not use `GameHud._add_button`; native dialogue buttons keep default focus mode.
-
-- [ ] **Step 7: Implement panel line progression, focus, and cancel behavior**
-
-Use only the buttons and `ui_cancel`:
+- [ ] **Step 5: Implement line progression, native focus, and cancel**
 
 ```gdscript
 func _on_continue_pressed() -> void:
@@ -900,67 +639,57 @@ func _unhandled_input(event: InputEvent) -> void:
     close_requested.emit()
 ```
 
-`_focus_primary()` requests focus on Continue while more lines remain, otherwise the first gift button, otherwise Close. Do not handle `ui_accept` yourself; Godot's focused `Button` owns it.
+`_focus_primary()` selects Continue while another line exists, otherwise the first gift button, otherwise Close. Do not handle `ui_accept`; the focused Button owns it.
 
-- [ ] **Step 8: Integrate dialogue into `GameHud` without adding a second gate**
+- [ ] **Step 6: Integrate dialogue into `GameHud` as another existing blocking modal**
 
 Add:
 
 ```gdscript
 signal gift_requested(villager_id: int, crop_kind: int)
-@onready var _dialogue_panel: DialoguePanel = $HudRoot/DialoguePanel as DialoguePanel
+@onready var _dialogue_panel := $HudRoot/DialoguePanel as DialoguePanel
 ```
 
-Connect `DialoguePanel.gift_requested` to a direct forwarding handler and `close_requested` to `close_dialogue()`.
+Forward the panel's gift signal and connect `close_requested` to `close_dialogue()`.
 
-Extend `has_blocking_modal()` with `_dialogue_panel.visible`.
+Extend `has_blocking_modal()` with `_dialogue_panel.visible`. `open_dialogue()` hides Shop/Shipping/Sleep, presents dialogue, and emits `modal_state_changed`. `update_dialogue()` presents the new social payload while staying blocked. `close_dialogue()` closes then emits `modal_state_changed` once. When Morning Summary becomes visible, force dialogue hidden alongside the existing non-summary panels.
 
-`open_dialogue(villager_id, social, snapshot)` closes Shop/Shipping/Sleep, presents the panel, and emits `modal_state_changed`. `update_dialogue` calls `present` on the already-visible panel without unlocking the world. `close_dialogue` hides/clears the panel and emits `modal_state_changed` once.
+Do not change the existing action/seed disable mechanism; because it already asks `has_blocking_modal()`, dialogue automatically participates.
 
-When `_set_morning_summary_visible(true)` runs, hide dialogue alongside the three current non-summary modals so the session-derived Morning Summary remains the highest-priority modal.
-
-Keep the existing action/seed disabling code unchanged; because it already calls `has_blocking_modal()`, dialogue automatically disables those controls.
-
-- [ ] **Step 9: Route villager hints/talk/gifts directly in `WorldShell`**
+- [ ] **Step 7: Route direct villager interaction/gifting in `WorldShell`**
 
 Connect `hud.gift_requested` in `_ready()`.
 
-In `_process`, resolve the target once and prefer a villager hint when `WorldContract.villager_at(target) >= 0`:
+In `_process`, resolve the target once. If `WorldContract.villager_at(target) >= 0`, show `"<Name> — E"`; otherwise preserve Shop/Bed/Shipping hints.
+
+In `interact()`, route villager before the existing explicit Shop/Shipping/Bed cases:
 
 ```gdscript
 var villager_id := WorldContract.villager_at(target)
 if villager_id >= 0:
-    hud.set_interaction_hint("%s — E" % VillagerRules.display_name(villager_id))
-elif target == WorldContract.SHOP_CELL:
-    ...
-```
-
-In `interact()`, route a villager first, then preserve the existing Shop/Shipping/Bed/Nothing cases:
-
-```gdscript
-var villager_id := WorldContract.villager_at(target)
-if villager_id >= 0:
-    _finish_social_command(villager_id, _session.talk_to(villager_id, target), false)
+    _finish_social_command(villager_id, _session.talk_to(villager_id, target))
 elif target == WorldContract.SHOP_CELL:
     hud.open_shop()
 ...
 ```
 
-Implement `_on_gift_requested(villager_id, crop_kind)` by reading the still-current target and calling `GameSession.gift_crop`. The player cannot move while dialogue is open, but the session must still validate the target.
+`_on_gift_requested(villager_id, crop_kind)` reads `player.current_target_cell()` and calls `gift_crop`. The player is immobile while dialogue is open, but the session still validates the target.
 
-`_finish_social_command(villager_id, result, updating_dialogue)`:
+Use one helper only:
 
-1. calls `hud.show_feedback(result["code"])`;
-2. refreshes FarmView/HUD from the post-command session snapshot;
-3. if code is `VILLAGER_TALKED`, calls `hud.open_dialogue`;
-4. if code is `CROP_GIFTED`, calls `hud.update_dialogue`;
-5. on failure, leaves the current dialogue visible for gift failures and displays the failure feedback without closing/unlocking it.
+```gdscript
+func _finish_social_command(villager_id: int, result: Dictionary) -> void:
+    hud.show_feedback(result["code"])
+    _refresh_from_session()
+    if result["code"] == GameRules.CommandCode.VILLAGER_TALKED:
+        hud.open_dialogue(villager_id, result, _session.snapshot())
+    elif result["code"] == GameRules.CommandCode.CROP_GIFTED:
+        hud.update_dialogue(villager_id, result, _session.snapshot())
+```
 
-Do not put relationship logic or line progression in `WorldShell`.
+Gift failures keep the already-visible panel open because `_refresh_from_session()` does not close it; the normal HUD feedback shows the failure. Add no boolean mode flag and no second interaction abstraction.
 
-- [ ] **Step 10: Add exact HUD feedback for the four new command codes**
-
-In `GameHud.show_feedback`:
+- [ ] **Step 8: Add exact HUD feedback for new codes**
 
 ```gdscript
 GameRules.CommandCode.VILLAGER_TALKED:
@@ -973,17 +702,17 @@ GameRules.CommandCode.GIFT_ALREADY_GIVEN:
     _feedback.text = "Gift already given today."
 ```
 
-Reuse the existing `INSUFFICIENT_CROPS` and `DAY_SUMMARY_PENDING` strings for those social failures.
+Reuse current `INSUFFICIENT_CROPS` and `DAY_SUMMARY_PENDING` messages.
 
-- [ ] **Step 11: Run the integration suite through the full verifier and confirm GREEN**
+- [ ] **Step 9: Run verifier and verify GREEN**
 
 ```bash
 ./tools/verify-clean.sh
 ```
 
-Expected: talk targeting, panel content, focus, gifting, Escape/Close input restoration, all prior modals, and all farm/economy tests/smokes pass.
+Expected: villager targeting, dialogue/gift UI, native focus, Escape/Close gate restoration, old modals, farming/economy tests, and all smoke scripts pass.
 
-- [ ] **Step 12: Commit the playable dialogue/gifting slice**
+- [ ] **Step 10: Commit Task 4**
 
 ```bash
 git add scenes/ui/dialogue_panel.tscn scripts/ui/dialogue_panel.gd scenes/ui/game_hud.tscn scripts/ui/game_hud.gd scripts/world/world_shell.gd tests/integration/test_gameplay_shell.gd
@@ -992,7 +721,7 @@ git commit -m "feat: restore HPA-594 dialogue and gifting"
 
 ---
 
-### Task 5: Prove the complete social parity slice and update project handoff docs
+### Task 5: Prove the complete social slice and update handoff docs
 
 **Files:**
 - Modify: `tests/integration/test_gameplay_shell.gd`
@@ -1000,35 +729,32 @@ git commit -m "feat: restore HPA-594 dialogue and gifting"
 - Modify: `CLAUDE.md`
 
 **Interfaces:**
-- Consumes all HPA-594 public seams from Tasks 1–4.
-- Produces one deterministic scene-level acceptance path plus concise player/developer handoff documentation.
-- Adds no runtime abstraction or dependency.
+- Consumes all HPA-594 seams from Tasks 1–4.
+- Produces one deterministic scene-level social acceptance flow and concise project handoff documentation.
 
-- [ ] **Step 1: Add one deterministic three-day acceptance test using the real session + panel seams**
+- [ ] **Step 1: Add one deterministic full progression integration test**
 
-Keep this as a compact integration test rather than adding a browser-style automation framework. Seed exactly three carried Turnips directly at the test boundary, then use the real `WorldShell.interact()`, visible dialogue panel gift buttons, and real sleep/ack session methods to prove June's progression:
+Use the real `WorldShell.interact()`, visible dialogue gift buttons, and real sleep/ack session transitions. Seed exactly three carried Turnips at the test boundary, then prove:
 
 ```text
-Day 1 social: talk +1, gift favourite +5 => 6 Stranger
-sleep + acknowledge
-Day 2 social: talk +1, gift favourite +5 => 12 Friend
-sleep + acknowledge
-Day 3 social: talk +1 => 13, gift favourite +5 => 18 Close Friend
-same-day talk => exact two-line Close Friend sequence with +0
-close/reopen => normal Close Friend line only
+Day 1: June talk +1; favourite gift +5 => 6 Stranger
+sleep + acknowledge => daily flags reset
+Day 2: talk +1; favourite gift +5 => 12 Friend
+sleep + acknowledge => daily flags reset
+Day 3: talk +1 => 13; favourite gift +5 => 18 Close Friend
+same-day talk => exact two-line Close Friend sequence, +0
+close and reopen => normal Close Friend line only
 ```
 
-At each day boundary assert `talked_today`/`gifted_today` reset while points persist. At the end assert all three Turnips are consumed, the special-seen flag is true, the panel can close, and `_world_input_enabled` is restored.
+At the end assert all three Turnips are consumed, `close_friend_dialogue_seen=true`, the panel can close, and `_world_input_enabled=true`. Do not regrow crops in this test; HPA-589 already proves farming/growth.
 
-The test intentionally does not grow crops; crop growth is already covered by HPA-589 and social rules should not duplicate that expensive setup.
+- [ ] **Step 2: Add a table-driven all-villager routing test**
 
-- [ ] **Step 2: Add a table-driven all-villager interaction check**
+For Mira/Rowan/June, target `WorldContract.villager_cell(id)`, call `world.interact()`, and assert the panel's Name, Role, and Stranger line equal `VillagerRules`. Close between cases and assert world input restores each time.
 
-For Mira, Rowan, and June, use `_place_target` plus `world.interact()` and assert the panel displays the exact name, role, and Stranger line from `VillagerRules`. Close between entries and assert the world gate restores every time. This proves all three scene nodes route to the correct enum/content frame rather than only validating June.
+- [ ] **Step 3: Update README with only player-facing social behavior**
 
-- [ ] **Step 3: Update README with player-facing social controls and thresholds only**
-
-Document these exact facts alongside the existing controls/gameplay section:
+Add these facts near existing controls:
 
 ```text
 - Face Mira, Rowan, or June and press E to talk.
@@ -1038,57 +764,44 @@ Document these exact facts alongside the existing controls/gameplay section:
 - Relationship levels are Stranger, Friend at 12 points, and Close Friend at 18 points.
 ```
 
-Do not duplicate exact villager cells or collision values into README.
+Do not duplicate cells/collision values in README.
 
-- [ ] **Step 4: Update CLAUDE.md with the final narrow ownership boundaries**
+- [ ] **Step 4: Update CLAUDE.md with narrow ownership boundaries**
 
-Add only the architecture facts needed for future HPA-598/HPA-597 work:
+Record exactly:
 
 ```text
-- `VillagerRules` owns frozen social content/relationship policy.
-- `GameSession` owns mutable relationship points, daily talk/gift flags, and one-time dialogue-seen state.
-- `WorldContract` owns the three static villager cells/footprints.
-- `DialoguePanel` owns transient line/focus/gift-choice presentation; it never mutates gameplay state.
-- `GameHud.has_blocking_modal()` remains the single world-input gate.
+- VillagerRules owns frozen social content and pure relationship policy.
+- GameSession owns relationship points, daily talk/gift flags, and one-time dialogue-seen state.
+- WorldContract owns the three static villager cells/footprints.
+- DialoguePanel owns transient line/focus/gift-choice presentation only.
+- GameHud.has_blocking_modal() remains the single world-input gate.
+- HPA-598 owns serialization; HPA-594 defines no save schema.
 ```
 
-Explicitly note that HPA-598 owns save serialization of relationship state; HPA-594 does not define a save schema.
-
-- [ ] **Step 5: Run the complete clean-archive verification gate**
+- [ ] **Step 5: Run the final clean-archive gate**
 
 ```bash
 ./tools/verify-clean.sh
-```
-
-Expected: all GUT unit/integration tests and all three headless smoke scripts pass from archived committed-tree content under Godot 4.7.1 with verifier-fetched GUT 9.7.1.
-
-- [ ] **Step 6: Run final diff hygiene and scope checks**
-
-```bash
 git diff --check origin/main...HEAD
 git status --short
 git diff --name-only origin/main...HEAD
 ```
 
-Expected:
+Expected: verifier passes; `git diff --check` prints nothing; after the final commit `git status --short` is empty; changed runtime files are limited to HPA-594 policy/state/world/UI/tests/docs plus these two planning documents; no persistence layer, NPC AI/schedule, generic dialogue/event framework, dependency, workflow, browser/Tauri runtime, or unrelated refactor appears.
 
-- `git diff --check` prints nothing;
-- working tree is clean after the final commit;
-- runtime changes are limited to HPA-594 social policy/state, villager scene geometry, dialogue/HUD routing, tests, README, and CLAUDE plus the two already-reviewed planning documents;
-- no persistence/save file, NPC AI/schedule, generic dialogue/event framework, new dependency, CI workflow, browser/Tauri runtime, or unrelated refactor appears.
-
-- [ ] **Step 7: Commit the acceptance and handoff update**
+- [ ] **Step 6: Commit Task 5**
 
 ```bash
 git add tests/integration/test_gameplay_shell.gd README.md CLAUDE.md
 git commit -m "docs: complete HPA-594 social handoff"
 ```
 
-- [ ] **Step 8: Re-run the final verifier on the committed HEAD**
+- [ ] **Step 7: Re-run verification on committed HEAD**
 
 ```bash
 ./tools/verify-clean.sh
 git status --short
 ```
 
-Expected: verifier passes and `git status --short` is empty. Keep the PR as the single HPA-594 delivery PR and move it from draft to ready only after code review of the completed implementation.
+Expected: verifier passes and the working tree is clean. Keep this PR as the single HPA-594 delivery PR; move it from draft to ready only after the completed implementation has been reviewed.
