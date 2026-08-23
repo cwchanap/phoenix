@@ -8,12 +8,15 @@ statically typed GDScript. Open the repository in Godot and run
 action, Space uses it, and E interacts with the shop, bed, or shipping bin.
 There is no JavaScript or Tauri runtime in the current checkout.
 
+- E interacts with villagers as well as shop/bed/shipping.
+
 ## Architecture
 
 - `scripts/world/world_contract.gd` is the single source for fixed HPA-590
   constants: map, projection, spawn, movement, footprints, anchors, farm/path
   cells, perimeter, and camera bounds. Do not duplicate those values in scene
   checks or gameplay code.
+- WorldContract owns the three static villager cells/footprints.
 - `scripts/world/world_math.gd` is framework-free pure math for projection,
   inverse projection, cell lookup, diamonds, facing, targets, and projected
   logical footprints. It does not own nodes, input, physics, or gameplay state.
@@ -23,9 +26,11 @@ There is no JavaScript or Tauri runtime in the current checkout.
 - `scripts/game/game_rules.gd` is the closed rules/content source: crop
   economy, action time/stamina budgets, day/stamina/weather constants, payout
   math, and the `CommandCode` enum returned by every command. It is stateless.
+- VillagerRules owns frozen HPA-595 content and pure relationship policy.
 - `scripts/game/game_session.gd` is the only mutable gameplay authority. All
   commands go through it and return `GameRules.CommandCode`; views read the
   immutable `snapshot()` dictionaries and never session internals.
+- GameSession owns relationship points, daily talk/gift flags, and close_friend_dialogue_seen.
 - `FarmSoil` in `scenes/world/world.tscn` holds the non-Y-sorted farm ground
   decals. `Entities` (scripted as `scripts/world/farm_view.gd`, `FarmView`)
   remains the one Y-sort owner and renders crop sprites from session
@@ -35,6 +40,8 @@ There is no JavaScript or Tauri runtime in the current checkout.
 - `scripts/ui/game_hud.gd` and `scenes/ui/game_hud.tscn` own presentation and
   modal state only. The HUD emits request signals and renders snapshots; it
   never touches `GameSession`.
+- DialoguePanel owns transient line/focus/gift-choice presentation only.
+- GameHud.has_blocking_modal() remains the single world-input gate.
 - `scripts/world/world_shell.gd` is the only production session holder and
   coordinator: it owns the `GameSession` instance, wires HUD signals to
   session commands, refreshes `FarmView`/`GameHud` from snapshots, and gates
@@ -66,8 +73,9 @@ the daily clock/stamina rhythm, weather, shipping, and the morning-summary
 gate all exist as Godot gameplay, with `GameRules`/`GameSession` as the
 authority and shop `(6,7)` / bed `(6,8)` / shipping `(6,10)` cells wired into
 the shell. Day 14 is a temporary playable boundary — no settlement or advance
-past it. Villagers, social behavior, and persistence remain intentionally
-later Godot work; HPA-594 is the next social slice.
+past it. HPA-594 now provides villagers and social behavior; persistence
+remains intentionally later Godot work.
+- HPA-598 owns serialization; HPA-594 defines no save schema.
 
 ## Headless workflow
 
