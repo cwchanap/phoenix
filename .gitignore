@@ -4,4 +4,3 @@
 # Godot regenerates these on import; the vendored addon keeps its own.
 *.uid
 *.import
-!addons/**
