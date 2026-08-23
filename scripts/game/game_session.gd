@@ -12,6 +12,7 @@ var _seed_counts: Array[int] = GameRules.starting_seed_counts()
 var _harvested_counts: Array[int] = [0, 0, 0]
 var _pending_shipment_counts: Array[int] = [0, 0, 0]
 var _farm: Array[Dictionary] = []
+var _relationships: Array[Dictionary] = []
 var _pending_morning_summary: Variant = null
 var _weather_roll: Callable
 
@@ -19,6 +20,13 @@ func _init(weather_roll: Callable = Callable()) -> void:
     _weather_roll = weather_roll if weather_roll.is_valid() else Callable(self, "_default_weather_roll")
     for cell in WorldContract.farm_cells():
         _farm.append({"cell": cell, "tilled": false, "crop": null})
+    for _id in VillagerRules.VillagerId.size():
+        _relationships.append({
+            "points": 0,
+            "talked_today": false,
+            "gifted_today": false,
+            "close_friend_dialogue_seen": false,
+        })
 
 func _default_weather_roll() -> float:
     return randf()
@@ -38,6 +46,7 @@ func snapshot() -> Dictionary:
         "pending_shipment": _counts_snapshot(_pending_shipment_counts),
         "farm": _farm_snapshot(),
         "pending_morning_summary": _pending_morning_summary,
+        "relationships": _relationships_snapshot(),
     }.duplicate(true)
 
 func select_action(action: GameRules.FarmingAction) -> GameRules.CommandCode:
@@ -237,6 +246,85 @@ func deposit_crop(
     _pending_shipment_counts[kind] += quantity
     return GameRules.CommandCode.CROP_DEPOSITED
 
+func _social_failure(code: GameRules.CommandCode) -> Dictionary:
+    return {"code": code, "lines": [], "points_gained": 0, "gift_reaction": &"", "close_friend_sequence": false}
+
+func _social_success(
+    code: GameRules.CommandCode,
+    lines: Array[String],
+    points_gained: int,
+    gift_reaction: StringName = &"",
+    close_friend_sequence: bool = false,
+) -> Dictionary:
+    return {
+        "code": code,
+        "lines": lines.duplicate(),
+        "points_gained": points_gained,
+        "gift_reaction": gift_reaction,
+        "close_friend_sequence": close_friend_sequence,
+    }
+
+func talk_to(
+    villager_id: VillagerRules.VillagerId,
+    target_cell: Variant,
+) -> Dictionary:
+    var active_failure := _active_day_failure()
+    if active_failure != -1:
+        return _social_failure(active_failure)
+    if not (target_cell is Vector2i) or target_cell != WorldContract.villager_cell(villager_id):
+        return _social_failure(GameRules.CommandCode.NOT_AT_VILLAGER)
+
+    var relationship: Dictionary = _relationships[villager_id]
+    var points_gained := 0
+    if not bool(relationship["talked_today"]):
+        relationship["talked_today"] = true
+        points_gained = VillagerRules.TALK_POINTS
+        relationship["points"] = int(relationship["points"]) + points_gained
+
+    var level: VillagerRules.RelationshipLevel = VillagerRules.relationship_level(int(relationship["points"]))
+    if level == VillagerRules.RelationshipLevel.CLOSE_FRIEND and not bool(relationship["close_friend_dialogue_seen"]):
+        relationship["close_friend_dialogue_seen"] = true
+        return _social_success(
+            GameRules.CommandCode.VILLAGER_TALKED,
+            VillagerRules.close_friend_dialogue_lines(villager_id),
+            points_gained,
+            &"",
+            true,
+        )
+
+    var lines: Array[String] = [VillagerRules.dialogue_line(villager_id, level)]
+    return _social_success(GameRules.CommandCode.VILLAGER_TALKED, lines, points_gained)
+
+func gift_crop(
+    villager_id: VillagerRules.VillagerId,
+    crop_kind: GameRules.CropKind,
+    target_cell: Variant,
+) -> Dictionary:
+    var active_failure := _active_day_failure()
+    if active_failure != -1:
+        return _social_failure(active_failure)
+    if not (target_cell is Vector2i) or target_cell != WorldContract.villager_cell(villager_id):
+        return _social_failure(GameRules.CommandCode.NOT_AT_VILLAGER)
+
+    var relationship: Dictionary = _relationships[villager_id]
+    if bool(relationship["gifted_today"]):
+        return _social_failure(GameRules.CommandCode.GIFT_ALREADY_GIVEN)
+    if _harvested_counts[crop_kind] < 1:
+        return _social_failure(GameRules.CommandCode.INSUFFICIENT_CROPS)
+
+    _harvested_counts[crop_kind] -= 1
+    relationship["gifted_today"] = true
+    var points_gained := VillagerRules.gift_points(villager_id, crop_kind)
+    relationship["points"] = int(relationship["points"]) + points_gained
+    var gift_reaction: StringName = &"favourite" if VillagerRules.is_favourite_crop(villager_id, crop_kind) else &"normal"
+    var lines: Array[String] = [VillagerRules.gift_line(villager_id, crop_kind)]
+    return _social_success(
+        GameRules.CommandCode.CROP_GIFTED,
+        lines,
+        points_gained,
+        gift_reaction,
+    )
+
 func sleep(target_cell: Variant) -> GameRules.CommandCode:
     var active_failure := _active_day_failure()
     if active_failure != -1:
@@ -283,6 +371,9 @@ func sleep(target_cell: Variant) -> GameRules.CommandCode:
         "shipping_income": int(payout["total"]),
         "money_after_shipping": _money,
     }
+    for relationship in _relationships:
+        relationship["talked_today"] = false
+        relationship["gifted_today"] = false
     return GameRules.CommandCode.DAY_ADVANCED
 
 func acknowledge_morning_summary() -> GameRules.CommandCode:
@@ -319,6 +410,20 @@ func _counts_snapshot(counts: Array[int]) -> Dictionary:
     var result: Dictionary = {}
     for kind in range(GameRules.CropKind.size()):
         result[GameRules.crop_key(kind)] = counts[kind]
+    return result
+
+func _relationships_snapshot() -> Dictionary:
+    var result: Dictionary = {}
+    for id in range(VillagerRules.VillagerId.size()):
+        var relationship: Dictionary = _relationships[id]
+        var level := VillagerRules.relationship_level(int(relationship["points"]))
+        result[VillagerRules.villager_key(id)] = {
+            "points": relationship["points"],
+            "level": VillagerRules.relationship_key(level),
+            "talked_today": relationship["talked_today"],
+            "gifted_today": relationship["gifted_today"],
+            "close_friend_dialogue_seen": relationship["close_friend_dialogue_seen"],
+        }
     return result
 
 func _farm_snapshot() -> Array[Dictionary]:
