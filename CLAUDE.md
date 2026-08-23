@@ -88,6 +88,8 @@ godot --headless --path . --script res://tests/headless/world_math_smoke.gd
 godot --headless --path . --script res://tests/headless/world_shell_smoke.gd
 ```
 
-The `.godot/` import cache is ignored. Git history and historical
+The `.godot/` import cache and generated `.uid`/`.import` sidecars are
+ignored (vendored `addons/` keeps its own); the archive-first verifier
+re-imports from scratch. Git history and historical
 `docs/superpowers/` documents are the behavior reference; no dormant second
 runtime or TypeScript rules tree is maintained.
