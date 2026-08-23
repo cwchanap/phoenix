@@ -65,6 +65,17 @@ func _init() -> void:
         return
     if not _expect(WorldContract.PATH_ROW == Rect2i(3, 6, 7, 1), "path row contract"):
         return
+    if not _expect(WorldContract.SHOP_CELL == Vector2i(6, 7), "shop cell contract"):
+        return
+    if not _expect(WorldContract.BED_CELL == Vector2i(6, 8), "bed cell contract"):
+        return
+    if not _expect(WorldContract.SHIPPING_CELL == Vector2i(6, 10), "shipping cell contract"):
+        return
+    if not _expect(
+        WorldContract.SHIPPING_FOOTPRINT == Rect2(6.2, 10.2, 0.6, 0.6),
+        "shipping footprint contract",
+    ):
+        return
     if not _expect(WorldContract.farm_cells().size() == 9, "farm cell count"):
         return
     if not _expect(WorldContract.path_cells().size() == 7, "path cell count"):

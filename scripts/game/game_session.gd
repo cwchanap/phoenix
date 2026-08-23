@@ -40,14 +40,23 @@ func snapshot() -> Dictionary:
     }.duplicate(true)
 
 func select_action(action: GameRules.FarmingAction) -> GameRules.CommandCode:
+    var active_failure := _active_day_failure()
+    if active_failure != -1:
+        return active_failure
     _selected_action = action
     return GameRules.CommandCode.ACTION_SELECTED
 
 func select_seed(kind: GameRules.CropKind) -> GameRules.CommandCode:
+    var active_failure := _active_day_failure()
+    if active_failure != -1:
+        return active_failure
     _selected_seed = kind
     return GameRules.CommandCode.SEED_SELECTED
 
 func apply_selected_action(target_cell: Variant) -> GameRules.CommandCode:
+    var active_failure := _active_day_failure()
+    if active_failure != -1:
+        return active_failure
     match _selected_action:
         GameRules.FarmingAction.HOE:
             return hoe(target_cell)
@@ -61,6 +70,9 @@ func apply_selected_action(target_cell: Variant) -> GameRules.CommandCode:
     return GameRules.CommandCode.NO_TARGET
 
 func hoe(target_cell: Variant) -> GameRules.CommandCode:
+    var active_failure := _active_day_failure()
+    if active_failure != -1:
+        return active_failure
     var target_failure := _target_failure(target_cell)
     if target_failure != -1:
         return target_failure
@@ -85,6 +97,9 @@ func hoe(target_cell: Variant) -> GameRules.CommandCode:
     return GameRules.CommandCode.SOIL_TILLED
 
 func plant(target_cell: Variant) -> GameRules.CommandCode:
+    var active_failure := _active_day_failure()
+    if active_failure != -1:
+        return active_failure
     var target_failure := _target_failure(target_cell)
     if target_failure != -1:
         return target_failure
@@ -116,6 +131,9 @@ func plant(target_cell: Variant) -> GameRules.CommandCode:
     return GameRules.CommandCode.CROP_PLANTED
 
 func water(target_cell: Variant) -> GameRules.CommandCode:
+    var active_failure := _active_day_failure()
+    if active_failure != -1:
+        return active_failure
     var target_failure := _target_failure(target_cell)
     if target_failure != -1:
         return target_failure
@@ -148,6 +166,9 @@ func water(target_cell: Variant) -> GameRules.CommandCode:
     return GameRules.CommandCode.CROP_WATERED
 
 func harvest(target_cell: Variant) -> GameRules.CommandCode:
+    var active_failure := _active_day_failure()
+    if active_failure != -1:
+        return active_failure
     var target_failure := _target_failure(target_cell)
     if target_failure != -1:
         return target_failure
@@ -174,6 +195,105 @@ func harvest(target_cell: Variant) -> GameRules.CommandCode:
     _harvested_counts[kind] += 1
     _commit_budget(budget)
     return GameRules.CommandCode.CROP_HARVESTED
+
+func buy_seeds(
+    kind: GameRules.CropKind,
+    quantity: int,
+    target_cell: Variant,
+) -> GameRules.CommandCode:
+    var active_failure := _active_day_failure()
+    if active_failure != -1:
+        return active_failure
+    if not (target_cell is Vector2i) or target_cell != WorldContract.SHOP_CELL:
+        return GameRules.CommandCode.NOT_AT_SHOP
+    if quantity <= 0:
+        return GameRules.CommandCode.INVALID_QUANTITY
+
+    var total := GameRules.seed_price(kind) * quantity
+    if _money < total:
+        return GameRules.CommandCode.INSUFFICIENT_FUNDS
+
+    _money -= total
+    _seed_counts[kind] += quantity
+    return GameRules.CommandCode.SEEDS_PURCHASED
+
+func deposit_crop(
+    kind: GameRules.CropKind,
+    quantity: int,
+    target_cell: Variant,
+) -> GameRules.CommandCode:
+    var active_failure := _active_day_failure()
+    if active_failure != -1:
+        return active_failure
+    if not (target_cell is Vector2i) or target_cell != WorldContract.SHIPPING_CELL:
+        return GameRules.CommandCode.NOT_AT_SHIPPING_BIN
+    if quantity <= 0:
+        return GameRules.CommandCode.INVALID_QUANTITY
+    if _harvested_counts[kind] < quantity:
+        return GameRules.CommandCode.INSUFFICIENT_CROPS
+
+    _harvested_counts[kind] -= quantity
+    _pending_shipment_counts[kind] += quantity
+    return GameRules.CommandCode.CROP_DEPOSITED
+
+func sleep(target_cell: Variant) -> GameRules.CommandCode:
+    var active_failure := _active_day_failure()
+    if active_failure != -1:
+        return active_failure
+    if not (target_cell is Vector2i) or target_cell != WorldContract.BED_CELL:
+        return GameRules.CommandCode.NOT_AT_BED
+    if _day >= GameRules.MAX_DAY:
+        return GameRules.CommandCode.DAY_LIMIT_REACHED
+
+    var completed_day := _day
+    var completed_weather := _weather
+    var stamina_restored := GameRules.MAX_STAMINA - _stamina
+    var next_weather := GameRules.weather_from_roll(float(_weather_roll.call()))
+    var payout := GameRules.shipment_payout(_counts_snapshot(_pending_shipment_counts))
+
+    var crops_advanced := 0
+    for index in _farm.size():
+        var tile: Dictionary = _farm[index]
+        if tile["crop"] == null:
+            continue
+        var crop: Dictionary = tile["crop"]
+        var kind: GameRules.CropKind = crop["kind"]
+        var watered := bool(crop["watered_today"]) or completed_weather == GameRules.Weather.RAINY
+        if watered and not GameRules.is_mature(kind, int(crop["growth"])):
+            crop["growth"] = int(crop["growth"]) + 1
+            crops_advanced += 1
+        crop["watered_today"] = false
+        tile["crop"] = crop
+        _farm[index] = tile
+
+    _money += int(payout["total"])
+    _pending_shipment_counts = [0, 0, 0]
+    _day += 1
+    _time_minutes = GameRules.DAY_START_MINUTES
+    _stamina = GameRules.MAX_STAMINA
+    _weather = next_weather
+    _pending_morning_summary = {
+        "completed_day": completed_day,
+        "next_day": _day,
+        "crops_advanced": crops_advanced,
+        "next_weather": &"rainy" if next_weather == GameRules.Weather.RAINY else &"sunny",
+        "stamina_restored": stamina_restored,
+        "shipments": payout["lines"].duplicate(true),
+        "shipping_income": int(payout["total"]),
+        "money_after_shipping": _money,
+    }
+    return GameRules.CommandCode.DAY_ADVANCED
+
+func acknowledge_morning_summary() -> GameRules.CommandCode:
+    if _pending_morning_summary == null:
+        return GameRules.CommandCode.NO_DAY_SUMMARY
+    _pending_morning_summary = null
+    return GameRules.CommandCode.DAY_STARTED
+
+func _active_day_failure() -> int:
+    if _pending_morning_summary != null:
+        return GameRules.CommandCode.DAY_SUMMARY_PENDING
+    return -1
 
 func _target_failure(target_cell: Variant) -> int:
     if not (target_cell is Vector2i):

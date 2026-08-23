@@ -11,6 +11,10 @@ const TREE_FOOTPRINT := Rect2(7.2, 4.2, 0.6, 0.6)
 const TREE_ANCHOR := Vector2(480.0, 192.0)
 const BUILDING_FOOTPRINT := Rect2(7.0, 7.0, 2.0, 2.0)
 const BUILDING_ANCHOR := Vector2(384.0, 288.0)
+const SHOP_CELL := Vector2i(6, 7)
+const BED_CELL := Vector2i(6, 8)
+const SHIPPING_CELL := Vector2i(6, 10)
+const SHIPPING_FOOTPRINT := Rect2(6.2, 10.2, 0.6, 0.6)
 const CAMERA_TOP_PADDING := 96.0
 const CAMERA_BOUNDS := Rect2(0.0, -96.0, 768.0, 480.0)
 
