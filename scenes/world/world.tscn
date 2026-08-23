@@ -5,6 +5,7 @@
 [ext_resource type="Texture2D" path="res://assets/sprites/proof-scenery.png" id="3_v5dby"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="4_player"]
 [ext_resource type="Texture2D" path="res://assets/sprites/proof-soil.png" id="5_soil"]
+[ext_resource type="Texture2D" uid="uid://bhob7tjeipnog" path="res://assets/sprites/proof-villagers.png" id="6_villagers"]
 [ext_resource type="Script" path="res://scripts/world/farm_view.gd" id="7_farm_view"]
 [ext_resource type="PackedScene" path="res://scenes/ui/game_hud.tscn" id="8_hud"]
 
@@ -82,6 +83,12 @@ visible = false
 
 [node name="ShippingCollision" type="CollisionPolygon2D" parent="StaticCollision"]
 
+[node name="VillagerShopkeeperCollision" type="CollisionPolygon2D" parent="StaticCollision"]
+
+[node name="VillagerFarmerCollision" type="CollisionPolygon2D" parent="StaticCollision"]
+
+[node name="VillagerResidentCollision" type="CollisionPolygon2D" parent="StaticCollision"]
+
 [node name="PerimeterTop" type="CollisionPolygon2D" parent="StaticCollision" unique_id=1237773536]
 
 [node name="PerimeterRight" type="CollisionPolygon2D" parent="StaticCollision" unique_id=1661715348]
@@ -120,6 +127,32 @@ position = Vector2(256, 272)
 [node name="Sprite2D" type="Sprite2D" parent="Entities/Shipping"]
 texture = ExtResource("3_v5dby")
 offset = Vector2(0, -48)
+hframes = 3
+frame = 2
+
+[node name="VillagerShopkeeper" type="Node2D" parent="Entities"]
+position = Vector2(416, 192)
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/VillagerShopkeeper"]
+texture = ExtResource("6_villagers")
+offset = Vector2(0, -24)
+hframes = 3
+
+[node name="VillagerFarmer" type="Node2D" parent="Entities"]
+position = Vector2(320, 144)
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/VillagerFarmer"]
+texture = ExtResource("6_villagers")
+offset = Vector2(0, -24)
+hframes = 3
+frame = 1
+
+[node name="VillagerResident" type="Node2D" parent="Entities"]
+position = Vector2(512, 240)
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/VillagerResident"]
+texture = ExtResource("6_villagers")
+offset = Vector2(0, -24)
 hframes = 3
 frame = 2
 

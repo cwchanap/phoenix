@@ -86,12 +86,12 @@ func test_nine_crop_roots_are_direct_entities_children_at_cell_centers() -> void
     if entities == null:
         return
     var cells := WorldContract.farm_cells()
-    assert_eq(entities.get_child_count(), 4 + cells.size())
-    if entities.get_child_count() < 4 + cells.size():
+    assert_eq(entities.get_child_count(), 7 + cells.size())
+    if entities.get_child_count() < 7 + cells.size():
         return
     for index in cells.size():
         var cell: Vector2i = cells[index]
-        var crop_root := entities.get_child(4 + index) as Node2D
+        var crop_root := entities.get_child(7 + index) as Node2D
         assert_not_null(crop_root)
         if crop_root == null:
             continue
