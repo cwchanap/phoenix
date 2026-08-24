@@ -472,7 +472,14 @@ static func decode(text: String) -> Dictionary:
     if not (parser.data is Dictionary):
         return {"ok": false, "error": "Save envelope must be an object"}
     var envelope: Dictionary = parser.data
-    if not envelope.has("schema_version") or float(envelope["schema_version"]) != float(SCHEMA_VERSION):
+    if not envelope.has("schema_version"):
+        return {"ok": false, "error": "Save schema version is missing"}
+    if not (envelope["schema_version"] is int or envelope["schema_version"] is float):
+        return {"ok": false, "error": "Save schema version must be numeric"}
+    var schema_number := float(envelope["schema_version"])
+    if not is_finite(schema_number) or schema_number != floor(schema_number):
+        return {"ok": false, "error": "Save schema version must be an integer"}
+    if int(schema_number) != SCHEMA_VERSION:
         return {"ok": false, "error": "Unsupported save schema"}
     if not envelope.has("state"):
         return {"ok": false, "error": "Save state is missing"}
