@@ -310,6 +310,27 @@ func test_opening_sleep_immediately_gates_world_input() -> void:
     hud.close_sleep_confirmation()
     assert_true(world._world_input_enabled)
 
+func test_morning_summary_save_status_shows_saved_error_and_clears() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var session := GameSession.new(func() -> float: return 0.9)
+    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+    world.hud.render(session.snapshot())
+
+    var status := world.hud.get_node(
+        "HudRoot/MorningSummaryPanel/SaveStatus"
+    ) as Label
+
+    world.hud.set_save_status(&"saved")
+    assert_eq(status.text, "Saved.")
+
+    world.hud.set_save_status(&"error", "Save failed — this morning is not persisted.")
+    assert_eq(status.text, "Save failed — this morning is not persisted.")
+
+    world.hud.set_save_status(&"idle")
+    assert_eq(status.text, "")
+
 func test_summary_snapshot_derives_morning_modal_visibility() -> void:
     var world := _world()
     if world == null:

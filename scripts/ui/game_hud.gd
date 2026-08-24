@@ -21,6 +21,7 @@ var _pending_shipment_label: Label
 var _interaction_hint: Label
 var _feedback: Label
 var _summary_body: Label
+var _save_status_label: Label
 var _shop_panel: Control
 var _shipping_panel: Control
 var _sleep_panel: Control
@@ -99,6 +100,17 @@ func has_blocking_modal() -> bool:
         or _dialogue_panel.visible
         or _morning_summary_panel.visible
     )
+
+func set_save_status(status: StringName, message: String = "") -> void:
+    match status:
+        &"idle":
+            _save_status_label.text = ""
+        &"saved":
+            _save_status_label.text = "Saved."
+        &"error":
+            _save_status_label.text = message
+        _:
+            assert(false, "unknown save status")
 
 func set_interaction_hint(text: String) -> void:
     _interaction_hint.text = text
@@ -351,6 +363,7 @@ func _build_summary_panel() -> Control:
     var panel := _add_panel(_root, "MorningSummaryPanel", "Morning Summary", Vector2(300, 66), Vector2(332, 210))
     _summary_body = _add_label(panel, "Body", "", Vector2(12, 32), Vector2(308, 128))
     _summary_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    _save_status_label = _add_label(panel, "SaveStatus", "", Vector2(12, 164), Vector2(190, 20))
     var acknowledge_button := _add_button(
         panel,
         "Acknowledge",
@@ -459,6 +472,8 @@ func _set_morning_summary_visible(is_visible: bool) -> void:
         if _dialogue_panel.visible:
             _dialogue_panel.close_panel()
     _morning_summary_panel.visible = is_visible
+    if not is_visible:
+        set_save_status(&"idle")
     if was_visible != is_visible:
         modal_state_changed.emit()
 
