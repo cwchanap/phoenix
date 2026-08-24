@@ -1,6 +1,6 @@
 # Phoenix Godot Persistence Port Design (HPA-598)
 
-**Status:** Draft for review — revised after live-contract and reuse review
+**Status:** Draft for review — revised after release-build, validation-ownership, and reuse review
 
 **Date:** 2026-08-23
 
@@ -10,47 +10,38 @@
 
 This design implements HPA-598, `[Godot Persistence Port] Restore one-slot autosave and continue`, against `main` after HPA-594 merged. The repository baseline reviewed for this revision is `39892813ec985d6db4491c4e2af3b98277cf06b8`.
 
-The live Linear issue and Phoenix project description remain authoritative for product scope, delivery order, and non-goals. The implementation must extend the contracts that exist now rather than introduce a parallel vocabulary:
+The live Linear issue and Phoenix project description remain authoritative. HPA-598 extends these existing repository contracts rather than inventing a parallel vocabulary:
 
-- `scripts/game/game_session.gd`
-  - `GameSession.snapshot() -> Dictionary`
-  - `GameSession.sleep(target_cell: Variant) -> GameRules.CommandCode`
-  - `GameSession.acknowledge_morning_summary() -> GameRules.CommandCode`
-  - `_farm_snapshot()` is the existing farm deep-clone helper.
-- `scripts/game/game_rules.gd`
-  - `GameRules.CommandCode`
-  - `GameRules.CROP_KEYS`
-  - `GameRules.ACTION_KEYS`
-  - `GameRules.WEATHER_KEYS`
-  - `GameRules.crop_key()`, `action_key()`, and `weather_key()`.
-- `scripts/game/villager_rules.gd`
-  - `VillagerRules.VILLAGER_KEYS`
-  - `VillagerRules.villager_key()`.
-- `scripts/world/world_shell.gd`
-  - `_on_sleep_requested()` calls `_session.sleep(target)` and finishes through `_finish_command()` today.
-  - `WorldShell` is the only production `GameSession` holder.
-- `scripts/ui/game_hud.gd`
-  - `HudRoot/MorningSummaryPanel/Acknowledge` is the current summary button path.
-  - `_build_summary_panel()` owns the existing morning-summary UI.
-  - `GameHud.has_blocking_modal()` is the single world-input gate.
-- `scripts/player/player_controller.gd`
-  - `current_target_cell()` is the target API.
-  - the authored spawn is applied to `global_position` in `_ready()`.
-- `scripts/world/world_math.gd`
-  - `WorldMath.grid_to_world()` / `world_to_grid()` are the projection APIs.
-- `project.godot` currently boots `res://scenes/world/world.tscn`.
+- `GameSession.snapshot()`, `sleep()`, `acknowledge_morning_summary()`, and `_farm_snapshot()` in `scripts/game/game_session.gd`;
+- `GameRules.CommandCode`, `CROP_KEYS`, `ACTION_KEYS`, and `WEATHER_KEYS` in `scripts/game/game_rules.gd`;
+- `VillagerRules.VILLAGER_KEYS` and `villager_key()` in `scripts/game/villager_rules.gd`;
+- `_on_sleep_requested()` and the sole live `GameSession` ownership in `scripts/world/world_shell.gd`;
+- `_build_summary_panel()` and `has_blocking_modal()` in `scripts/ui/game_hud.gd`;
+- `PlayerController.current_target_cell()` and the authored-spawn setup in `scripts/player/player_controller.gd`;
+- `WorldMath.grid_to_world()` / `world_to_grid()` in `scripts/world/world_math.gd`;
+- `project.godot` currently booting `res://scenes/world/world.tscn`.
 
-New HPA-598 identifiers are limited to `GameSession.state()`, `GameSession.state_error()`, `GameSession.restore_state()`, `SaveFileCodec`, `SaveRepository`, `AppRoot`, `TitleScreen`, `WorldShell.configure()`, and `GameHud.set_save_status()`.
+New HPA-598 identifiers are limited to:
+
+- `GameSession.state()`;
+- `GameSession.state_error()`;
+- `GameSession.restore_state()`;
+- `SaveFileCodec`;
+- `SaveRepository`;
+- `AppRoot`;
+- `TitleScreen`;
+- `WorldShell.configure()`;
+- `GameHud.set_save_status()`.
 
 ## Outcome
 
-Phoenix opens on a small title screen. `New Game` always starts a fresh `GameSession`; `Continue` is enabled only when the single local save exists, parses as schema version 1, and satisfies current Godot gameplay rules.
+Phoenix opens on a small title screen. `New Game` always starts a fresh `GameSession`. `Continue` is enabled only when the single local save exists, has schema version 1, and `GameSession.state_error()` accepts the decoded state.
 
-Sleeping remains a gameplay transaction owned by `GameSession`. After `sleep()` returns `GameRules.CommandCode.DAY_ADVANCED`, the complete next-morning state and blocking morning summary already exist. `WorldShell` then writes exactly one versioned JSON save to `user://phoenix-save.json`. Save failure is visible but never rolls back the completed overnight transition.
+Sleeping stays a synchronous gameplay transaction owned by `GameSession`. After `sleep()` returns `GameRules.CommandCode.DAY_ADVANCED`, the complete next-morning state and pending morning summary already exist. `WorldShell` then synchronously writes that state once to `user://phoenix-save.json` and shows either `Saved.` or a visible failure message. File I/O failure never rolls back the completed day.
 
-On restart, Continue restores authoritative gameplay state into a fresh `GameSession` and instantiates the same authored world. The player always starts at `WorldContract.PLAYER_SPAWN`; arbitrary position, facing, target, camera, HUD/dialogue state, and focus state are not persisted.
+On restart, Continue restores authoritative gameplay state into a fresh `GameSession` and instantiates the authored world. Player position, facing, target, camera, HUD/dialogue state, and focus are never persisted; every launch uses `WorldContract.PLAYER_SPAWN`.
 
-The implementation remains one PR and adds no migration framework, compatibility layer, backup rotation, cloud save, save-anywhere, second runtime, global save singleton, or generic repository interface.
+The implementation remains one PR and adds no migration framework, compatibility layer, backup rotation, cloud save, save-anywhere, second runtime, global save singleton, or repository interface.
 
 ## Approved lean shape
 
@@ -60,14 +51,14 @@ Keep these decisions fixed:
 - `TitleScreen` is presentation only.
 - One concrete FileAccess-backed `SaveRepository`; no interface and no second adapter.
 - `GameSession.state()` is the canonical mutable-state projection; views continue to consume `snapshot()`.
-- `SaveFileCodec` owns JSON/schema/shape parsing; `GameSession.state_error()` owns current-rule ranges/content compatibility.
+- `SaveFileCodec` owns only the versioned JSON transport boundary; `GameSession.state_error()` is the single validator for persisted gameplay state.
 - Autosave occurs only after successful `sleep()`.
+- Saving stays synchronous; no one-frame `Saving…` state, async signal handler, or reentrancy flag is added.
 - I/O failure changes UI only and never rewinds gameplay.
 - New Game never deletes the existing slot; the next successful sleep replaces it.
-- Incompatible saves disable Continue at the title; there is no launch-then-bounce flow.
-- One process frame displays `Saving…`; `_overnight_save_in_progress` prevents duplicate orchestration during that window.
-- Direct `world.tscn` tests may leave the repository `null` and remain storage-free.
-- The primary acceptance path grows two real Turnips, gifts one, ships one, and never seeds harvested state through a test-only production hook.
+- Invalid/incompatible saves disable Continue at the title; there is no launch-then-bounce flow.
+- Direct `world.tscn` tests may leave the repository `null` and remain save-free.
+- The primary acceptance path grows two real Turnips, gifts one, ships one, and never seeds harvested state through a production test hook.
 - HPA-597 tutorial/finale state stays out of this schema.
 - Keep `AGENTS.md -> CLAUDE.md` unchanged.
 
@@ -75,7 +66,7 @@ Keep these decisions fixed:
 
 ### Put title/load/save directly in WorldShell
 
-Rejected because it mixes application lifecycle, storage bootstrap, gameplay coordination, and presentation in the current world coordinator.
+Rejected because it mixes application lifecycle, storage bootstrap, gameplay coordination, and title presentation in the current world coordinator.
 
 ### Autoload `SaveManager`
 
@@ -83,7 +74,11 @@ Rejected because Phoenix has one save file and one application-level caller. A g
 
 ### Repository interface / multiple adapters
 
-Rejected because Godot `FileAccess` works for both editor and exported macOS builds. There is no second production storage implementation to abstract.
+Rejected because Godot `FileAccess` covers the editor and exported macOS build. There is no second production storage implementation to abstract.
+
+### Per-field validation in SaveFileCodec
+
+Rejected because it duplicates rules already owned by `GameSession` and makes every future persisted field require edits in both the transport and gameplay layers. HPA-598 keeps one gameplay validator.
 
 ## Architecture
 
@@ -91,10 +86,10 @@ Rejected because Godot `FileAccess` works for both editor and exported macOS bui
 
 Create:
 
-- `scenes/app/app.tscn`
-- `scripts/app/app_root.gd`
-- `scenes/ui/title_screen.tscn`
-- `scripts/ui/title_screen.gd`
+- `scenes/app/app.tscn`;
+- `scripts/app/app_root.gd`;
+- `scenes/ui/title_screen.tscn`;
+- `scripts/ui/title_screen.gd`.
 
 Change `project.godot` to:
 
@@ -105,17 +100,19 @@ run/main_scene="res://scenes/app/app.tscn"
 `AppRoot` owns exactly one `SaveRepository` and one optional prevalidated Continue state. On `_ready()` it loads once:
 
 1. missing file → Continue disabled;
-2. malformed/unsupported/shape-invalid save → Continue disabled with short status;
-3. structurally valid but `GameSession.state_error()`-rejected state → Continue disabled with short status;
-4. valid state → cache a deep clone and enable Continue.
+2. malformed/unsupported envelope → Continue disabled with short status;
+3. decoded state rejected by `GameSession.state_error()` → Continue disabled with short status;
+4. accepted state → cache a deep clone and enable Continue.
 
-`New Game` launches a fresh session without deleting the file. `Continue` launches only the cached valid state. Either path instantiates `world.tscn`, calls `WorldShell.configure()` before adding it to the tree, and then hides the title.
+`New Game` launches a fresh session without deleting the file. `Continue` launches only the cached accepted state. Either path instantiates `world.tscn`, calls `WorldShell.configure()` before adding it to the tree, and hides the title.
+
+`_on_continue_requested()` still guards `_continue_state != null`. Integration tests emit the production signal even while Continue is disabled to prove the application guard rejects missing/invalid/incompatible slots instead of relying only on `Button.disabled`.
 
 ### Title screen
 
 `TitleScreen` owns only:
 
-- title label;
+- `Panel/Title`;
 - `Panel/NewGame`;
 - `Panel/Continue`;
 - `Panel/Status`;
@@ -128,7 +125,7 @@ It never imports or creates `GameSession`, `SaveRepository`, or `WorldShell`.
 
 ### Extend the existing snapshot seam
 
-Add `GameSession.state()` by reusing the same clone helpers already used by `snapshot()`:
+Add `GameSession.state()` using existing clone helpers:
 
 ```gdscript
 func state() -> Dictionary:
@@ -149,80 +146,90 @@ func state() -> Dictionary:
     }.duplicate(true)
 ```
 
-Refactor `snapshot()` to call `state()` and add only current derived fields:
+Refactor `snapshot()` to take the already-owned deep clone from `state()`, add only current derived fields, and return it directly. Do not deep-clone a second time after `state()` already cloned the nested data.
+
+Derived/presentation data excluded from `state()`:
 
 - `max_stamina`;
-- relationship `level`.
-
-Do not create a second farm clone helper such as `_farm_state()`. `_farm_snapshot()` remains the canonical deep-copy seam.
-
-`state()` excludes:
-
+- relationship `level`;
 - player position/facing/current target;
 - camera state;
 - fixed interaction cells/footprints;
-- HUD/dialogue/modal/focus/feedback state;
-- relationship `level` and `max_stamina`.
+- HUD/dialogue/modal/focus/feedback state.
+
+Do not introduce `_farm_state()`. `_farm_snapshot()` remains the canonical farm clone helper.
 
 ### Farm identity
 
-The persisted farm array retains the authored cell for each of the nine entries. JSON encodes each `Vector2i` as `{ "x", "y" }`.
-
-Current-rule validation requires exactly `WorldContract.farm_cells()` in authored order. No repair, reordering, or migration is attempted.
+The persisted farm array retains each authored `Vector2i` cell. Current-rule validation requires exactly `WorldContract.farm_cells()` in authored order. No repair, reorder, or migration exists.
 
 ### Relationship state
 
-Persist all three villagers using `VillagerRules.VILLAGER_KEYS` / `villager_key()`:
+Persist all three villagers:
 
 - `points`;
 - `talked_today`;
 - `gifted_today`;
 - `close_friend_dialogue_seen`.
 
-Relationship `level` remains derived.
+Relationship `level` remains derived through `VillagerRules.relationship_level(points)`.
 
 ### Pending morning summary
 
 Persist `pending_morning_summary` because the save occurs after `sleep()` creates it and before acknowledgement. Continue must restore the same blocking summary.
 
-## Validation ownership
+## Persistence transport and validation ownership
 
-### SaveFileCodec: JSON structure only
+### SaveFileCodec: envelope + reversible transport only
 
 Create `scripts/persistence/save_file.gd` with `class_name SaveFileCodec` and schema version 1:
 
 ```json
 {
   "schema_version": 1,
-  "state": { "...": "GameSession mutable state" }
+  "state": { "...": "transport form of GameSession state" }
 }
 ```
 
-The codec owns:
+The codec is semantic-field-blind. It does not know crop IDs, action IDs, weather IDs, villager IDs, current ranges, farm identity, or summary rules.
 
-- JSON parsing/encoding;
-- exact schema version;
-- required state/nested fields;
-- Dictionary/Array/boolean/string/whole-number shape;
-- `Vector2i` ↔ `{x,y}` conversion;
-- structural crop/action/weather/villager identifier validation.
+It owns only:
 
-The codec must reuse the existing closed sets rather than define another table:
+- JSON parse/stringify;
+- exact `schema_version == 1`;
+- recursive conversion of JSON-compatible scalar/container values;
+- a reversible transport representation for non-JSON `Vector2i` values;
+- converting `StringName` values/dictionary keys to JSON strings on encode.
+
+Use an explicit marker for `Vector2i` so decode never guesses that an arbitrary `{x,y}` dictionary is a vector:
 
 ```gdscript
-GameRules.CROP_KEYS
-GameRules.ACTION_KEYS
-GameRules.WEATHER_KEYS
-VillagerRules.VILLAGER_KEYS
+{
+    "__phoenix_type": "Vector2i",
+    "x": 2,
+    "y": 7,
+}
 ```
 
-A file-local helper may validate a decoded string with `allowed_keys.find(StringName(value))`. Do not hand-enumerate `"turnip"`, `"potato"`, `"pumpkin"`, villager IDs, actions, or weather values a second time.
+`decode()` reconstructs only this tagged `Vector2i`. It leaves normal JSON object keys and string values as `String`. It does **not** attempt to guess which strings used to be `StringName`, and it does not attempt to reconstruct typed `Array[Dictionary]` containers.
 
-Godot JSON numbers deserialize as numeric Variants, so integer parsing accepts only finite whole values and converts them to `int`; it never truncates `1.5`.
+That normalization belongs to `GameSession.restore_state()`. The transport round trip is therefore proven by restoring the decoded state and comparing the resulting canonical `GameSession.state()`, not by assuming raw parsed JSON has the same Variant container/key types as the original runtime dictionary.
 
-The codec does **not** own `MAX_DAY`, `MAX_STAMINA`, non-negative counts, current farm identity, crop-growth limits, or summary equality.
+The codec returns:
 
-### GameSession: current rules and restore
+```gdscript
+{"ok": true, "state": decoded_state}
+```
+
+or:
+
+```gdscript
+{"ok": false, "error": "..."}
+```
+
+for malformed JSON, unsupported schema version, or malformed transport markers. No content-specific validation occurs here.
+
+### GameSession: single total validator + canonical restore
 
 Add:
 
@@ -231,28 +238,45 @@ static func state_error(candidate: Variant) -> String
 func restore_state(candidate: Dictionary) -> bool
 ```
 
-`state_error()` rejects at minimum:
+`state_error()` is the only persisted-state validator and is total: every missing field, wrong type, unknown identifier, and invalid range returns a non-empty message instead of indexing/casting first and relying on the codec to have prevalidated shape.
 
-- day outside `1..GameRules.MAX_DAY`;
-- time outside `GameRules.DAY_START_MINUTES..GameRules.ACTION_CUTOFF_MINUTES`;
-- stamina outside `0..GameRules.MAX_STAMINA`;
-- negative money/counts/relationship points;
-- selected keys absent from the existing `*_KEYS` arrays;
-- farm identity/order mismatch with `WorldContract.farm_cells()`;
-- crop on untilled soil;
-- crop growth outside `0..GameRules.growth_nights(kind)`;
-- missing/extra relationship records vs `VillagerRules.VILLAGER_KEYS`;
-- pending-summary inconsistency such as `next_day != state.day`, `next_weather != state.weather`, or `money_after_shipping != state.money`.
+Use small helpers such as:
 
-`restore_state()` validates first, mutates nothing on failure, then reconstructs new arrays/dictionaries on success. It must never retain aliases into the decoded candidate.
+```gdscript
+static func _require_field(value: Dictionary, key: String) -> Dictionary
+static func _require_dictionary(value: Variant, field: String) -> Dictionary
+static func _require_array(value: Variant, field: String) -> Dictionary
+static func _require_whole_int(value: Variant, field: String) -> Dictionary
+static func _named_value(value: Variant, allowed: Array[StringName], field: String) -> Dictionary
+static func _dictionary_value(map: Dictionary, key: StringName) -> Dictionary
+```
 
-The restore proof must exercise the farm, not merely selection state. After restoring a planted crop and acknowledging its pending summary, run `restored.water(cell)` and assert:
+`_named_value()` accepts `String` or `StringName`, converts with `StringName(value)`, and checks membership against the existing arrays. `_dictionary_value()` deliberately checks both the canonical `StringName` key and `String(key)` so direct runtime states and JSON-decoded states follow the same validator.
 
-- the command returns `GameRules.CommandCode.CROP_WATERED`;
-- the restored live state changed;
-- the original saved candidate did **not** change.
+`state_error()` validates in one traversal:
 
-This simultaneously proves farm lookup/commandability and deep-copy isolation. No test-only setter/API is added.
+- required top-level fields and their types;
+- day `1..GameRules.MAX_DAY`;
+- time `GameRules.DAY_START_MINUTES..GameRules.ACTION_CUTOFF_MINUTES`;
+- stamina `0..GameRules.MAX_STAMINA`;
+- non-negative money/counts/relationship points;
+- selected crop/action/weather membership in `GameRules.CROP_KEYS`, `ACTION_KEYS`, and `WEATHER_KEYS`;
+- exact seed/harvested/pending-shipment crop keys;
+- exact farm count/order/cell identity vs `WorldContract.farm_cells()`;
+- tilled/crop shape, crop kind membership, and growth `0..GameRules.growth_nights(kind)`;
+- exact relationship keys vs `VillagerRules.VILLAGER_KEYS` and boolean daily/close-friend flags;
+- nullable pending summary shape and consistency (`next_day == state.day`, `next_weather == state.weather`, `money_after_shipping == state.money`, non-negative shipment line values, known shipment crop IDs).
+
+`restore_state()` calls the validator first, mutates nothing on failure, and on success rebuilds canonical typed/internal data:
+
+- current `String`/`StringName` identifiers are mapped through the existing `*_KEYS` arrays;
+- count dictionaries become new `Array[int]` values;
+- farm becomes a new `Array[Dictionary]` containing real `Vector2i` cells;
+- relationships become new private relationship dictionaries in `VillagerRules.VILLAGER_KEYS` order;
+- pending summary is deep-cloned;
+- no Array/Dictionary from the decoded candidate is retained by reference.
+
+The restore proof must run a real farm command after restore and verify the decoded/saved candidate did not mutate.
 
 ## Save repository
 
@@ -278,9 +302,9 @@ func load() -> Dictionary
 func save(state: Dictionary) -> Error
 ```
 
-`load()` distinguishes `missing`, `loaded`, `invalid`, and `io_error`. It decodes structure but does not apply current gameplay rules. `AppRoot` calls `GameSession.state_error()` before enabling Continue.
+`load()` distinguishes `missing`, `loaded`, `invalid`, and `io_error`. `loaded` means the envelope/transport decoded; `AppRoot` still calls `GameSession.state_error()` before enabling Continue.
 
-`save()` writes one schema-v1 JSON document using `FileAccess.WRITE`, flushes/closes it, and returns the resulting `Error`.
+`save()` writes one schema-v1 document with `FileAccess.WRITE`, flushes/closes it, and returns the resulting `Error`.
 
 No delete API, backup/temp file, retry queue, encryption, compression, directory hierarchy, or second adapter is added.
 
@@ -301,43 +325,48 @@ func configure(initial_state: Variant, repository: SaveRepository) -> void:
     _save_repository = repository
 ```
 
+The `assert(not is_inside_tree())` calls are pure checks and may remain assertions. Restore itself must **not** be inside an assertion because release exports do not evaluate assert expressions.
+
 At the beginning of `_ready()`:
 
-1. create `GameSession.new()`;
-2. restore `_initial_state` when supplied and assert success because AppRoot prevalidated it;
-3. continue existing collision/HUD wiring;
-4. render once.
+```gdscript
+_session = GameSession.new()
+if _initial_state != null and not _session.restore_state(_initial_state):
+    push_error("AppRoot supplied invalid restored state")
+    _session = GameSession.new()
+```
 
-Direct `world.tscn` tests do **not** need to call `configure()` and keep `_save_repository == null`; they remain save-free. Production `AppRoot` always configures a repository.
+`AppRoot` should prevent this fallback in normal production by prevalidating Continue; the branch is still explicit and release-safe if the pre-tree contract is violated.
 
-The player scene/controller remains unchanged, so every launch still applies `WorldContract.PLAYER_SPAWN` through the existing player `_ready()` path.
+Direct `world.tscn` tests do not need `configure()` and keep `_save_repository == null`; they remain save-free. The existing authored player `_ready()` still applies `WorldContract.PLAYER_SPAWN`.
 
-### Autosave timing
+### Autosave timing stays synchronous
 
-Extend the live `_on_sleep_requested()` seam only:
+Extend only the live `_on_sleep_requested()` seam:
 
-1. return immediately when `_overnight_save_in_progress` is true;
-2. get `player.current_target_cell()`;
-3. call `_session.sleep(target)` exactly once;
-4. non-`DAY_ADVANCED` or null repository → existing `_finish_command(code)` path;
-5. successful production sleep → set guard, show feedback, refresh session state;
-6. call `hud.set_save_status(&"saving")`;
-7. await one process frame so `Saving…` is visible;
-8. call `_save_repository.save(_session.state())` exactly once;
-9. show `Saved.` or the failure message;
-10. clear the guard.
+1. get `player.current_target_cell()`;
+2. call `_session.sleep(target)` once;
+3. non-`DAY_ADVANCED` or null repository → existing `_finish_command(code)` path;
+4. successful production sleep → show feedback and `_refresh_from_session()` immediately, which closes the sleep panel and exposes the pending morning summary;
+5. call `_save_repository.save(_session.state())` synchronously once;
+6. show `Saved.` on success or the failure message on error.
 
-Save failure never invokes `restore_state()` and never rewinds the day. The existing morning summary remains acknowledgement-gated by `GameHud` and may be acknowledged after the save attempt.
+No `await`, `_overnight_save_in_progress`, `Saving…`, or temporary Acknowledge disabling is required. A repeated sleep request is already rejected by `GameSession._active_day_failure()` because the pending morning summary exists; the first refresh also hides the sleep confirmation UI before the handler returns.
+
+A small one-write assertion remains folded into persistence acceptance: two back-to-back production sleep signals must produce one save call and one day advancement. This covers HPA-598's repeated-input acceptance requirement without adding a guard or a separate async test.
+
+Save failure never invokes `restore_state()` and never rewinds the day. The morning summary remains usable.
 
 ## HUD changes
 
 Extend `_build_summary_panel()` only:
 
-- retain `HudRoot/MorningSummaryPanel/Acknowledge` in a field;
 - add `HudRoot/MorningSummaryPanel/SaveStatus`;
 - add `set_save_status(status: StringName, message: String = "")`;
-- disable Acknowledge only for `&"saving"`;
-- clear status when the summary closes.
+- support only `&"idle"`, `&"saved"`, and `&"error"`;
+- clear status when the morning summary closes.
+
+There is no `saving` state and the existing `Acknowledge` button is never disabled for I/O.
 
 Do not add a new modal, input-gate reason, generic notification system, or status framework.
 
@@ -345,18 +374,41 @@ Do not add a new modal, input-gate reason, generic notification system, or statu
 
 ### GameSession unit tests
 
-Extend `tests/unit/test_game_session.gd` using the existing `extends GutTest`, `GameRules.CommandCode.*`, `_plant_turnip()`, and typed helper conventions.
+Extend `tests/unit/test_game_session.gd` using the existing `extends GutTest`, direct `world._session` convention where applicable, `GameRules.CommandCode.*`, `_plant_turnip()`, and typed helper conventions.
 
 Prove:
 
 - `state()` deep-clones and excludes derived fields;
+- `snapshot()` derives from `state()` without a redundant second deep copy;
+- `state_error()` rejects missing/wrong-typed fields as messages rather than raising;
+- current rule/range/identifier/farm/relationship/summary failures are rejected;
 - real-command state restores equivalently;
-- after restore, `water()` on the restored crop succeeds and mutates the live session while the saved candidate remains unchanged;
-- invalid current-rule state is rejected without mutating the target session.
+- after restore, `water()` on the restored crop succeeds and mutates the live session while the saved candidate remains unchanged.
+
+### JSON semantics probe before codec implementation
+
+Before writing the codec, run one throwaway Godot script against a real `GameSession.state()` and print the raw JSON round-trip Variant types for:
+
+- `StringName` values;
+- crop/relationship dictionary keys;
+- `Vector2i` farm cells;
+- the typed `Array[Dictionary]` farm container.
+
+The probe is evidence only and is not committed. It confirms why the codec must not depend on raw JSON preserving Godot-specific Variant identity.
 
 ### Save codec unit tests
 
-Create `tests/unit/test_save_file.gd` for round-trip/deep-clone/malformed/wrong-schema/nested-shape cases. Identifier cases must derive values from the existing key arrays; the codec itself must not define parallel closed-key lists.
+Create `tests/unit/test_save_file.gd` for:
+
+- malformed JSON;
+- wrong schema version;
+- malformed tagged `Vector2i` transport;
+- recursive conversion deep isolation;
+- a real state encode/decode followed by `GameSession.state_error(decoded_state) == ""`, `restore_state(decoded_state) == true`, and canonical `restored.state() == original_state`;
+- explicit assertion that a decoded farm cell is `Vector2i`;
+- explicit assertion that `restore_state()` canonicalizes JSON string keys/values back to the runtime state shape.
+
+Do not assert raw decoded containers have the same typed-array/StringName identity as the original state.
 
 ### Repository integration tests
 
@@ -371,16 +423,15 @@ No filesystem interface/mock is introduced.
 
 ### App/title integration
 
-Create `tests/integration/test_app_launch.gd` and inspect the real title nodes/signals.
+Create `tests/integration/test_app_launch.gd` and inspect real title nodes/signals.
 
 Cover:
 
-- missing save → Continue disabled;
+- missing save → Continue disabled; emit `continue_requested` anyway and prove no `World` appears;
+- malformed/unsupported save → Continue disabled; emit `continue_requested` and prove no `World` appears;
 - valid save → Continue enabled and restores state at authored spawn;
 - valid current slot + New Game → fresh Day 1 and file remains;
-- **structurally valid but `state_error()`-incompatible slot** → Continue disabled with status, then New Game still launches a fresh Day 1 session and the incompatible file remains on disk.
-
-This proves the actual recovery promise rather than only testing disabled Continue.
+- structurally valid but `state_error()`-incompatible slot → Continue disabled with status; emit `continue_requested` and prove no `World`; then New Game launches Day 1 and leaves the slot untouched.
 
 ### Command-driven persistence acceptance
 
@@ -393,44 +444,62 @@ Primary path:
 3. talk to June and gift one Turnip;
 4. deposit the other Turnip;
 5. load that state through the real codec/repository/AppRoot Continue path;
-6. target the bed using `WorldMath.grid_to_world()` and `player.current_target_cell()`;
-7. emit the existing HUD sleep signal;
-8. assert one save write and the complete new-morning state;
+6. target the bed with `WorldMath.grid_to_world()` and `player.current_target_cell()`;
+7. emit the existing HUD sleep signal twice back-to-back;
+8. assert exactly one repository write, one day advancement, and the complete new-morning state;
 9. recreate the app and Continue;
-10. assert equivalent `GameSession.state()`, pending summary, and authored player spawn;
+10. assert equivalent `world._session.state()`, pending summary, and authored player spawn;
 11. acknowledge and execute a normal command.
 
-Add duplicate-input coverage for `_overnight_save_in_progress` and save-failure coverage proving day advancement survives I/O failure.
+Add save-failure coverage proving day advancement and pending summary survive an I/O failure and the error status is visible.
+
+Do not extract a shared cross-test fixture yet. The existing unit helper grows one Turnip while this acceptance needs two crops plus social/shipping state; a new support abstraction would save little code and add another test dependency.
 
 ### Existing world/headless tests
 
-`tests/integration/test_gameplay_shell.gd` and `tests/headless/world_shell_smoke.gd` continue loading `world.tscn` directly with no repository. They should not become persistence tests.
+`tests/integration/test_gameplay_shell.gd` and `tests/headless/world_shell_smoke.gd` continue loading `world.tscn` directly with no repository. Match the current integration convention and use `world._session` directly rather than `world.get("_session")`.
 
 Update only `tests/headless/project_smoke.gd` to pin `application/run/main_scene` to `res://scenes/app/app.tscn`.
 
-Use the existing command form throughout RED/GREEN:
+Use the existing GUT command form throughout RED/GREEN:
 
 ```bash
 godot --headless --path . -s addons/gut/gut_cmdln.gd ...
 ```
 
-`tools/verify-clean.sh` remains the committed-HEAD verifier and is run after commits, not as a substitute for worktree RED/GREEN.
+`tools/verify-clean.sh` remains the committed-HEAD verifier and is run after commits.
 
 ## Manual macOS acceptance
 
-Use the existing `macOS` export preset:
+Use the existing `macOS` export preset with a **release** export so the acceptance exercises the same assert-stripping behavior as the shipped build:
 
-1. export debug build;
+```bash
+godot --headless --path . --export-release "macOS" /tmp/Phoenix-HPA-598.app
+```
+
+Then:
+
+1. launch the release app;
 2. New Game;
-3. make a state change and successfully sleep;
-4. wait for `Saved.`;
+3. make a visible state change and successfully sleep;
+4. verify `Saved.`;
 5. close normally;
-6. reopen;
+6. reopen the same release app;
 7. verify Continue enabled;
-8. restore the saved state/pending summary at authored spawn;
+8. restore saved state/pending summary at authored spawn;
 9. acknowledge and continue playing.
 
 No desktop WebDriver or CI export matrix is added.
+
+## Risks
+
+### Godot JSON Variant fidelity
+
+Raw JSON does not promise preservation of Godot-specific runtime types such as `StringName`, `Vector2i`, or typed GDScript arrays. This is the main implementation unknown. Task 2 begins with a direct probe, and the design deliberately avoids relying on raw JSON to restore `StringName` or typed-array identity.
+
+### Release-only restore regression
+
+GDScript assertions are ignored in non-debug exports and their expressions are not evaluated. Restore must never occur only as an `assert()` side effect. The release macOS acceptance specifically covers Continue after export.
 
 ## Documentation changes during implementation
 
@@ -438,10 +507,10 @@ Update `README.md` and `CLAUDE.md` to document:
 
 - title/New Game/Continue;
 - `user://phoenix-save.json`;
-- post-successful-sleep save timing;
+- post-successful-sleep synchronous save timing;
 - invalid/incompatible fallback to New Game;
-- `GameSession.state()` / restore ownership;
-- concrete persistence boundary;
+- `GameSession.state()` / total restore-validation ownership;
+- semantic-field-blind codec and concrete persistence boundary;
 - `AppRoot` launch ownership and `WorldShell` session ownership;
 - transient player/world presentation state;
 - HPA-597 as the next slice.
@@ -459,7 +528,7 @@ Keep `AGENTS.md -> CLAUDE.md` unchanged.
 - Encryption, compression, cloud sync, Steam Cloud, or cross-device transfer.
 - Autoload/global `SaveManager`.
 - Repository interface or multiple production adapters.
-- Generic serializer/schema/migration framework.
+- Generic schema/migration framework beyond the tiny recursive transport converter required for JSON-safe Variant values.
 - Tutorial/finale flags or HPA-597 content.
 - Release packaging automation or broader HPA-599 polish.
 
