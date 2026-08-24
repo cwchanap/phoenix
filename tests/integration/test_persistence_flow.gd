@@ -130,6 +130,14 @@ func test_sleep_writes_once_and_continue_restores_complete_morning() -> void:
         ) <= 0.0001
     )
 
+    restored_world.hud.morning_summary_acknowledged.emit()
+    assert_null(restored_world._session.state()["pending_morning_summary"])
+    var resumed_cell: Vector2i = WorldContract.farm_cells()[2]
+    assert_eq(
+        restored_world._session.hoe(resumed_cell),
+        GameRules.CommandCode.SOIL_TILLED,
+    )
+
 func test_sleep_keeps_morning_and_reports_save_failure() -> void:
     var repository := SaveRepository.new(FAILURE_PATH)
     var app := APP_SCENE.instantiate() as AppRoot

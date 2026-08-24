@@ -36,6 +36,8 @@ func test_continue_restores_state_and_uses_authored_spawn() -> void:
     if app == null:
         return
     var title := app.get_node("TitleScreen") as TitleScreen
+    var continue_button := title.get_node("Panel/Continue") as Button
+    assert_false(continue_button.disabled)
     title.continue_requested.emit()
     await get_tree().process_frame
 
