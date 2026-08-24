@@ -124,6 +124,179 @@ func test_snapshot_is_deeply_isolated() -> void:
     assert_eq(fresh_planted["harvested"][&"turnip"], 0)
     assert_false(fresh_planted["relationships"][&"resident"]["talked_today"])
 
+func test_state_is_deeply_isolated_and_excludes_derived_fields() -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    var harvested: Array[int] = [1, 0, 0]
+    _seed_harvested(session, harvested)
+    var june := VillagerRules.VillagerId.RESIDENT
+    assert_eq(
+        session.talk_to(june, WorldContract.villager_cell(june))["code"],
+        GameRules.CommandCode.VILLAGER_TALKED,
+    )
+
+    var mutable_state := session.state()
+    assert_false(mutable_state.has("max_stamina"))
+    assert_false(mutable_state["relationships"][&"resident"].has("level"))
+    mutable_state["harvested"][&"turnip"] = 99
+    mutable_state["relationships"][&"resident"]["points"] = 99
+    mutable_state["farm"][0]["tilled"] = true
+
+    var fresh := session.state()
+    assert_eq(fresh["harvested"][&"turnip"], 1)
+    assert_eq(fresh["relationships"][&"resident"]["points"], 1)
+    assert_false(fresh["farm"][0]["tilled"])
+    assert_eq(session.snapshot()["max_stamina"], GameRules.MAX_STAMINA)
+    assert_eq(session.snapshot()["relationships"][&"resident"]["level"], &"stranger")
+
+func test_state_error_returns_messages_for_missing_and_wrong_typed_fields() -> void:
+    assert_ne(GameSession.state_error({}), "")
+
+    var bad_day := GameSession.new().state()
+    bad_day["day"] = "two"
+    assert_ne(GameSession.state_error(bad_day), "")
+
+    var bad_counts := GameSession.new().state()
+    bad_counts["seeds"] = []
+    assert_ne(GameSession.state_error(bad_counts), "")
+
+    var bad_farm := GameSession.new().state()
+    bad_farm["farm"] = "farm"
+    assert_ne(GameSession.state_error(bad_farm), "")
+
+func test_command_driven_state_restores_farm_and_does_not_alias_candidate() -> void:
+    var original := GameSession.new(func() -> float: return 0.9)
+    var cell := Vector2i(2, 7)
+    assert_eq(original.hoe(cell), GameRules.CommandCode.SOIL_TILLED)
+    assert_eq(original.plant(cell), GameRules.CommandCode.CROP_PLANTED)
+    assert_eq(original.water(cell), GameRules.CommandCode.CROP_WATERED)
+    assert_eq(original.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+
+    var saved := original.state()
+    var saved_before_command := saved.duplicate(true)
+    var restored := GameSession.new(func() -> float: return 0.9)
+    assert_eq(GameSession.state_error(saved), "")
+    assert_true(restored.restore_state(saved))
+    assert_eq(restored.state(), saved)
+
+    assert_eq(
+        restored.acknowledge_morning_summary(),
+        GameRules.CommandCode.DAY_STARTED,
+    )
+    assert_eq(restored.water(cell), GameRules.CommandCode.CROP_WATERED)
+    assert_true(restored.state()["farm"][0]["crop"]["watered_today"])
+    assert_eq(saved, saved_before_command)
+    assert_false(saved["farm"][0]["crop"]["watered_today"])
+
+func test_state_error_rejects_invalid_current_rule_shapes() -> void:
+    var valid := GameSession.new().state()
+    var candidates: Array[Dictionary] = []
+    var invalid: Dictionary = valid.duplicate(true)
+
+    invalid["day"] = GameRules.MAX_DAY + 1
+    candidates.append(invalid)
+    invalid = valid.duplicate(true)
+    invalid["time_minutes"] = GameRules.ACTION_CUTOFF_MINUTES + 1
+    candidates.append(invalid)
+    invalid = valid.duplicate(true)
+    invalid["stamina"] = GameRules.MAX_STAMINA + 1
+    candidates.append(invalid)
+    invalid = valid.duplicate(true)
+    invalid["money"] = -1
+    candidates.append(invalid)
+
+    for field in ["seeds", "harvested", "pending_shipment"]:
+        invalid = valid.duplicate(true)
+        invalid[field][&"turnip"] = -1
+        candidates.append(invalid)
+
+    for field in ["selected_seed", "selected_action", "weather"]:
+        invalid = valid.duplicate(true)
+        invalid[field] = &"unknown"
+        candidates.append(invalid)
+
+    invalid = valid.duplicate(true)
+    invalid["seeds"].erase(&"turnip")
+    candidates.append(invalid)
+    invalid = valid.duplicate(true)
+    invalid["seeds"][&"extra"] = 0
+    candidates.append(invalid)
+
+    invalid = valid.duplicate(true)
+    invalid["farm"].pop_back()
+    candidates.append(invalid)
+    invalid = valid.duplicate(true)
+    var first_farm_entry: Dictionary = invalid["farm"][0]
+    invalid["farm"][0] = invalid["farm"][1]
+    invalid["farm"][1] = first_farm_entry
+    candidates.append(invalid)
+    invalid = valid.duplicate(true)
+    invalid["farm"][0]["cell"] = Vector2i(0, 0)
+    candidates.append(invalid)
+
+    invalid = valid.duplicate(true)
+    invalid["farm"][0]["crop"] = {
+        "kind": &"turnip",
+        "growth": 0,
+        "watered_today": false,
+    }
+    candidates.append(invalid)
+    invalid = valid.duplicate(true)
+    invalid["farm"][0]["tilled"] = true
+    invalid["farm"][0]["crop"] = {
+        "kind": &"turnip",
+        "growth": GameRules.growth_nights(GameRules.CropKind.TURNIP) + 1,
+        "watered_today": false,
+    }
+    candidates.append(invalid)
+
+    invalid = valid.duplicate(true)
+    invalid["relationships"].erase(&"resident")
+    candidates.append(invalid)
+    invalid = valid.duplicate(true)
+    invalid["relationships"][&"extra"] = {
+        "points": 0,
+        "talked_today": false,
+        "gifted_today": false,
+        "close_friend_dialogue_seen": false,
+    }
+    candidates.append(invalid)
+    invalid = valid.duplicate(true)
+    invalid["relationships"][&"resident"]["talked_today"] = "yes"
+    candidates.append(invalid)
+
+    var summary_session := GameSession.new(func() -> float: return 0.9)
+    _plant_turnip(summary_session)
+    assert_eq(summary_session.water(FARM_CELL), GameRules.CommandCode.CROP_WATERED)
+    assert_eq(summary_session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+    var with_summary := summary_session.state()
+
+    invalid = with_summary.duplicate(true)
+    invalid["pending_morning_summary"]["next_day"] += 1
+    candidates.append(invalid)
+    invalid = with_summary.duplicate(true)
+    invalid["pending_morning_summary"]["next_weather"] = &"rainy"
+    candidates.append(invalid)
+    invalid = with_summary.duplicate(true)
+    invalid["pending_morning_summary"]["money_after_shipping"] += 1
+    candidates.append(invalid)
+    invalid = with_summary.duplicate(true)
+    invalid["pending_morning_summary"]["shipments"].append({
+        "crop": &"unknown",
+        "quantity": 1,
+        "amount": 1,
+    })
+    candidates.append(invalid)
+    invalid = with_summary.duplicate(true)
+    invalid["pending_morning_summary"]["shipments"].append({
+        "crop": &"turnip",
+        "quantity": -1,
+        "amount": 1,
+    })
+    candidates.append(invalid)
+
+    for candidate in candidates:
+        assert_ne(GameSession.state_error(candidate), "")
+
 func test_talk_to_awards_first_point_and_repeat_is_zero() -> void:
     var session := GameSession.new(func() -> float: return 0.9)
     var mira := VillagerRules.VillagerId.SHOPKEEPER
