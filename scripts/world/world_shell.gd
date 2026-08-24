@@ -3,7 +3,9 @@ extends Node2D
 
 const PERIMETER_BAND_WIDTH := 1.0
 
-var _session := GameSession.new()
+var _session: GameSession
+var _initial_state: Variant = null
+var _save_repository: SaveRepository = null
 var _world_input_enabled := true
 
 @onready var player: PlayerController = $Entities/Player as PlayerController
@@ -19,7 +21,17 @@ static func perimeter_footprints() -> Array[Rect2]:
         Rect2(-PERIMETER_BAND_WIDTH, 0.0, PERIMETER_BAND_WIDTH, map_size.y),
     ]
 
+func configure(initial_state: Variant, repository: SaveRepository) -> void:
+    assert(not is_inside_tree())
+    _initial_state = initial_state.duplicate(true) if initial_state != null else null
+    _save_repository = repository
+
 func _ready() -> void:
+    _session = GameSession.new()
+    if _initial_state != null and not _session.restore_state(_initial_state):
+        push_error("AppRoot supplied invalid restored state")
+        _session = GameSession.new()
+
     get_window().min_size = Vector2i(640, 360)
 
     var static_collision := get_node("StaticCollision") as StaticBody2D

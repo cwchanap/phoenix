@@ -9,6 +9,9 @@ func _init() -> void:
     if version["major"] != 4 or version["minor"] != 7 or version["patch"] != 1:
         _fail("Phoenix requires Godot 4.7.1")
         return
+    if ProjectSettings.get_setting("application/run/main_scene") != "res://scenes/app/app.tscn":
+        _fail("main scene must be the HPA-598 app root")
+        return
     if ProjectSettings.get_setting("display/window/size/viewport_width") != 640:
         _fail("viewport width must be 640")
         return
