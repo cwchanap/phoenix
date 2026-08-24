@@ -157,7 +157,22 @@ func _on_deposit_requested(kind: int, quantity: int) -> void:
 
 func _on_sleep_requested() -> void:
     var target: Variant = player.current_target_cell()
-    _finish_command(_session.sleep(target))
+    var code := _session.sleep(target)
+    if code != GameRules.CommandCode.DAY_ADVANCED or _save_repository == null:
+        _finish_command(code)
+        return
+
+    hud.show_feedback(code)
+    _refresh_from_session()
+
+    var save_error := _save_repository.save(_session.state())
+    if save_error == OK:
+        hud.set_save_status(&"saved")
+    else:
+        hud.set_save_status(
+            &"error",
+            "Save failed — this morning is not persisted.",
+        )
 
 func _on_gift_requested(villager_id: int, crop_kind: int) -> void:
     var target: Variant = player.current_target_cell()
