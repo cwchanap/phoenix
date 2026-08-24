@@ -407,7 +407,7 @@ Create `tests/unit/test_save_file.gd` for:
 - recursive conversion deep isolation;
 - a real state encode/decode followed by `GameSession.state_error(decoded_state) == ""`, `restore_state(decoded_state) == true`, and canonical `restored.state() == original_state`;
 - explicit assertion that a decoded farm cell is `Vector2i`;
-- explicit assertion that `restore_state()` canonicalizes JSON string keys/values back to the runtime state shape.
+- explicit assertion that raw decoded identifier values/keys remain `String`, then `restore_state()` canonicalizes them back to runtime `StringName` state.
 
 Do not assert raw decoded containers have the same typed-array/StringName identity as the original state.
 
