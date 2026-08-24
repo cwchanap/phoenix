@@ -12,13 +12,23 @@ economy loop — on top of it.
 ## Open and run
 
 Open this repository as a project in Godot 4.7.1. The main scene is
-`scenes/world/world.tscn`; press **Play** to run it. From a terminal, the same
+`scenes/app/app.tscn`; press **Play** to run it. From a terminal, the same
 project can be opened or run with:
 
 ```bash
 godot --editor --path .
 godot --path .
 ```
+
+## Player contract
+
+Phoenix opens on a title screen. New Game starts a fresh run without deleting
+the current slot. Continue is enabled only for a schema-v1 save accepted by
+current GameSession rules at user://phoenix-save.json. Successful sleep
+advances gameplay first, then synchronously writes the completed next-morning
+state and pending morning summary. Continue restores gameplay at the authored
+spawn. Invalid/incompatible loads and save failures never block New Game or
+roll back an already completed day.
 
 ## Controls
 
@@ -117,7 +127,7 @@ Day 14 is a temporary playable boundary — there is no settlement or advance
 past it. HPA-594 added the villagers and social systems: Mira, Rowan, and
 June stand at fixed cells, talking and gifting follow the relationship rules
 above, and `VillagerRules`/`GameSession` hold the frozen content and mutable
-relationship state. Persistence remains intentionally later Godot work.
+relationship state.
 
 ## Verification
 
