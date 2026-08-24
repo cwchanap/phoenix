@@ -23,6 +23,8 @@
 - Save failure must remain visible and must not undo the completed day transition.
 - HPA-597 owns tutorial/finale state; do not add it here.
 - Keep `AGENTS.md -> CLAUDE.md` unchanged.
+- Do not add production methods whose only purpose is testing. Integration tests may inspect the existing private-by-convention `_session` through `world.get("_session")` and drive existing signals/player targeting instead.
+- Preserve the typed-GDScript fixture pattern from HPA-594: when a helper expects `Array[int]`, create a typed variable rather than passing an untyped array literal through the boundary.
 - `tools/verify-clean.sh` validates committed `HEAD`, not uncommitted worktree changes. Use direct GUT commands during RED/GREEN and the clean verifier after each task commit.
 
 ## Local RED/GREEN test setup
@@ -30,19 +32,12 @@
 The repository ignores `/addons/`, so provision the same pinned GUT used by `tools/verify-clean.sh` once in the worktree before Task 1:
 
 ```bash
-rm -rf addons/gut /tmp/phoenix-gut.tgz /tmp/phoenix-gut
-mkdir -p addons/gut /tmp/phoenix-gut
+rm -rf addons/gut /tmp/phoenix-gut.tgz
+mkdir -p addons/gut
 curl -fsSL https://github.com/bitwes/Gut/archive/refs/tags/v9.7.1.tar.gz -o /tmp/phoenix-gut.tgz
 echo "6da99c4e9228d9bec3fb4bd1730a487770a989f0f511dac82a2897a964613385  /tmp/phoenix-gut.tgz" | shasum -a 256 -c -
 tar -xzf /tmp/phoenix-gut.tgz --strip-components=3 -C addons/gut "Gut-9.7.1/addons/gut"
 godot --headless --path . --editor --quit
-```
-
-Run a single GUT file with:
-
-```bash
-godot --headless --path . -s addons/gut/gut_cmdln.gd \
-  -gtest=res://tests/unit/test_game_session.gd -gexit
 ```
 
 ---
@@ -57,29 +52,30 @@ godot --headless --path . -s addons/gut/gut_cmdln.gd \
 - Produces: `GameSession.state() -> Dictionary`
 - Produces: `GameSession.state_error(candidate: Variant) -> String` where `""` means valid
 - Produces: `GameSession.restore_state(candidate: Dictionary) -> bool`
-- Preserves: `GameSession.snapshot() -> Dictionary` current view contract, including derived `max_stamina` and relationship `level`
+- Preserves: `GameSession.snapshot() -> Dictionary`, including derived `max_stamina` and relationship `level`
 - Consumed later by: `SaveFileCodec`, `AppRoot`, and `WorldShell`
 
-- [ ] **Step 1: Add failing canonical-state and deep-clone tests**
+- [ ] **Step 1: Add the failing canonical-state/deep-clone test**
 
-Add tests that pin the persisted boundary rather than persisting the existing view snapshot:
+Extend `tests/unit/test_game_session.gd`:
 
 ```gdscript
 func test_state_is_deeply_isolated_and_excludes_derived_fields() -> void:
     var session := GameSession.new(func() -> float: return 0.9)
     var june := VillagerRules.VillagerId.RESIDENT
-    _seed_harvested(session, [1, 0, 0])
+    var harvested: Array[int] = [1, 0, 0]
+    _seed_harvested(session, harvested)
     assert_eq(
         session.talk_to(june, WorldContract.villager_cell(june))["code"],
         GameRules.CommandCode.VILLAGER_TALKED,
     )
 
-    var state := session.state()
-    assert_false(state.has("max_stamina"))
-    assert_false(state["relationships"][&"resident"].has("level"))
-    state["harvested"][&"turnip"] = 99
-    state["relationships"][&"resident"]["points"] = 99
-    state["farm"][0]["tilled"] = true
+    var mutable_state := session.state()
+    assert_false(mutable_state.has("max_stamina"))
+    assert_false(mutable_state["relationships"][&"resident"].has("level"))
+    mutable_state["harvested"][&"turnip"] = 99
+    mutable_state["relationships"][&"resident"]["points"] = 99
+    mutable_state["farm"][0]["tilled"] = true
 
     var fresh := session.state()
     assert_eq(fresh["harvested"][&"turnip"], 1)
@@ -91,11 +87,7 @@ func test_state_is_deeply_isolated_and_excludes_derived_fields() -> void:
     assert_eq(snapshot["relationships"][&"resident"]["level"], &"stranger")
 ```
 
-Also change the existing starter snapshot test only where necessary so it still pins the public snapshot shape.
-
 - [ ] **Step 2: Run the state test and verify RED**
-
-Run:
 
 ```bash
 godot --headless --path . -s addons/gut/gut_cmdln.gd \
@@ -104,9 +96,9 @@ godot --headless --path . -s addons/gut/gut_cmdln.gd \
 
 Expected: FAIL because `GameSession.state()` does not exist.
 
-- [ ] **Step 3: Implement `state()` and derive `snapshot()` from it**
+- [ ] **Step 3: Implement one mutable-state projection and derive `snapshot()` from it**
 
-Replace the duplicated mutable projection with one canonical state projection. Reuse `_farm_snapshot()` as the state representation and split relationship state from derived relationship level:
+In `scripts/game/game_session.gd`:
 
 ```gdscript
 func state() -> Dictionary:
@@ -150,11 +142,11 @@ func _relationships_state() -> Dictionary:
     return result
 ```
 
-Remove `_relationships_snapshot()` after its callers are replaced. Do not add a second persistence-specific mutable-field list.
+Remove `_relationships_snapshot()` after its caller is gone. Keep `_farm_snapshot()` as the canonical farm-state clone rather than creating a persistence-only twin.
 
-- [ ] **Step 4: Add failing command-driven restore tests**
+- [ ] **Step 4: Add failing command-driven restore/current-rule tests**
 
-Build the valid fixture by using current commands, not by hand-writing every field:
+Use real commands for the valid fixture:
 
 ```gdscript
 func test_command_driven_state_restores_and_remains_commandable() -> void:
@@ -165,9 +157,14 @@ func test_command_driven_state_restores_and_remains_commandable() -> void:
     assert_eq(original.hoe(cell), GameRules.CommandCode.SOIL_TILLED)
     assert_eq(original.plant(cell), GameRules.CommandCode.CROP_PLANTED)
     assert_eq(original.water(cell), GameRules.CommandCode.CROP_WATERED)
-    _seed_harvested(original, [1, 0, 0])
+    var harvested: Array[int] = [1, 0, 0]
+    _seed_harvested(original, harvested)
     assert_eq(
-        original.gift_crop(june, GameRules.CropKind.TURNIP, WorldContract.villager_cell(june))["code"],
+        original.gift_crop(
+            june,
+            GameRules.CropKind.TURNIP,
+            WorldContract.villager_cell(june),
+        )["code"],
         GameRules.CommandCode.CROP_GIFTED,
     )
     assert_eq(original.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
@@ -179,17 +176,14 @@ func test_command_driven_state_restores_and_remains_commandable() -> void:
     assert_eq(restored.state(), saved)
     assert_eq(restored.snapshot(), original.snapshot())
 
-    assert_eq(
-        restored.acknowledge_morning_summary(),
-        GameRules.CommandCode.DAY_STARTED,
-    )
+    assert_eq(restored.acknowledge_morning_summary(), GameRules.CommandCode.DAY_STARTED)
     assert_eq(
         restored.select_action(GameRules.FarmingAction.HANDS),
         GameRules.CommandCode.ACTION_SELECTED,
     )
 ```
 
-Add focused invalid-state tests by cloning one real valid state at a time:
+Add focused rule incompatibilities by cloning an otherwise valid state:
 
 ```gdscript
 func test_state_error_rejects_current_rule_incompatibilities() -> void:
@@ -220,14 +214,16 @@ func test_state_error_rejects_current_rule_incompatibilities() -> void:
     assert_ne(GameSession.state_error(bad_relationships), "")
 ```
 
-Add crop-growth and summary-consistency cases after creating those states through real commands:
+Pin growth and pending-summary consistency separately:
 
 ```gdscript
 func test_state_error_rejects_crop_and_summary_inconsistency() -> void:
     var growing := GameSession.new(func() -> float: return 0.9)
     _plant_turnip(growing)
     var bad_growth := growing.state()
-    bad_growth["farm"][0]["crop"]["growth"] = GameRules.growth_nights(GameRules.CropKind.TURNIP) + 1
+    bad_growth["farm"][0]["crop"]["growth"] = (
+        GameRules.growth_nights(GameRules.CropKind.TURNIP) + 1
+    )
     assert_ne(GameSession.state_error(bad_growth), "")
 
     var morning := GameSession.new(func() -> float: return 0.9)
@@ -237,44 +233,51 @@ func test_state_error_rejects_crop_and_summary_inconsistency() -> void:
     assert_ne(GameSession.state_error(bad_summary), "")
 ```
 
-- [ ] **Step 5: Run the restore tests and verify RED**
+- [ ] **Step 5: Run GameSession tests and verify RED**
 
-Run the same `test_game_session.gd` command. Expected: FAIL because `state_error()` and `restore_state()` do not exist.
+Run the Task 1 test command again. Expected: FAIL because `state_error()` and `restore_state()` do not exist.
 
-- [ ] **Step 6: Implement current-rule validation and restore**
+- [ ] **Step 6: Implement current-rule validation and deep-copy restore**
 
-Use small private helpers local to `GameSession`; do not build a schema framework. Exact validation responsibilities:
+`state_error()` receives the structurally parsed runtime state later produced by `SaveFileCodec`; it owns current-rule/content compatibility rather than JSON parsing. Implement these exact checks with small private helpers:
 
 ```gdscript
 static func state_error(candidate: Variant) -> String:
     if not (candidate is Dictionary):
         return "state must be a Dictionary"
-    var state: Dictionary = candidate
-    if int(state["day"]) < 1 or int(state["day"]) > GameRules.MAX_DAY:
+    var value: Dictionary = candidate
+    if int(value["day"]) < 1 or int(value["day"]) > GameRules.MAX_DAY:
         return "day is outside current rules"
-    if int(state["time_minutes"]) < GameRules.DAY_START_MINUTES \
-            or int(state["time_minutes"]) > GameRules.ACTION_CUTOFF_MINUTES:
+    if int(value["time_minutes"]) < GameRules.DAY_START_MINUTES \
+            or int(value["time_minutes"]) > GameRules.ACTION_CUTOFF_MINUTES:
         return "time is outside current rules"
-    if int(state["stamina"]) < 0 or int(state["stamina"]) > GameRules.MAX_STAMINA:
+    if int(value["stamina"]) < 0 or int(value["stamina"]) > GameRules.MAX_STAMINA:
         return "stamina is outside current rules"
-    if int(state["money"]) < 0:
+    if int(value["money"]) < 0:
         return "money cannot be negative"
 
-    var count_error := _count_state_error(state)
-    if count_error != "":
-        return count_error
-    var farm_error := _farm_state_error(state["farm"])
+    var counts_error := _count_state_error(value)
+    if counts_error != "":
+        return counts_error
+    var farm_error := _farm_state_error(value["farm"])
     if farm_error != "":
         return farm_error
-    var relationship_error := _relationship_state_error(state["relationships"])
-    if relationship_error != "":
-        return relationship_error
-    return _morning_summary_state_error(state)
+    var relationships_error := _relationship_state_error(value["relationships"])
+    if relationships_error != "":
+        return relationships_error
+    return _morning_summary_state_error(value)
 ```
 
-The helpers must additionally enforce the closed selected action/seed/weather keys, exact `WorldContract.farm_cells()` order, crop-on-tilled rule, crop growth maximum, all three relationship records, non-negative relationship points, and summary `next_day`, `next_weather`, and `money_after_shipping` consistency described by the spec.
+The helpers must enforce:
 
-Restore only after validation succeeds:
+- `weather`, `selected_action`, and `selected_seed` are current known keys;
+- seed/harvested/pending-shipment counts and relationship points are non-negative;
+- exactly nine farm entries in `WorldContract.farm_cells()` order;
+- crop data exists only on tilled soil, uses a known crop key, and has growth in `0..GameRules.growth_nights(kind)`;
+- exactly the three current villager relationship records exist;
+- when a morning summary exists, `next_day == state.day`, `next_weather == state.weather`, and `money_after_shipping == state.money`.
+
+Restore only after all checks pass:
 
 ```gdscript
 func restore_state(candidate: Dictionary) -> bool:
@@ -301,11 +304,9 @@ func restore_state(candidate: Dictionary) -> bool:
     return true
 ```
 
-Implement `_counts_array`, `_farm_array`, and `_relationship_array` as direct conversions from the validated plain state. Reconstruct crop enum values from `GameRules.CROP_KEYS.find(...)`; never retain aliases into the caller's dictionary.
+`_counts_array`, `_farm_array`, and `_relationship_array` must construct new arrays/dictionaries and convert known StringName keys back to enum indexes. Never retain aliases into `candidate`.
 
 - [ ] **Step 7: Run GameSession tests and verify GREEN**
-
-Run:
 
 ```bash
 godot --headless --path . -s addons/gut/gut_cmdln.gd \
@@ -321,8 +322,6 @@ git add scripts/game/game_session.gd tests/unit/test_game_session.gd
 git commit -m "feat: add restorable Godot gameplay state"
 ./tools/verify-clean.sh
 ```
-
-Expected: clean verifier passes from committed `HEAD`.
 
 ---
 
@@ -342,9 +341,9 @@ Expected: clean verifier passes from committed `HEAD`.
 - Produces: `SaveRepository.load() -> Dictionary` with statuses `missing`, `loaded`, `invalid`, `io_error`
 - Produces: `SaveRepository.save(state: Dictionary) -> Error`
 
-- [ ] **Step 1: Write failing SaveFileCodec round-trip tests**
+- [ ] **Step 1: Write failing codec round-trip/shape tests**
 
-Create `tests/unit/test_save_file.gd` and build state through `GameSession` commands:
+Create `tests/unit/test_save_file.gd`:
 
 ```gdscript
 extends GutTest
@@ -370,24 +369,23 @@ func test_decode_result_is_deeply_isolated() -> void:
     var decoded := SaveFileCodec.decode(SaveFileCodec.encode(state))
     decoded["state"]["farm"][0]["tilled"] = false
     assert_true(state["farm"][0]["tilled"])
-```
 
-- [ ] **Step 2: Add failing malformed/unsupported-shape tests**
-
-Pin the error surface without depending on exact parser prose:
-
-```gdscript
 func test_decode_rejects_malformed_json_and_wrong_schema() -> void:
     var malformed := SaveFileCodec.decode("{not json")
     assert_false(malformed["ok"])
     assert_ne(String(malformed["error"]), "")
+    assert_false(
+        SaveFileCodec.decode('{"schema_version":2,"state":{}}')["ok"]
+    )
+```
 
-    var wrong_version := SaveFileCodec.decode('{"schema_version":2,"state":{}}')
-    assert_false(wrong_version["ok"])
+Use the generated valid envelope to pin closed/string/integer shape without hand-writing a whole state:
 
+```gdscript
 func test_decode_rejects_fractional_and_unknown_closed_values() -> void:
-    var state := _state_with_pending_summary()
-    var envelope := JSON.parse_string(SaveFileCodec.encode(state))
+    var envelope: Dictionary = JSON.parse_string(
+        SaveFileCodec.encode(_state_with_pending_summary())
+    )
 
     var fractional := envelope.duplicate(true)
     fractional["state"]["day"] = 1.5
@@ -402,9 +400,9 @@ func test_decode_rejects_fractional_and_unknown_closed_values() -> void:
     assert_false(SaveFileCodec.decode(JSON.stringify(missing_relationship))["ok"])
 ```
 
-Also add one nested crop/farm wrong-shape case and one wrong morning-summary shipment shape case.
+Add one wrong farm/crop nested type and one wrong morning-summary shipment type in the same style.
 
-- [ ] **Step 3: Run codec tests and verify RED**
+- [ ] **Step 2: Run codec tests and verify RED**
 
 ```bash
 godot --headless --path . -s addons/gut/gut_cmdln.gd \
@@ -413,7 +411,7 @@ godot --headless --path . -s addons/gut/gut_cmdln.gd \
 
 Expected: FAIL because `SaveFileCodec` does not exist.
 
-- [ ] **Step 4: Implement the explicit schema-v1 codec**
+- [ ] **Step 3: Implement the explicit schema-v1 codec**
 
 Create `scripts/persistence/save_file.gd`:
 
@@ -446,46 +444,41 @@ static func _failure(message: String) -> Dictionary:
     return {"ok": false, "error": message}
 ```
 
-Keep schema helpers private and concrete. `_encode_state()` must convert each runtime `Vector2i` farm cell to `{ "x": cell.x, "y": cell.y }`, convert `StringName` keys/values to JSON strings, and explicitly copy state/relationships/summary rather than serializing scene/runtime objects.
+`_encode_state()` must explicitly convert:
 
-For integer-shaped JSON fields, use one helper that rejects fractional/non-finite numeric values instead of truncating them:
+- each farm `Vector2i` cell to `{ "x": cell.x, "y": cell.y }`;
+- StringName crop/action/weather values to JSON strings;
+- StringName crop/villager dictionary keys to string keys;
+- pending summary shipment crop keys to strings.
 
-```gdscript
-static func _integer(value: Variant, path: String, result: Dictionary) -> Variant:
-    if not (value is int or value is float):
-        result["error"] = "%s must be an integer" % path
-        return null
-    var number := float(value)
-    if not is_finite(number) or floor(number) != number:
-        result["error"] = "%s must be a finite whole number" % path
-        return null
-    return int(number)
-```
+Use small private `_dictionary`, `_array`, `_boolean`, `_string`, `_integer`, `_closed_key`, `_decode_counts`, `_decode_farm`, `_decode_relationships`, and `_decode_summary` helpers. `_integer` accepts only numeric, finite, whole JSON values and returns `int`; it must never silently truncate `1.5`.
 
-Implement direct `_dictionary`, `_array`, `_boolean`, `_string`, `_closed_key`, `_decode_counts`, `_decode_farm`, `_decode_relationships`, and `_decode_summary` helpers. They validate structure and known identifiers only; they must not duplicate `GameRules.MAX_DAY`, stamina limits, current farm identity, crop growth limits, or money/count range rules.
+The codec validates structure/known identifiers only. It must not duplicate max day/stamina, non-negative range rules, current farm identity, crop growth limits, or summary equality rules from Task 1.
 
-Decode known crop/action/weather/villager identifiers back into the runtime `StringName` values expected by `GameSession.state()`.
+Decode known crop/action/weather/villager strings back into the runtime StringName values used by `GameSession.state()`.
 
-- [ ] **Step 5: Run codec tests and verify GREEN**
+- [ ] **Step 4: Run codec tests and verify GREEN**
 
-Run the codec test command again. Expected: PASS.
+Run the Task 2 codec command again. Expected: PASS.
 
-- [ ] **Step 6: Write failing concrete repository tests**
+- [ ] **Step 5: Write failing concrete repository tests**
 
-Create `tests/integration/test_save_repository.gd` with an isolated path:
+Create `tests/integration/test_save_repository.gd`:
 
 ```gdscript
 extends GutTest
 
-const TEST_PATH := "user://phoenix-hpa-598-test.json"
+const TEST_PATH := "user://phoenix-hpa-598-repository-test.json"
+
+func _clean() -> void:
+    if FileAccess.file_exists(TEST_PATH):
+        DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_PATH))
 
 func before_each() -> void:
-    if FileAccess.file_exists(TEST_PATH):
-        DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_PATH))
+    _clean()
 
 func after_each() -> void:
-    if FileAccess.file_exists(TEST_PATH):
-        DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_PATH))
+    _clean()
 
 func test_missing_then_save_replace_and_load() -> void:
     var repository := SaveRepository.new(TEST_PATH)
@@ -493,9 +486,7 @@ func test_missing_then_save_replace_and_load() -> void:
 
     var first := GameSession.new(func() -> float: return 0.9).state()
     assert_eq(repository.save(first), OK)
-    var loaded := repository.load()
-    assert_eq(loaded["status"], &"loaded")
-    assert_eq(loaded["state"], first)
+    assert_eq(repository.load()["state"], first)
 
     var second_session := GameSession.new(func() -> float: return 0.9)
     assert_eq(second_session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
@@ -505,6 +496,7 @@ func test_missing_then_save_replace_and_load() -> void:
 
 func test_malformed_file_is_invalid_not_a_crash() -> void:
     var file := FileAccess.open(TEST_PATH, FileAccess.WRITE)
+    assert_not_null(file)
     file.store_string("{broken")
     file.close()
     var result := SaveRepository.new(TEST_PATH).load()
@@ -513,11 +505,10 @@ func test_malformed_file_is_invalid_not_a_crash() -> void:
 
 func test_nonexistent_parent_directory_returns_write_error() -> void:
     var repository := SaveRepository.new("user://missing-hpa-598-dir/save.json")
-    var error := repository.save(GameSession.new().state())
-    assert_ne(error, OK)
+    assert_ne(repository.save(GameSession.new().state()), OK)
 ```
 
-- [ ] **Step 7: Run repository tests and verify RED**
+- [ ] **Step 6: Run repository tests and verify RED**
 
 ```bash
 godot --headless --path . -s addons/gut/gut_cmdln.gd \
@@ -526,7 +517,7 @@ godot --headless --path . -s addons/gut/gut_cmdln.gd \
 
 Expected: FAIL because `SaveRepository` does not exist.
 
-- [ ] **Step 8: Implement the concrete FileAccess repository**
+- [ ] **Step 7: Implement the concrete FileAccess repository**
 
 Create `scripts/persistence/save_repository.gd`:
 
@@ -551,32 +542,27 @@ func load() -> Dictionary:
             "error": "Could not open save: %s" % error_string(FileAccess.get_open_error()),
         }
     var text := file.get_as_text()
-    var read_error := file.get_error()
     file.close()
-    if read_error != OK:
-        return {
-            "status": &"io_error",
-            "error": "Could not read save: %s" % error_string(read_error),
-        }
     var decoded := SaveFileCodec.decode(text)
     if not decoded["ok"]:
         return {"status": &"invalid", "error": decoded["error"]}
     return {"status": &"loaded", "state": decoded["state"].duplicate(true)}
 
 func save(state: Dictionary) -> Error:
+    var text := SaveFileCodec.encode(state)
     var file := FileAccess.open(_path, FileAccess.WRITE)
     if file == null:
         return FileAccess.get_open_error()
-    file.store_string(SaveFileCodec.encode(state))
+    file.store_string(text)
     file.flush()
     var write_error := file.get_error()
     file.close()
     return write_error
 ```
 
-Do not add delete/backup/temp-file/retry methods; New Game does not delete the prior slot.
+Do not add delete, backup, temp-file, retry, or alternate adapter methods. New Game leaves the old slot untouched until a later successful overnight save replaces it.
 
-- [ ] **Step 9: Run Task 2 tests and verify GREEN**
+- [ ] **Step 8: Run Task 2 tests and verify GREEN**
 
 ```bash
 godot --headless --path . -s addons/gut/gut_cmdln.gd \
@@ -585,15 +571,13 @@ godot --headless --path . -s addons/gut/gut_cmdln.gd \
 
 Expected: both files PASS.
 
-- [ ] **Step 10: Commit Task 2 and run clean verification**
+- [ ] **Step 9: Commit Task 2 and run clean verification**
 
 ```bash
 git add scripts/persistence tests/unit/test_save_file.gd tests/integration/test_save_repository.gd
 git commit -m "feat: add one-slot Godot save storage"
 ./tools/verify-clean.sh
 ```
-
-Expected: clean verifier passes.
 
 ---
 
@@ -604,6 +588,7 @@ Expected: clean verifier passes.
 - Create: `scenes/app/app.tscn`
 - Create: `scripts/ui/title_screen.gd`
 - Create: `scenes/ui/title_screen.tscn`
+- Modify: `scripts/world/world_shell.gd`
 - Modify: `project.godot`
 - Modify: `tests/headless/project_smoke.gd`
 - Create: `tests/integration/test_app_launch.gd`
@@ -613,21 +598,19 @@ Expected: clean verifier passes.
 - Produces: `TitleScreen.new_game_requested`
 - Produces: `TitleScreen.continue_requested`
 - Produces: `TitleScreen.set_continue_state(available: bool, status: String = "") -> void`
-- Produces: `AppRoot.configure(repository: SaveRepository) -> void` as a pre-tree test/injection seam
-- Consumes later: `WorldShell.configure(initial_state: Variant, repository: SaveRepository)`; add the method stub in this task so AppRoot can launch the real world before Task 4 adds autosave behavior
+- Produces: `AppRoot.configure(repository: SaveRepository) -> void` as a real pre-tree dependency-injection seam
+- Produces: `WorldShell.configure(initial_state: Variant, repository: SaveRepository) -> void`
+- Does not produce test-only launch/state accessors
 
-- [ ] **Step 1: Write failing title/app launch tests**
+- [ ] **Step 1: Write failing title/load/launch tests using named nodes and real signals**
 
-Create `tests/integration/test_app_launch.gd`. Use a dedicated save path and clean it before/after each test:
+Create `tests/integration/test_app_launch.gd`:
 
 ```gdscript
 extends GutTest
 
 const APP_SCENE := preload("res://scenes/app/app.tscn")
 const TEST_PATH := "user://phoenix-hpa-598-app-test.json"
-
-func _repository() -> SaveRepository:
-    return SaveRepository.new(TEST_PATH)
 
 func _clean() -> void:
     if FileAccess.file_exists(TEST_PATH):
@@ -639,51 +622,74 @@ func before_each() -> void:
 func after_each() -> void:
     _clean()
 
-func test_missing_save_keeps_new_game_and_disables_continue() -> void:
+func _spawn_app(repository: SaveRepository) -> AppRoot:
     var app := APP_SCENE.instantiate() as AppRoot
-    app.configure(_repository())
-    add_child_autofree(app)
-    await get_tree().process_frame
+    assert_not_null(app)
+    app.configure(repository)
+    add_child_autoqfree(app)
+    return app
+
+func test_missing_save_keeps_new_game_enabled_and_continue_disabled() -> void:
+    var app := _spawn_app(SaveRepository.new(TEST_PATH))
     var title := app.get_node("TitleScreen") as TitleScreen
-    assert_false(title.continue_available())
-    assert_false(title.new_game_disabled())
-
-func test_valid_save_enables_continue_and_invalid_rule_state_does_not() -> void:
-    var valid := GameSession.new(func() -> float: return 0.9)
-    assert_eq(valid.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
-    assert_eq(_repository().save(valid.state()), OK)
-
-    var app := APP_SCENE.instantiate() as AppRoot
-    app.configure(_repository())
-    add_child_autofree(app)
-    await get_tree().process_frame
-    assert_true((app.get_node("TitleScreen") as TitleScreen).continue_available())
+    assert_false((title.get_node("Panel/NewGame") as Button).disabled)
+    assert_true((title.get_node("Panel/Continue") as Button).disabled)
 ```
 
-Add a second test that writes a structurally valid but rule-invalid state by editing the encoded envelope's `day` to `GameRules.MAX_DAY + 1`; assert Continue is disabled and New Game remains enabled.
-
-Add launch assertions:
+Pin valid versus current-rule-incompatible load:
 
 ```gdscript
-func test_new_game_and_continue_each_create_one_world() -> void:
-    var saved_session := GameSession.new(func() -> float: return 0.9)
-    assert_eq(saved_session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
-    assert_eq(_repository().save(saved_session.state()), OK)
+func test_valid_save_enables_continue_but_rule_invalid_save_does_not() -> void:
+    var repository := SaveRepository.new(TEST_PATH)
+    var valid_session := GameSession.new(func() -> float: return 0.9)
+    assert_eq(valid_session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+    assert_eq(repository.save(valid_session.state()), OK)
 
-    var app := APP_SCENE.instantiate() as AppRoot
-    app.configure(_repository())
-    add_child_autofree(app)
+    var valid_app := _spawn_app(repository)
+    var valid_title := valid_app.get_node("TitleScreen") as TitleScreen
+    assert_false((valid_title.get_node("Panel/Continue") as Button).disabled)
+    valid_app.queue_free()
     await get_tree().process_frame
 
-    app.launch_continue_for_test()
-    await get_tree().process_frame
-    var world := app.get_node("World") as WorldShell
-    assert_not_null(world)
-    assert_eq(world.session_state_for_test(), saved_session.state())
-    assert_eq(world.player.logical_position, WorldContract.PLAYER_SPAWN)
+    var incompatible := GameSession.new(func() -> float: return 0.9).state()
+    incompatible["day"] = GameRules.MAX_DAY + 1
+    assert_eq(repository.save(incompatible), OK)
+
+    var invalid_app := _spawn_app(repository)
+    var invalid_title := invalid_app.get_node("TitleScreen") as TitleScreen
+    assert_true((invalid_title.get_node("Panel/Continue") as Button).disabled)
+    assert_false((invalid_title.get_node("Panel/NewGame") as Button).disabled)
+    assert_ne((invalid_title.get_node("Panel/Status") as Label).text, "")
 ```
 
-The two read-only helpers `launch_continue_for_test()` and `session_state_for_test()` may be `@warning_ignore("unused_private_class_variable")`-free public methods because they exercise real production launch/session state without mutation hooks. Do not add arbitrary state setters.
+For Continue, drive the production signal and inspect the live session without adding a test API:
+
+```gdscript
+func test_continue_restores_state_and_uses_authored_spawn() -> void:
+    var repository := SaveRepository.new(TEST_PATH)
+    var saved_session := GameSession.new(func() -> float: return 0.9)
+    assert_eq(saved_session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+    var saved_state := saved_session.state()
+    assert_eq(repository.save(saved_state), OK)
+
+    var app := _spawn_app(repository)
+    var title := app.get_node("TitleScreen") as TitleScreen
+    title.continue_requested.emit()
+    await get_tree().process_frame
+
+    var world := app.get_node("World") as WorldShell
+    assert_not_null(world)
+    var live_session := world.get("_session") as GameSession
+    assert_not_null(live_session)
+    assert_eq(live_session.state(), saved_state)
+    assert_true(
+        WorldMath.world_to_grid(world.player.global_position).distance_to(
+            WorldContract.PLAYER_SPAWN
+        ) <= 0.0001
+    )
+```
+
+Add a New Game signal test asserting the live session starts at Day 1 even when an older valid save exists; do not delete the file in that flow.
 
 - [ ] **Step 2: Run app tests and verify RED**
 
@@ -717,19 +723,13 @@ func _ready() -> void:
 func set_continue_state(available: bool, status: String = "") -> void:
     _continue_button.disabled = not available
     _status_label.text = status
-
-func continue_available() -> bool:
-    return not _continue_button.disabled
-
-func new_game_disabled() -> bool:
-    return _new_game_button.disabled
 ```
 
-Author `scenes/ui/title_screen.tscn` as a full-viewport `Control` with one centered panel containing named nodes `Title`, `NewGame`, `Continue`, and `Status`. Use ordinary Godot `Control` nodes only; no custom UI framework.
+Author `scenes/ui/title_screen.tscn` as a full-viewport `Control` containing `Panel`, `Panel/Title`, `Panel/NewGame`, `Panel/Continue`, and `Panel/Status`. Use ordinary Godot `Control` nodes only.
 
-- [ ] **Step 4: Add pre-tree WorldShell configuration without changing sleep behavior yet**
+- [ ] **Step 4: Add pre-tree WorldShell configuration and restore before first render**
 
-Modify `scripts/world/world_shell.gd` so the session is created/restored before its first render:
+Replace eager session construction in `scripts/world/world_shell.gd`:
 
 ```gdscript
 var _session: GameSession
@@ -740,12 +740,9 @@ func configure(initial_state: Variant, repository: SaveRepository) -> void:
     assert(not is_inside_tree())
     _initial_state = initial_state.duplicate(true) if initial_state != null else null
     _save_repository = repository
-
-func session_state_for_test() -> Dictionary:
-    return _session.state()
 ```
 
-At the top of `_ready()`:
+At the beginning of `_ready()`:
 
 ```gdscript
 _session = GameSession.new()
@@ -753,7 +750,7 @@ if _initial_state != null:
     assert(_session.restore_state(_initial_state), "AppRoot supplied invalid restored state")
 ```
 
-Do not persist anything in this task. Existing tests that instantiate `world.tscn` directly are allowed to leave `_save_repository == null`.
+Do not add persistence behavior yet. Existing direct `world.tscn` tests may leave `_save_repository == null` and remain storage-free.
 
 - [ ] **Step 5: Implement AppRoot load/launch ownership**
 
@@ -788,16 +785,22 @@ func _load_title_state() -> void:
             _continue_state = null
             _title_screen.set_continue_state(false)
         &"loaded":
-            var error := GameSession.state_error(result["state"])
-            if error == "":
+            var state_error := GameSession.state_error(result["state"])
+            if state_error == "":
                 _continue_state = result["state"].duplicate(true)
                 _title_screen.set_continue_state(true)
             else:
                 _continue_state = null
-                _title_screen.set_continue_state(false, "Save is incompatible; start a New Game.")
+                _title_screen.set_continue_state(
+                    false,
+                    "Save is incompatible; start a New Game.",
+                )
         &"invalid", &"io_error":
             _continue_state = null
-            _title_screen.set_continue_state(false, "Save unavailable; start a New Game.")
+            _title_screen.set_continue_state(
+                false,
+                "Save unavailable; start a New Game.",
+            )
 
 func _on_new_game_requested() -> void:
     _launch(null)
@@ -807,23 +810,20 @@ func _on_continue_requested() -> void:
         _launch(_continue_state)
 
 func _launch(initial_state: Variant) -> void:
+    if get_node_or_null("World") != null:
+        return
     var world := WORLD_SCENE.instantiate() as WorldShell
     world.name = "World"
     world.configure(initial_state, _save_repository)
     add_child(world)
     _title_screen.visible = false
-
-func launch_continue_for_test() -> void:
-    _on_continue_requested()
 ```
 
-Guard `_launch()` from creating a second world if one already exists. New Game must not delete the existing save file.
-
-Create `scenes/app/app.tscn` with root `AppRoot` and one child instance named `TitleScreen`.
+Create `scenes/app/app.tscn` with root `AppRoot` and one child instance named `TitleScreen`. New Game deliberately does not call any delete/remove-save method.
 
 - [ ] **Step 6: Switch the project main scene and pin it in headless smoke**
 
-Change:
+Change `project.godot`:
 
 ```ini
 run/main_scene="res://scenes/app/app.tscn"
@@ -837,7 +837,7 @@ if ProjectSettings.get_setting("application/run/main_scene") != "res://scenes/ap
     return
 ```
 
-Do not make `world_shell_smoke.gd` load the app; it should remain a direct world-contract smoke.
+Keep `world_shell_smoke.gd` loading `world.tscn` directly.
 
 - [ ] **Step 7: Run app launch plus existing gameplay-shell tests and verify GREEN**
 
@@ -847,7 +847,7 @@ godot --headless --path . -s addons/gut/gut_cmdln.gd \
 godot --headless --path . --script res://tests/headless/project_smoke.gd
 ```
 
-Expected: title/app tests PASS, existing gameplay-shell tests remain PASS, project smoke passes with the new main scene.
+Expected: title/app tests PASS, existing gameplay-shell tests remain PASS, and project smoke passes with the new main scene.
 
 - [ ] **Step 8: Commit Task 3 and run clean verification**
 
@@ -859,11 +859,9 @@ git commit -m "feat: add Godot new game and continue launch"
 ./tools/verify-clean.sh
 ```
 
-Expected: clean verifier passes.
-
 ---
 
-### Task 4: Post-Sleep Autosave, Save Status, and Persistence Flow Acceptance
+### Task 4: Post-Sleep Autosave, Save Status, and Persistence Acceptance
 
 **Files:**
 - Modify: `scripts/world/world_shell.gd`
@@ -877,44 +875,37 @@ Expected: clean verifier passes.
 - Preserves: `GameHud.has_blocking_modal()` as the only world-input gate
 - Preserves: `GameSession.sleep()` as the complete synchronous overnight gameplay transaction
 
-- [ ] **Step 1: Write failing HUD save-status test**
+- [ ] **Step 1: Write the failing HUD save-status test without mutating WorldShell internals**
 
-Add a focused test in `test_gameplay_shell.gd` that renders a pending morning summary, then checks saving disables only the summary acknowledgement control:
+Add to `tests/integration/test_gameplay_shell.gd`:
 
 ```gdscript
 func test_morning_summary_save_status_gates_acknowledge_only_while_saving() -> void:
-    var world := await _spawn_world()
-    var hud := world.hud
-    world._session.set("_pending_morning_summary", {
-        "completed_day": 1,
-        "next_day": 2,
-        "crops_advanced": 0,
-        "next_weather": &"sunny",
-        "stamina_restored": 0,
-        "shipments": [],
-        "shipping_income": 0,
-        "money_after_shipping": GameRules.STARTING_MONEY,
-    })
-    world._refresh_from_session()
+    var world := _world()
+    assert_not_null(world)
+    if world == null:
+        return
 
-    hud.set_save_status(&"saving")
-    assert_true((hud.get_node("HudRoot/MorningSummaryPanel/Acknowledge") as Button).disabled)
-    assert_eq(
-        (hud.get_node("HudRoot/MorningSummaryPanel/SaveStatus") as Label).text,
-        "Saving…",
-    )
+    var session := GameSession.new(func() -> float: return 0.9)
+    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+    world.hud.render(session.snapshot())
 
-    hud.set_save_status(&"saved")
-    assert_false((hud.get_node("HudRoot/MorningSummaryPanel/Acknowledge") as Button).disabled)
-    assert_eq(
-        (hud.get_node("HudRoot/MorningSummaryPanel/SaveStatus") as Label).text,
-        "Saved.",
-    )
+    world.hud.set_save_status(&"saving")
+    var acknowledge := world.hud.get_node(
+        "HudRoot/MorningSummaryPanel/Acknowledge"
+    ) as Button
+    var status := world.hud.get_node(
+        "HudRoot/MorningSummaryPanel/SaveStatus"
+    ) as Label
+    assert_true(acknowledge.disabled)
+    assert_eq(status.text, "Saving…")
+
+    world.hud.set_save_status(&"saved")
+    assert_false(acknowledge.disabled)
+    assert_eq(status.text, "Saved.")
 ```
 
-If the existing integration file avoids private test setup, create the session summary using the existing sleep interaction helper instead of direct `set()`. Do not add a production state mutator solely for this test.
-
-- [ ] **Step 2: Run the HUD test and verify RED**
+- [ ] **Step 2: Run gameplay-shell tests and verify RED**
 
 ```bash
 godot --headless --path . -s addons/gut/gut_cmdln.gd \
@@ -925,14 +916,14 @@ Expected: FAIL because `set_save_status()` and `SaveStatus` do not exist.
 
 - [ ] **Step 3: Add the minimal morning-summary save status UI**
 
-In `GameHud`, retain the summary button/label:
+In `scripts/ui/game_hud.gd` add:
 
 ```gdscript
 var _morning_summary_acknowledge: Button
 var _save_status_label: Label
 ```
 
-In `_build_summary_panel()`:
+In `_build_summary_panel()`, retain the named button and add one status label:
 
 ```gdscript
 _save_status_label = _add_label(
@@ -954,7 +945,7 @@ _morning_summary_acknowledge.pressed.connect(
 )
 ```
 
-Add:
+Add exactly one status method:
 
 ```gdscript
 func set_save_status(status: StringName, message: String = "") -> void:
@@ -975,11 +966,11 @@ func set_save_status(status: StringName, message: String = "") -> void:
             assert(false, "unknown save status")
 ```
 
-When the summary transitions from visible to hidden, call `set_save_status(&"idle")`. Do not add a second modal or modify `has_blocking_modal()`.
+When the morning summary changes from visible to hidden, call `set_save_status(&"idle")`. Do not add a second modal or change `has_blocking_modal()`.
 
-- [ ] **Step 4: Write failing production autosave flow tests**
+- [ ] **Step 4: Write failing production autosave/Continue tests using real signals and target math**
 
-Create `tests/integration/test_persistence_flow.gd` with a test-only concrete repository subclass that counts real writes while still using FileAccess:
+Create `tests/integration/test_persistence_flow.gd`:
 
 ```gdscript
 extends GutTest
@@ -997,41 +988,109 @@ const TEST_PATH := "user://phoenix-hpa-598-flow-test.json"
 func _clean() -> void:
     if FileAccess.file_exists(TEST_PATH):
         DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_PATH))
+
+func before_each() -> void:
+    _clean()
+
+func after_each() -> void:
+    _clean()
+
+func _target_bed(world: WorldShell) -> void:
+    world.player.global_position = WorldMath.grid_to_world(Vector2(5.5, 7.5))
+    world.player.facing = WorldMath.Facing.DOWN
+    assert_eq(world.player.current_target_cell(), WorldContract.BED_CELL)
 ```
 
-Drive representative state through real session commands, then use the world sleep handler with the player targeting the authored bed. Reuse existing gameplay-shell player/target helpers rather than adding a teleport/debug API.
-
-The success test must assert all of these after the one-frame save completes:
+Success path: launch a new world through the app, use the existing live session to drive representative farming/economy/social commands, then route sleep through the existing HUD signal:
 
 ```gdscript
+func test_successful_sleep_writes_once_and_continue_restores_saved_morning() -> void:
+    var repository := CountingSaveRepository.new(TEST_PATH)
+    var app := APP_SCENE.instantiate() as AppRoot
+    app.configure(repository)
+    add_child_autoqfree(app)
+    var title := app.get_node("TitleScreen") as TitleScreen
+    title.new_game_requested.emit()
+    await get_tree().process_frame
+
+    var world := app.get_node("World") as WorldShell
+    var session := world.get("_session") as GameSession
+    var farm_cell := WorldContract.farm_cells()[0]
+    assert_eq(session.hoe(farm_cell), GameRules.CommandCode.SOIL_TILLED)
+    assert_eq(session.plant(farm_cell), GameRules.CommandCode.CROP_PLANTED)
+    var harvested: Array[int] = [1, 0, 0]
+    session.set("_harvested_counts", harvested)
+    assert_eq(
+        session.deposit_crop(
+            GameRules.CropKind.TURNIP,
+            1,
+            WorldContract.SHIPPING_CELL,
+        ),
+        GameRules.CommandCode.CROP_DEPOSITED,
+    )
+    var june := VillagerRules.VillagerId.RESIDENT
+    assert_eq(session.talk_to(june, WorldContract.villager_cell(june))["code"], GameRules.CommandCode.VILLAGER_TALKED)
+
+    _target_bed(world)
+    world.hud.sleep_requested.emit()
+    await get_tree().process_frame
+    await get_tree().process_frame
+
+    assert_eq(repository.save_calls, 1)
+    var saved_state: Dictionary = repository.load()["state"]
+    assert_eq(saved_state, session.state())
+    assert_eq(saved_state["day"], 2)
+    assert_not_null(saved_state["pending_morning_summary"])
+    assert_eq(
+        (world.hud.get_node("HudRoot/MorningSummaryPanel/SaveStatus") as Label).text,
+        "Saved.",
+    )
+
+    app.queue_free()
+    await get_tree().process_frame
+
+    var restored_app := APP_SCENE.instantiate() as AppRoot
+    restored_app.configure(repository)
+    add_child_autoqfree(restored_app)
+    var restored_title := restored_app.get_node("TitleScreen") as TitleScreen
+    restored_title.continue_requested.emit()
+    await get_tree().process_frame
+
+    var restored_world := restored_app.get_node("World") as WorldShell
+    var restored_session := restored_world.get("_session") as GameSession
+    assert_eq(restored_session.state(), saved_state)
+    assert_true(
+        WorldMath.world_to_grid(restored_world.player.global_position).distance_to(
+            WorldContract.PLAYER_SPAWN
+        ) <= 0.0001
+    )
+    assert_eq(
+        restored_session.acknowledge_morning_summary(),
+        GameRules.CommandCode.DAY_STARTED,
+    )
+    assert_eq(
+        restored_session.select_action(GameRules.FarmingAction.HANDS),
+        GameRules.CommandCode.ACTION_SELECTED,
+    )
+```
+
+The `_harvested_counts` fixture remains a test-only direct setup seam already used by the existing `test_game_session.gd`; immediately assert the seeded harvested count before using it. Do not add a production debug mutator.
+
+Add duplicate orchestration by emitting the same signal twice before the first save frame resumes:
+
+```gdscript
+_target_bed(world)
+world.hud.sleep_requested.emit()
+world.hud.sleep_requested.emit()
+await get_tree().process_frame
+await get_tree().process_frame
 assert_eq(repository.save_calls, 1)
-assert_eq(world.session_state_for_test()["day"], 2)
-assert_not_null(world.session_state_for_test()["pending_morning_summary"])
-assert_eq(repository.load()["state"], world.session_state_for_test())
-assert_eq(
-    (world.hud.get_node("HudRoot/MorningSummaryPanel/SaveStatus") as Label).text,
-    "Saved.",
-)
+assert_eq((world.get("_session") as GameSession).state()["day"], 2)
 ```
 
-Then free the first app/world, create a fresh AppRoot with the same repository, launch Continue, and assert:
+Add a failure path with `SaveRepository.new("user://missing-hpa-598-flow-dir/save.json")`; after the two process frames assert day is 2, the pending summary still exists, the status reads `Save failed — this morning is not persisted.`, and the acknowledge button is enabled.
 
-```gdscript
-assert_eq(restored_world.session_state_for_test(), saved_state)
-assert_eq(restored_world.player.logical_position, WorldContract.PLAYER_SPAWN)
-assert_eq(
-    restored_world.session_state_for_test()["pending_morning_summary"],
-    saved_state["pending_morning_summary"],
-)
-```
-
-Acknowledge the restored summary and perform one real farm or social command so restore is proven operational, not merely equal by snapshot.
-
-Add a duplicate-input case that invokes the sleep request twice before the first save frame completes and asserts `save_calls == 1` and `day == 2`.
-
-Add failure coverage using `SaveRepository.new("user://missing-hpa-598-flow-dir/save.json")`: after sleep, assert day advanced, the summary still exists, status text is `Save failed — this morning is not persisted.`, and the acknowledge button is enabled after the attempt.
-
-- [ ] **Step 5: Run persistence flow tests and verify RED**
+- [ ] **Step 5: Run persistence-flow tests and verify RED**
 
 ```bash
 godot --headless --path . -s addons/gut/gut_cmdln.gd \
@@ -1040,7 +1099,7 @@ godot --headless --path . -s addons/gut/gut_cmdln.gd \
 
 Expected: FAIL because WorldShell does not perform post-sleep persistence or guard duplicate save orchestration.
 
-- [ ] **Step 6: Implement one-write post-sleep orchestration in WorldShell**
+- [ ] **Step 6: Implement exactly one post-sleep write in WorldShell**
 
 Add:
 
@@ -1048,7 +1107,7 @@ Add:
 var _overnight_save_in_progress := false
 ```
 
-Replace `_on_sleep_requested()` with the one transaction boundary:
+Replace `_on_sleep_requested()`:
 
 ```gdscript
 func _on_sleep_requested() -> void:
@@ -1067,8 +1126,8 @@ func _on_sleep_requested() -> void:
     hud.set_save_status(&"saving")
     await get_tree().process_frame
 
-    var error := _save_repository.save(_session.state())
-    if error == OK:
+    var save_error := _save_repository.save(_session.state())
+    if save_error == OK:
         hud.set_save_status(&"saved")
     else:
         hud.set_save_status(
@@ -1078,16 +1137,16 @@ func _on_sleep_requested() -> void:
     _overnight_save_in_progress = false
 ```
 
-The completed state is rendered before the write, and no state rollback occurs on error. Existing direct world tests without a configured repository keep the old no-storage behavior, while the production `AppRoot` always supplies one repository.
+The state transition occurs exactly once before the write. A write error changes UI only; it never calls restore, rewinds day, or mutates gameplay. Direct world tests with no configured repository keep their historical storage-free behavior; production `AppRoot` always supplies a repository.
 
-- [ ] **Step 7: Run full integration tests and verify GREEN**
+- [ ] **Step 7: Run the full integration suite and verify GREEN**
 
 ```bash
 godot --headless --path . -s addons/gut/gut_cmdln.gd \
   -gdir=res://tests/integration -gexit
 ```
 
-Expected: app launch, repository, gameplay shell, and persistence flow tests all PASS.
+Expected: app launch, repository, existing gameplay shell, and persistence flow tests all PASS.
 
 - [ ] **Step 8: Commit Task 4 and run clean verification**
 
@@ -1097,8 +1156,6 @@ git add scripts/world/world_shell.gd scripts/ui/game_hud.gd \
 git commit -m "feat: autosave completed Godot mornings"
 ./tools/verify-clean.sh
 ```
-
-Expected: clean verifier passes.
 
 ---
 
@@ -1117,13 +1174,13 @@ Expected: clean verifier passes.
 
 - [ ] **Step 1: Update README with the player-visible persistence contract**
 
-Document these exact behaviors in the existing gameplay/run sections:
+Integrate this behavior into the existing run/gameplay sections:
 
 ```text
 Phoenix now opens on a title screen. New Game always starts a fresh run.
 Continue is enabled only when user://phoenix-save.json contains a valid current
 schema-v1 save. Sleeping successfully advances the day first, then writes that
-completed next-morning state. The saved morning summary is restored on
+completed next-morning state. The pending morning summary is restored on
 Continue. Player position is not saved; Continue starts at the authored spawn.
 If loading or saving fails, New Game/play remains available and a completed day
 is never rolled back.
@@ -1133,7 +1190,7 @@ Do not document old TypeScript/Tauri storage as a supported runtime.
 
 - [ ] **Step 2: Update CLAUDE.md architecture/handoff rules**
 
-Add the persisted boundary without weakening the existing authorities:
+Add these ownership rules in the existing architecture section:
 
 ```text
 - scripts/app/app_root.gd owns title/load/launch lifecycle and one concrete
@@ -1150,37 +1207,25 @@ Add the persisted boundary without weakening the existing authorities:
 - HPA-597 is the next delivery slice and extends this Godot state directly.
 ```
 
-Keep the `AGENTS.md` symlink unchanged.
+Keep `AGENTS.md -> CLAUDE.md` unchanged.
 
-- [ ] **Step 3: Run static consistency checks**
-
-```bash
-git diff --check main...HEAD
-test -L AGENTS.md
-test "$(readlink AGENTS.md)" = "CLAUDE.md"
-grep -R "localStorage\|Tauri Store\|SaveManager" \
-  scripts scenes README.md CLAUDE.md --exclude='*.uid' || true
-```
-
-Inspect any grep hit. Historical wording outside active runtime documentation is acceptable only when explicitly labeled historical; production code must contain no localStorage/Tauri Store/SaveManager implementation.
-
-- [ ] **Step 4: Run the complete committed clean verifier**
-
-Commit the docs first because the verifier archives `HEAD`:
+- [ ] **Step 3: Commit docs, then run complete clean/static verification**
 
 ```bash
 git add README.md CLAUDE.md
 git commit -m "docs: document Godot persistence handoff"
 ./tools/verify-clean.sh
 git diff --check main...HEAD
+test -L AGENTS.md
+test "$(readlink AGENTS.md)" = "CLAUDE.md"
 git status --short
 ```
 
-Expected: verifier passes, diff check is clean, and worktree is clean.
+Expected: verifier passes, diff check is clean, symlink is unchanged, and worktree is clean.
 
-- [ ] **Step 5: Perform the required macOS exported-build close/reopen acceptance**
+- [ ] **Step 4: Perform the required macOS exported-build close/reopen acceptance**
 
-With Godot 4.7.1 export templates installed, export the existing `macOS` preset:
+With Godot 4.7.1 export templates installed:
 
 ```bash
 rm -rf /tmp/Phoenix-HPA-598.app
@@ -1194,18 +1239,16 @@ In the exported app:
 2. Choose New Game.
 3. Make at least one visible gameplay-state change and successfully sleep once.
 4. Wait until the morning summary shows `Saved.`.
-5. Quit the app normally.
+5. Quit normally.
 6. Reopen `/tmp/Phoenix-HPA-598.app`.
 7. Confirm Continue is enabled.
-8. Continue and confirm the saved day/current state and pending morning summary are restored.
+8. Continue and confirm the saved day/current state plus pending morning summary are restored.
 9. Confirm the player is at the authored spawn rather than the previous world position.
 10. Acknowledge the summary and perform one normal action/interact command.
 
-Record the result in the PR description; do not add a desktop WebDriver harness or CI export matrix.
+Record the pass/failure evidence in this PR description. Do not add desktop WebDriver or a CI export matrix.
 
-- [ ] **Step 6: Final self-review before marking implementation ready**
-
-Review `main...HEAD` as one HPA-598 PR and confirm:
+- [ ] **Step 5: Final single-PR scope review**
 
 ```bash
 git diff --stat main...HEAD
@@ -1214,11 +1257,13 @@ git diff --name-only main...HEAD
 git diff --check main...HEAD
 ```
 
-The diff must contain the planning docs plus only the HPA-598 runtime/tests/docs described above. Confirm there is no save migration, backward-compatibility code, generic repository abstraction, autoload manager, tutorial/finale implementation, unrelated refactor, or second PR/branch delivery split.
+The implementation diff may contain the two planning documents plus only the HPA-598 runtime/tests/docs described above. Reject any save migration/backward-compatibility code, generic storage interface, autoload manager, tutorial/finale behavior, unrelated refactor, or second-PR delivery split.
 
 ## Plan self-review
 
-- **Spec coverage:** Tasks 1–4 cover canonical state, structural schema, current-rule validation, FileAccess storage, title flow, fixed-spawn Continue, post-sleep one-write autosave, duplicate-input protection, save status/failure semantics, and automated round-trip acceptance. Task 5 covers handoff docs, full clean verification, and the required exported macOS close/reopen check.
-- **Scope:** One ticket, one branch, one PR. No platform abstraction, migration, backup, security hardening, or HPA-597/HPA-599 work has been introduced.
+- **Spec coverage:** Tasks 1–4 cover canonical mutable state, structural schema parsing, current-rule compatibility, FileAccess storage, title flow, fixed-spawn Continue, post-sleep one-write autosave, duplicate-input protection, save status/failure semantics, and automated round-trip acceptance. Task 5 covers handoff docs, full clean verification, and exported macOS close/reopen acceptance.
+- **Repo seam check:** The plan uses `PlayerController.global_position` plus `WorldMath.world_to_grid()` for spawn assertions because `PlayerController` has no invented logical-position property. It uses existing `TitleScreen` signals and `world.get("_session")` in tests instead of adding production `*_for_test` methods.
+- **Typed fixture check:** Every `Array[int]` fixture crossing a typed helper boundary is declared as `Array[int]`, matching the existing HPA-594 test convention.
+- **Scope:** One ticket, one branch, one PR. No platform abstraction, migration, backup, security hardening, or HPA-597/HPA-599 implementation has been introduced.
 - **Type/interface consistency:** `GameSession.state()/state_error()/restore_state()`, `SaveFileCodec.encode()/decode()`, `SaveRepository.load()/save()`, `AppRoot.configure()`, `WorldShell.configure()`, and `GameHud.set_save_status()` are defined once and consumed consistently by later tasks.
 - **Placeholder scan:** The plan contains no TBD/TODO/follow-up implementation placeholders; every task names exact files, commands, interfaces, and expected test outcomes.
