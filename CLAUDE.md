@@ -4,7 +4,7 @@
 
 Phoenix is a Godot 4.7.1 project using the standard non-.NET editor and
 statically typed GDScript. Open the repository in Godot and run
-`scenes/world/world.tscn`; WASD moves, `1`/`2`/`3`/`4` select the farming
+`scenes/app/app.tscn`; WASD moves, `1`/`2`/`3`/`4` select the farming
 action, Space uses it, and E interacts with the shop, bed, or shipping bin.
 There is no JavaScript or Tauri runtime in the current checkout.
 
@@ -50,6 +50,13 @@ There is no JavaScript or Tauri runtime in the current checkout.
   movement/facing/targeting only and a `CharacterBody2D`. `move_and_slide()`
   supplies Godot-native response against projected logical collision
   polygons; do not port the old grid-axis resolver.
+- scripts/app/app_root.gd owns title/load/launch lifecycle and one concrete SaveRepository.
+- scripts/persistence/save_file.gd owns schema-v1 JSON transport only; it does not validate gameplay content.
+- scripts/persistence/save_repository.gd writes user://phoenix-save.json with FileAccess.
+- GameSession.state()/state_error()/restore_state() own mutable-state export, all persisted-state validation, and canonical restore; snapshot() remains the view read model.
+- WorldShell remains the only live production session holder and synchronously writes once after successful overnight advancement.
+- Player position/facing/camera/UI state remain transient/authored.
+- HPA-597 is the next delivery slice.
 
 ## Closed shell contract
 
@@ -73,8 +80,7 @@ the daily clock/stamina rhythm, weather, shipping, and the morning-summary
 gate all exist as Godot gameplay, with `GameRules`/`GameSession` as the
 authority and shop `(6,7)` / bed `(6,8)` / shipping `(6,10)` cells wired into
 the shell. Day 14 is a temporary playable boundary — no settlement or advance
-past it. HPA-594 now provides villagers and social behavior; persistence
-remains intentionally later Godot work.
+past it. HPA-594 now provides villagers and social behavior.
 - HPA-598 owns serialization; HPA-594 defines no save schema.
 
 ## Headless workflow
