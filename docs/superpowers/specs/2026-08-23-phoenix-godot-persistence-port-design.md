@@ -196,7 +196,8 @@ The codec is semantic-field-blind. It does not know crop IDs, action IDs, weathe
 It owns only:
 
 - JSON parse/stringify;
-- exact `schema_version == 1`;
+- presence and whole-number validation of `schema_version`, followed by exact `schema_version == 1`;
+- presence of the top-level `state` value;
 - recursive conversion of JSON-compatible scalar/container values;
 - a reversible transport representation for non-JSON `Vector2i` values;
 - converting `StringName` values/dictionary keys to JSON strings on encode.
@@ -211,7 +212,7 @@ Use an explicit marker for `Vector2i` so decode never guesses that an arbitrary 
 }
 ```
 
-`decode()` reconstructs only this tagged `Vector2i`. It leaves normal JSON object keys and string values as `String`. It does **not** attempt to guess which strings used to be `StringName`, and it does not attempt to reconstruct typed `Array[Dictionary]` containers.
+`decode()` reconstructs only this tagged `Vector2i`. The marker itself is transport structure, so malformed/unknown markers fail in the codec. It leaves ordinary JSON object keys and string values as `String`. It does **not** attempt to guess which strings used to be `StringName`, and it does not attempt to reconstruct typed `Array[Dictionary]` containers.
 
 That normalization belongs to `GameSession.restore_state()`. The transport round trip is therefore proven by restoring the decoded state and comparing the resulting canonical `GameSession.state()`, not by assuming raw parsed JSON has the same Variant container/key types as the original runtime dictionary.
 
@@ -227,7 +228,7 @@ or:
 {"ok": false, "error": "..."}
 ```
 
-for malformed JSON, unsupported schema version, or malformed transport markers. No content-specific validation occurs here.
+for malformed JSON, unsupported/malformed schema version, missing top-level state, or malformed transport markers. No gameplay/content-specific validation occurs here.
 
 ### GameSession: single total validator + canonical restore
 
@@ -238,7 +239,7 @@ static func state_error(candidate: Variant) -> String
 func restore_state(candidate: Dictionary) -> bool
 ```
 
-`state_error()` is the only persisted-state validator and is total: every missing field, wrong type, unknown identifier, and invalid range returns a non-empty message instead of indexing/casting first and relying on the codec to have prevalidated shape.
+`state_error()` is the only persisted gameplay-state validator and is total: every missing field, wrong type, unknown identifier, and invalid range returns a non-empty message instead of indexing/casting first and relying on the codec to have prevalidated shape.
 
 Use small helpers such as:
 
@@ -374,7 +375,7 @@ Do not add a new modal, input-gate reason, generic notification system, or statu
 
 ### GameSession unit tests
 
-Extend `tests/unit/test_game_session.gd` using the existing `extends GutTest`, direct `world._session` convention where applicable, `GameRules.CommandCode.*`, `_plant_turnip()`, and typed helper conventions.
+Extend `tests/unit/test_game_session.gd` using the existing `extends GutTest`, `GameRules.CommandCode.*`, `_plant_turnip()`, and typed helper conventions.
 
 Prove:
 
@@ -401,8 +402,8 @@ The probe is evidence only and is not committed. It confirms why the codec must 
 Create `tests/unit/test_save_file.gd` for:
 
 - malformed JSON;
-- wrong schema version;
-- malformed tagged `Vector2i` transport;
+- missing/fractional/non-numeric/wrong schema version;
+- malformed/unknown tagged `Vector2i` transport;
 - recursive conversion deep isolation;
 - a real state encode/decode followed by `GameSession.state_error(decoded_state) == ""`, `restore_state(decoded_state) == true`, and canonical `restored.state() == original_state`;
 - explicit assertion that a decoded farm cell is `Vector2i`;
