@@ -415,6 +415,12 @@ func test_codec_round_trip_restores_canonical_state() -> void:
     assert_eq(GameSession.state_error(decoded["state"]), "")
     assert_true(decoded["state"]["farm"][0]["cell"] is Vector2i)
 
+    # Raw decoded JSON keeps ordinary identifiers as String/untyped containers.
+    assert_true(decoded["state"]["weather"] is String)
+    assert_true(decoded["state"]["seeds"].keys()[0] is String)
+    assert_true(decoded["state"]["farm"] is Array)
+
+    # GameSession is the canonicalizer back to runtime state.
     var restored := GameSession.new(func() -> float: return 0.9)
     assert_true(restored.restore_state(decoded["state"]))
     assert_eq(restored.state(), original)
@@ -423,6 +429,8 @@ func test_codec_round_trip_restores_canonical_state() -> void:
 
 func test_decode_rejects_malformed_json_wrong_schema_and_bad_vector_marker() -> void:
     assert_false(SaveFileCodec.decode("{broken")["ok"])
+    assert_false(SaveFileCodec.decode('{"schema_version":"1","state":{}}')["ok"])
+    assert_false(SaveFileCodec.decode('{"schema_version":1.5,"state":{}}')["ok"])
     assert_false(SaveFileCodec.decode('{"schema_version":2,"state":{}}')["ok"])
     assert_false(SaveFileCodec.decode(
         '{"schema_version":1,"state":{"__phoenix_type":"Vector2i","x":1}}'
@@ -523,7 +531,7 @@ Recursive decode rules:
 - Scalars/null pass through.
 - A dictionary that contains `TYPE_MARKER` with an unknown marker fails instead of being treated as gameplay data.
 
-Do not import `GameRules` or `VillagerRules` in this file. Do not define crop/action/weather/villager tables. Content validation belongs only to `GameSession.state_error()`.
+Do not import `GameRules` or `VillagerRules` in this file. Do not define crop/action/weather/villager tables. Content validation and canonical runtime `StringName`/typed-container reconstruction belong only to `GameSession.state_error()/restore_state()`.
 
 - [ ] **Step 4: Run codec tests and verify GREEN**
 
