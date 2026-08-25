@@ -189,6 +189,7 @@ func test_command_driven_state_restores_farm_and_does_not_alias_candidate() -> v
 
 func test_state_error_rejects_invalid_current_rule_shapes() -> void:
     var valid := GameSession.new().state()
+    assert_eq(GameSession.state_error(valid), "")
     var candidates: Array[Dictionary] = []
     var invalid: Dictionary = valid.duplicate(true)
 

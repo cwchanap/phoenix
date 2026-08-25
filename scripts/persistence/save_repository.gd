@@ -17,18 +17,30 @@ func load() -> Dictionary:
             "error": "Could not open save: %s" % error_string(FileAccess.get_open_error()),
         }
     var text := file.get_as_text()
+    var read_error := file.get_error()
     file.close()
+    if read_error != OK:
+        return {
+            "status": &"io_error",
+            "error": "Could not read save: %s" % error_string(read_error),
+        }
     var decoded := SaveFileCodec.decode(text)
     if not decoded["ok"]:
         return {"status": &"invalid", "error": decoded["error"]}
     return {"status": &"loaded", "state": decoded["state"].duplicate(true)}
 
 func save(state: Dictionary) -> Error:
-    var file := FileAccess.open(_path, FileAccess.WRITE)
+    var temp_path := _path + ".tmp"
+    var file := FileAccess.open(temp_path, FileAccess.WRITE)
     if file == null:
         return FileAccess.get_open_error()
     file.store_string(SaveFileCodec.encode(state))
     file.flush()
     var write_error := file.get_error()
     file.close()
-    return write_error
+    if write_error != OK:
+        return write_error
+    return DirAccess.rename_absolute(
+        ProjectSettings.globalize_path(temp_path),
+        ProjectSettings.globalize_path(_path),
+    )
