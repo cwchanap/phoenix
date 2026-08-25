@@ -39,6 +39,8 @@ static func decode(text: String) -> Dictionary:
     var decoded := _decode_variant(envelope["state"])
     if not decoded["ok"]:
         return decoded
+    if not (decoded["value"] is Dictionary):
+        return {"ok": false, "error": "Save state must be an object"}
     return {"ok": true, "state": decoded["value"]}
 
 static func _encode_variant(value: Variant) -> Variant:

@@ -227,12 +227,16 @@ func test_command_driven_state_restores_farm_and_does_not_alias_candidate() -> v
     assert_false(saved["farm"][0]["crop"]["watered_today"])
 ```
 
-Add focused rejection cases by cloning valid `state()` values:
+Add focused rejection cases by cloning valid `state()` values, first asserting the unmodified clone passes validation:
 
 - day > `GameRules.MAX_DAY`;
+- day < 1;
 - time > `GameRules.ACTION_CUTOFF_MINUTES`;
+- time < `GameRules.DAY_START_MINUTES`;
 - stamina > `GameRules.MAX_STAMINA`;
+- stamina < 0;
 - negative money and crop counts;
+- negative relationship points;
 - unknown selected crop/action/weather;
 - missing/extra crop count key;
 - farm count/order/cell mismatch;
@@ -432,6 +436,7 @@ func test_decode_rejects_malformed_json_wrong_schema_and_bad_vector_marker() -> 
     assert_false(SaveFileCodec.decode('{"schema_version":"1","state":{}}')["ok"])
     assert_false(SaveFileCodec.decode('{"schema_version":1.5,"state":{}}')["ok"])
     assert_false(SaveFileCodec.decode('{"schema_version":2,"state":{}}')["ok"])
+    assert_false(SaveFileCodec.decode('{"schema_version":1,"state":5}')["ok"])
     assert_false(SaveFileCodec.decode(
         '{"schema_version":1,"state":{"__phoenix_type":"Vector2i","x":1}}'
     )["ok"])
@@ -494,6 +499,8 @@ static func decode(text: String) -> Dictionary:
     var decoded := _decode_variant(envelope["state"])
     if not decoded["ok"]:
         return decoded
+    if not (decoded["value"] is Dictionary):
+        return {"ok": false, "error": "Save state must be an object"}
     return {"ok": true, "state": decoded["value"]}
 ```
 
@@ -585,7 +592,9 @@ func test_malformed_file_is_invalid_not_a_crash() -> void:
     assert_ne(String(result["error"]), "")
 
 func test_nonexistent_parent_directory_returns_write_error() -> void:
-    var repository := SaveRepository.new("user://missing-hpa-598-dir/save.json")
+    var repository := SaveRepository.new(
+        "user://missing-hpa-598-dir-%d/save.json" % randi()
+    )
     assert_ne(repository.save(GameSession.new().state()), OK)
 ```
 
@@ -613,21 +622,33 @@ func load() -> Dictionary:
             "error": "Could not open save: %s" % error_string(FileAccess.get_open_error()),
         }
     var text := file.get_as_text()
+    var read_error := file.get_error()
     file.close()
+    if read_error != OK:
+        return {
+            "status": &"io_error",
+            "error": "Could not read save: %s" % error_string(read_error),
+        }
     var decoded := SaveFileCodec.decode(text)
     if not decoded["ok"]:
         return {"status": &"invalid", "error": decoded["error"]}
     return {"status": &"loaded", "state": decoded["state"].duplicate(true)}
 
 func save(state: Dictionary) -> Error:
-    var file := FileAccess.open(_path, FileAccess.WRITE)
+    var temp_path := _path + ".tmp"
+    var file := FileAccess.open(temp_path, FileAccess.WRITE)
     if file == null:
         return FileAccess.get_open_error()
     file.store_string(SaveFileCodec.encode(state))
     file.flush()
     var write_error := file.get_error()
     file.close()
-    return write_error
+    if write_error != OK:
+        return write_error
+    return DirAccess.rename_absolute(
+        ProjectSettings.globalize_path(temp_path),
+        ProjectSettings.globalize_path(_path),
+    )
 ```
 
 No delete/backup/temp/retry/alternate-adapter methods.

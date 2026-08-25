@@ -363,7 +363,8 @@ func _build_summary_panel() -> Control:
     var panel := _add_panel(_root, "MorningSummaryPanel", "Morning Summary", Vector2(300, 66), Vector2(332, 210))
     _summary_body = _add_label(panel, "Body", "", Vector2(12, 32), Vector2(308, 128))
     _summary_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    _save_status_label = _add_label(panel, "SaveStatus", "", Vector2(12, 164), Vector2(190, 20))
+    _save_status_label = _add_label(panel, "SaveStatus", "", Vector2(12, 164), Vector2(190, 44))
+    _save_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     var acknowledge_button := _add_button(
         panel,
         "Acknowledge",

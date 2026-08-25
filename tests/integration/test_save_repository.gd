@@ -41,5 +41,7 @@ func test_malformed_file_is_invalid_not_a_crash() -> void:
     assert_ne(String(result["error"]), "")
 
 func test_nonexistent_parent_directory_returns_write_error() -> void:
-    var repository := SaveRepository.new("user://missing-hpa-598-dir/save.json")
+    var repository := SaveRepository.new(
+        "user://missing-hpa-598-dir-%d/save.json" % randi()
+    )
     assert_ne(repository.save(GameSession.new().state()), OK)

@@ -35,6 +35,7 @@ func test_decode_rejects_malformed_json_wrong_schema_and_bad_vector_marker() -> 
     assert_false(SaveFileCodec.decode('{"schema_version":true,"state":{}}')["ok"])
     assert_false(SaveFileCodec.decode('{"schema_version":1.5,"state":{}}')["ok"])
     assert_false(SaveFileCodec.decode('{"schema_version":2,"state":{}}')["ok"])
+    assert_false(SaveFileCodec.decode('{"schema_version":1,"state":5}')["ok"])
     assert_false(SaveFileCodec.decode(
         '{"schema_version":1,"state":{"__phoenix_type":"Vector2i","x":1}}'
     )["ok"])
