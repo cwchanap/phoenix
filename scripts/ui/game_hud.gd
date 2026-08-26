@@ -8,6 +8,7 @@ signal deposit_requested(kind: int, quantity: int)
 signal sleep_requested
 signal gift_requested(villager_id: int, crop_kind: int)
 signal morning_summary_acknowledged
+signal intro_acknowledged
 signal modal_state_changed
 
 var _root: Control
@@ -26,10 +27,12 @@ var _shop_panel: Control
 var _shipping_panel: Control
 var _sleep_panel: Control
 var _dialogue_panel: DialoguePanel
+var _onboarding_overlay: OnboardingOverlay
 var _morning_summary_panel: Control
 var _day14_shipping_boundary: Label
 var _day14_sleep_boundary: Label
 var _sleep_inline_feedback: Label
+var _objective_label: Label
 var _action_buttons: Array[Button] = []
 var _seed_buttons: Array[Button] = []
 var _seed_count_labels: Array[Label] = []
@@ -48,6 +51,7 @@ func _ready() -> void:
 
 func render(snapshot: Dictionary) -> void:
     _last_snapshot = snapshot.duplicate(true)
+    _onboarding_overlay.render(snapshot)
     _day_label.text = "Day %d" % int(snapshot["day"])
     _time_label.text = GameRules.format_time(int(snapshot["time_minutes"]))
     _weather_label.text = "Weather: %s" % _display_weather(snapshot["weather"])
@@ -76,6 +80,10 @@ func render(snapshot: Dictionary) -> void:
     _pending_shipment_label.text = "Pending shipment: %d" % pending_total
 
     var day := int(snapshot["day"])
+    if day >= GameRules.MAX_DAY:
+        _objective_label.text = "Harvest Market today — ship crops first, then visit the village path stall."
+    else:
+        _objective_label.text = "Harvest Market: Day 14 · %d days left" % (GameRules.MAX_DAY - day)
     _day14_shipping_boundary.text = (
         "Day 14: pending crops won't settle at this boundary."
         if day == GameRules.MAX_DAY
@@ -99,6 +107,7 @@ func has_blocking_modal() -> bool:
         or _sleep_panel.visible
         or _dialogue_panel.visible
         or _morning_summary_panel.visible
+        or _onboarding_overlay.is_opening_visible()
     )
 
 func set_save_status(status: StringName, message: String = "") -> void:
@@ -290,6 +299,8 @@ func _build_always_visible_hud() -> void:
     )
     _interaction_hint = _add_label(_root, "InteractionHint", "", Vector2(8, 214), Vector2(180, 20))
     _feedback = _add_label(_root, "Feedback", "", Vector2(8, 238), Vector2(280, 24))
+    _objective_label = _add_label(_root, "Objective", "", Vector2(8, 338), Vector2(624, 20))
+    _objective_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 
 func _build_modals() -> void:
     _shop_panel = _build_shop_panel()
@@ -303,6 +314,15 @@ func _build_modals() -> void:
         gift_requested.emit(villager_id, crop_kind)
     )
     _dialogue_panel.close_requested.connect(close_dialogue)
+    _onboarding_overlay = OnboardingOverlay.new()
+    _onboarding_overlay.name = "OnboardingOverlay"
+    _root.add_child(_onboarding_overlay)
+    _onboarding_overlay.intro_acknowledged.connect(func() -> void:
+        intro_acknowledged.emit()
+    )
+    _onboarding_overlay.blocking_state_changed.connect(func() -> void:
+        modal_state_changed.emit()
+    )
     _shop_panel.visible = false
     _shipping_panel.visible = false
     _sleep_panel.visible = false

@@ -1,6 +1,6 @@
 extends GutTest
 
-func _world() -> WorldShell:
+func _spawn_world(acknowledge_intro: bool) -> WorldShell:
     var packed := load("res://scenes/world/world.tscn") as PackedScene
     assert_not_null(packed)
     if packed == null:
@@ -10,7 +10,81 @@ func _world() -> WorldShell:
     if world == null:
         return null
     add_child_autoqfree(world)
+    if acknowledge_intro:
+        var start := world.hud.get_node(
+            "HudRoot/OnboardingOverlay/OpeningPanel/Start"
+        ) as Button
+        start.pressed.emit()
     return world
+
+func _world() -> WorldShell:
+    return _spawn_world(true)
+
+func _locked_world() -> WorldShell:
+    return _spawn_world(false)
+
+func test_fresh_opening_blocks_world_input() -> void:
+    var world := _locked_world()
+    var opening := world.hud.get_node(
+        "HudRoot/OnboardingOverlay/OpeningPanel"
+    ) as Control
+    assert_true(opening.visible)
+    assert_false(world._world_input_enabled)
+    assert_false(world._session.state()["intro_acknowledged"])
+    var action_button := world.hud.get_node("HudRoot/Action_1") as Button
+    assert_true(action_button.disabled)
+
+func test_start_releases_gate_and_tutorial_card_guides_first_actions() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var overlay := world.hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
+    var card := overlay.get_node("TutorialCard") as Control
+    assert_false(overlay.is_opening_visible())
+    assert_true(card.visible)
+    assert_eq((card.get_node("Title") as Label).text, "Prepare the field")
+
+    var selected: Array[int] = []
+    world.hud.select_action_requested.connect(func(action: int) -> void:
+        selected.append(action)
+    )
+
+    var hoe_button := world.hud.get_node("HudRoot/Action_0") as Button
+    assert_false(hoe_button.disabled)
+    hoe_button.pressed.emit()
+    assert_eq(selected, [GameRules.FarmingAction.HOE])
+    assert_true(world._world_input_enabled)
+
+    var dismiss := card.get_node("Dismiss") as Button
+    dismiss.pressed.emit()
+    assert_false(card.visible)
+    assert_false(world._session.snapshot()["tutorial"][&"farm_basics"])
+
+    var cell: Vector2i = WorldContract.farm_cells()[0]
+    await _place_target(world, cell)
+    world.use_selected_action()
+    assert_true(world._session.snapshot()["tutorial"][&"farm_basics"])
+    assert_true(card.visible)
+    assert_eq((card.get_node("Title") as Label).text, "Plant a seed")
+
+func test_objective_label_counts_down_to_market_day() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var objective := hud.get_node("HudRoot/Objective") as Label
+    var snapshot := world._session.snapshot()
+    snapshot["day"] = 1
+    hud.render(snapshot)
+    assert_eq(objective.text, "Harvest Market: Day 14 · 13 days left")
+    snapshot["day"] = GameRules.MAX_DAY
+    hud.render(snapshot)
+    assert_eq(
+        objective.text,
+        "Harvest Market today — ship crops first, then visit the village path stall.",
+    )
 
 func _cell_center(cell: Vector2i) -> Vector2:
     return WorldMath.grid_to_world(Vector2(cell) + Vector2(0.5, 0.5))
@@ -86,12 +160,12 @@ func test_nine_crop_roots_are_direct_entities_children_at_cell_centers() -> void
     if entities == null:
         return
     var cells := WorldContract.farm_cells()
-    assert_eq(entities.get_child_count(), 7 + cells.size())
-    if entities.get_child_count() < 7 + cells.size():
+    assert_eq(entities.get_child_count(), 8 + cells.size())
+    if entities.get_child_count() < 8 + cells.size():
         return
     for index in cells.size():
         var cell: Vector2i = cells[index]
-        var crop_root := entities.get_child(7 + index) as Node2D
+        var crop_root := entities.get_child(8 + index) as Node2D
         assert_not_null(crop_root)
         if crop_root == null:
             continue

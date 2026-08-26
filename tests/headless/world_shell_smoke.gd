@@ -6,7 +6,7 @@ const PATH_TILE := Vector2i(2, 0)
 const EXPECTED_ASSETS := {
     "proof-tiles": Vector2i(192, 32),
     "proof-player": Vector2i(128, 48),
-    "proof-scenery": Vector2i(288, 96),
+    "proof-scenery": Vector2i(384, 96),
     "proof-soil": Vector2i(128, 32),
     "proof-crops": Vector2i(128, 144),
     "proof-villagers": Vector2i(96, 48),
@@ -82,6 +82,12 @@ func _release_movement_actions() -> void:
     for action in ["move_up", "move_right", "move_down", "move_left"]:
         Input.action_release(action)
 
+func _acknowledge_intro(world: WorldShell) -> void:
+    var start := world.get_node(
+        "GameHud/HudRoot/OnboardingOverlay/OpeningPanel/Start"
+    ) as Button
+    start.pressed.emit()
+
 func _hold_actions(actions: Array, frames: int) -> void:
     for action in actions:
         Input.action_press(action)
@@ -122,6 +128,18 @@ func _run() -> void:
     if not _expect(WorldContract.villager_at(Vector2i(0, 0)) == -1, "unknown villager cell"):
         return
     if not _expect(WorldContract.villager_at(Vector2i(6, 5)) == 0, "shopkeeper villager cell"):
+        return
+    if not _expect(WorldContract.MARKET_CELL == Vector2i(8, 6), "market cell contract"):
+        return
+    if not _expect(
+        WorldContract.MARKET_FOOTPRINT == Rect2(8.2, 6.2, 0.6, 0.6), "market footprint contract"
+    ):
+        return
+    if not _expect_vec2(
+        WorldContract.MARKET_ANCHOR,
+        WorldMath.grid_to_world(Vector2(WorldContract.MARKET_CELL) + Vector2(0.5, 0.5)),
+        "market anchor projection",
+    ):
         return
 
     var world_names := ["Ground", "FarmSoil", "StaticCollision", "Entities", "TargetHighlight", "GameHud"]
@@ -213,6 +231,7 @@ func _run() -> void:
         "TreeCollision",
         "BuildingCollision",
         "ShippingCollision",
+        "HarvestMarketCollision",
     ] + WorldContract.VILLAGER_COLLISION_NAMES + [
         "PerimeterTop",
         "PerimeterRight",
@@ -245,6 +264,12 @@ func _run() -> void:
         "shipping collision",
     ):
         return
+    if not _expect_polygon(
+        (static_collision.get_node("HarvestMarketCollision") as CollisionPolygon2D).polygon,
+        WorldMath.footprint_to_polygon(WorldContract.MARKET_FOOTPRINT),
+        "market collision",
+    ):
+        return
     for id in range(VillagerRules.VillagerId.size()):
         var villager_collision := static_collision.get_node(
             WorldContract.VILLAGER_COLLISION_NAMES[id]
@@ -263,7 +288,7 @@ func _run() -> void:
         Rect2(-1.0, 0.0, 1.0, map_size.y),
     ]
     for index in perimeter_rects.size():
-        var collision := static_collision.get_node(collision_names[index + 6]) as CollisionPolygon2D
+        var collision := static_collision.get_node(collision_names[index + 7]) as CollisionPolygon2D
         if not _expect_polygon(
             collision.polygon,
             WorldMath.footprint_to_polygon(perimeter_rects[index]),
@@ -296,6 +321,7 @@ func _run() -> void:
         "Tree",
         "Building",
         "Shipping",
+        "HarvestMarket",
         "VillagerShopkeeper",
         "VillagerFarmer",
         "VillagerResident",
@@ -310,6 +336,7 @@ func _run() -> void:
     var tree := entities.get_node("Tree") as Node2D
     var building := entities.get_node("Building") as Node2D
     var shipping := entities.get_node("Shipping") as Node2D
+    var market := entities.get_node("HarvestMarket") as Node2D
     var villagers := [
         entities.get_node("VillagerShopkeeper") as Node2D,
         entities.get_node("VillagerFarmer") as Node2D,
@@ -321,10 +348,13 @@ func _run() -> void:
         return
     if not _expect_vec2(shipping.position, _cell_center(WorldContract.SHIPPING_CELL), "shipping anchor"):
         return
+    if not _expect_vec2(market.position, WorldContract.MARKET_ANCHOR, "market anchor"):
+        return
     for entry in [
         {"node": tree, "frame": 0, "label": "tree"},
         {"node": building, "frame": 1, "label": "building"},
         {"node": shipping, "frame": 2, "label": "shipping"},
+        {"node": market, "frame": 3, "label": "market"},
     ]:
         var entity: Node2D = entry.node
         if not _expect_names(entity, ["Sprite2D"], "%s entity" % entry.label):
@@ -334,7 +364,7 @@ func _run() -> void:
             sprite.texture.resource_path == scenery_texture_path, "%s texture" % entry.label
         ):
             return
-        if not _expect(sprite.hframes == 3, "%s scenery frame columns" % entry.label):
+        if not _expect(sprite.hframes == 4, "%s scenery frame columns" % entry.label):
             return
         if not _expect(sprite.frame == entry.frame, "%s scenery frame" % entry.label):
             return
@@ -400,6 +430,8 @@ func _run() -> void:
     if not _expect(building.z_index == shared_entity_z_index, "building shared entity z-index"):
         return
     if not _expect(shipping.z_index == shared_entity_z_index, "shipping shared entity z-index"):
+        return
+    if not _expect(market.z_index == shared_entity_z_index, "market shared entity z-index"):
         return
     if not _expect(player.z_index == shared_entity_z_index, "player shared entity z-index"):
         return
@@ -532,6 +564,7 @@ func _run() -> void:
         if not _expect(has_key, "%s physical key" % entry.action):
             return
 
+    _acknowledge_intro(world)
     _place_player(player, WorldContract.PLAYER_SPAWN)
     await physics_frame
     Input.action_press("move_right")
@@ -634,6 +667,10 @@ func _run() -> void:
         return
     if not _expect(building_edge.y > 7.4, "building approach slides"):
         return
+    # The harvest market seals the top corridor beside the building, so the
+    # corner detour runs along the building's open bottom side.
+    _place_player(player, Vector2(6.5, 9.5))
+    await physics_frame
     await _hold_actions(["move_right", "move_down"], 180)
     var building_corner := WorldMath.world_to_grid(player.global_position)
     if not _expect(building_corner.x >= 9.18, "building corner detour passes"):

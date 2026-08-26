@@ -15,6 +15,9 @@ const SHOP_CELL := Vector2i(6, 7)
 const BED_CELL := Vector2i(6, 8)
 const SHIPPING_CELL := Vector2i(6, 10)
 const SHIPPING_FOOTPRINT := Rect2(6.2, 10.2, 0.6, 0.6)
+const MARKET_CELL := Vector2i(8, 6)
+const MARKET_FOOTPRINT := Rect2(8.2, 6.2, 0.6, 0.6)
+const MARKET_ANCHOR := Vector2(448.0, 240.0)
 const VILLAGER_CELLS: Array[Vector2i] = [
     Vector2i(6, 5),
     Vector2i(3, 5),

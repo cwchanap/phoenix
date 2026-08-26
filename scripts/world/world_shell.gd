@@ -38,9 +38,11 @@ func _ready() -> void:
     var tree_collision := static_collision.get_node("TreeCollision") as CollisionPolygon2D
     var building_collision := static_collision.get_node("BuildingCollision") as CollisionPolygon2D
     var shipping_collision := static_collision.get_node("ShippingCollision") as CollisionPolygon2D
+    var market_collision := static_collision.get_node("HarvestMarketCollision") as CollisionPolygon2D
     tree_collision.polygon = WorldMath.footprint_to_polygon(WorldContract.TREE_FOOTPRINT)
     building_collision.polygon = WorldMath.footprint_to_polygon(WorldContract.BUILDING_FOOTPRINT)
     shipping_collision.polygon = WorldMath.footprint_to_polygon(WorldContract.SHIPPING_FOOTPRINT)
+    market_collision.polygon = WorldMath.footprint_to_polygon(WorldContract.MARKET_FOOTPRINT)
 
     for id in range(VillagerRules.VillagerId.size()):
         var collision := static_collision.get_node(
@@ -61,6 +63,7 @@ func _ready() -> void:
     hud.sleep_requested.connect(_on_sleep_requested)
     hud.gift_requested.connect(_on_gift_requested)
     hud.morning_summary_acknowledged.connect(_on_morning_summary_acknowledged)
+    hud.intro_acknowledged.connect(_on_intro_acknowledged)
     hud.modal_state_changed.connect(_refresh_world_input_gate)
     _refresh_from_session()
 
@@ -180,6 +183,9 @@ func _on_gift_requested(villager_id: int, crop_kind: int) -> void:
 
 func _on_morning_summary_acknowledged() -> void:
     _finish_command(_session.acknowledge_morning_summary())
+
+func _on_intro_acknowledged() -> void:
+    _finish_command(_session.acknowledge_intro())
 
 func _finish_social_command(villager_id: int, result: Dictionary) -> void:
     hud.show_feedback(result["code"])
