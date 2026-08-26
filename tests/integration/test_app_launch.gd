@@ -49,6 +49,50 @@ func test_continue_restores_state_and_uses_authored_spawn() -> void:
         ) <= 0.0001
     )
 
+func test_continue_with_completed_finale_shows_result_screen() -> void:
+    var repository := SaveRepository.new(TEST_PATH)
+    var session := GameSession.new(func() -> float: return 0.9)
+    var seeded := session.state()
+    seeded["day"] = GameRules.MAX_DAY
+    seeded["shipped"] = {&"turnip": 4, &"potato": 0, &"pumpkin": 0}
+    assert_true(session.restore_state(seeded))
+    assert_eq(
+        session.trigger_harvest_finale(WorldContract.MARKET_CELL),
+        GameRules.CommandCode.FINALE_TRIGGERED,
+    )
+    var completed := session.state()
+    assert_eq(GameSession.state_error(completed), "")
+    assert_eq(repository.save(completed), OK)
+
+    var app := _spawn_app(repository)
+    if app == null:
+        return
+    var title := app.get_node("TitleScreen") as TitleScreen
+    assert_false((title.get_node("Panel/Continue") as Button).disabled)
+    title.continue_requested.emit()
+
+    assert_null(app.get_node_or_null("World"))
+    var result := app.get_node("ResultScreen") as ResultScreen
+    assert_true(result.visible)
+    var expected := ContentRules.build_harvest_result(completed)
+    assert_eq((result.get_node("Panel/Title") as Label).text, expected["title"])
+    assert_eq(
+        (result.get_node("Panel/Shipped") as Label).text,
+        "Shipped: %d crops · %dG" % [
+            int(expected["shipped_count"]),
+            int(expected["shipped_value"]),
+        ],
+    )
+    assert_eq(
+        (result.get_node("Panel/Money") as Label).text,
+        "Final money: %dG" % int(expected["final_money"]),
+    )
+    assert_eq(
+        (result.get_node("Panel/VillagerLine") as Label).text,
+        expected["line"],
+    )
+    assert_eq((result.get_node("Panel/SaveStatus") as Label).text, "")
+
 func test_incompatible_slot_refuses_continue_but_new_game_still_launches() -> void:
     var repository := SaveRepository.new(TEST_PATH)
     var incompatible := GameSession.new(func() -> float: return 0.9).state()

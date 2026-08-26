@@ -570,8 +570,8 @@ func sleep(target_cell: Variant) -> GameRules.CommandCode:
         return active_failure
     if not (target_cell is Vector2i) or target_cell != WorldContract.BED_CELL:
         return GameRules.CommandCode.NOT_AT_BED
-    if _day >= GameRules.MAX_DAY:
-        return GameRules.CommandCode.DAY_LIMIT_REACHED
+    if _day == GameRules.MAX_DAY:
+        return _complete_finale()
 
     var completed_day := _day
     var completed_weather := _weather
@@ -612,6 +612,23 @@ func sleep(target_cell: Variant) -> GameRules.CommandCode:
         relationship["talked_today"] = false
         relationship["gifted_today"] = false
     return _commit(GameRules.CommandCode.DAY_ADVANCED)
+
+func trigger_harvest_finale(target_cell: Variant) -> GameRules.CommandCode:
+    var active_failure := _active_day_failure()
+    if active_failure != -1:
+        return active_failure
+    if _day != GameRules.MAX_DAY:
+        return GameRules.CommandCode.MARKET_NOT_READY
+    if not (target_cell is Vector2i) or target_cell != WorldContract.MARKET_CELL:
+        return GameRules.CommandCode.NOT_AT_MARKET
+    return _complete_finale()
+
+func _complete_finale() -> GameRules.CommandCode:
+    if _finale_triggered:
+        return GameRules.CommandCode.FINALE_ALREADY_TRIGGERED
+    _settle_pending_shipment()
+    _finale_triggered = true
+    return GameRules.CommandCode.FINALE_TRIGGERED
 
 func _settle_pending_shipment() -> Dictionary:
     var payout := GameRules.shipment_payout(_counts_snapshot(_pending_shipment_counts))
@@ -1020,6 +1037,8 @@ static func _morning_summary_state_error(value: Variant, state: Dictionary) -> S
     return ""
 
 func _active_day_failure() -> int:
+    if _finale_triggered:
+        return GameRules.CommandCode.FINALE_ALREADY_TRIGGERED
     if _pending_morning_summary != null:
         return GameRules.CommandCode.DAY_SUMMARY_PENDING
     return -1

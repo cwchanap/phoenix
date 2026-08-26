@@ -1,0 +1,81 @@
+[gd_scene load_steps=2 format=4]
+
+[ext_resource type="Script" path="res://scripts/ui/result_screen.gd" id="1_result"]
+
+[node name="ResultScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_result")
+
+[node name="Panel" type="Panel" parent="."]
+offset_left = 140.0
+offset_top = 40.0
+offset_right = 500.0
+offset_bottom = 320.0
+
+[node name="Title" type="Label" parent="Panel"]
+offset_left = 20.0
+offset_top = 16.0
+offset_right = 340.0
+offset_bottom = 44.0
+text = "Harvest Result"
+horizontal_alignment = 1
+
+[node name="Shipped" type="Label" parent="Panel"]
+offset_left = 20.0
+offset_top = 54.0
+offset_right = 340.0
+offset_bottom = 74.0
+text = "Shipped"
+horizontal_alignment = 1
+
+[node name="Money" type="Label" parent="Panel"]
+offset_left = 20.0
+offset_top = 78.0
+offset_right = 340.0
+offset_bottom = 98.0
+text = "Final money"
+horizontal_alignment = 1
+
+[node name="Relationship" type="Label" parent="Panel"]
+offset_left = 20.0
+offset_top = 102.0
+offset_right = 340.0
+offset_bottom = 122.0
+text = "Closest villager"
+horizontal_alignment = 1
+
+[node name="VillagerLine" type="Label" parent="Panel"]
+offset_left = 20.0
+offset_top = 130.0
+offset_right = 340.0
+offset_bottom = 186.0
+text = ""
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="SaveStatus" type="Label" parent="Panel"]
+offset_left = 20.0
+offset_top = 190.0
+offset_right = 340.0
+offset_bottom = 214.0
+text = ""
+horizontal_alignment = 1
+
+[node name="NewGame" type="Button" parent="Panel"]
+offset_left = 30.0
+offset_top = 238.0
+offset_right = 170.0
+offset_bottom = 268.0
+text = "New Game"
+
+[node name="ReturnToTitle" type="Button" parent="Panel"]
+offset_left = 190.0
+offset_top = 238.0
+offset_right = 330.0
+offset_bottom = 268.0
+text = "Return to Title"

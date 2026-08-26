@@ -5,6 +5,7 @@ const WORLD_SCENE := preload("res://scenes/world/world.tscn")
 var _save_repository: SaveRepository
 var _continue_state: Variant = null
 @onready var _title_screen: TitleScreen = $TitleScreen as TitleScreen
+@onready var _result_screen: ResultScreen = $ResultScreen as ResultScreen
 
 func configure(repository: SaveRepository) -> void:
     assert(not is_inside_tree())
@@ -15,6 +16,8 @@ func _ready() -> void:
         _save_repository = SaveRepository.new()
     _title_screen.new_game_requested.connect(_on_new_game_requested)
     _title_screen.continue_requested.connect(_on_continue_requested)
+    _result_screen.new_game_requested.connect(_on_result_new_game_requested)
+    _result_screen.return_to_title_requested.connect(_on_result_return_to_title)
     _load_title_state()
 
 func _load_title_state() -> void:
@@ -45,8 +48,32 @@ func _on_continue_requested() -> void:
 func _launch(initial_state: Variant) -> void:
     if get_node_or_null("World") != null:
         return
+    if initial_state != null and bool(initial_state["finale_triggered"]):
+        _show_result(initial_state, OK)
+        return
     var world := WORLD_SCENE.instantiate() as WorldShell
     world.name = "World"
     world.configure(initial_state, _save_repository)
+    world.finale_completed.connect(_on_finale_completed)
     add_child(world)
     _title_screen.visible = false
+
+func _on_finale_completed(final_state: Dictionary, save_error: int) -> void:
+    _show_result(final_state, save_error)
+
+func _show_result(state: Dictionary, save_error: int) -> void:
+    var world := get_node_or_null("World")
+    if world != null:
+        remove_child(world)
+        world.queue_free()
+    _title_screen.visible = false
+    _result_screen.present(ContentRules.build_harvest_result(state), save_error)
+
+func _on_result_new_game_requested() -> void:
+    _result_screen.visible = false
+    _launch(null)
+
+func _on_result_return_to_title() -> void:
+    _result_screen.visible = false
+    _title_screen.visible = true
+    _load_title_state()

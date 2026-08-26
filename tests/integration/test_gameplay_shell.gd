@@ -483,7 +483,7 @@ func test_modal_gates_toggle_buttons_so_hud_matches_session_after_close() -> voi
         GameRules.crop_key(GameRules.CropKind.POTATO) == snapshot["selected_seed"],
     )
 
-func test_day_fourteen_shipping_and_sleep_boundary_copy_is_visible() -> void:
+func test_day_fourteen_boundary_copy_is_explicit_about_shipped_only() -> void:
     var world := _world()
     if world == null:
         return
@@ -492,18 +492,34 @@ func test_day_fourteen_shipping_and_sleep_boundary_copy_is_visible() -> void:
         return
     var snapshot := world._session.snapshot()
     snapshot["day"] = GameRules.MAX_DAY
+    snapshot["harvested"] = {&"turnip": 2, &"potato": 0, &"pumpkin": 0}
     hud.render(snapshot)
 
     hud.open_shipping()
     var shipping_boundary := _panel(hud, "ShippingPanel").get_node("Boundary") as Label
-    assert_true(shipping_boundary.text.contains("pending crops won't settle at this boundary"))
+    assert_true(shipping_boundary.text.contains("only crops deposited here count"))
 
     hud.open_sleep_confirmation()
     var sleep_boundary := _panel(hud, "SleepPanel").get_node("Boundary") as Label
-    assert_true(sleep_boundary.text.contains("sleeping cannot advance/pay"))
-    hud.show_feedback(GameRules.CommandCode.DAY_LIMIT_REACHED)
-    var sleep_feedback := _panel(hud, "SleepPanel").get_node("InlineFeedback") as Label
-    assert_true(sleep_feedback.text.contains("cannot advance/pay"))
+    assert_true(sleep_boundary.text.contains("sleeping ends the run and settles the shipping bin"))
+
+func test_market_target_hint_and_pre_finale_routing() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    await _place_target(world, WorldContract.MARKET_CELL)
+    await get_tree().process_frame
+    var hint := hud.get_node("HudRoot/InteractionHint") as Label
+    assert_eq(hint.text, "Harvest Market — E")
+
+    var before := world._session.snapshot()
+    world.interact()
+    assert_eq(world._session.snapshot(), before)
+    var feedback := hud.get_node("HudRoot/Feedback") as Label
+    assert_true(feedback.text.contains("opens on Day 14"))
 
 func test_villager_interaction_opens_dialogue_and_gates_world_input() -> void:
     var world := _world()
