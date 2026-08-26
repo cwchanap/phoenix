@@ -511,6 +511,9 @@ func test_market_target_hint_and_pre_finale_routing() -> void:
     if hud == null:
         return
     await _place_target(world, WorldContract.MARKET_CELL)
+    # WorldShell._process refreshes the hint after the process_frame signal
+    # fires, so a single frame can still observe the pre-placement hint.
+    await get_tree().process_frame
     await get_tree().process_frame
     var hint := hud.get_node("HudRoot/InteractionHint") as Label
     assert_eq(hint.text, "Harvest Market — E")
