@@ -42,7 +42,7 @@ func _seed_harvested(session: GameSession, counts: Array[int]) -> void:
 func test_new_session_has_exact_starter_state() -> void:
     var session := GameSession.new(func() -> float: return 0.9)
     var snapshot := session.snapshot()
-    assert_eq(snapshot.size(), 14)
+    assert_eq(snapshot.size(), 18)
     assert_eq(snapshot.keys(), [
         "day",
         "time_minutes",
@@ -58,6 +58,10 @@ func test_new_session_has_exact_starter_state() -> void:
         "farm",
         "pending_morning_summary",
         "relationships",
+        "intro_acknowledged",
+        "tutorial",
+        "shipped",
+        "finale_triggered",
     ])
     assert_eq(snapshot["max_stamina"], GameRules.MAX_STAMINA)
     assert_eq(snapshot["day"], 1)
@@ -95,6 +99,14 @@ func test_new_session_has_exact_starter_state() -> void:
             "close_friend_dialogue_seen": false,
         },
     })
+    assert_false(snapshot["intro_acknowledged"])
+    assert_eq(snapshot["tutorial"], ContentRules.initial_tutorial_progress())
+    assert_eq(snapshot["shipped"], {&"turnip": 0, &"potato": 0, &"pumpkin": 0})
+    assert_false(snapshot["finale_triggered"])
+
+    var starter_state := session.state()
+    for field in ["intro_acknowledged", "tutorial", "shipped", "finale_triggered"]:
+        assert_true(starter_state.has(field))
 
     var expected_cells := WorldContract.farm_cells()
     for index in expected_cells.size():
@@ -109,10 +121,14 @@ func test_snapshot_is_deeply_isolated() -> void:
     snapshot["farm"][0]["tilled"] = true
     snapshot["seeds"][&"turnip"] = 99
     snapshot["relationships"][&"resident"]["points"] = 99
+    snapshot["tutorial"][&"farm_basics"] = true
+    snapshot["shipped"][&"turnip"] = 99
     var fresh := session.snapshot()
     assert_false(fresh["farm"][0]["tilled"])
     assert_eq(fresh["seeds"][&"turnip"], 3)
     assert_eq(fresh["relationships"][&"resident"]["points"], 0)
+    assert_false(fresh["tutorial"][&"farm_basics"])
+    assert_eq(fresh["shipped"][&"turnip"], 0)
 
     _plant_turnip(session)
     var planted := session.snapshot()
@@ -140,11 +156,15 @@ func test_state_is_deeply_isolated_and_excludes_derived_fields() -> void:
     mutable_state["harvested"][&"turnip"] = 99
     mutable_state["relationships"][&"resident"]["points"] = 99
     mutable_state["farm"][0]["tilled"] = true
+    mutable_state["tutorial"][&"gift"] = true
+    mutable_state["shipped"][&"pumpkin"] = 99
 
     var fresh := session.state()
     assert_eq(fresh["harvested"][&"turnip"], 1)
     assert_eq(fresh["relationships"][&"resident"]["points"], 1)
     assert_false(fresh["farm"][0]["tilled"])
+    assert_false(fresh["tutorial"][&"gift"])
+    assert_eq(fresh["shipped"][&"pumpkin"], 0)
     assert_eq(session.snapshot()["max_stamina"], GameRules.MAX_STAMINA)
     assert_eq(session.snapshot()["relationships"][&"resident"]["level"], &"stranger")
 
@@ -297,6 +317,246 @@ func test_state_error_rejects_invalid_current_rule_shapes() -> void:
 
     for candidate in candidates:
         assert_ne(GameSession.state_error(candidate), "")
+
+func test_state_error_rejects_invalid_onboarding_and_finale_shapes() -> void:
+    var valid := GameSession.new().state()
+    assert_eq(GameSession.state_error(valid), "")
+    var candidates: Array[Dictionary] = []
+    var invalid: Dictionary = valid.duplicate(true)
+
+    for field in ["intro_acknowledged", "tutorial", "shipped", "finale_triggered"]:
+        invalid = valid.duplicate(true)
+        invalid.erase(field)
+        candidates.append(invalid)
+
+    invalid = valid.duplicate(true)
+    invalid.erase("intro_acknowledged")
+    invalid.erase("tutorial")
+    invalid.erase("shipped")
+    invalid.erase("finale_triggered")
+    candidates.append(invalid)
+
+    invalid = valid.duplicate(true)
+    invalid["intro_acknowledged"] = "yes"
+    candidates.append(invalid)
+
+    invalid = valid.duplicate(true)
+    invalid["tutorial"].erase(&"farm_basics")
+    candidates.append(invalid)
+    invalid = valid.duplicate(true)
+    invalid["tutorial"][&"extra"] = true
+    candidates.append(invalid)
+    invalid = valid.duplicate(true)
+    invalid["tutorial"][&"farm_basics"] = 1
+    candidates.append(invalid)
+
+    invalid = valid.duplicate(true)
+    invalid["shipped"][&"turnip"] = -1
+    candidates.append(invalid)
+
+    invalid = valid.duplicate(true)
+    invalid["finale_triggered"] = "yes"
+    candidates.append(invalid)
+    invalid = valid.duplicate(true)
+    invalid["finale_triggered"] = true
+    candidates.append(invalid)
+
+    var finale_session := GameSession.new(func() -> float: return 0.9)
+    while int(finale_session.snapshot()["day"]) < GameRules.MAX_DAY:
+        assert_eq(finale_session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+        if int(finale_session.snapshot()["day"]) < GameRules.MAX_DAY:
+            assert_eq(
+                finale_session.acknowledge_morning_summary(),
+                GameRules.CommandCode.DAY_STARTED,
+            )
+    var final_day := finale_session.state()
+
+    invalid = final_day.duplicate(true)
+    invalid["pending_morning_summary"] = null
+    invalid["finale_triggered"] = true
+    assert_eq(GameSession.state_error(invalid), "")
+
+    invalid = final_day.duplicate(true)
+    invalid["finale_triggered"] = true
+    candidates.append(invalid)
+
+    invalid = final_day.duplicate(true)
+    invalid["pending_morning_summary"] = null
+    invalid["finale_triggered"] = true
+    invalid["pending_shipment"][&"turnip"] = 1
+    candidates.append(invalid)
+
+    for candidate in candidates:
+        assert_ne(GameSession.state_error(candidate), "")
+
+func test_acknowledge_intro_mutates_once_and_duplicate_is_noop() -> void:
+    var session := GameSession.new()
+    assert_false(session.snapshot()["intro_acknowledged"])
+    assert_eq(session.acknowledge_intro(), GameRules.CommandCode.INTRO_ACKNOWLEDGED)
+    assert_true(session.snapshot()["intro_acknowledged"])
+    var after_first := session.state()
+    assert_eq(
+        session.acknowledge_intro(),
+        GameRules.CommandCode.INTRO_ALREADY_ACKNOWLEDGED,
+    )
+    assert_eq(session.state(), after_first)
+
+func test_tutorials_complete_only_on_authoritative_successes() -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    var cell := WorldContract.farm_cells()[0]
+    var second := WorldContract.farm_cells()[1]
+
+    assert_eq(session.hoe(Vector2i(0, 0)), GameRules.CommandCode.NOT_FARM_CELL)
+    assert_false(session.state()["tutorial"][&"farm_basics"])
+    assert_eq(session.hoe(cell), GameRules.CommandCode.SOIL_TILLED)
+    assert_true(session.state()["tutorial"][&"farm_basics"])
+
+    assert_eq(session.plant(second), GameRules.CommandCode.SOIL_UNTILLED)
+    assert_false(session.state()["tutorial"][&"plant"])
+    assert_eq(session.plant(cell), GameRules.CommandCode.CROP_PLANTED)
+    assert_true(session.state()["tutorial"][&"plant"])
+
+    assert_eq(session.hoe(second), GameRules.CommandCode.SOIL_TILLED)
+    assert_eq(session.water(second), GameRules.CommandCode.NO_CROP)
+    assert_false(session.state()["tutorial"][&"water"])
+    assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    assert_true(session.state()["tutorial"][&"water"])
+
+    assert_eq(session.harvest(cell), GameRules.CommandCode.CROP_IMMATURE)
+    assert_false(session.state()["tutorial"][&"harvest"])
+    assert_eq(session.plant(second), GameRules.CommandCode.CROP_PLANTED)
+    assert_eq(session.water(second), GameRules.CommandCode.CROP_WATERED)
+
+    assert_eq(session.sleep(Vector2i(0, 0)), GameRules.CommandCode.NOT_AT_BED)
+    assert_false(session.state()["tutorial"][&"sleep"])
+    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+    assert_true(session.state()["tutorial"][&"sleep"])
+    assert_eq(
+        session.acknowledge_morning_summary(),
+        GameRules.CommandCode.DAY_STARTED,
+    )
+
+    assert_eq(
+        session.buy_seeds(GameRules.CropKind.POTATO, 1, Vector2i(0, 0)),
+        GameRules.CommandCode.NOT_AT_SHOP,
+    )
+    assert_false(session.state()["tutorial"][&"buy_seeds"])
+    assert_eq(
+        session.buy_seeds(GameRules.CropKind.POTATO, 1, WorldContract.SHOP_CELL),
+        GameRules.CommandCode.SEEDS_PURCHASED,
+    )
+    assert_true(session.state()["tutorial"][&"buy_seeds"])
+
+    var mira := VillagerRules.VillagerId.SHOPKEEPER
+    assert_eq(
+        session.talk_to(mira, Vector2i(0, 0))["code"],
+        GameRules.CommandCode.NOT_AT_VILLAGER,
+    )
+    assert_false(session.state()["tutorial"][&"talk"])
+    assert_eq(
+        session.talk_to(mira, WorldContract.villager_cell(mira))["code"],
+        GameRules.CommandCode.VILLAGER_TALKED,
+    )
+    assert_true(session.state()["tutorial"][&"talk"])
+
+    var tutorial_before_selection: Dictionary = session.state()["tutorial"]
+    assert_eq(
+        session.select_action(GameRules.FarmingAction.SEEDS),
+        GameRules.CommandCode.ACTION_SELECTED,
+    )
+    assert_eq(
+        session.select_seed(GameRules.CropKind.POTATO),
+        GameRules.CommandCode.SEED_SELECTED,
+    )
+    assert_eq(session.state()["tutorial"], tutorial_before_selection)
+
+    for _night in 2:
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+        assert_eq(session.water(second), GameRules.CommandCode.CROP_WATERED)
+        assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+        assert_eq(
+            session.acknowledge_morning_summary(),
+            GameRules.CommandCode.DAY_STARTED,
+        )
+
+    assert_eq(session.harvest(cell), GameRules.CommandCode.CROP_HARVESTED)
+    assert_true(session.state()["tutorial"][&"harvest"])
+    assert_eq(session.harvest(second), GameRules.CommandCode.CROP_HARVESTED)
+
+    assert_eq(
+        session.deposit_crop(GameRules.CropKind.TURNIP, 1, Vector2i(0, 0)),
+        GameRules.CommandCode.NOT_AT_SHIPPING_BIN,
+    )
+    assert_false(session.state()["tutorial"][&"shipping"])
+    assert_eq(
+        session.deposit_crop(GameRules.CropKind.TURNIP, 1, WorldContract.SHIPPING_CELL),
+        GameRules.CommandCode.CROP_DEPOSITED,
+    )
+    assert_true(session.state()["tutorial"][&"shipping"])
+
+    assert_eq(
+        session.gift_crop(
+            mira,
+            GameRules.CropKind.PUMPKIN,
+            WorldContract.villager_cell(mira),
+        )["code"],
+        GameRules.CommandCode.INSUFFICIENT_CROPS,
+    )
+    assert_false(session.state()["tutorial"][&"gift"])
+    assert_eq(
+        session.gift_crop(
+            mira,
+            GameRules.CropKind.TURNIP,
+            WorldContract.villager_cell(mira),
+        )["code"],
+        GameRules.CommandCode.CROP_GIFTED,
+    )
+    assert_true(session.state()["tutorial"][&"gift"])
+
+func test_normal_sleep_accumulates_lifetime_shipped_counts() -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    _grow_and_harvest_turnip(session)
+    assert_eq(
+        session.deposit_crop(GameRules.CropKind.TURNIP, 1, WorldContract.SHIPPING_CELL),
+        GameRules.CommandCode.CROP_DEPOSITED,
+    )
+    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+
+    var first := session.snapshot()
+    assert_eq(first["money"], GameRules.STARTING_MONEY + 35)
+    assert_eq(first["pending_shipment"], {&"turnip": 0, &"potato": 0, &"pumpkin": 0})
+    assert_eq(first["shipped"], {&"turnip": 1, &"potato": 0, &"pumpkin": 0})
+    assert_eq(first["pending_morning_summary"]["shipping_income"], 35)
+    assert_eq(
+        first["pending_morning_summary"]["shipments"],
+        [{"crop": &"turnip", "quantity": 1, "amount": 35}],
+    )
+    assert_eq(session.acknowledge_morning_summary(), GameRules.CommandCode.DAY_STARTED)
+
+    _grow_and_harvest_turnip(session, SECOND_FARM_CELL)
+    assert_eq(
+        session.deposit_crop(GameRules.CropKind.TURNIP, 1, WorldContract.SHIPPING_CELL),
+        GameRules.CommandCode.CROP_DEPOSITED,
+    )
+    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+
+    var second := session.snapshot()
+    assert_eq(second["shipped"], {&"turnip": 2, &"potato": 0, &"pumpkin": 0})
+    assert_eq(second["money"], GameRules.STARTING_MONEY + 70)
+    assert_eq(second["pending_morning_summary"]["shipping_income"], 35)
+    assert_eq(second["pending_morning_summary"]["money_after_shipping"], GameRules.STARTING_MONEY + 70)
+    assert_eq(session.acknowledge_morning_summary(), GameRules.CommandCode.DAY_STARTED)
+
+    _grow_and_harvest_turnip(session, WorldContract.farm_cells()[2])
+    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+
+    var third := session.snapshot()
+    assert_eq(third["harvested"][&"turnip"], 1)
+    assert_eq(third["pending_shipment"], {&"turnip": 0, &"potato": 0, &"pumpkin": 0})
+    assert_eq(third["shipped"], {&"turnip": 2, &"potato": 0, &"pumpkin": 0})
+    assert_eq(third["money"], GameRules.STARTING_MONEY + 70)
+    assert_eq(third["pending_morning_summary"]["shipping_income"], 0)
+    assert_eq(third["pending_morning_summary"]["shipments"], [])
 
 func test_talk_to_awards_first_point_and_repeat_is_zero() -> void:
     var session := GameSession.new(func() -> float: return 0.9)

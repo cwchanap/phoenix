@@ -11,6 +11,10 @@ var _money: int = GameRules.STARTING_MONEY
 var _seed_counts: Array[int] = GameRules.starting_seed_counts()
 var _harvested_counts: Array[int] = [0, 0, 0]
 var _pending_shipment_counts: Array[int] = [0, 0, 0]
+var _shipped_counts: Array[int] = [0, 0, 0]
+var _intro_acknowledged := false
+var _tutorial_progress: Dictionary = ContentRules.initial_tutorial_progress()
+var _finale_triggered := false
 var _farm: Array[Dictionary] = []
 var _relationships: Array[Dictionary] = []
 var _pending_morning_summary: Variant = null
@@ -46,6 +50,10 @@ func state() -> Dictionary:
         "farm": _farm_snapshot(),
         "pending_morning_summary": _pending_morning_summary,
         "relationships": _relationships_state(),
+        "intro_acknowledged": _intro_acknowledged,
+        "tutorial": _tutorial_progress.duplicate(true),
+        "shipped": _counts_snapshot(_shipped_counts),
+        "finale_triggered": _finale_triggered,
     }.duplicate(true)
 
 func snapshot() -> Dictionary:
@@ -65,6 +73,10 @@ func snapshot() -> Dictionary:
         "farm": state_result["farm"],
         "pending_morning_summary": state_result["pending_morning_summary"],
         "relationships": state_result["relationships"],
+        "intro_acknowledged": state_result["intro_acknowledged"],
+        "tutorial": state_result["tutorial"],
+        "shipped": state_result["shipped"],
+        "finale_triggered": state_result["finale_triggered"],
     }
     for id in range(VillagerRules.VillagerId.size()):
         var key := VillagerRules.villager_key(id)
@@ -173,6 +185,32 @@ static func state_error(candidate: Variant) -> String:
     if pending_shipment_error != "":
         return pending_shipment_error
 
+    var intro_field := _field(state, "intro_acknowledged", "intro_acknowledged")
+    if not bool(intro_field["ok"]):
+        return String(intro_field["error"])
+    if not (intro_field["value"] is bool):
+        return "intro_acknowledged must be a boolean"
+
+    var tutorial_field := _field(state, "tutorial", "tutorial")
+    if not bool(tutorial_field["ok"]):
+        return String(tutorial_field["error"])
+    var tutorial_result := _dictionary(tutorial_field["value"], "tutorial")
+    if not bool(tutorial_result["ok"]):
+        return String(tutorial_result["error"])
+    var tutorial_error := _tutorial_state_error(tutorial_result["value"])
+    if tutorial_error != "":
+        return tutorial_error
+
+    var shipped_field := _field(state, "shipped", "shipped")
+    if not bool(shipped_field["ok"]):
+        return String(shipped_field["error"])
+    var shipped_result := _dictionary(shipped_field["value"], "shipped")
+    if not bool(shipped_result["ok"]):
+        return String(shipped_result["error"])
+    var shipped_error := _counts_state_error(shipped_result["value"])
+    if shipped_error != "":
+        return shipped_error
+
     var farm_field := _field(state, "farm", "farm")
     if not bool(farm_field["ok"]):
         return String(farm_field["error"])
@@ -203,7 +241,10 @@ static func state_error(candidate: Variant) -> String:
     )
     if not bool(summary_field["ok"]):
         return String(summary_field["error"])
-    return _morning_summary_state_error(summary_field["value"], state)
+    var summary_error := _morning_summary_state_error(summary_field["value"], state)
+    if summary_error != "":
+        return summary_error
+    return _finale_state_error(state)
 
 func restore_state(candidate: Dictionary) -> bool:
     if state_error(candidate) != "":
@@ -219,6 +260,13 @@ func restore_state(candidate: Dictionary) -> bool:
     _seed_counts = _counts_array(candidate["seeds"])
     _harvested_counts = _counts_array(candidate["harvested"])
     _pending_shipment_counts = _counts_array(candidate["pending_shipment"])
+    _intro_acknowledged = bool(candidate["intro_acknowledged"])
+    _tutorial_progress = {}
+    for id in ContentRules.tutorial_keys():
+        var field := _named_dictionary_value(candidate["tutorial"], id, "tutorial %s" % id)
+        _tutorial_progress[id] = bool(field["value"])
+    _shipped_counts = _counts_array(candidate["shipped"])
+    _finale_triggered = bool(candidate["finale_triggered"])
     _farm = _farm_array(candidate["farm"])
     _relationships = _relationship_array(candidate["relationships"])
     _pending_morning_summary = (
@@ -294,7 +342,7 @@ func hoe(target_cell: Variant) -> GameRules.CommandCode:
     tile["tilled"] = true
     _farm[index] = tile
     _commit_budget(budget)
-    return GameRules.CommandCode.SOIL_TILLED
+    return _commit(GameRules.CommandCode.SOIL_TILLED)
 
 func plant(target_cell: Variant) -> GameRules.CommandCode:
     var active_failure := _active_day_failure()
@@ -328,7 +376,7 @@ func plant(target_cell: Variant) -> GameRules.CommandCode:
     _farm[index] = tile
     _seed_counts[_selected_seed] -= 1
     _commit_budget(budget)
-    return GameRules.CommandCode.CROP_PLANTED
+    return _commit(GameRules.CommandCode.CROP_PLANTED)
 
 func water(target_cell: Variant) -> GameRules.CommandCode:
     var active_failure := _active_day_failure()
@@ -363,7 +411,7 @@ func water(target_cell: Variant) -> GameRules.CommandCode:
     tile["crop"] = crop
     _farm[index] = tile
     _commit_budget(budget)
-    return GameRules.CommandCode.CROP_WATERED
+    return _commit(GameRules.CommandCode.CROP_WATERED)
 
 func harvest(target_cell: Variant) -> GameRules.CommandCode:
     var active_failure := _active_day_failure()
@@ -394,7 +442,7 @@ func harvest(target_cell: Variant) -> GameRules.CommandCode:
     _farm[index] = tile
     _harvested_counts[kind] += 1
     _commit_budget(budget)
-    return GameRules.CommandCode.CROP_HARVESTED
+    return _commit(GameRules.CommandCode.CROP_HARVESTED)
 
 func buy_seeds(
     kind: GameRules.CropKind,
@@ -415,7 +463,7 @@ func buy_seeds(
 
     _money -= total
     _seed_counts[kind] += quantity
-    return GameRules.CommandCode.SEEDS_PURCHASED
+    return _commit(GameRules.CommandCode.SEEDS_PURCHASED)
 
 func deposit_crop(
     kind: GameRules.CropKind,
@@ -434,7 +482,7 @@ func deposit_crop(
 
     _harvested_counts[kind] -= quantity
     _pending_shipment_counts[kind] += quantity
-    return GameRules.CommandCode.CROP_DEPOSITED
+    return _commit(GameRules.CommandCode.CROP_DEPOSITED)
 
 func _social_failure(code: GameRules.CommandCode) -> Dictionary:
     return {"code": code, "lines": [], "points_gained": 0, "gift_reaction": &"", "close_friend_sequence": false}
@@ -446,6 +494,7 @@ func _social_success(
     gift_reaction: StringName = &"",
     close_friend_sequence: bool = false,
 ) -> Dictionary:
+    code = _commit(code)
     return {
         "code": code,
         "lines": lines.duplicate(),
@@ -528,7 +577,6 @@ func sleep(target_cell: Variant) -> GameRules.CommandCode:
     var completed_weather := _weather
     var stamina_restored := GameRules.MAX_STAMINA - _stamina
     var next_weather := GameRules.weather_from_roll(float(_weather_roll.call()))
-    var payout := GameRules.shipment_payout(_counts_snapshot(_pending_shipment_counts))
 
     var crops_advanced := 0
     for index in _farm.size():
@@ -545,8 +593,7 @@ func sleep(target_cell: Variant) -> GameRules.CommandCode:
         tile["crop"] = crop
         _farm[index] = tile
 
-    _money += int(payout["total"])
-    _pending_shipment_counts = [0, 0, 0]
+    var payout := _settle_pending_shipment()
     _day += 1
     _time_minutes = GameRules.DAY_START_MINUTES
     _stamina = GameRules.MAX_STAMINA
@@ -564,13 +611,27 @@ func sleep(target_cell: Variant) -> GameRules.CommandCode:
     for relationship in _relationships:
         relationship["talked_today"] = false
         relationship["gifted_today"] = false
-    return GameRules.CommandCode.DAY_ADVANCED
+    return _commit(GameRules.CommandCode.DAY_ADVANCED)
+
+func _settle_pending_shipment() -> Dictionary:
+    var payout := GameRules.shipment_payout(_counts_snapshot(_pending_shipment_counts))
+    for kind in range(GameRules.CropKind.size()):
+        _shipped_counts[kind] += _pending_shipment_counts[kind]
+    _money += int(payout["total"])
+    _pending_shipment_counts = [0, 0, 0]
+    return payout
 
 func acknowledge_morning_summary() -> GameRules.CommandCode:
     if _pending_morning_summary == null:
         return GameRules.CommandCode.NO_DAY_SUMMARY
     _pending_morning_summary = null
     return GameRules.CommandCode.DAY_STARTED
+
+func acknowledge_intro() -> GameRules.CommandCode:
+    if _intro_acknowledged:
+        return GameRules.CommandCode.INTRO_ALREADY_ACKNOWLEDGED
+    _intro_acknowledged = true
+    return GameRules.CommandCode.INTRO_ACKNOWLEDGED
 
 static func _field(map: Dictionary, key: String, label: String) -> Dictionary:
     if not map.has(key):
@@ -624,6 +685,40 @@ static func _counts_state_error(value: Dictionary) -> String:
             return String(count_result["error"])
         if int(count_result["value"]) < 0:
             return "crop count %s must be non-negative" % key
+    return ""
+
+static func _tutorial_state_error(value: Dictionary) -> String:
+    if value.size() != ContentRules.tutorial_keys().size():
+        return "tutorial must contain exactly the tutorial keys"
+    for id in ContentRules.tutorial_keys():
+        var field := _named_dictionary_value(value, id, "tutorial %s" % id)
+        if not bool(field["ok"]):
+            return String(field["error"])
+        if not (field["value"] is bool):
+            return "tutorial %s must be a boolean" % id
+    return ""
+
+static func _finale_state_error(state: Dictionary) -> String:
+    var finale_field := _field(state, "finale_triggered", "finale_triggered")
+    if not bool(finale_field["ok"]):
+        return String(finale_field["error"])
+    if not (finale_field["value"] is bool):
+        return "finale_triggered must be a boolean"
+    if not bool(finale_field["value"]):
+        return ""
+    if int(state["day"]) < GameRules.MAX_DAY:
+        return "finale_triggered requires the final day"
+    if state["pending_morning_summary"] != null:
+        return "finale_triggered cannot leave a pending morning summary"
+    for kind in range(GameRules.CropKind.size()):
+        var key := GameRules.crop_key(kind)
+        var count_field := _named_dictionary_value(
+            state["pending_shipment"],
+            key,
+            "crop count %s" % key,
+        )
+        if int(count_field["value"]) > 0:
+            return "finale_triggered cannot leave a pending shipment"
     return ""
 
 static func _farm_state_error(value: Array) -> String:
@@ -943,6 +1038,12 @@ func _farm_index(target_cell: Variant) -> int:
         if _farm[index]["cell"] == target_cell:
             return index
     return -1
+
+func _commit(code: GameRules.CommandCode) -> GameRules.CommandCode:
+    var tutorial_id := ContentRules.tutorial_for_code(code)
+    if tutorial_id != &"":
+        _tutorial_progress[tutorial_id] = true
+    return code
 
 func _commit_budget(budget: Dictionary) -> void:
     _time_minutes = int(budget["time_minutes"])
