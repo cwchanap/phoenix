@@ -15,7 +15,7 @@ script = ExtResource("1_result")
 offset_left = 140.0
 offset_top = 40.0
 offset_right = 500.0
-offset_bottom = 320.0
+offset_bottom = 356.0
 
 [node name="Title" type="Label" parent="Panel"]
 offset_left = 20.0
@@ -49,33 +49,51 @@ offset_bottom = 122.0
 text = "Closest villager"
 horizontal_alignment = 1
 
-[node name="VillagerLine" type="Label" parent="Panel"]
+[node name="MiraLine" type="Label" parent="Panel"]
 offset_left = 20.0
-offset_top = 130.0
+offset_top = 128.0
 offset_right = 340.0
-offset_bottom = 186.0
+offset_bottom = 172.0
+text = ""
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="RowanLine" type="Label" parent="Panel"]
+offset_left = 20.0
+offset_top = 176.0
+offset_right = 340.0
+offset_bottom = 220.0
+text = ""
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="JuneLine" type="Label" parent="Panel"]
+offset_left = 20.0
+offset_top = 224.0
+offset_right = 340.0
+offset_bottom = 268.0
 text = ""
 horizontal_alignment = 1
 autowrap_mode = 3
 
 [node name="SaveStatus" type="Label" parent="Panel"]
 offset_left = 20.0
-offset_top = 190.0
+offset_top = 276.0
 offset_right = 340.0
-offset_bottom = 214.0
+offset_bottom = 298.0
 text = ""
 horizontal_alignment = 1
 
 [node name="NewGame" type="Button" parent="Panel"]
 offset_left = 30.0
-offset_top = 238.0
+offset_top = 312.0
 offset_right = 170.0
-offset_bottom = 268.0
+offset_bottom = 342.0
 text = "New Game"
 
 [node name="ReturnToTitle" type="Button" parent="Panel"]
 offset_left = 190.0
-offset_top = 238.0
+offset_top = 312.0
 offset_right = 330.0
-offset_bottom = 268.0
+offset_bottom = 342.0
 text = "Return to Title"

@@ -181,10 +181,13 @@ static func build_harvest_result(state: Dictionary) -> Dictionary:
     var has_friend := false
     var featured := VillagerRules.VillagerId.SHOPKEEPER
     var featured_level := VillagerRules.RelationshipLevel.STRANGER
+    var villagers: Dictionary = {}
     var relationships: Dictionary = state["relationships"]
     for id in range(VillagerRules.VillagerId.size()):
-        var villager: Dictionary = relationships[VillagerRules.villager_key(id)]
-        var level: VillagerRules.RelationshipLevel = VillagerRules.relationship_level(int(villager["points"]))
+        var key := VillagerRules.villager_key(id)
+        var level: VillagerRules.RelationshipLevel = VillagerRules.relationship_level(
+            int(relationships[key]["points"])
+        )
         if level == VillagerRules.RelationshipLevel.CLOSE_FRIEND:
             has_close_friend = true
         if level >= VillagerRules.RelationshipLevel.FRIEND:
@@ -192,6 +195,11 @@ static func build_harvest_result(state: Dictionary) -> Dictionary:
         if level > featured_level:
             featured = id
             featured_level = level
+        villagers[key] = {
+            "name": VillagerRules.display_name(id),
+            "level": VillagerRules.relationship_key(level),
+            "line": VillagerRules.finale_line(id, level),
+        }
 
     var tier := &"new_beginning"
     var title := "New Beginning"
@@ -209,5 +217,5 @@ static func build_harvest_result(state: Dictionary) -> Dictionary:
         "shipped_value": shipped_value,
         "final_money": int(state["money"]),
         "villager": VillagerRules.display_name(featured),
-        "line": VillagerRules.finale_line(featured, featured_level),
+        "villagers": villagers,
     }

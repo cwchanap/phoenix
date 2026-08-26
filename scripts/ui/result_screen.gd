@@ -16,10 +16,23 @@ func present(result: Dictionary, save_error: int = OK) -> void:
     ]
     ($Panel/Money as Label).text = "Final money: %dG" % int(result["final_money"])
     ($Panel/Relationship as Label).text = "Closest villager: %s" % String(result["villager"])
-    ($Panel/VillagerLine as Label).text = String(result["line"])
+    var villagers: Dictionary = result["villagers"]
+    for id in range(VillagerRules.VillagerId.size()):
+        var villager: Dictionary = villagers[VillagerRules.villager_key(id)]
+        (get_node("Panel/%sLine" % VillagerRules.display_name(id)) as Label).text = "%s (%s): %s" % [
+            String(villager["name"]),
+            _level_display_name(villager["level"]),
+            String(villager["line"]),
+        ]
     ($Panel/SaveStatus as Label).text = (
         ""
         if save_error == OK
         else "Final result was not saved."
     )
     visible = true
+
+func _level_display_name(level_key: Variant) -> String:
+    for level in range(VillagerRules.RelationshipLevel.size()):
+        if VillagerRules.relationship_key(level) == level_key:
+            return VillagerRules.relationship_display_name(level)
+    return String(level_key)

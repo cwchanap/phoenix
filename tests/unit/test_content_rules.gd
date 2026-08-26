@@ -256,7 +256,7 @@ func test_harvest_result_totals_derive_from_sale_value_and_ignore_harvested() ->
         _result_for([0, 2, 0], [0, 0, 0], [5, 5, 5]),
     )
 
-func test_harvest_result_titles_and_featured_finale_line() -> void:
+func test_harvest_result_titles_and_closest_villager_summary() -> void:
     assert_eq(_result_for([0, 0, 0], [0, 0, 0])["title"], "New Beginning")
     assert_eq(_result_for([0, 2, 0], [0, 0, 0])["title"], "Promising Farmer")
     assert_eq(
@@ -264,13 +264,23 @@ func test_harvest_result_titles_and_featured_finale_line() -> void:
         "Heart of the Harvest",
     )
 
-    # The strongest relationship picks the one featured villager and line.
+    # The strongest relationship names the closest-villager summary.
     var result := _result_for([0, 0, 0], [0, 0, VillagerRules.CLOSE_FRIEND_POINTS])
     assert_eq(result["villager"], "June")
-    assert_eq(
-        result["line"],
-        VillagerRules.finale_line(
-            VillagerRules.VillagerId.RESIDENT,
-            VillagerRules.RelationshipLevel.CLOSE_FRIEND,
-        ),
-    )
+
+func test_harvest_result_carries_every_villager_level_and_line() -> void:
+    # Mixed final levels: one Close Friend, one Friend, one Stranger.
+    var points := [
+        VillagerRules.CLOSE_FRIEND_POINTS,
+        VillagerRules.FRIEND_POINTS,
+        0,
+    ]
+    var result := _result_for([0, 4, 0], points)
+    var villagers: Dictionary = result["villagers"]
+    assert_eq(villagers.size(), VillagerRules.VILLAGER_KEYS.size())
+    for id in range(VillagerRules.VillagerId.size()):
+        var villager: Dictionary = villagers[VillagerRules.villager_key(id)]
+        var level: VillagerRules.RelationshipLevel = VillagerRules.relationship_level(points[id])
+        assert_eq(villager["name"], VillagerRules.display_name(id))
+        assert_eq(villager["level"], VillagerRules.relationship_key(level))
+        assert_eq(villager["line"], VillagerRules.FINALE_LINES[id][level])
