@@ -4,7 +4,7 @@
 
 **Goal:** Turn the current Godot farming/economy/social/persistence shell into a self-explanatory 14-day MVP with contextual onboarding, one authored harvest-market finale, deterministic result tiers, and completed-save Continue.
 
-**Architecture:** Keep `GameSession` as the only mutable gameplay authority and `WorldShell` as the direct world/save coordinator. Add one pure `ContentRules` sibling for tutorial copy/eligibility and terminal result derivation; persist four content facts directly in `GameSession.state()`; share one shipment-settlement helper between normal sleep and finale; add one focused onboarding `Control`; author one market entity in the existing world; and add one presentation-only `ResultScreen` sibling under `AppRoot`. `SaveFileCodec` remains semantic-field-blind schema-v1 transport.
+**Architecture:** Keep `GameSession` as the only mutable gameplay authority and `WorldShell` as the direct world/save coordinator. Add one pure `ContentRules` sibling for tutorial copy/eligibility and terminal result derivation; persist four content facts directly in `GameSession.state()` and `snapshot()`; share one shipment-settlement helper between normal sleep and finale; add one focused onboarding `Control`; author one market entity in the existing world; and add one presentation-only `ResultScreen` sibling under `AppRoot`. The Day 14 bed return-code flip lands only in the same task that teaches the live shell/application to consume it. `SaveFileCodec` remains semantic-field-blind schema-v1 transport.
 
 **Tech Stack:** Godot 4.7.1 standard non-.NET, statically typed GDScript, Godot `Control` UI, existing sprite-isometric `TileMapLayer`/Y-sort world, GUT 9.7.1, existing headless SceneTree smokes, FileAccess JSON autosave.
 
@@ -20,21 +20,29 @@
 - Preserve current starter money/seeds, crop growth/sale values, weather, action costs, and relationship thresholds. HPA-599 owns balance tuning.
 - Add one pure `ContentRules` module only. No tutorial/quest/cutscene/event/scoring framework.
 - Persist exactly `intro_acknowledged`, exact tutorial flags, lifetime shipped crop counts, and `finale_triggered`.
+- Copy those four keys explicitly in both `GameSession.state()` and the current hand-built `snapshot()` dictionary.
+- `ContentRules.build_harvest_result()` consumes canonical `state()` and derives relationship levels from raw persisted `points`; do not depend on snapshot-only `level`.
 - Complete tutorial steps only after successful authoritative commands. Dismissal is transient UI state.
-- Normal sleep and finale share one shipment-settlement helper. Market and Day 14 sleep share one finale helper.
+- Normal sleep and finale share one shipment-settlement helper. Market and Day 14 sleep ultimately share one `_complete_finale()` helper.
+- **Do not change Day 14 `sleep()` from `DAY_LIMIT_REACHED` to `FINALE_TRIGGERED` until Task 4**, when `WorldShell`, final save, `AppRoot`, and `ResultScreen` consume it in the same vertical slice.
 - `GameHud.has_blocking_modal()` remains the one gameplay input gate. Opening blocks; contextual cards do not.
+- Full-rect onboarding root uses `MOUSE_FILTER_IGNORE`; opening panel uses `STOP`; the small tutorial card uses `STOP` only within its own bounds and must not cover the action/seed controls.
+- Fresh-world tests that expect movement/world commands press the real opening Start button first. Keep one test proving input is locked before Start. No production `skip_intro` flag.
 - Completed Continue routes directly to `ResultScreen`; there is no post-game world.
 - Final save failure never rolls back the ending. Show it; do not add retry/queue machinery.
 - New Game does not proactively delete the slot, matching HPA-598.
 - Extend existing GUT/headless seams; no browser hooks, second E2E harness, or production test API.
 - `AGENTS.md` stays a symlink to `CLAUDE.md`.
 - `tools/verify-clean.sh` stays unchanged and is a post-commit gate because it verifies archived `HEAD`.
+- HPA-599 owns packaging/export verification; HPA-597 does not add a macOS export-release gate.
 
 ---
 
 ### Task 0: Provision worktree GUT and freeze the baseline
 
 **Files:** no committed files; local gitignored `addons/gut/` only.
+
+**Produces:** a worktree-visible RED/GREEN runner matching `tools/verify-clean.sh`.
 
 - [ ] **Step 1: Confirm Godot and reuse the verifier's pinned GUT version/checksum**
 
@@ -66,7 +74,10 @@ Expected: current `main` behavior passes before production edits.
 - Modify: `scripts/game/villager_rules.gd`
 - Modify: `tests/unit/test_villager_rules.gd`
 
-**Produces:** tutorial IDs/defaults/copy/relevance; 150G/300G tier policy; three villager finale-line tables; no mutable state.
+**Interfaces:**
+- Produces `ContentRules.TUTORIAL_KEYS`, `initial_tutorial_progress()`, `next_tutorial_prompt(snapshot, excluded)`, and `build_harvest_result(state)`.
+- Produces `VillagerRules.finale_line(id, level)`.
+- Consumes only existing `GameRules`/`VillagerRules` static policy; no mutable session dependency.
 
 - [ ] **Step 1: Write RED tests for exact tutorial identity/default state**
 
@@ -109,9 +120,9 @@ static func initial_tutorial_progress() -> Dictionary:
 
 Keep opening/tutorial copy in direct constants/tables in this file. Do not add Resources/registries for nine prompts.
 
-- [ ] **Step 3: Write RED prompt-relevance tests using enriched real snapshots**
+- [ ] **Step 3: Write RED prompt-relevance tests using state-shaped snapshots**
 
-Take `GameSession.new().snapshot()`, inject `intro_acknowledged`/`tutorial` in test-local helpers, then cover:
+Use a small test helper that starts from `GameSession.new().snapshot()` and enriches only the state needed for each predicate. Cover:
 
 - first eligible prompt is `farm_basics` after intro;
 - `plant` requires tilled empty soil plus a seed;
@@ -120,7 +131,7 @@ Take `GameSession.new().snapshot()`, inject `intro_acknowledged`/`tutorial` in t
 - `talk`/`buy_seeds` are Day 2+ (buy also requires at least Turnip affordability);
 - `harvest` requires mature crop;
 - `shipping`/`gift` require harvested inventory;
-- excluded/dismissed prompt IDs are skipped without changing completion flags;
+- excluded/dismissed IDs are skipped without changing completion flags;
 - `{}` when no incomplete relevant prompt exists.
 
 Example:
@@ -135,9 +146,9 @@ assert_false(snapshot["tutorial"][&"talk"])
 
 `next_tutorial_prompt(snapshot, excluded)` scans `TUTORIAL_KEYS`, checks one concrete predicate per step, and returns only `{id,title,body}` or `{}`. No predicate objects/DSL/state machine.
 
-- [ ] **Step 5: Write RED tier-boundary tests from small terminal dictionaries**
+- [ ] **Step 5: Write RED tier-boundary tests from canonical state-shaped relationships**
 
-Use a test-local result-state dictionary containing only fields consumed by `build_harvest_result`: `shipped`, `money`, `relationships`.
+The fixture contains `shipped`, `money`, and `relationships`; each relationship uses persisted raw `points` and the existing daily flags shape. Do **not** add snapshot-only `level` to the fixture.
 
 Pin:
 
@@ -166,7 +177,16 @@ static func finale_line(id: VillagerId, level: RelationshipLevel) -> String:
     return FINALE_LINES[id][level]
 ```
 
-`ContentRules.build_harvest_result(state)` derives shipped count/value from `GameRules.sale_value()`, final money, relationship levels, one line/villager, tier key/title. Final money is display-only; persist no score/result object.
+`ContentRules.build_harvest_result(state)`:
+
+1. reads `state["shipped"]`;
+2. derives count/value through `GameRules.sale_value()`;
+3. reads each `state["relationships"][key]["points"]`;
+4. derives `RelationshipLevel` through `VillagerRules.relationship_level(points)`;
+5. chooses `VillagerRules.finale_line()`;
+6. returns tier key/title, shipped count/value, final money, relationship display data, and villager lines.
+
+Persist no score/result object.
 
 - [ ] **Step 7: GREEN + commit**
 
@@ -181,7 +201,7 @@ git commit -m "feat: add Phoenix content and finale rules"
 
 ---
 
-### Task 2: Make onboarding, lifetime shipping, and Day 14 completion authoritative
+### Task 2: Make onboarding, lifetime shipping, and market finalization authoritative
 
 **Files:**
 - Modify: `scripts/game/game_rules.gd`
@@ -190,7 +210,11 @@ git commit -m "feat: add Phoenix content and finale rules"
 - Modify: `tests/unit/test_game_session.gd`
 - Modify: `tests/unit/test_save_file.gd` only if existing generic transport coverage needs one canonical nested-state case
 
-**Produces:** market world contract, four persisted content facts, authoritative tutorial completion, shared shipment settlement, one terminal domain boundary.
+**Interfaces:**
+- Produces `WorldContract.MARKET_*`.
+- Produces four canonical persisted facts and their total validation/restore.
+- Produces `GameSession.acknowledge_intro()`, `trigger_harvest_finale(target)`, `_settle_pending_shipment()`, and `_complete_finale()`.
+- **Keeps Day 14 `sleep()` returning `DAY_LIMIT_REACHED` in this task.** No live application path can finish the run yet.
 
 - [ ] **Step 1: Add the market contract before domain tests need it**
 
@@ -200,11 +224,20 @@ const MARKET_FOOTPRINT := Rect2(8.2, 6.2, 0.6, 0.6)
 const MARKET_ANCHOR := Vector2(448.0, 240.0)
 ```
 
-Add a small unit/headless assertion if the current world-contract tests have a natural home. Scene consumption waits until Task 3.
+Pin:
+
+```gdscript
+assert_eq(
+    WorldContract.MARKET_ANCHOR,
+    WorldMath.grid_to_world(Vector2(WorldContract.MARKET_CELL) + Vector2(0.5, 0.5)),
+)
+```
+
+Scene consumption waits until Task 3.
 
 - [ ] **Step 2: Write RED starter-state/isolation/validation tests**
 
-Extend pinned state/snapshot shape with:
+Extend the exact `state()` and `snapshot()` shape assertions. Both projections must contain:
 
 ```gdscript
 assert_false(snapshot["intro_acknowledged"])
@@ -213,9 +246,21 @@ assert_eq(snapshot["shipped"], {&"turnip": 0, &"potato": 0, &"pumpkin": 0})
 assert_false(snapshot["finale_triggered"])
 ```
 
-Add invalid candidates for missing new fields, wrong boolean types, missing/extra/non-boolean tutorial keys, negative shipped counts, finale before Day 14, finale with pending summary, and finale with non-empty pending shipment.
+Mutate returned `tutorial`/`shipped` dictionaries and prove a fresh `state()` and `snapshot()` are isolated.
 
-- [ ] **Step 3: Add exact state fields and canonical restore**
+Add invalid candidates for:
+
+- each missing new field;
+- wrong intro/finale boolean types;
+- tutorial missing/extra key or non-boolean value;
+- negative shipped count;
+- finale before Day 14;
+- finale with pending morning summary;
+- finale with non-empty pending shipment.
+
+Old pre-HPA-597 state without the fields must fail loudly.
+
+- [ ] **Step 3: Add exact session fields and copy them into both projections**
 
 ```gdscript
 var _intro_acknowledged := false
@@ -224,7 +269,18 @@ var _shipped_counts: Array[int] = [0, 0, 0]
 var _finale_triggered := false
 ```
 
-Expose them directly through `state()`/`snapshot()`. `state_error()` remains total current-rule validation; `restore_state()` canonicalizes JSON String keys back to runtime keys. Do not change `SaveFileCodec` semantics or schema version.
+In `state()` add exactly:
+
+```gdscript
+"intro_acknowledged": _intro_acknowledged,
+"tutorial": _tutorial_progress.duplicate(true),
+"shipped": _counts_snapshot(_shipped_counts),
+"finale_triggered": _finale_triggered,
+```
+
+Then add the same four keys explicitly to the hand-built `snapshot()` dictionary. Do not assume snapshot automatically includes new state fields.
+
+Extend `state_error()` in the existing `_field()` / `_counts_state_error()` style and canonicalize JSON String keys in `restore_state()`. Do not edit `SaveFileCodec` semantics or schema version.
 
 - [ ] **Step 4: Write RED success-vs-failure tutorial completion tests**
 
@@ -240,11 +296,11 @@ assert_eq(session.hoe(cell), GameRules.CommandCode.SOIL_TILLED)
 assert_true(session.state()["tutorial"][&"farm_basics"])
 ```
 
-Cover Plant, Water, normal `DAY_ADVANCED`, Buy Seeds, Talk, Harvest, Deposit, Gift. Selecting action/seed does not count.
+Cover Plant, Water, **normal Day 1–13** `DAY_ADVANCED`, Buy Seeds, Talk, Harvest, Deposit, Gift. Selecting action/seed does not count.
 
-- [ ] **Step 5: Add intro command and direct completion mapping**
+- [ ] **Step 5: Add intro/finale command codes and direct completion mapping**
 
-Add command codes:
+Add while retaining `DAY_LIMIT_REACHED`:
 
 ```gdscript
 INTRO_ACKNOWLEDGED,
@@ -255,7 +311,7 @@ NOT_AT_MARKET,
 FINALE_ALREADY_TRIGGERED,
 ```
 
-`acknowledge_intro()` flips once; duplicate acknowledgment is a no-op failure code. Add one private success-code -> tutorial-ID mapping and invoke it only after real command mutations. Keep social completion inside successful `talk_to()`/`gift_crop()` paths.
+`acknowledge_intro()` flips once; duplicate acknowledgment is a no-op failure code. Add one private success-code -> tutorial-ID mapping invoked only after real command mutations. Keep social completion inside successful `talk_to()`/`gift_crop()` paths.
 
 - [ ] **Step 6: Write RED cumulative-shipping tests, then extract one settlement helper**
 
@@ -273,26 +329,35 @@ func _settle_pending_shipment() -> Dictionary:
     return payout
 ```
 
-Use it from normal Day 1–13 sleep; preserve all crop/weather/stamina/summary/social-reset behavior.
+Use it from normal Day 1–13 sleep; preserve crop/weather/stamina/summary/social-reset behavior.
 
-- [ ] **Step 7: Replace the temporary Day 14 test with RED finale boundary tests**
+- [ ] **Step 7: Write RED market-finalization tests and preserve the bed characterization**
 
-A narrow fixture may seed `_day`/pending counts/relationship points, immediately assert the seeded state, then exercise public commands.
+A narrow fixture may seed `_day`, pending counts, and relationship points; immediately assert the seeded state before exercising public commands.
 
-Cover:
+Cover market finalization:
 
 - market before Day 14 -> `MARKET_NOT_READY`;
 - Day 14 wrong target -> `NOT_AT_MARKET`;
 - Day 14 market -> `FINALE_TRIGGERED`;
-- Day 14 bed -> same `FINALE_TRIGGERED` terminal state from the same pre-final state;
 - final pending shipment paid and added to lifetime counts once;
-- day remains 14; no morning summary; no weather roll/crop growth/time/stamina/social-daily reset;
+- day remains 14; no morning summary; no weather roll/crop growth/time/stamina/social reset;
 - duplicate finale -> `FINALE_ALREADY_TRIGGERED` with no mutation;
 - all later gameplay commands are terminal-blocked.
 
-- [ ] **Step 8: Implement one `_complete_finale()` and remove `DAY_LIMIT_REACHED`**
+Also keep one explicit characterization of the not-yet-routed bed path:
 
-`trigger_harvest_finale(target)` validates active state/day/target then delegates. Day 14 `sleep()` validates bed target then delegates to the same helper.
+```gdscript
+var before := session.state()
+assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_LIMIT_REACHED)
+assert_eq(session.state(), before)
+```
+
+This test is intentionally replaced in Task 4.
+
+- [ ] **Step 8: Implement market `_complete_finale()` only; do not flip sleep yet**
+
+`trigger_harvest_finale(target)` validates active state/day/target then delegates:
 
 ```gdscript
 func _complete_finale() -> GameRules.CommandCode:
@@ -303,26 +368,28 @@ func _complete_finale() -> GameRules.CommandCode:
     return GameRules.CommandCode.FINALE_TRIGGERED
 ```
 
-Update `_active_day_failure()` to block terminal sessions. Remove `DAY_LIMIT_REACHED` when no live path references it.
+Update `_active_day_failure()` to terminal-block a directly finalized session. Leave the existing Day 14 branch in `sleep()` returning `DAY_LIMIT_REACHED`. Do not remove the enum/HUD copy in Task 2.
 
 - [ ] **Step 9: Verify generic save transport + commit**
 
 ```bash
 godot --headless --path . -s addons/gut/gut_cmdln.gd \
   -gdir=res://tests/unit,res://tests/integration -gexit
-git grep -n "DAY_LIMIT_REACHED" -- . ':!docs/superpowers/**'
 git diff --check
+git grep -n "DAY_LIMIT_REACHED" -- scripts tests
 ```
 
-Expected: green; no live `DAY_LIMIT_REACHED` reference.
+Expected: GUT green. `DAY_LIMIT_REACHED` is **still present** in the current Day 14 sleep/HUD/test contract and is removed only in Task 4.
 
 If existing `test_save_file.gd` already proves recursive dictionaries, do not add redundant field-aware tests. Otherwise add one encode/decode -> `GameSession.restore_state()` case; keep `SaveFileCodec` ignorant of HPA-597 field names.
 
 ```bash
 git add scripts/game/game_rules.gd scripts/game/game_session.gd scripts/world/world_contract.gd \
   tests/unit/test_game_session.gd tests/unit/test_save_file.gd
-git commit -m "feat: add authoritative onboarding and finale state"
+git commit -m "feat: add authoritative Phoenix content state"
 ```
+
+Omit `tests/unit/test_save_file.gd` from `git add` if unchanged.
 
 ---
 
@@ -340,51 +407,113 @@ git commit -m "feat: add authoritative onboarding and finale state"
 - Modify: `tests/integration/test_gameplay_shell.gd`
 - Modify: `tests/headless/world_shell_smoke.gd`
 
-**Produces:** authored market geometry/visual, blocking opening, non-blocking contextual card, persistent Day 14 HUD objective. Successful terminal routing waits for Task 4 so no intermediate commit can finish a run without a result screen.
+**Interfaces:**
+- Produces authored market geometry/visual and the opening/tutorial/objective UI.
+- Opening reuses the existing modal input gate.
+- The market is visible but **not yet a live terminal interaction**; Day 14 sleep still has the old temporary boundary until Task 4.
 
-- [ ] **Step 1: Write RED scene-contract tests**
+- [ ] **Step 1: Write RED market scene/smoke contracts including every hard-coded offset**
 
-Pin that:
+Update `tests/headless/world_shell_smoke.gd` expectations together:
 
-- `HarvestMarketCollision` derives from `WorldContract.MARKET_FOOTPRINT`;
-- direct `Entities/HarvestMarket` is at `MARKET_ANCHOR`, uses the fourth scenery frame, and participates in the existing single Y-sort node;
-- entity count/crop offset changes from `7 + cells` / `7 + index` to `8 + cells` / `8 + index`.
+```gdscript
+EXPECTED_ASSETS["proof-scenery"] = Vector2i(384, 96)
+```
 
-`FarmView` itself should need no production change because it resolves crop nodes by name.
+Pin collision order exactly:
+
+```gdscript
+var collision_names := [
+    "TreeCollision",
+    "BuildingCollision",
+    "ShippingCollision",
+    "HarvestMarketCollision",
+] + WorldContract.VILLAGER_COLLISION_NAMES + [
+    "PerimeterTop",
+    "PerimeterRight",
+    "PerimeterBottom",
+    "PerimeterLeft",
+]
+```
+
+Perimeters now use:
+
+```gdscript
+collision_names[index + 7]
+```
+
+Pin entity order exactly:
+
+```gdscript
+[
+    "Player", "Tree", "Building", "Shipping", "HarvestMarket",
+    "VillagerShopkeeper", "VillagerFarmer", "VillagerResident",
+]
+```
+
+then dynamic crops. In GUT scene tests change `7 + cells.size()` / `7 + index` to `8 + cells.size()` / `8 + index`.
+
+Also assert:
+
+- Tree/Building/Shipping/HarvestMarket use `proof-scenery.png`, `hframes == 4`, frames `0/1/2/3`;
+- HarvestMarket anchor equals `WorldContract.MARKET_ANCHOR`;
+- HarvestMarket collision equals `WorldMath.footprint_to_polygon(WorldContract.MARKET_FOOTPRINT)`;
+- HarvestMarket `z_index` equals the current shared entity z-index.
 
 - [ ] **Step 2: Author the market using existing world conventions**
 
-Extend `proof-scenery.png` with one fourth 96×96 proof-quality market-stall frame. Keep bottom-center ground contact and transparent background. Do not add a generator/framework for one frame.
+Extend `proof-scenery.png` from `288x96` to `384x96` with one proof-quality 96x96 market-stall frame. Keep bottom-center ground contact and transparent background. No asset generator/framework for one frame.
 
 In `world.tscn`:
 
-- existing Tree/Building/Shipping use `hframes = 4`, preserving frames 0/1/2;
-- add `HarvestMarketCollision` under `StaticCollision`;
-- add `Entities/HarvestMarket` at `MARKET_ANCHOR`, frame 3, existing `offset = Vector2(0, -48)` convention.
+- change existing Tree/Building/Shipping scenery sprites to `hframes = 4`, preserving frames 0/1/2;
+- insert `HarvestMarketCollision` **after ShippingCollision and before villager collisions**;
+- insert `Entities/HarvestMarket` **after Shipping and before villagers** at `MARKET_ANCHOR`, frame 3, `offset = Vector2(0, -48)`.
 
-In `WorldShell._ready()`, derive the collision polygon through `WorldMath.footprint_to_polygon()` like current authored scenery.
+In `WorldShell._ready()`, derive the market polygon through `WorldMath.footprint_to_polygon()` like Shipping.
 
-- [ ] **Step 3: Write RED opening/prompt tests**
+`FarmView` remains unchanged because it resolves crop roots by name.
 
-Pin the behavioral contract rather than pixel positions:
+- [ ] **Step 3: Write RED opening/prompt tests and add the test-only caller helpers**
+
+Keep one test that intentionally does **not** acknowledge:
 
 ```gdscript
-var world := _world()
-var hud := _hud(world)
-var opening := hud.get_node("HudRoot/OnboardingOverlay/OpeningPanel") as Control
-assert_true(opening.visible)
-assert_false(world._world_input_enabled)
-assert_false(world._session.state()["intro_acknowledged"])
-
-(opening.get_node("Start") as Button).pressed.emit()
-assert_true(world._session.state()["intro_acknowledged"])
-assert_false(opening.visible)
-assert_true(world._world_input_enabled)
+func test_fresh_opening_blocks_world_input() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var opening := hud.get_node("HudRoot/OnboardingOverlay/OpeningPanel") as Control
+    assert_true(opening.visible)
+    assert_false(world._world_input_enabled)
+    assert_false(world._session.state()["intro_acknowledged"])
 ```
 
-Also prove tutorial card appears after intro, Dismiss does not mutate session flags, contextual card does not block gameplay, successful Hoe refresh completes/removes `farm_basics`, and restored acknowledged state does not reopen the intro.
+Add one integration helper that uses the real UI path:
 
-- [ ] **Step 4: Implement one focused `OnboardingOverlay` Control**
+```gdscript
+func _acknowledge_intro(world: WorldShell) -> void:
+    var start := world.hud.get_node(
+        "HudRoot/OnboardingOverlay/OpeningPanel/Start"
+    ) as Button
+    start.pressed.emit()
+    await get_tree().process_frame
+```
+
+Use `await _acknowledge_intro(world)` at the top of every **existing** gameplay-shell test that expects movement enabled, calls `select_action_slot()`, `use_selected_action()`, `interact()`, or opens a gameplay modal through world interaction. Structural render-only tests do not need it.
+
+Add the analogous button helper to `world_shell_smoke.gd` and call it once before the existing section that first presses movement/actions. Do not mutate `_intro_acknowledged` directly and do not add a production bypass.
+
+- [ ] **Step 4: Implement `OnboardingOverlay` with explicit mouse filters**
+
+The scene contract is:
+
+```text
+OnboardingOverlay (full rect): mouse_filter = IGNORE
+OpeningPanel:                 mouse_filter = STOP
+TutorialCard:                 mouse_filter = STOP
+```
+
+`TutorialCard` is a small panel placed away from the existing action/seed bar; its own Dismiss button remains clickable, but the full overlay does not cover/consume the rest of the HUD.
 
 ```gdscript
 class_name OnboardingOverlay
@@ -400,11 +529,11 @@ func render(snapshot: Dictionary) -> void:
     _render_tutorial(ContentRules.next_tutorial_prompt(snapshot, _dismissed))
 ```
 
-Opening panel is mouse-blocking; tutorial card is not. Dismiss stores only transient IDs. Instance the scene once under `GameHud/HudRoot`.
+Dismiss stores only transient IDs.
 
 - [ ] **Step 5: Reuse the current HUD/world modal gate**
 
-`GameHud` forwards `intro_acknowledged` and includes only the opening panel in `has_blocking_modal()`. When opening becomes visible it closes other gameplay modals and emits the existing modal-state change. No second lock boolean.
+`GameHud` forwards `intro_acknowledged` and includes only the opening panel in `has_blocking_modal()`. When opening becomes visible, close other gameplay modals and emit the existing `modal_state_changed` signal. No second lock boolean.
 
 `WorldShell` handler:
 
@@ -413,11 +542,29 @@ func _on_intro_acknowledged() -> void:
     _finish_command(_session.acknowledge_intro())
 ```
 
-The existing refresh releases input once authoritative state changes.
+This mirrors morning-summary acknowledgement; do not reject it merely because `_world_input_enabled` is false.
 
-- [ ] **Step 6: Add objective, Day 14 copy, and market target hint**
+- [ ] **Step 6: Prove tutorial-card hit testing does not break existing HUD buttons**
 
-Always-visible HUD:
+After Start and while a tutorial card is visible, connect to the production HUD signal and press an existing action button:
+
+```gdscript
+var selected: Array[int] = []
+world.hud.select_action_requested.connect(func(action: int) -> void:
+    selected.append(action)
+)
+
+var hoe_button := world.hud.get_node("HudRoot/Action_0") as Button
+hoe_button.pressed.emit()
+assert_eq(selected, [GameRules.FarmingAction.HOE])
+assert_true(world._world_input_enabled)
+```
+
+Also prove Dismiss hides the current card without mutating `world._session.state()["tutorial"]`, and successful Hoe refresh completes/removes `farm_basics`.
+
+- [ ] **Step 7: Add the persistent objective but keep the temporary Day 14 boundary truthful**
+
+Always-visible HUD objective:
 
 ```text
 Harvest Market: Day 14 · 13 days left
@@ -431,18 +578,9 @@ Harvest Market today — village path stall
 
 on Day 14.
 
-Replace temporary Day 14 warnings with:
+Do **not** remove `DAY_LIMIT_REACHED`, do not change the current Day 14 sleep warning to claim completion, and do not add `Harvest Market — E` yet. Those player-action contracts land atomically with terminal routing in Task 4.
 
-```text
-Day 14 shipment settles when the finale starts.
-Day 14: sleeping ends the run and settles the final shipment.
-```
-
-Targeting `MARKET_CELL` shows `Harvest Market — E` in `WorldShell._process()`.
-
-Add feedback copy for new intro/market/finale command codes, but do **not** route successful market interaction yet; Task 4 adds the market command and terminal save/result handoff atomically.
-
-- [ ] **Step 7: GREEN + commit**
+- [ ] **Step 8: GREEN + commit**
 
 ```bash
 godot --headless --path . --editor --quit
@@ -464,23 +602,53 @@ Omit `.import` if Godot leaves it unchanged.
 
 ---
 
-### Task 4: Route both finale triggers through one final save to `ResultScreen`
+### Task 4: Flip Day 14 and route both finale triggers through one final save to `ResultScreen`
 
 **Files:**
+- Modify: `scripts/game/game_rules.gd`
+- Modify: `scripts/game/game_session.gd`
+- Modify: `scripts/ui/game_hud.gd`
+- Modify: `scripts/world/world_shell.gd`
+- Modify: `tests/unit/test_game_session.gd`
 - Create: `scenes/ui/result_screen.tscn`
 - Create: `scripts/ui/result_screen.gd`
 - Modify: `scenes/app/app.tscn`
 - Modify: `scripts/app/app_root.gd`
-- Modify: `scripts/world/world_shell.gd`
 - Modify: `tests/integration/test_app_launch.gd`
 - Modify: `tests/integration/test_gameplay_shell.gd`
 - Modify: `tests/integration/test_persistence_flow.gd`
 
-**Produces:** market interaction, Day 14 sleep fallback, one terminal save handoff, completed-save Continue, terminal New Game/Return Title.
+**Interfaces:**
+- Consumes Task 2's `_complete_finale()` and market command.
+- Produces the one live terminal route for market **and** Day 14 bed, one final save attempt, `finale_completed`, `ResultScreen`, and completed-Continue routing.
+- Removes the temporary `DAY_LIMIT_REACHED` domain/UI contract in this same task.
 
-- [ ] **Step 1: Write RED completed-Continue AppRoot test**
+- [ ] **Step 1: Replace the temporary Day 14 bed characterization with RED market == bed domain tests**
 
-Create terminal state via a narrow fixture followed by public `sleep()`/`trigger_harvest_finale()`, save it through real `SaveRepository`, spawn AppRoot, emit Continue, then assert:
+From the same seeded pre-final state:
+
+```gdscript
+var by_market := _day14_session_from(pre_final_state)
+var by_bed := _day14_session_from(pre_final_state)
+
+assert_eq(
+    by_market.trigger_harvest_finale(WorldContract.MARKET_CELL),
+    GameRules.CommandCode.FINALE_TRIGGERED,
+)
+assert_eq(
+    by_bed.sleep(WorldContract.BED_CELL),
+    GameRules.CommandCode.FINALE_TRIGGERED,
+)
+assert_eq(by_bed.state(), by_market.state())
+```
+
+Also assert no weather roll/crop growth/day advance and final shipment settled once.
+
+Expected RED: Day 14 bed still returns `DAY_LIMIT_REACHED` from Task 2.
+
+- [ ] **Step 2: Write RED completed-Continue AppRoot test**
+
+Create a terminal state through `trigger_harvest_finale()` (or after Step 1 through bed), save it through real `SaveRepository`, spawn AppRoot, emit Continue, then assert:
 
 ```gdscript
 assert_null(app.get_node_or_null("World"))
@@ -488,9 +656,9 @@ var result := app.get_node("ResultScreen") as ResultScreen
 assert_true(result.visible)
 ```
 
-Pin displayed result against `ContentRules.build_harvest_result(completed)` rather than duplicated UI scoring.
+Pin displayed result against `ContentRules.build_harvest_result(completed_state)` rather than duplicating scoring in the test.
 
-- [ ] **Step 2: Add a presentation-only static `ResultScreen` sibling**
+- [ ] **Step 3: Add a presentation-only static `ResultScreen` sibling**
 
 `result_screen.tscn` has result title, shipped count/value, final money, relationship summary, three villager lines, save-status text, New Game, Return to Title. Hidden by default.
 
@@ -502,29 +670,33 @@ signal new_game_requested
 signal return_to_title_requested
 
 func present(result: Dictionary, save_error: int = OK) -> void:
-    # labels/buttons only; no file or GameSession access
+    # assign labels and button state only
     visible = true
 ```
 
 Instance it beside `TitleScreen` in `app.tscn`.
 
-- [ ] **Step 3: Extend AppRoot routing without changing title responsibilities**
+- [ ] **Step 4: Extend AppRoot routing with validated direct indexing**
 
 In `_launch(initial_state)`:
 
 ```gdscript
-if initial_state != null and bool(initial_state.get("finale_triggered", false)):
+if initial_state != null and bool(initial_state["finale_triggered"]):
     _show_result(initial_state, OK)
     return
 ```
 
-`_show_result(state, save_error)` derives through `ContentRules`, frees any live World, hides title, presents result.
+Do **not** use `.get("finale_triggered", false)`. `_load_title_state()` already calls `GameSession.state_error()`, and missing HPA-597 keys are incompatible, so a silent default would weaken the validated boundary.
 
-Result New Game hides result then launches fresh world without deleting slot. Return to Title hides result, shows title, calls `_load_title_state()` so Continue reflects the latest successful save.
+`_show_result(state, save_error)` derives through `ContentRules.build_harvest_result(state)`, frees any live World, hides title, and presents result.
 
-- [ ] **Step 4: Write RED one-save/equivalent-trigger integration tests**
+Result New Game hides result then launches fresh world without deleting the slot. Return to Title hides result, shows title, calls `_load_title_state()` so Continue reflects the latest successful save.
 
-Using `CountingSaveRepository`, prove for the same pre-final state:
+- [ ] **Step 5: Write RED one-save/equivalent-trigger integration tests using the existing repository fake**
+
+Reuse `CountingSaveRepository` from `tests/integration/test_persistence_flow.gd`; do not create another save fake.
+
+For the same pre-final state prove:
 
 1. Day 14 market interaction saves exactly once and opens result;
 2. Day 14 sleep saves exactly once and opens result;
@@ -532,15 +704,70 @@ Using `CountingSaveRepository`, prove for the same pre-final state:
 4. duplicate finalization cannot add another save;
 5. pending final shipment is paid/recorded once.
 
-- [ ] **Step 5: Add one WorldShell terminal handoff and market routing**
+For market interaction, target `WorldContract.MARKET_CELL` and use the live `world.interact()` path. For bed, use the existing sleep-panel signal path.
+
+- [ ] **Step 6: Flip the Day 14 domain boundary and remove the temporary code/copy**
+
+Change `GameSession.sleep()` only now:
+
+```gdscript
+if _day == GameRules.MAX_DAY:
+    return _complete_finale()
+```
+
+preserving the existing bed-target and pending-summary checks before it.
+
+Remove `GameRules.CommandCode.DAY_LIMIT_REACHED` and replace/remove all live HUD/integration copy that describes the old hard stop.
+
+New truthful Day 14 copy:
+
+```text
+Day 14 shipment settles when the finale starts.
+Day 14: sleeping ends the run and settles the final shipment.
+```
+
+Add the live target hint now:
+
+```text
+Harvest Market — E
+```
+
+- [ ] **Step 7: Add one WorldShell terminal handoff and market routing in the same change**
 
 ```gdscript
 signal finale_completed(final_state: Dictionary, save_error: int)
 ```
 
-Route `MARKET_CELL` in `interact()` to `GameSession.trigger_harvest_finale(target)`.
+Route `MARKET_CELL` in `interact()` to the session command:
 
-Both market success and Day 14 `_on_sleep_requested()` success call:
+```gdscript
+elif target == WorldContract.MARKET_CELL:
+    _finish_finale(_session.trigger_harvest_finale(target))
+```
+
+Change `_on_sleep_requested()` so terminal success is consumed before the current normal-day branch:
+
+```gdscript
+func _on_sleep_requested() -> void:
+    var target: Variant = player.current_target_cell()
+    var code := _session.sleep(target)
+    if code == GameRules.CommandCode.FINALE_TRIGGERED:
+        _finish_finale(code)
+        return
+    if code != GameRules.CommandCode.DAY_ADVANCED or _save_repository == null:
+        _finish_command(code)
+        return
+
+    hud.show_feedback(code)
+    _refresh_from_session()
+    var save_error := _save_repository.save(_session.state())
+    if save_error == OK:
+        hud.set_save_status(&"saved")
+    else:
+        hud.set_save_status(&"error", "Save failed — this morning is not persisted.")
+```
+
+One shared terminal helper:
 
 ```gdscript
 func _finish_finale(code: GameRules.CommandCode) -> void:
@@ -556,25 +783,43 @@ func _finish_finale(code: GameRules.CommandCode) -> void:
     finale_completed.emit(state, save_error)
 ```
 
-Connect `world.finale_completed` in `AppRoot` before `add_child(world)` and route to `_show_result()`. Keep normal `DAY_ADVANCED` morning-summary save/status behavior unchanged. No `await`, save queue, or reentrancy machinery.
+No await/save queue/reentrancy machinery.
 
-- [ ] **Step 6: Prove failure semantics and result actions**
+- [ ] **Step 8: Connect the terminal handoff before the world enters the tree**
 
-With the existing unwritable-directory repository style assert final save failure still yields terminal result/no rollback. Test Result -> New Game and Result -> Return to Title, including title reload behavior.
+In `AppRoot._launch()` after instantiate/configure and before `add_child(world)`:
 
-- [ ] **Step 7: GREEN + commit**
+```gdscript
+world.finale_completed.connect(_on_finale_completed)
+```
+
+`_on_finale_completed(final_state, save_error)` calls `_show_result(final_state, save_error)`.
+
+Direct `world.tscn` tests have no repository, so successful terminal handoff uses `ERR_UNAVAILABLE`; do not create a fallback repository.
+
+- [ ] **Step 9: Prove failure semantics and result actions**
+
+Using the existing unwritable-directory repository style, assert final save failure still yields terminal result/no rollback and the result screen reports the unsaved ending.
+
+Test Result -> New Game and Result -> Return to Title, including title reload behavior. New Game does not delete the previous slot.
+
+- [ ] **Step 10: GREEN, prove old boundary is gone, and commit**
 
 ```bash
 godot --headless --path . -s addons/gut/gut_cmdln.gd \
   -gdir=res://tests/unit,res://tests/integration -gexit
+git grep -n "DAY_LIMIT_REACHED" -- . ':!docs/superpowers/**'
 git diff --check
 ```
 
+Expected: GUT green and the grep has no live production/test matches.
+
 ```bash
-git add scenes/app/app.tscn scenes/ui/result_screen.tscn \
-  scripts/app/app_root.gd scripts/ui/result_screen.gd scripts/world/world_shell.gd \
-  tests/integration/test_app_launch.gd tests/integration/test_gameplay_shell.gd \
-  tests/integration/test_persistence_flow.gd
+git add scripts/game/game_rules.gd scripts/game/game_session.gd scripts/ui/game_hud.gd \
+  scripts/world/world_shell.gd tests/unit/test_game_session.gd \
+  scenes/app/app.tscn scenes/ui/result_screen.tscn scripts/app/app_root.gd \
+  scripts/ui/result_screen.gd tests/integration/test_app_launch.gd \
+  tests/integration/test_gameplay_shell.gd tests/integration/test_persistence_flow.gd
 git commit -m "feat: add terminal harvest result flow"
 ```
 
@@ -587,18 +832,23 @@ git commit -m "feat: add terminal harvest result flow"
 - Modify: `CLAUDE.md`
 - Modify existing tests only if the acceptance pass exposes an actual missing contract
 
+**Interfaces:**
+- Verifies the complete HPA-597 behavior through current Godot/GUT/headless/save seams.
+- Leaves packaging/export verification to HPA-599.
+
 - [ ] **Step 1: Extend the existing persistence-flow acceptance path, not a new harness**
 
 Use real UI/session/save seams to prove:
 
-1. fresh opening -> Start;
-2. Hoe/Plant/Water complete tutorial flags;
-3. normal sleep saves;
-4. reopen/Continue restores intro/tutorial state;
-5. existing command-driven crop/social path completes Harvest/Talk/Gift/Shipping;
-6. later normal sleep records/restores lifetime shipped counts.
+1. fresh opening is visible and world input is blocked;
+2. press the real Start button;
+3. Hoe/Plant/Water complete tutorial flags;
+4. normal sleep saves;
+5. reopen/Continue restores intro/tutorial state without reopening the introduction;
+6. existing command-driven crop/social path completes Harvest/Talk/Gift/Shipping;
+7. later normal sleep records/restores lifetime shipped counts.
 
-Do not play thirteen literal UI days just to reach the already-unit-tested Day 14 boundary.
+Do not play thirteen literal UI days just to reach the already-focused Day 14 boundary tests.
 
 - [ ] **Step 2: Add the completed-save reopen no-post-game assertion**
 
@@ -619,7 +869,7 @@ assert_true((restored_app.get_node("ResultScreen") as ResultScreen).visible)
 
 README: opening/context help, Day 14 market goal, market `E`/sleep fallback, three encouraging endings, completed Continue -> result, no post-game.
 
-CLAUDE.md: `ContentRules` pure policy, four persisted fields/no migration, `MARKET_*` ownership, opening uses existing input gate while prompt card is non-blocking, shared settlement/finalization paths, WorldShell final save handoff, AppRoot completed-result routing, HPA-599 next for balance/polish/export.
+CLAUDE.md: `ContentRules` pure policy, four persisted fields/no migration, explicit `state()` + `snapshot()` copies, `MARKET_*` ownership, overlay mouse/input contract, fresh-world Start test contract, shared settlement/finalization paths, WorldShell final-save handoff, AppRoot validated direct result routing, HPA-599 next for balance/polish/export.
 
 Keep `AGENTS.md` untouched.
 
@@ -652,15 +902,9 @@ git diff --check main...HEAD
 git status --short
 ```
 
-Expected: green, clean diff/worktree, only HPA-597 files, no JavaScript/Tauri/browser runtime return.
+Expected: green, clean diff/worktree, only HPA-597 files, no JavaScript/Tauri/browser runtime return. Keep `tools/verify-clean.sh` unchanged.
 
-- [ ] **Step 7: Bounded exported-app sanity check**
-
-```bash
-godot --headless --path . --export-release "macOS" /tmp/Phoenix-HPA-597.app
-```
-
-Manually verify title -> New Game -> opening -> non-blocking prompt; Day 14 market/sleep -> result; completed reopen/Continue -> result; Result New Game; Result Return to Title. Packaging/signing/polish beyond this sanity pass belongs to HPA-599.
+Do **not** add a macOS export-release step here. HPA-599 owns packaging/export verification.
 
 ---
 
@@ -669,14 +913,17 @@ Manually verify title -> New Game -> opening -> non-blocking prompt; Day 14 mark
 HPA-597 is done in this one PR when:
 
 - fresh play has a short blocking introduction followed by relevant dismissible non-blocking help;
+- existing movement/world-interaction tests acknowledge the opening through the real Start button, while one test proves the pre-Start lock;
+- the onboarding overlay does not intercept existing action/seed button clicks outside its small tutorial card;
 - tutorial completion comes only from successful `GameSession` commands and survives save/continue;
 - lifetime shipped counts survive multiple nights/save round trips;
-- an authored harvest market exists on the current isometric/Y-sort world seam;
-- Day 14 market and Day 14 sleep use one terminal transaction;
+- an authored harvest market exists on the current isometric/Y-sort world seam with all smoke offsets/assets/hframes updated;
+- Day 14 market and Day 14 sleep switch to one terminal transaction only when the live shell/result route exists;
 - final shipping settles exactly once and no route reaches Day 15;
-- New Beginning, Promising Farmer, and Heart of the Harvest exact thresholds have direct tests;
+- New Beginning, Promising Farmer, and Heart of the Harvest exact thresholds have direct tests from canonical state/raw relationship points;
 - poor play always gets New Beginning, never game over;
 - final save is attempted once through the current repository path and failure does not undo the ending;
-- completed Continue opens `ResultScreen` directly with no post-game world;
+- completed Continue uses validated `finale_triggered` directly and opens `ResultScreen` with no post-game world;
 - README/CLAUDE handoff is current;
-- `./tools/verify-clean.sh` and `git diff --check main...HEAD` pass.
+- `./tools/verify-clean.sh` and `git diff --check main...HEAD` pass;
+- packaging/export verification remains in HPA-599.
