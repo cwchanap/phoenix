@@ -30,6 +30,11 @@ state and pending morning summary. Continue restores gameplay at the authored
 spawn. Invalid/incompatible loads and save failures never block New Game or
 roll back an already completed day.
 
+A fresh run opens on a short blocking introduction; pressing Start releases
+the world and is followed by dismissible, contextual help for the current
+step. Continuing a completed run opens the final result screen directly —
+there is no post-game or free play.
+
 ## Controls
 
 | Input | Action |
@@ -73,8 +78,13 @@ renders.
    stamina, rolls tomorrow's weather, and advances the day — then a morning
    summary must be acknowledged before play resumes.
 
-Day 14 is a temporary boundary: the day stays fully playable, but sleeping no
-longer advances the day or settles the pending shipment. The exhaustive crop
+The season runs 14 days and the HUD objective counts down to the Day 14
+harvest market. Only crops deposited in the shipping bin count toward the
+farming result — harvested crops still carried in hand do not. On Day 14,
+pressing E at the harvest market finishes the run; sleeping that night is
+the fallback route that finishes it instead. The result is one of three
+encouraging endings — New Beginning, Promising Farmer, or Heart of the
+Harvest — based on shipped value and village friendships. The exhaustive crop
 economy, action-budget, and command-code tables are frozen in
 `tests/unit/test_game_rules.gd`, `tests/unit/test_game_session.gd`, and
 `tests/integration/test_gameplay_shell.gd`; those tests are the reference,
@@ -123,11 +133,15 @@ planting, watering, harvesting, seed shopping, shipping, sleeping, weather,
 and the morning summary, with `GameRules`/`GameSession` as the gameplay
 authority.
 
-Day 14 is a temporary playable boundary — there is no settlement or advance
-past it. HPA-594 added the villagers and social systems: Mira, Rowan, and
-June stand at fixed cells, talking and gifting follow the relationship rules
-above, and `VillagerRules`/`GameSession` hold the frozen content and mutable
-relationship state.
+Day 14 is the terminal day of the season. HPA-594 added the villagers and
+social systems: Mira, Rowan, and June stand at fixed cells, talking and
+gifting follow the relationship rules above, and `VillagerRules`/`GameSession`
+hold the frozen content and mutable relationship state. HPA-597 finished the
+content slice: the blocking introduction with contextual help, the Day 14
+harvest market that ends the run (with sleeping as the fallback route),
+shipping-bin deposits as the only farming-result scoring, three encouraging
+endings, and Continue on a completed run reopening the result screen — there
+is no post-game or free play.
 
 ## Verification
 
