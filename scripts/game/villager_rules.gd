@@ -62,6 +62,23 @@ const FAVOURITE_GIFT_LINES: Array[String] = [
     "A pumpkin this good is hard to ignore.",
     "Turnips are my favourite. Perfect choice.",
 ]
+const FINALE_LINES: Array = [
+    [
+        "A quiet first season, but the fields are yours now.",
+        "You kept the seed counter busy. That was good for both of us.",
+        "You came for seeds and stayed for the village. The market will miss you.",
+    ],
+    [
+        "Every farmer starts with one tilled diamond. Come spring, plant twice as many.",
+        "Your rows grew as steady as any I have ever kept.",
+        "I would trust you with my own fields. A farmer has no higher words.",
+    ],
+    [
+        "The village noticed someone new working the old farm.",
+        "You made this quiet road feel lived-in again.",
+        "You are one of us now, whatever the season brings.",
+    ],
+]
 
 static func villager_key(id: VillagerId) -> StringName:
     return VILLAGER_KEYS[id]
@@ -90,6 +107,9 @@ static func relationship_level(points: int) -> RelationshipLevel:
 
 static func dialogue_line(id: VillagerId, level: RelationshipLevel) -> String:
     return NORMAL_DIALOGUE[id][level]
+
+static func finale_line(id: VillagerId, level: RelationshipLevel) -> String:
+    return FINALE_LINES[id][level]
 
 static func close_friend_dialogue_lines(id: VillagerId) -> Array[String]:
     var lines: Array[String] = []

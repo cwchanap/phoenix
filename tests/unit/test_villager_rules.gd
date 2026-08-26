@@ -90,3 +90,15 @@ func test_spoken_content_is_verbatim_hpa_595_oracle() -> void:
         var normal := (favourite + 1) % GameRules.CropKind.size()
         assert_eq(VillagerRules.gift_line(villager, normal), entry["normal_gift"])
         assert_eq(VillagerRules.gift_line(villager, favourite), entry["favourite_gift"])
+
+func test_finale_lines_cover_every_villager_and_relationship() -> void:
+    var seen_lines: Dictionary = {}
+    for id in range(VillagerRules.VillagerId.size()):
+        assert_eq(VillagerRules.FINALE_LINES[id].size(), VillagerRules.RelationshipLevel.size())
+        for level in range(VillagerRules.RelationshipLevel.size()):
+            var line: String = VillagerRules.finale_line(id, level)
+            assert_ne(line, "")
+            assert_eq(line, VillagerRules.FINALE_LINES[id][level])
+            assert_false(seen_lines.has(line), "duplicate finale line %s" % line)
+            seen_lines[line] = true
+    assert_eq(seen_lines.size(), VillagerRules.VillagerId.size() * VillagerRules.RelationshipLevel.size())
