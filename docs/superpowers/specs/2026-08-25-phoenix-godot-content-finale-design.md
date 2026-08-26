@@ -75,6 +75,8 @@ Tasks before the terminal slice may add the persisted `finale_triggered` field a
 
 Onboarding follows that convention. `OnboardingOverlay` is a focused code-built `Control`, not a new `.tscn`. Its root has no hit area; the positioned OpeningPanel and TutorialCard are the only `STOP` surfaces. This keeps HUD structure in one representation and avoids a full-screen overlay that needs a special mouse-filter contract.
 
+Opening visibility still feeds the existing modal-state signal path. `OnboardingOverlay` emits `blocking_state_changed` only when OpeningPanel visibility toggles; `GameHud` forwards that to its existing `modal_state_changed` signal so the current action/seed-button gate and `WorldShell` player-input gate stay synchronized. This is not a second input-lock mechanism.
+
 `ResultScreen` is different: it is an app-level screen sibling to `TitleScreen`, so a `.tscn` + presentation script is the existing app-screen pattern and remains appropriate.
 
 ## Considered approaches
@@ -108,6 +110,7 @@ Keep these decisions fixed for HPA-597:
 - one `_complete_finale()` terminal transaction shared by Day 14 market and bed;
 - one authored market on the existing Y-sorted world;
 - code-built `OnboardingOverlay` following `DialoguePanel`;
+- existing `modal_state_changed` remains the sole HUD/player blocking-state propagation path;
 - one presentation-only `ResultScreen` sibling under `AppRoot`;
 - completed Continue never instantiates gameplay;
 - terminal result is derived, never persisted;
@@ -374,11 +377,12 @@ class_name OnboardingOverlay
 extends Control
 
 signal intro_acknowledged
+signal blocking_state_changed
 
 var _dismissed: Array[StringName] = []
 ```
 
-`GameHud._build_modals()` instantiates it with `OnboardingOverlay.new()`, names it `OnboardingOverlay`, parents it to `HudRoot`, and connects its signal.
+`GameHud._build_modals()` instantiates it with `OnboardingOverlay.new()`, names it `OnboardingOverlay`, parents it to `HudRoot`, and connects both signals.
 
 Like `DialoguePanel`, the root keeps its default zero size. `_ready()` creates positioned children:
 
@@ -386,6 +390,8 @@ Like `DialoguePanel`, the root keeps its default zero size. `_ready()` creates p
 - `TutorialCard`: small `ColorRect`, `MOUSE_FILTER_STOP`, title/body + Dismiss.
 
 There is no full-rect overlay node and no `onboarding_overlay.tscn`.
+
+`OnboardingOverlay.render(snapshot)` compares OpeningPanel visibility before/after rendering and emits `blocking_state_changed` only when it changes. `GameHud` forwards that to its existing `modal_state_changed` signal.
 
 `GameHud.render(snapshot)` forwards the snapshot. Only a visible OpeningPanel participates in `has_blocking_modal()`. TutorialCard is never a world-input blocker.
 
@@ -543,6 +549,7 @@ Then hide title and show the result.
 - `_locked_world()` proves one fresh-world input lock;
 - market geometry/Y-sort/entity offset;
 - tutorial Dismiss is transient;
+- Opening visibility updates the existing modal/toggle gate;
 - TutorialCard does not block action-button signal/click path;
 - objective/Day 14 shipped-only copy;
 - market hint/interaction once terminal routing lands;
@@ -566,7 +573,7 @@ Update `CLAUDE.md` with:
 - `_commit()` tutorial-completion funnel;
 - four persisted fields / no migration;
 - lifetime shipped counts + shipped-only finale semantics;
-- code-built OnboardingOverlay;
+- code-built OnboardingOverlay using the existing modal-state signal path;
 - market world contract;
 - shared settlement/finalization;
 - `remove_child()` + `queue_free()` result handoff;
