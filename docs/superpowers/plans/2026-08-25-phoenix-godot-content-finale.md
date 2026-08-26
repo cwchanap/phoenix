@@ -25,7 +25,7 @@
 - Only crops already deposited in the shipping bin count toward the finale. `harvested` inventory is never auto-shipped.
 - Task 4 owns every live finale behavior together: finale codes, `_complete_finale()`, market command, Day 14 sleep flip, `WorldShell` handoff/save, `ResultScreen`, AppRoot routing, and `DAY_LIMIT_REACHED` removal.
 - Onboarding follows the existing code-built HUD panel pattern; do not add `onboarding_overlay.tscn`.
-- `GameHud.has_blocking_modal()` remains the one gameplay-input gate. Opening blocks; TutorialCard does not.
+- `GameHud.has_blocking_modal()` and its existing `modal_state_changed` signal remain the one gameplay-input/toggle gate. Opening blocks; TutorialCard does not.
 - Completed Continue routes directly to `ResultScreen`; there is no post-game world.
 - Final save failure never rolls back the ending. Show it; do not add retry/queue machinery.
 - New Game does not proactively delete the slot, matching HPA-598.
@@ -99,19 +99,23 @@ func test_tutorial_table_is_exact_and_unique() -> void:
     ]
 
     assert_eq(ContentRules.TUTORIALS.size(), expected.size())
-    var ids: Array[StringName] = []
+    var seen_ids: Dictionary = {}
+    var seen_codes: Dictionary = {}
     for index in expected.size():
         var definition: Dictionary = ContentRules.TUTORIALS[index]
-        assert_eq(definition["id"], expected[index]["id"])
-        assert_eq(definition["completed_by"], expected[index]["code"])
+        var id: StringName = definition["id"]
+        var code: int = definition["completed_by"]
+        assert_eq(id, expected[index]["id"])
+        assert_eq(code, expected[index]["code"])
         assert_ne(String(definition["title"]), "")
         assert_ne(String(definition["body"]), "")
-        ids.append(definition["id"])
-    assert_eq(ids.duplicate().duplicate(), ids)
-    assert_eq(ids.size(), ids.duplicate().size())
+        assert_false(seen_ids.has(id), "duplicate tutorial id %s" % id)
+        assert_false(seen_codes.has(code), "duplicate tutorial completion code %s" % code)
+        seen_ids[id] = true
+        seen_codes[code] = true
+    assert_eq(seen_ids.size(), expected.size())
+    assert_eq(seen_codes.size(), expected.size())
 ```
-
-Replace the last uniqueness assertion with a small dictionary/set census if GDScript Array does not expose a convenient unique operation; the required contract is nine unique IDs and nine unique completion codes.
 
 Run:
 
@@ -227,13 +231,12 @@ func test_tutorial_helpers_derive_from_the_table() -> void:
 
     assert_eq(ContentRules.tutorial_keys(), expected_ids)
     var progress := ContentRules.initial_tutorial_progress()
-    assert_eq(progress.keys().size(), expected_ids.size())
+    assert_eq(progress.size(), expected_ids.size())
     for id in expected_ids:
         assert_true(progress.has(id))
         assert_false(progress[id])
+    assert_eq(ContentRules.tutorial_for_code(GameRules.CommandCode.ACTION_SELECTED), &"")
 ```
-
-Also assert `tutorial_for_code(GameRules.CommandCode.ACTION_SELECTED) == &""`.
 
 - [ ] **Step 4: Write RED prompt-relevance tests**
 
@@ -557,7 +560,7 @@ Add `tests/unit/test_save_file.gd` only if it actually changed.
 
 **Interfaces:**
 - Produces authored `MARKET_*` geometry and visible market art, but no live market interaction yet.
-- Produces the blocking opening + non-blocking TutorialCard through the existing `GameHud` gate.
+- Produces the blocking opening + non-blocking TutorialCard through the existing `GameHud` modal-state gate.
 - Updates the shared gameplay test factory so normal tests start after the real Start button.
 - Leaves `DAY_LIMIT_REACHED` and its current Day 14 sleep behavior/copy untouched until Task 4.
 
@@ -707,6 +710,7 @@ class_name OnboardingOverlay
 extends Control
 
 signal intro_acknowledged
+signal blocking_state_changed
 
 var _dismissed: Array[StringName] = []
 var _opening_panel: Control
@@ -720,6 +724,20 @@ func _ready() -> void:
     _tutorial_card = _build_tutorial_card()
     _opening_panel.visible = false
     _tutorial_card.visible = false
+
+func render(snapshot: Dictionary) -> void:
+    _last_snapshot = snapshot.duplicate(true)
+    var was_blocking := _opening_panel.visible
+    _opening_panel.visible = not bool(snapshot["intro_acknowledged"])
+    if _opening_panel.visible:
+        _tutorial_card.visible = false
+    else:
+        _render_tutorial(ContentRules.next_tutorial_prompt(snapshot, _dismissed))
+    if was_blocking != _opening_panel.visible:
+        blocking_state_changed.emit()
+
+func is_opening_visible() -> bool:
+    return _opening_panel.visible
 ```
 
 Do not set the root to full rect. Its default zero size gives it no hit area.
@@ -727,15 +745,6 @@ Do not set the root to full rect. Its default zero size gives it no hit area.
 Build OpeningPanel as a positioned `ColorRect` with `MOUSE_FILTER_STOP`, two labels, and `Start`; pressing Start emits `intro_acknowledged`.
 
 Build TutorialCard as a small positioned `ColorRect` with `MOUSE_FILTER_STOP`, title/body, and Dismiss. Place it away from the existing top-left action/seed bar. Dismiss appends the current prompt ID to `_dismissed` and re-renders from `_last_snapshot`; it never mutates the session.
-
-Expose:
-
-```gdscript
-func render(snapshot: Dictionary) -> void
-func is_opening_visible() -> bool
-```
-
-`render()` shows OpeningPanel iff `intro_acknowledged == false`; after intro it asks `ContentRules.next_tutorial_prompt(snapshot, _dismissed)` and updates TutorialCard.
 
 - [ ] **Step 7: Wire onboarding through the current HUD/modal gate**
 
@@ -748,11 +757,14 @@ _root.add_child(_onboarding_overlay)
 _onboarding_overlay.intro_acknowledged.connect(func() -> void:
     intro_acknowledged.emit()
 )
+_onboarding_overlay.blocking_state_changed.connect(func() -> void:
+    modal_state_changed.emit()
+)
 ```
 
 Add `signal intro_acknowledged` and include only `_onboarding_overlay.is_opening_visible()` in `has_blocking_modal()`.
 
-`GameHud.render(snapshot)` calls `_onboarding_overlay.render(snapshot)` before the final modal-state/input refresh logic.
+`GameHud.render(snapshot)` calls `_onboarding_overlay.render(snapshot)`. The forwarded `modal_state_changed` updates the existing action/seed toggle gate, while `WorldShell`'s existing listener updates player input. Do not add another lock boolean.
 
 In `WorldShell._ready()` connect HUD intro signal, and add:
 
@@ -763,7 +775,9 @@ func _on_intro_acknowledged() -> void:
 
 Do not reject this handler because `_world_input_enabled` is false; it is the action that releases the opening gate.
 
-- [ ] **Step 8: Prove TutorialCard does not intercept normal HUD actions**
+- [ ] **Step 8: Prove opening/toggle gating and TutorialCard hit testing**
+
+On `_locked_world()`, assert an existing action button is disabled while OpeningPanel is visible.
 
 After `_world()` has started and while `farm_basics` card is visible:
 
@@ -774,6 +788,7 @@ world.hud.select_action_requested.connect(func(action: int) -> void:
 )
 
 var hoe_button := world.hud.get_node("HudRoot/Action_0") as Button
+assert_false(hoe_button.disabled)
 hoe_button.pressed.emit()
 assert_eq(selected, [GameRules.FarmingAction.HOE])
 assert_true(world._world_input_enabled)
@@ -781,14 +796,14 @@ assert_true(world._world_input_enabled)
 
 Also press Dismiss and assert the session tutorial flag remains false, then perform a successful Hoe and assert `farm_basics` becomes true and the card changes/disappears after refresh.
 
-- [ ] **Step 9: Add the persistent objective only**
+- [ ] **Step 9: Add the persistent objective once, using final wording**
 
 Add one HUD objective label:
 
 - Day 1–13: `Harvest Market: Day 14 · N days left`
-- Day 14, while the old boundary still exists: `Harvest Market today — prepare your final shipment.`
+- Day 14: `Harvest Market today — ship crops first, then visit the village path stall.`
 
-Do not add `Harvest Market — E` yet. Do not replace `DAY_LIMIT_REACHED` or claim that sleep finishes the run before Task 4 lands.
+This is the final objective copy; Task 4 does not rewrite it. Leave the existing Day 14 shipping/sleep hard-stop messages unchanged until Task 4 replaces the underlying behavior. Do not add `Harvest Market — E` until the interaction exists.
 
 - [ ] **Step 10: Update headless smoke to press Start once before input checks**
 
@@ -1085,10 +1100,9 @@ Add market target hint in `_process()`:
 Harvest Market — E
 ```
 
-On Day 14 use:
+Keep the Task 3 objective unchanged. Replace only the current boundary-specific labels:
 
 ```text
-Objective: Harvest Market today — ship crops first, then visit the village path stall.
 Shipping: Day 14: only crops deposited here count toward the finale.
 Sleep: Day 14: sleeping ends the run and settles the shipping bin.
 ```
@@ -1192,7 +1206,7 @@ CLAUDE.md implementation facts:
 - four persisted fields are copied through `state()` + `snapshot()` and old saves are intentionally incompatible;
 - `_settle_pending_shipment()` records lifetime shipped counts;
 - carried inventory is not auto-shipped at completion;
-- OnboardingOverlay is code-built under `GameHud` like DialoguePanel;
+- OnboardingOverlay is code-built under `GameHud` like DialoguePanel and forwards opening visibility through existing `modal_state_changed`;
 - market world contract and smoke offsets;
 - Task 4 terminal path shares `_complete_finale()`;
 - AppRoot result teardown is `remove_child()` + `queue_free()`;
