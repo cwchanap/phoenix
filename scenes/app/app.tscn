@@ -1,9 +1,13 @@
-[gd_scene load_steps=3 format=4]
+[gd_scene load_steps=4 format=4]
 
 [ext_resource type="Script" path="res://scripts/app/app_root.gd" id="1_app"]
 [ext_resource type="PackedScene" path="res://scenes/ui/title_screen.tscn" id="2_title"]
+[ext_resource type="PackedScene" path="res://scenes/ui/result_screen.tscn" id="3_result"]
 
 [node name="AppRoot" type="Node"]
 script = ExtResource("1_app")
 
 [node name="TitleScreen" parent="." instance=ExtResource("2_title")]
+
+[node name="ResultScreen" parent="." instance=ExtResource("3_result")]
+visible = false

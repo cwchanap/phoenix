@@ -31,7 +31,6 @@ var _onboarding_overlay: OnboardingOverlay
 var _morning_summary_panel: Control
 var _day14_shipping_boundary: Label
 var _day14_sleep_boundary: Label
-var _sleep_inline_feedback: Label
 var _objective_label: Label
 var _action_buttons: Array[Button] = []
 var _seed_buttons: Array[Button] = []
@@ -85,12 +84,12 @@ func render(snapshot: Dictionary) -> void:
     else:
         _objective_label.text = "Harvest Market: Day 14 · %d days left" % (GameRules.MAX_DAY - day)
     _day14_shipping_boundary.text = (
-        "Day 14: pending crops won't settle at this boundary."
+        "Day 14: only crops deposited here count toward the finale."
         if day == GameRules.MAX_DAY
         else ""
     )
     _day14_sleep_boundary.text = (
-        "Day 14: sleeping cannot advance/pay shipping."
+        "Day 14: sleeping ends the run and settles the shipping bin."
         if day == GameRules.MAX_DAY
         else ""
     )
@@ -219,9 +218,14 @@ func show_feedback(code: GameRules.CommandCode) -> void:
             _feedback.text = "Acknowledge the morning summary first."
         GameRules.CommandCode.NO_DAY_SUMMARY:
             _feedback.text = "No morning summary."
-        GameRules.CommandCode.DAY_LIMIT_REACHED:
-            _feedback.text = "Day 14 reached: sleeping cannot advance/pay shipping."
-            _sleep_inline_feedback.text = "Day 14: sleeping cannot advance/pay shipping."
+        GameRules.CommandCode.FINALE_TRIGGERED:
+            _feedback.text = "Harvest finale complete."
+        GameRules.CommandCode.MARKET_NOT_READY:
+            _feedback.text = "The Harvest Market opens on Day 14."
+        GameRules.CommandCode.NOT_AT_MARKET:
+            _feedback.text = "Stand at the Harvest Market."
+        GameRules.CommandCode.FINALE_ALREADY_TRIGGERED:
+            _feedback.text = "The harvest finale is already complete."
         GameRules.CommandCode.VILLAGER_TALKED:
             _feedback.text = "Talked to villager."
         GameRules.CommandCode.CROP_GIFTED:
@@ -232,9 +236,6 @@ func show_feedback(code: GameRules.CommandCode) -> void:
             _feedback.text = "Gift already given today."
         GameRules.CommandCode.NOTHING_TO_INTERACT:
             _feedback.text = "Nothing to interact with."
-
-    if code != GameRules.CommandCode.DAY_LIMIT_REACHED:
-        _sleep_inline_feedback.text = ""
 
 func _build_always_visible_hud() -> void:
     _day_label = _add_label(_root, "Day", "Day", Vector2(8, 8), Vector2(72, 20))
@@ -372,7 +373,6 @@ func _build_sleep_panel() -> Control:
     var panel := _add_panel(_root, "SleepPanel", "Sleep Confirmation", Vector2(300, 94), Vector2(332, 168))
     _add_label(panel, "Body", "Sleep until the next morning?", Vector2(10, 30), Vector2(310, 24))
     _day14_sleep_boundary = _add_label(panel, "Boundary", "", Vector2(10, 56), Vector2(310, 20))
-    _sleep_inline_feedback = _add_label(panel, "InlineFeedback", "", Vector2(10, 78), Vector2(310, 24))
     var confirm_button := _add_button(panel, "Confirm", "Sleep", Vector2(150, 116), Vector2(76, 28))
     confirm_button.pressed.connect(func() -> void: sleep_requested.emit())
     var cancel_button := _add_button(panel, "Cancel", "Cancel", Vector2(238, 116), Vector2(76, 28))

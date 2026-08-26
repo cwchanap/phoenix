@@ -1131,33 +1131,183 @@ func test_pending_morning_summary_blocks_active_commands_without_mutation() -> v
     assert_eq(session.acknowledge_morning_summary(), GameRules.CommandCode.NO_DAY_SUMMARY)
     _assert_unchanged(session, before_duplicate_ack)
 
-func test_day_fourteen_sleep_rejects_without_rng_or_shipping_settlement() -> void:
+func _day14_session_from(state: Dictionary, session: GameSession = null) -> GameSession:
+    if session == null:
+        session = GameSession.new(func() -> float: return 0.9)
+    var seeded := session.state()
+    seeded["day"] = GameRules.MAX_DAY
+    for field in state:
+        seeded[field] = state[field]
+    assert_eq(GameSession.state_error(seeded), "")
+    assert_true(session.restore_state(seeded))
+    var snapshot := session.snapshot()
+    assert_eq(snapshot["day"], GameRules.MAX_DAY)
+    assert_null(snapshot["pending_morning_summary"])
+    assert_false(snapshot["finale_triggered"])
+    for field in ["harvested", "pending_shipment", "shipped", "seeds", "money"]:
+        if state.has(field):
+            assert_eq(snapshot[field], state[field])
+    return session
+
+func _day14_pre_final_state() -> Dictionary:
+    return {
+        "harvested": {&"turnip": 2, &"potato": 0, &"pumpkin": 0},
+        "pending_shipment": {&"turnip": 1, &"potato": 0, &"pumpkin": 0},
+        "shipped": {&"turnip": 1, &"potato": 0, &"pumpkin": 0},
+    }
+
+func test_market_finale_before_day_fourteen_is_not_ready() -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    var before := session.snapshot()
+    assert_eq(
+        session.trigger_harvest_finale(WorldContract.MARKET_CELL),
+        GameRules.CommandCode.MARKET_NOT_READY,
+    )
+    _assert_unchanged(session, before)
+
+func test_day_fourteen_market_requires_the_exact_market_cell() -> void:
+    var session := _day14_session_from({})
+    var before := session.snapshot()
+    assert_eq(
+        session.trigger_harvest_finale(WorldContract.SHOP_CELL),
+        GameRules.CommandCode.NOT_AT_MARKET,
+    )
+    _assert_unchanged(session, before)
+    assert_eq(
+        session.trigger_harvest_finale(null),
+        GameRules.CommandCode.NOT_AT_MARKET,
+    )
+    _assert_unchanged(session, before)
+
+func test_day_fourteen_market_completes_the_canonical_terminal_state() -> void:
+    var session := _day14_session_from(_day14_pre_final_state())
+    assert_eq(
+        session.trigger_harvest_finale(WorldContract.MARKET_CELL),
+        GameRules.CommandCode.FINALE_TRIGGERED,
+    )
+    var state := session.state()
+    assert_true(state["finale_triggered"])
+    assert_eq(state["day"], GameRules.MAX_DAY)
+    assert_null(state["pending_morning_summary"])
+    assert_eq(state["harvested"], {&"turnip": 2, &"potato": 0, &"pumpkin": 0})
+    assert_eq(state["shipped"], {&"turnip": 2, &"potato": 0, &"pumpkin": 0})
+    assert_eq(state["pending_shipment"], {&"turnip": 0, &"potato": 0, &"pumpkin": 0})
+    assert_eq(state["money"], GameRules.STARTING_MONEY + 35)
+    assert_eq(GameSession.state_error(state), "")
+    var restored := GameSession.new(func() -> float: return 0.9)
+    assert_true(restored.restore_state(state))
+    assert_eq(restored.state(), state)
+
+func test_market_and_bed_routes_produce_identical_canonical_terminal_states() -> void:
+    var market := _day14_session_from(_day14_pre_final_state())
+    assert_eq(
+        market.trigger_harvest_finale(WorldContract.MARKET_CELL),
+        GameRules.CommandCode.FINALE_TRIGGERED,
+    )
+    var bed := _day14_session_from(_day14_pre_final_state())
+    assert_eq(bed.sleep(WorldContract.BED_CELL), GameRules.CommandCode.FINALE_TRIGGERED)
+    assert_eq(market.state(), bed.state())
+    assert_eq(
+        ContentRules.build_harvest_result(market.state()),
+        ContentRules.build_harvest_result(bed.state()),
+    )
+
+func test_day_fourteen_bed_completes_without_overnight_progression() -> void:
     var weather_calls := [0]
     var session := GameSession.new(func() -> float:
         weather_calls[0] += 1
         return 0.9
     )
-    _grow_and_harvest_turnip(session)
-    while int(session.snapshot()["day"]) < GameRules.MAX_DAY:
-        assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
-        assert_eq(session.acknowledge_morning_summary(), GameRules.CommandCode.DAY_STARTED)
-    assert_eq(weather_calls[0], GameRules.MAX_DAY - 1)
+    var state := _day14_pre_final_state()
+    state["weather"] = &"rainy"
+    state["time_minutes"] = 1200
+    state["stamina"] = 5
+    _day14_session_from(state, session)
+    var seeded := session.state()
+    seeded["farm"][0]["tilled"] = true
+    seeded["farm"][0]["crop"] = {"kind": &"turnip", "growth": 1, "watered_today": true}
+    seeded["relationships"][&"resident"]["talked_today"] = true
+    seeded["relationships"][&"resident"]["gifted_today"] = true
+    assert_true(session.restore_state(seeded))
+    var before := session.snapshot()
+
+    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.FINALE_TRIGGERED)
+
+    var after := session.snapshot()
+    assert_eq(after["day"], GameRules.MAX_DAY)
+    assert_null(after["pending_morning_summary"])
+    assert_eq(after["weather"], &"rainy")
+    assert_eq(after["time_minutes"], 1200)
+    assert_eq(after["stamina"], 5)
+    assert_eq(after["farm"], before["farm"])
+    assert_eq(after["relationships"], before["relationships"])
+    assert_eq(weather_calls[0], 0)
+
+func test_duplicate_terminal_commands_return_finale_already_triggered_without_mutation() -> void:
+    var session := _day14_session_from(_day14_pre_final_state())
+    assert_eq(
+        session.trigger_harvest_finale(WorldContract.MARKET_CELL),
+        GameRules.CommandCode.FINALE_TRIGGERED,
+    )
+    var completed := session.snapshot()
+    assert_eq(
+        session.trigger_harvest_finale(WorldContract.MARKET_CELL),
+        GameRules.CommandCode.FINALE_ALREADY_TRIGGERED,
+    )
+    _assert_unchanged(session, completed)
+    assert_eq(
+        session.sleep(WorldContract.BED_CELL),
+        GameRules.CommandCode.FINALE_ALREADY_TRIGGERED,
+    )
+    _assert_unchanged(session, completed)
+
+func test_finale_blocks_every_ordinary_gameplay_command() -> void:
+    var session := _day14_session_from(_day14_pre_final_state())
+    assert_eq(
+        session.trigger_harvest_finale(WorldContract.MARKET_CELL),
+        GameRules.CommandCode.FINALE_TRIGGERED,
+    )
+    var completed := session.snapshot()
+    assert_eq(
+        session.select_action(GameRules.FarmingAction.SEEDS),
+        GameRules.CommandCode.FINALE_ALREADY_TRIGGERED,
+    )
+    assert_eq(
+        session.select_seed(GameRules.CropKind.POTATO),
+        GameRules.CommandCode.FINALE_ALREADY_TRIGGERED,
+    )
+    for command in [session.hoe, session.plant, session.water, session.harvest]:
+        assert_eq(command.call(FARM_CELL), GameRules.CommandCode.FINALE_ALREADY_TRIGGERED)
+    assert_eq(
+        session.apply_selected_action(FARM_CELL),
+        GameRules.CommandCode.FINALE_ALREADY_TRIGGERED,
+    )
+    assert_eq(
+        session.buy_seeds(GameRules.CropKind.POTATO, 1, WorldContract.SHOP_CELL),
+        GameRules.CommandCode.FINALE_ALREADY_TRIGGERED,
+    )
     assert_eq(
         session.deposit_crop(GameRules.CropKind.TURNIP, 1, WorldContract.SHIPPING_CELL),
-        GameRules.CommandCode.CROP_DEPOSITED,
+        GameRules.CommandCode.FINALE_ALREADY_TRIGGERED,
     )
     var june := VillagerRules.VillagerId.RESIDENT
     assert_eq(
         session.talk_to(june, WorldContract.villager_cell(june))["code"],
-        GameRules.CommandCode.VILLAGER_TALKED,
+        GameRules.CommandCode.FINALE_ALREADY_TRIGGERED,
     )
-
-    var before := session.snapshot()
-    var calls_before: int = weather_calls[0]
-    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_LIMIT_REACHED)
-    assert_eq(session.snapshot(), before)
-    assert_eq(weather_calls[0], calls_before)
-    assert_eq(session.snapshot()["pending_shipment"][&"turnip"], 1)
+    assert_eq(
+        session.gift_crop(
+            june,
+            GameRules.CropKind.TURNIP,
+            WorldContract.villager_cell(june),
+        )["code"],
+        GameRules.CommandCode.FINALE_ALREADY_TRIGGERED,
+    )
+    assert_eq(
+        session.sleep(WorldContract.BED_CELL),
+        GameRules.CommandCode.FINALE_ALREADY_TRIGGERED,
+    )
+    _assert_unchanged(session, completed)
 
 func test_public_all_crop_lifecycles_are_successful() -> void:
     var cases: Array = [

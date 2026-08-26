@@ -1,6 +1,8 @@
 class_name WorldShell
 extends Node2D
 
+signal finale_completed(final_state: Dictionary, save_error: int)
+
 const PERIMETER_BAND_WIDTH := 1.0
 
 var _session: GameSession
@@ -78,6 +80,8 @@ func _process(_delta: float) -> void:
         hud.set_interaction_hint("Bed — E")
     elif target == WorldContract.SHIPPING_CELL:
         hud.set_interaction_hint("Shipping — E")
+    elif target == WorldContract.MARKET_CELL:
+        hud.set_interaction_hint("Harvest Market — E")
     else:
         hud.set_interaction_hint("")
 
@@ -123,6 +127,8 @@ func interact() -> void:
         hud.open_shipping()
     elif target == WorldContract.BED_CELL:
         hud.open_sleep_confirmation()
+    elif target == WorldContract.MARKET_CELL:
+        _finish_finale(_session.trigger_harvest_finale(target))
     else:
         hud.show_feedback(GameRules.CommandCode.NOTHING_TO_INTERACT)
 
@@ -161,6 +167,9 @@ func _on_deposit_requested(kind: int, quantity: int) -> void:
 func _on_sleep_requested() -> void:
     var target: Variant = player.current_target_cell()
     var code := _session.sleep(target)
+    if code == GameRules.CommandCode.FINALE_TRIGGERED:
+        _finish_finale(code)
+        return
     if code != GameRules.CommandCode.DAY_ADVANCED or _save_repository == null:
         _finish_command(code)
         return
@@ -172,10 +181,19 @@ func _on_sleep_requested() -> void:
     if save_error == OK:
         hud.set_save_status(&"saved")
     else:
-        hud.set_save_status(
-            &"error",
-            "Save failed — this morning is not persisted.",
-        )
+        hud.set_save_status(&"error", "Save failed — this morning is not persisted.")
+
+func _finish_finale(code: GameRules.CommandCode) -> void:
+    if code != GameRules.CommandCode.FINALE_TRIGGERED:
+        _finish_command(code)
+        return
+    hud.show_feedback(code)
+    _refresh_from_session()
+    var state := _session.state()
+    var save_error := ERR_UNAVAILABLE
+    if _save_repository != null:
+        save_error = _save_repository.save(state)
+    finale_completed.emit(state, save_error)
 
 func _on_gift_requested(villager_id: int, crop_kind: int) -> void:
     var target: Variant = player.current_target_cell()
