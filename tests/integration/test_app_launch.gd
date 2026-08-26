@@ -55,6 +55,8 @@ func test_continue_with_completed_finale_shows_result_screen() -> void:
     var seeded := session.state()
     seeded["day"] = GameRules.MAX_DAY
     seeded["shipped"] = {&"turnip": 4, &"potato": 0, &"pumpkin": 0}
+    seeded["relationships"][&"shopkeeper"]["points"] = VillagerRules.CLOSE_FRIEND_POINTS
+    seeded["relationships"][&"farmer"]["points"] = VillagerRules.FRIEND_POINTS
     assert_true(session.restore_state(seeded))
     assert_eq(
         session.trigger_harvest_finale(WorldContract.MARKET_CELL),
@@ -88,9 +90,19 @@ func test_continue_with_completed_finale_shows_result_screen() -> void:
         "Final money: %dG" % int(expected["final_money"]),
     )
     assert_eq(
-        (result.get_node("Panel/VillagerLine") as Label).text,
-        expected["line"],
+        (result.get_node("Panel/Relationship") as Label).text,
+        "Closest villager: %s" % String(expected["villager"]),
     )
+    var villagers: Dictionary = expected["villagers"]
+    for id in range(VillagerRules.VillagerId.size()):
+        var villager: Dictionary = villagers[VillagerRules.villager_key(id)]
+        var level_name: String = VillagerRules.RELATIONSHIP_DISPLAY_NAMES[
+            VillagerRules.RELATIONSHIP_KEYS.find(villager["level"])
+        ]
+        assert_eq(
+            (result.get_node("Panel/%sLine" % VillagerRules.display_name(id)) as Label).text,
+            "%s (%s): %s" % [String(villager["name"]), level_name, String(villager["line"])],
+        )
     assert_eq((result.get_node("Panel/SaveStatus") as Label).text, "")
 
 func test_incompatible_slot_refuses_continue_but_new_game_still_launches() -> void:
