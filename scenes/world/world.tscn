@@ -83,6 +83,8 @@ visible = false
 
 [node name="ShippingCollision" type="CollisionPolygon2D" parent="StaticCollision"]
 
+[node name="HarvestMarketCollision" type="CollisionPolygon2D" parent="StaticCollision"]
+
 [node name="VillagerShopkeeperCollision" type="CollisionPolygon2D" parent="StaticCollision"]
 
 [node name="VillagerFarmerCollision" type="CollisionPolygon2D" parent="StaticCollision"]
@@ -110,7 +112,7 @@ position = Vector2(480, 192)
 [node name="Sprite2D" type="Sprite2D" parent="Entities/Tree" unique_id=913001858]
 texture = ExtResource("3_v5dby")
 offset = Vector2(0, -48)
-hframes = 3
+hframes = 4
 
 [node name="Building" type="Node2D" parent="Entities" unique_id=634663332]
 position = Vector2(384, 288)
@@ -118,7 +120,7 @@ position = Vector2(384, 288)
 [node name="Sprite2D" type="Sprite2D" parent="Entities/Building" unique_id=503049008]
 texture = ExtResource("3_v5dby")
 offset = Vector2(0, -48)
-hframes = 3
+hframes = 4
 frame = 1
 
 [node name="Shipping" type="Node2D" parent="Entities"]
@@ -127,8 +129,17 @@ position = Vector2(256, 272)
 [node name="Sprite2D" type="Sprite2D" parent="Entities/Shipping"]
 texture = ExtResource("3_v5dby")
 offset = Vector2(0, -48)
-hframes = 3
+hframes = 4
 frame = 2
+
+[node name="HarvestMarket" type="Node2D" parent="Entities"]
+position = Vector2(448, 240)
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/HarvestMarket"]
+texture = ExtResource("3_v5dby")
+offset = Vector2(0, -48)
+hframes = 4
+frame = 3
 
 [node name="VillagerShopkeeper" type="Node2D" parent="Entities"]
 position = Vector2(416, 192)
