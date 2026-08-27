@@ -1,0 +1,40 @@
+name: E2E tests (godot-e2e)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: chickensoft-games/setup-godot@v2.4.1
+        with:
+          version: 4.7.1
+          use-dotnet: false
+          include-templates: false
+      - run: godot --version
+      - name: Resolve Godot executable
+        run: echo "GODOT_BIN=$(command -v godot)" >> "$GITHUB_ENV"
+      - run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends xvfb
+      - run: ./tools/bootstrap-gdunit.sh
+      - name: Run godot-e2e tests
+        run: >-
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24"
+          ./addons/gdUnit4/runtest.sh -a tests/e2e -c
+      - name: Upload reports and failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-artifacts
+          if-no-files-found: warn
+          path: |
+            reports
+            test_output
