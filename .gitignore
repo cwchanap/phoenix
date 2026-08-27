@@ -1,3 +1,6 @@
 .DS_Store
 .godot/
 /addons/
+reports/
+test_output/
+

@@ -1,0 +1,37 @@
+name: Unit tests (GdUnit4)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: chickensoft-games/setup-godot@v2.4.1
+        with:
+          version: 4.7.1
+          use-dotnet: false
+          include-templates: false
+      - run: godot --version
+      - name: Resolve Godot executable
+        run: echo "GODOT_BIN=$(command -v godot)" >> "$GITHUB_ENV"
+      - run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends xvfb
+      - run: ./tools/bootstrap-gdunit.sh
+      - name: Run GdUnit4 unit tests
+        run: >-
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24"
+          ./addons/gdUnit4/runtest.sh -a tests/gdunit -c
+      - name: Upload reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          if-no-files-found: warn
+          path: reports
