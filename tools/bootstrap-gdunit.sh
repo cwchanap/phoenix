@@ -26,6 +26,7 @@ else
   unzip -q "$tmp/e2e.zip" -d "$tmp/e2e"
 
   mkdir -p "$root/addons"
+  rm -rf "$root/addons/gdUnit4" "$root/addons/gdunit_e2e"
   cp -R "$tmp"/gdunit4/*/addons/gdUnit4 "$root/addons/gdUnit4"
   cp -R "$tmp"/e2e/*/addons/gdunit_e2e "$root/addons/gdunit_e2e"
 fi
