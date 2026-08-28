@@ -228,7 +228,29 @@ const RAINY_TINT := Color(0.38, 0.52, 0.72, 0.12)
 
 ### 2.4 GREEN — add one reusable ground shadow texture
 
-- [ ] Create `assets/sprites/proof-shadow.png` as a small soft/translucent ellipse on a transparent background. Keep it nearest-filter friendly and neutral; no projected light direction.
+- [ ] Generate `assets/sprites/proof-shadow.png` as a 32×12 soft/translucent ground ellipse with a one-off Godot script; do not add a permanent image-generation dependency:
+
+```bash
+cat > /tmp/phoenix-shadow.gd <<'GDSCRIPT'
+extends SceneTree
+
+func _init() -> void:
+    var image := Image.create_empty(32, 12, false, Image.FORMAT_RGBA8)
+    image.fill(Color(0, 0, 0, 0))
+    for y in range(12):
+        for x in range(32):
+            var dx := (float(x) - 15.5) / 15.5
+            var dy := (float(y) - 5.5) / 5.5
+            var radius := dx * dx + dy * dy
+            if radius <= 1.0:
+                image.set_pixel(x, y, Color(0.0, 0.0, 0.0, 0.28 * (1.0 - radius)))
+    var error := image.save_png("res://assets/sprites/proof-shadow.png")
+    assert(error == OK)
+    quit()
+GDSCRIPT
+godot --headless --path . --script /tmp/phoenix-shadow.gd
+rm /tmp/phoenix-shadow.gd
+```
 
 - [ ] Reuse that one texture under the player, tree, building, shipping bin, harvest market, and three villagers. Put each shadow under the existing entity root before the visible sprite so Y-sort still operates on the entity root’s bottom-center ground contact.
 
@@ -292,20 +314,47 @@ git commit -m "feat: polish world readability and controls"
 
 ### 3.1 Generate a deliberately small project-owned placeholder set
 
-- [ ] Generate eight mono PCM WAV files at 22,050 Hz. They are placeholders, not a music-production task. Keep SFX under 250 ms and the loop under 8 seconds.
+- [ ] Generate eight mono PCM WAV files at 22,050 Hz. They are placeholders, not a music-production task. Keep SFX under 250 ms and the loop under 8 seconds. Use this standard-library-only command so there is no persistent tooling/runtime dependency:
 
-Use Python’s standard library (`wave`, `math`, `struct`) in a one-off local command or temporary script; do not add a runtime dependency. Use simple sine/triangle envelopes with conservative amplitudes. The intended identities are:
+```bash
+python3 - <<'PY'
+from pathlib import Path
+import math
+import struct
+import wave
 
-| File | Use |
-| --- | --- |
-| `action.wav` | till/plant/water/harvest |
-| `commerce.wav` | purchase/shipping |
-| `social.wav` | talk/gift/relationship gain |
-| `confirm.wav` | modal confirm/open/save success |
-| `cancel.wav` | cancel/guard/error feedback |
-| `day-transition.wav` | sleep/wake/morning |
-| `finale.wav` | terminal result transition |
-| `farm-day-loop.wav` | quiet background loop |
+RATE = 22_050
+OUT = Path("assets/audio")
+OUT.mkdir(parents=True, exist_ok=True)
+
+
+def write_tone(name: str, freqs: tuple[float, ...], seconds: float, amp: float) -> None:
+    frame_count = int(RATE * seconds)
+    with wave.open(str(OUT / name), "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(RATE)
+        frames = bytearray()
+        for i in range(frame_count):
+            t = i / RATE
+            edge = min(1.0, t / 0.015, (seconds - t) / 0.035)
+            edge = max(0.0, edge)
+            sample = sum(math.sin(2.0 * math.pi * f * t) for f in freqs) / len(freqs)
+            value = int(max(-1.0, min(1.0, sample * amp * edge)) * 32767)
+            frames.extend(struct.pack("<h", value))
+        wav.writeframes(frames)
+
+
+write_tone("action.wav", (392.00,), 0.10, 0.16)
+write_tone("commerce.wav", (523.25, 659.25), 0.14, 0.14)
+write_tone("social.wav", (440.00, 659.25), 0.16, 0.12)
+write_tone("confirm.wav", (659.25, 880.00), 0.10, 0.12)
+write_tone("cancel.wav", (220.00, 185.00), 0.12, 0.12)
+write_tone("day-transition.wav", (329.63, 440.00), 0.22, 0.10)
+write_tone("finale.wav", (523.25, 659.25, 783.99), 0.24, 0.13)
+write_tone("farm-day-loop.wav", (220.00, 277.18, 329.63), 6.0, 0.035)
+PY
+```
 
 - [ ] Add `assets/audio/README.md` stating that these are project-generated placeholder tones with no external attribution dependency and are intentionally disposable if real audio replaces them later.
 
@@ -339,7 +388,7 @@ GameHud/SfxPlayer
 GameHud/MusicPlayer
 ```
 
-Use conservative defaults (roughly `-8 dB` SFX, `-20 dB` music). Assign the music stream in the scene. Restart it from the player’s `finished` signal to loop; no audio bus or manager is needed.
+Use conservative defaults (`-8 dB` SFX, `-20 dB` music). Assign the music stream in the scene. Restart it from the player’s `finished` signal to loop; no audio bus or manager is needed.
 
 - [ ] In `game_hud.gd`, preload the seven SFX resources and add one private `_play_sfx(stream)` helper. Call it from the existing `show_feedback()` command-code mapping and from modal open/close paths where there is no command code.
 
@@ -553,11 +602,13 @@ Record pass/fail for this compact checklist in the PR description:
 - [ ] Confirm CI pins remain explicit and `persist-credentials: false` remains intact in the GdUnit/e2e workflows.
 - [ ] Confirm the PR remains one HPA-599 PR and the manual checklist is recorded in its description.
 
-- [ ] Final commit only if the manual pass required fixes:
+- [ ] If the manual pass required only modifications to files already introduced or tracked by Tasks 1–4, stage them without adding new scope and commit:
 
 ```bash
-git add <only-files-changed-by-observed-fix>
-git commit -m "fix: address HPA-599 release playthrough findings"
+git status --short
+git commit -am "fix: address HPA-599 release playthrough findings"
 ```
+
+If `git status --short` shows any new untracked file at this stage, stop and justify it against HPA-599 before adding it; a new subsystem or feature is not an acceptable closeout fix.
 
 When all automated gates, the exported 14-day pass, and the PR checklist are green, mark the PR ready for review and move HPA-599 to In Review.
