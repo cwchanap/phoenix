@@ -171,9 +171,9 @@ Add only tests that cover new HPA-599 behavior or explicit release gates. Do not
 
 ### Automated additions
 
-1. GUT tests pin read-only action preview against the actual command guards and prove preview does not mutate state.
-2. Existing exact balance/result tests remain the release-number oracle; add missing `threshold - 1`, exact threshold, and combined Heart boundary cases only where not already explicit.
-3. Integration tests pin the help modal/input gate, target validity colors, weather tint, audio-player wiring, and representative midgame/pre-finale save equivalence.
+1. GdUnit4 tests pin read-only action preview against the actual command guards and prove preview does not mutate state.
+2. Existing exact balance/result tests remain the release-number oracle; add a missing exact threshold or nearest-reachable-below case only if current coverage does not already pin it.
+3. Integration tests pin the new help modal/input gate, target validity colors, weather tint, and audio-player wiring. Existing persistence tests remain the midgame/pre-finale save-equivalence release gates.
 4. Extend the existing godot-e2e lane only for one stable release-relevant assertion if necessary; do not create a 14-day UI automation script.
 
 ### macOS export in CI
