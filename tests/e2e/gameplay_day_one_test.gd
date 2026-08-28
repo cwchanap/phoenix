@@ -9,6 +9,11 @@ const PLAYER := WORLD + "/Entities/Player"
 const UP := WorldMath.Facing.UP
 const RIGHT := WorldMath.Facing.RIGHT
 
+# Save path the child is told to write via PHOENIX_SAVE_PATH. Kept so the
+# sleep test can assert the file actually exists, pinning the isolation
+# seam in CI rather than relying on a one-off mtime check.
+var _save_path := ""
+
 
 func _start_new_game() -> Variant:
 	var options := E2ELaunchOptions.new()
@@ -16,7 +21,8 @@ func _start_new_game() -> Variant:
 	# AppRoot reads PHOENIX_SAVE_PATH: point the child's overnight save at the
 	# suite temp dir (user://tmp) instead of the developer's real save. The
 	# child inherits this env at spawn, so unsetting after launch is safe.
-	OS.set_environment("PHOENIX_SAVE_PATH", create_temp_dir("phoenix-save-e2e") + "/save.json")
+	_save_path = create_temp_dir("phoenix-save-e2e") + "/save.json"
+	OS.set_environment("PHOENIX_SAVE_PATH", _save_path)
 	var game := await launch_game(options)
 	OS.unset_environment("PHOENIX_SAVE_PATH")
 	if game == null or is_failure():
@@ -95,6 +101,11 @@ func test_day_one_farming_loop_and_sleep() -> void:
 	assert_str(
 		await game.get_property(HUD + "/MorningSummaryPanel/SaveStatus", "text")
 	).is_equal("Saved.")
+	# Pin the save-isolation seam: the child must have written the file at the
+	# PHOENIX_SAVE_PATH we set, not the developer's real user://phoenix-save.json.
+	# Parent and child share the same user:// root (same project), so this sees
+	# the child's write. If AppRoot stops honoring the env override, this fails.
+	assert_bool(FileAccess.file_exists(_save_path)).is_true()
 	assert_bool(
 		await game.click_node(HUD + "/MorningSummaryPanel/Acknowledge")
 	).is_true()
