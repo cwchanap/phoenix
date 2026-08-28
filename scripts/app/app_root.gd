@@ -13,7 +13,10 @@ func configure(repository: SaveRepository) -> void:
 
 func _ready() -> void:
     if _save_repository == null:
-        _save_repository = SaveRepository.new()
+        var path := OS.get_environment("PHOENIX_SAVE_PATH")
+        _save_repository = SaveRepository.new(
+            path if not path.is_empty() else SaveRepository.DEFAULT_PATH
+        )
     _title_screen.new_game_requested.connect(_on_new_game_requested)
     _title_screen.continue_requested.connect(_on_continue_requested)
     _result_screen.new_game_requested.connect(_on_result_new_game_requested)
