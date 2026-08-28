@@ -13,7 +13,12 @@ const RIGHT := WorldMath.Facing.RIGHT
 func _start_new_game() -> Variant:
 	var options := E2ELaunchOptions.new()
 	options.scene_path = "res://scenes/app/app.tscn"
+	# AppRoot reads PHOENIX_SAVE_PATH: point the child's overnight save at the
+	# suite temp dir (user://tmp) instead of the developer's real save. The
+	# child inherits this env at spawn, so unsetting after launch is safe.
+	OS.set_environment("PHOENIX_SAVE_PATH", create_temp_dir("phoenix-save-e2e") + "/save.json")
 	var game := await launch_game(options)
+	OS.unset_environment("PHOENIX_SAVE_PATH")
 	if game == null or is_failure():
 		return null
 	assert_bool(

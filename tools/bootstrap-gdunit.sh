@@ -11,25 +11,23 @@ E2E_SHA256="77f579de3a01d5ccf6e526607869f9734f80edbf94f0373535eb649c9b06f1a7"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 godot_bin="${GODOT_BIN:-$(command -v godot || true)}"
 
-if [ -d "$root/addons/gdUnit4" ] && [ -d "$root/addons/gdunit_e2e" ]; then
-  echo "addons/gdUnit4 and addons/gdunit_e2e already present"
-else
-  tmp="$(mktemp -d)"
-  trap 'rm -rf "$tmp"' EXIT
+# Always reinstall from the verified archives so an existing addons/ checkout
+# can never keep stale contents past a pin bump.
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
 
-  curl -fsSL "https://github.com/godot-gdunit-labs/gdUnit4/archive/refs/tags/v${GDUNIT4_VERSION}.zip" -o "$tmp/gdunit4.zip"
-  echo "$GDUNIT4_SHA256  $tmp/gdunit4.zip" | shasum -a 256 -c -
-  unzip -q "$tmp/gdunit4.zip" -d "$tmp/gdunit4"
+curl -fsSL "https://github.com/godot-gdunit-labs/gdUnit4/archive/refs/tags/v${GDUNIT4_VERSION}.zip" -o "$tmp/gdunit4.zip"
+echo "$GDUNIT4_SHA256  $tmp/gdunit4.zip" | shasum -a 256 -c -
+unzip -q "$tmp/gdunit4.zip" -d "$tmp/gdunit4"
 
-  curl -fsSL "https://github.com/cwchanap/godot-e2e/archive/${E2E_COMMIT}.zip" -o "$tmp/e2e.zip"
-  echo "$E2E_SHA256  $tmp/e2e.zip" | shasum -a 256 -c -
-  unzip -q "$tmp/e2e.zip" -d "$tmp/e2e"
+curl -fsSL "https://github.com/cwchanap/godot-e2e/archive/${E2E_COMMIT}.zip" -o "$tmp/e2e.zip"
+echo "$E2E_SHA256  $tmp/e2e.zip" | shasum -a 256 -c -
+unzip -q "$tmp/e2e.zip" -d "$tmp/e2e"
 
-  mkdir -p "$root/addons"
-  rm -rf "$root/addons/gdUnit4" "$root/addons/gdunit_e2e"
-  cp -R "$tmp"/gdunit4/*/addons/gdUnit4 "$root/addons/gdUnit4"
-  cp -R "$tmp"/e2e/*/addons/gdunit_e2e "$root/addons/gdunit_e2e"
-fi
+mkdir -p "$root/addons"
+rm -rf "$root/addons/gdUnit4" "$root/addons/gdunit_e2e"
+cp -R "$tmp"/gdunit4/*/addons/gdUnit4 "$root/addons/gdUnit4"
+cp -R "$tmp"/e2e/*/addons/gdunit_e2e "$root/addons/gdunit_e2e"
 
 if [ -n "$godot_bin" ] && [ -x "$godot_bin" ]; then
   "$godot_bin" --headless --editor --path "$root" --quit
