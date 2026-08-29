@@ -154,6 +154,7 @@ them without the wrapper after `./tools/bootstrap-gdunit.sh`:
 GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/gdunit -c
 GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/e2e -c
 godot --headless --path . --import
+mkdir -p build
 godot --headless --path . --export-release "macOS" build/Phoenix.zip
 unzip -l build/Phoenix.zip | grep -F "Phoenix.app/Contents/MacOS/Phoenix"
 ```
