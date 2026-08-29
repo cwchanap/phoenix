@@ -32,6 +32,13 @@ func _mature_turnip(session: GameSession, cell: Vector2i = FARM_CELL) -> void:
             GameRules.CommandCode.DAY_STARTED,
         )
 
+func _sleep_and_ack(session: GameSession) -> void:
+    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+    assert_eq(
+        session.acknowledge_morning_summary(),
+        GameRules.CommandCode.DAY_STARTED,
+    )
+
 func _seed_harvested(session: GameSession, counts: Array[int]) -> void:
     session.set("_harvested_counts", counts)
     var harvested: Dictionary = session.snapshot()["harvested"]
@@ -1485,3 +1492,69 @@ func test_public_potato_loop_reinvests_shipping_income() -> void:
     var reinvested := session.snapshot()
     assert_eq(reinvested["money"], 145)
     assert_eq(reinvested["seeds"][&"potato"], 1)
+
+func test_representative_reinvestment_route_reaches_promising() -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    var cells := [
+        WorldContract.farm_cells()[0],
+        WorldContract.farm_cells()[1],
+        WorldContract.farm_cells()[2],
+    ]
+
+    # Starter crop: three Turnips, watered through three sunny growth nights.
+    for cell in cells:
+        assert_eq(session.hoe(cell), GameRules.CommandCode.SOIL_TILLED)
+        assert_eq(session.plant(cell), GameRules.CommandCode.CROP_PLANTED)
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    _sleep_and_ack(session)  # Day 2
+    for cell in cells:
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    _sleep_and_ack(session)  # Day 3
+    for cell in cells:
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    _sleep_and_ack(session)  # Day 4, mature
+
+    for cell in cells:
+        assert_eq(session.harvest(cell), GameRules.CommandCode.CROP_HARVESTED)
+    assert_eq(
+        session.deposit_crop(GameRules.CropKind.TURNIP, 3, WorldContract.SHIPPING_CELL),
+        GameRules.CommandCode.CROP_DEPOSITED,
+    )
+    _sleep_and_ack(session)  # Day 5, first 105G shipment settled
+
+    # Reinvest into two more Turnips on already-tilled cells.
+    assert_eq(
+        session.buy_seeds(GameRules.CropKind.TURNIP, 2, WorldContract.SHOP_CELL),
+        GameRules.CommandCode.SEEDS_PURCHASED,
+    )
+    for cell in cells.slice(0, 2):
+        assert_eq(session.plant(cell), GameRules.CommandCode.CROP_PLANTED)
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    _sleep_and_ack(session)  # Day 6
+    for cell in cells.slice(0, 2):
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    _sleep_and_ack(session)  # Day 7
+    for cell in cells.slice(0, 2):
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    _sleep_and_ack(session)  # Day 8, mature
+
+    for cell in cells.slice(0, 2):
+        assert_eq(session.harvest(cell), GameRules.CommandCode.CROP_HARVESTED)
+    assert_eq(
+        session.deposit_crop(GameRules.CropKind.TURNIP, 2, WorldContract.SHIPPING_CELL),
+        GameRules.CommandCode.CROP_DEPOSITED,
+    )
+    _sleep_and_ack(session)  # Day 9, second 70G shipment settled
+
+    while int(session.snapshot()["day"]) < GameRules.MAX_DAY:
+        _sleep_and_ack(session)
+
+    assert_eq(
+        session.trigger_harvest_finale(WorldContract.MARKET_CELL),
+        GameRules.CommandCode.FINALE_TRIGGERED,
+    )
+    var result := ContentRules.build_harvest_result(session.state())
+    assert_eq(result["shipped_count"], 5)
+    assert_eq(result["shipped_value"], 175)
+    assert_true(int(result["shipped_value"]) >= ContentRules.PROMISING_SHIPPED_VALUE)
+    assert_eq(result["tier"], &"promising_farmer")
