@@ -137,3 +137,11 @@ ignored; the source-adjacent `.import` and `.uid` sidecars are committed so
 asset import settings and resource UIDs survive clean clones and CI. Git
 history and historical `docs/superpowers/` documents are the behavior
 reference; no dormant second runtime or TypeScript rules tree is maintained.
+
+Sprite-isometric art contract
+- Ground diamonds are 64×32.
+- Entity roots are bottom-center ground contacts.
+- Visible sprites offset upward from the root.
+- Shadows are child sprites on the ground plane, never Y-sort roots.
+- Entities remains the sole Y-sort owner for foreground/occluding world objects.
+- Nearest filtering and integer scaling remain mandatory.

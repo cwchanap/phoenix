@@ -357,7 +357,13 @@ func _run() -> void:
         {"node": market, "frame": 3, "label": "market"},
     ]:
         var entity: Node2D = entry.node
-        if not _expect_names(entity, ["Sprite2D"], "%s entity" % entry.label):
+        if not _expect_names(entity, ["Shadow", "Sprite2D"], "%s entity" % entry.label):
+            return
+        var entity_shadow := entity.get_node("Shadow") as Sprite2D
+        if not _expect(
+            entity_shadow.texture.resource_path == "res://assets/sprites/proof-shadow.png",
+            "%s shadow texture" % entry.label,
+        ):
             return
         var sprite := entity.get_node("Sprite2D") as Sprite2D
         if not _expect(
@@ -381,7 +387,13 @@ func _run() -> void:
             "villager %d anchor" % id,
         ):
             return
-        if not _expect_names(villager, ["Sprite2D"], "villager %d entity" % id):
+        if not _expect_names(villager, ["Shadow", "Sprite2D"], "villager %d entity" % id):
+            return
+        var villager_shadow := villager.get_node("Shadow") as Sprite2D
+        if not _expect(
+            villager_shadow.texture.resource_path == "res://assets/sprites/proof-shadow.png",
+            "villager %d shadow texture" % id,
+        ):
             return
         var villager_sprite := villager.get_node("Sprite2D") as Sprite2D
         if not _expect(
@@ -416,6 +428,15 @@ func _run() -> void:
     if not _expect_vec2(player_sprite.offset, Vector2(0.0, -24.0), "player bottom-center offset"):
         return
 
+    var player_shadow := player.get_node_or_null("Shadow") as Sprite2D
+    if not _expect(player_shadow != null, "Player must contain Shadow"):
+        return
+    if not _expect(
+        player_shadow.texture.resource_path == "res://assets/sprites/proof-shadow.png",
+        "player shadow texture",
+    ):
+        return
+
     var player_collision := player.get_node_or_null("CollisionPolygon2D") as CollisionPolygon2D
     if not _expect(player_collision != null, "Player must contain CollisionPolygon2D"):
         return
@@ -447,7 +468,15 @@ func _run() -> void:
             return
         if not _expect(crop_root.z_index == shared_entity_z_index, "crop %s z-index" % cell):
             return
-        if not _expect_names(crop_root, ["Sprite2D"], "crop %s" % cell):
+        if not _expect_names(crop_root, ["Shadow", "Sprite2D"], "crop %s" % cell):
+            return
+        var crop_shadow := crop_root.get_node("Shadow") as Sprite2D
+        if not _expect(
+            crop_shadow.texture.resource_path == "res://assets/sprites/proof-shadow.png",
+            "crop %s shadow texture" % cell,
+        ):
+            return
+        if not _expect(not crop_shadow.visible, "crop %s shadow initially hidden" % cell):
             return
         var crop_sprite := crop_root.get_node("Sprite2D") as Sprite2D
         if not _expect(

@@ -11,7 +11,11 @@ signal morning_summary_acknowledged
 signal intro_acknowledged
 signal modal_state_changed
 
+const SUNNY_TINT := Color(1.0, 0.96, 0.86, 0.03)
+const RAINY_TINT := Color(0.38, 0.52, 0.72, 0.12)
+
 var _root: Control
+var _weather_tint: ColorRect
 var _day_label: Label
 var _time_label: Label
 var _weather_label: Label
@@ -29,6 +33,7 @@ var _sleep_panel: Control
 var _dialogue_panel: DialoguePanel
 var _onboarding_overlay: OnboardingOverlay
 var _morning_summary_panel: Control
+var _pause_help_panel: Control
 var _day14_shipping_boundary: Label
 var _day14_sleep_boundary: Label
 var _objective_label: Label
@@ -51,6 +56,11 @@ func _ready() -> void:
 func render(snapshot: Dictionary) -> void:
     _last_snapshot = snapshot.duplicate(true)
     _onboarding_overlay.render(snapshot)
+    _weather_tint.color = (
+        RAINY_TINT
+        if snapshot["weather"] == GameRules.weather_key(GameRules.Weather.RAINY)
+        else SUNNY_TINT
+    )
     _day_label.text = "Day %d" % int(snapshot["day"])
     _time_label.text = GameRules.format_time(int(snapshot["time_minutes"]))
     _weather_label.text = "Weather: %s" % _display_weather(snapshot["weather"])
@@ -107,6 +117,7 @@ func has_blocking_modal() -> bool:
         or _dialogue_panel.visible
         or _morning_summary_panel.visible
         or _onboarding_overlay.is_opening_visible()
+        or _pause_help_panel.visible
     )
 
 func set_save_status(status: StringName, message: String = "") -> void:
@@ -249,6 +260,14 @@ func show_feedback(code: GameRules.CommandCode) -> void:
         _feedback.text = text
 
 func _build_always_visible_hud() -> void:
+    _weather_tint = ColorRect.new()
+    _weather_tint.name = "WeatherTint"
+    _weather_tint.position = Vector2.ZERO
+    _weather_tint.size = Vector2(640, 360)
+    _weather_tint.color = SUNNY_TINT
+    _weather_tint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _root.add_child(_weather_tint)
+
     _day_label = _add_label(_root, "Day", "Day", Vector2(8, 8), Vector2(72, 20))
     _time_label = _add_label(_root, "Time", "06:00", Vector2(82, 8), Vector2(58, 20))
     _weather_label = _add_label(_root, "Weather", "Weather: Sunny", Vector2(148, 8), Vector2(124, 20))
@@ -335,11 +354,40 @@ func _build_modals() -> void:
     _onboarding_overlay.blocking_state_changed.connect(func() -> void:
         modal_state_changed.emit()
     )
+    _pause_help_panel = _build_pause_help()
     _shop_panel.visible = false
     _shipping_panel.visible = false
     _sleep_panel.visible = false
     _dialogue_panel.visible = false
     _morning_summary_panel.visible = false
+    _pause_help_panel.visible = false
+
+func _build_pause_help() -> Control:
+    var panel := _add_panel(
+        _root,
+        "PauseHelp",
+        "Phoenix — Controls",
+        Vector2(300, 62),
+        Vector2(332, 220),
+    )
+    var body := _add_label(
+        panel,
+        "Body",
+        "WASD — Move\n1 / 2 / 3 / 4 — Hoe / Seeds / Water / Hands\nSpace — Use selected action\nE — Interact\nEsc — Close / controls",
+        Vector2(12, 34),
+        Vector2(308, 132),
+    )
+    body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    var resume := _add_button(panel, "Resume", "Resume", Vector2(236, 178), Vector2(78, 28))
+    resume.pressed.connect(func() -> void: _set_pause_help_visible(false))
+    return panel
+
+
+func _set_pause_help_visible(is_visible: bool) -> void:
+    if _pause_help_panel.visible == is_visible:
+        return
+    _pause_help_panel.visible = is_visible
+    modal_state_changed.emit()
 
 func _build_shop_panel() -> Control:
     var panel := _add_panel(_root, "ShopPanel", "Seed Shop", Vector2(300, 38), Vector2(332, 260))
@@ -571,7 +619,7 @@ func _display_weather(key: Variant) -> String:
 func _unhandled_input(event: InputEvent) -> void:
     if not event.is_action_pressed("ui_cancel"):
         return
-    if _morning_summary_panel.visible:
+    if _morning_summary_panel.visible or _onboarding_overlay.is_opening_visible():
         get_viewport().set_input_as_handled()
         return
     if _shop_panel.visible:
@@ -580,6 +628,8 @@ func _unhandled_input(event: InputEvent) -> void:
         close_shipping()
     elif _sleep_panel.visible:
         close_sleep_confirmation()
+    elif _pause_help_panel.visible:
+        _set_pause_help_visible(false)
     else:
-        return
+        _set_pause_help_visible(true)
     get_viewport().set_input_as_handled()
