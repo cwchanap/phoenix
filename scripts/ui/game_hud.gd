@@ -14,6 +14,15 @@ signal modal_state_changed
 const SUNNY_TINT := Color(1.0, 0.96, 0.86, 0.03)
 const RAINY_TINT := Color(0.38, 0.52, 0.72, 0.12)
 
+const ACTION_SFX := preload("res://assets/audio/action.wav")
+const COMMERCE_SFX := preload("res://assets/audio/commerce.wav")
+const SOCIAL_SFX := preload("res://assets/audio/social.wav")
+const CONFIRM_SFX := preload("res://assets/audio/confirm.wav")
+const CANCEL_SFX := preload("res://assets/audio/cancel.wav")
+const DAY_TRANSITION_SFX := preload("res://assets/audio/day-transition.wav")
+const FINALE_SFX := preload("res://assets/audio/finale.wav")
+const FARM_DAY_LOOP := preload("res://assets/audio/farm-day-loop.wav")
+
 var _root: Control
 var _weather_tint: ColorRect
 var _day_label: Label
@@ -43,6 +52,8 @@ var _seed_count_labels: Array[Label] = []
 var _harvested_count_labels: Array[Label] = []
 var _shop_count_labels: Array[Label] = []
 var _shipping_count_labels: Array[Label] = []
+var _sfx_player: AudioStreamPlayer
+var _music_player: AudioStreamPlayer
 var _last_snapshot: Dictionary = {}
 var _selected_action: StringName = GameRules.action_key(GameRules.FarmingAction.HOE)
 var _selected_seed: StringName = GameRules.crop_key(GameRules.CropKind.TURNIP)
@@ -51,6 +62,7 @@ func _ready() -> void:
     _root = $HudRoot as Control
     _build_always_visible_hud()
     _build_modals()
+    _build_audio()
     modal_state_changed.connect(_update_toggle_enabled)
 
 func render(snapshot: Dictionary) -> void:
@@ -163,6 +175,7 @@ func close_dialogue() -> void:
     if not _dialogue_panel.visible:
         return
     _dialogue_panel.close_panel()
+    _play_sfx(CONFIRM_SFX)
     modal_state_changed.emit()
 
 func feedback_text(code: GameRules.CommandCode) -> String:
@@ -258,6 +271,57 @@ func show_feedback(code: GameRules.CommandCode) -> void:
     var text := feedback_text(code)
     if text != "":
         _feedback.text = text
+    var sfx := _sfx_for_code(code)
+    if sfx != null:
+        _play_sfx(sfx)
+
+func _sfx_for_code(code: GameRules.CommandCode) -> AudioStream:
+    match code:
+        GameRules.CommandCode.ACTION_SELECTED, \
+        GameRules.CommandCode.SEED_SELECTED, \
+        GameRules.CommandCode.SOIL_TILLED, \
+        GameRules.CommandCode.CROP_PLANTED, \
+        GameRules.CommandCode.CROP_WATERED, \
+        GameRules.CommandCode.CROP_HARVESTED:
+            return ACTION_SFX
+        GameRules.CommandCode.SEEDS_PURCHASED, \
+        GameRules.CommandCode.CROP_DEPOSITED:
+            return COMMERCE_SFX
+        GameRules.CommandCode.VILLAGER_TALKED, \
+        GameRules.CommandCode.CROP_GIFTED:
+            return SOCIAL_SFX
+        GameRules.CommandCode.DAY_ADVANCED, \
+        GameRules.CommandCode.DAY_STARTED:
+            return DAY_TRANSITION_SFX
+        GameRules.CommandCode.FINALE_TRIGGERED, \
+        GameRules.CommandCode.FINALE_ALREADY_TRIGGERED:
+            return FINALE_SFX
+        GameRules.CommandCode.INTRO_ACKNOWLEDGED, \
+        GameRules.CommandCode.INTRO_ALREADY_ACKNOWLEDGED:
+            return null
+        _:
+            return CANCEL_SFX
+
+func _build_audio() -> void:
+    _sfx_player = AudioStreamPlayer.new()
+    _sfx_player.name = "SfxPlayer"
+    _sfx_player.volume_db = -8.0
+    add_child(_sfx_player)
+
+    _music_player = AudioStreamPlayer.new()
+    _music_player.name = "MusicPlayer"
+    _music_player.volume_db = -20.0
+    _music_player.stream = FARM_DAY_LOOP
+    add_child(_music_player)
+    _music_player.play()
+
+func _play_sfx(stream: AudioStream) -> void:
+    # A detached World can still receive commands (e.g. duplicate terminal
+    # attempts after the result teardown); playing off-tree only logs errors.
+    if not is_inside_tree():
+        return
+    _sfx_player.stream = stream
+    _sfx_player.play()
 
 func _build_always_visible_hud() -> void:
     _weather_tint = ColorRect.new()
@@ -387,6 +451,8 @@ func _set_pause_help_visible(is_visible: bool) -> void:
     if _pause_help_panel.visible == is_visible:
         return
     _pause_help_panel.visible = is_visible
+    if not is_visible:
+        _play_sfx(CONFIRM_SFX)
     modal_state_changed.emit()
 
 func _build_shop_panel() -> Control:
@@ -572,6 +638,7 @@ func _close_modal(panel: Control) -> void:
     if not panel.visible:
         return
     panel.visible = false
+    _play_sfx(CONFIRM_SFX)
     modal_state_changed.emit()
 
 func _render_morning_summary(summary: Dictionary) -> void:

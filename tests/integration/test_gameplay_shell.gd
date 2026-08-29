@@ -876,6 +876,29 @@ func test_weather_tint_matches_rainy_and_sunny_snapshots() -> void:
     assert_eq(tint.color, GameHud.SUNNY_TINT)
 
 
+func test_hud_audio_players_and_representative_feedback_streams() -> void:
+    var world := _world()
+    var sfx := world.hud.get_node("SfxPlayer") as AudioStreamPlayer
+    var music := world.hud.get_node("MusicPlayer") as AudioStreamPlayer
+    assert_not_null(sfx)
+    assert_not_null(music)
+    assert_eq(music.stream.resource_path, "res://assets/audio/farm-day-loop.wav")
+    assert_eq((music.stream as AudioStreamWAV).loop_mode, AudioStreamWAV.LOOP_FORWARD)
+
+    world.hud.show_feedback(GameRules.CommandCode.SOIL_TILLED)
+    assert_eq(sfx.stream.resource_path, "res://assets/audio/action.wav")
+    world.hud.show_feedback(GameRules.CommandCode.SEEDS_PURCHASED)
+    assert_eq(sfx.stream.resource_path, "res://assets/audio/commerce.wav")
+    world.hud.show_feedback(GameRules.CommandCode.CROP_GIFTED)
+    assert_eq(sfx.stream.resource_path, "res://assets/audio/social.wav")
+    world.hud.show_feedback(GameRules.CommandCode.DAY_ADVANCED)
+    assert_eq(sfx.stream.resource_path, "res://assets/audio/day-transition.wav")
+    world.hud.show_feedback(GameRules.CommandCode.FINALE_TRIGGERED)
+    assert_eq(sfx.stream.resource_path, "res://assets/audio/finale.wav")
+    world.hud.show_feedback(GameRules.CommandCode.INSUFFICIENT_STAMINA)
+    assert_eq(sfx.stream.resource_path, "res://assets/audio/cancel.wav")
+
+
 func test_escape_over_morning_summary_keeps_lock_and_help_hidden() -> void:
     var world := _world()
     var hud := _hud(world)
