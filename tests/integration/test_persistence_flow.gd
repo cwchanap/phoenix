@@ -166,6 +166,27 @@ func test_market_and_bed_finalizations_save_once_and_reach_identical_result() ->
     assert_true(canonical.restore_state(loaded["state"]))
     assert_eq(canonical.state(), market_state)
 
+func test_duplicate_sleep_during_finale_does_not_restart_cue() -> void:
+    _seed_slot(_day14_pre_final_state())
+    var repository := CountingSaveRepository.new(TEST_PATH)
+    var app := await _launch_continued(repository)
+    var world := app.get_node("World") as WorldShell
+    _target_bed(world)
+    # First sleep on Day 14 triggers the finale and starts the cue.
+    world.hud.sleep_requested.emit()
+    assert_eq(repository.save_calls, 1)
+    var feedback := world.hud.get_node("HudRoot/Feedback") as Label
+    assert_eq(feedback.text, "Harvest finale complete.")
+    # The sleep confirmation modal stays open during the cue, so a duplicate
+    # sleep request can still reach _on_sleep_requested. It must be ignored:
+    # without the guard it would resolve to FINALE_ALREADY_TRIGGERED, whose
+    # show_feedback() restarts FINALE_SFX and cuts the original cue (and the
+    # feedback text would flip to "The harvest finale is already complete.").
+    world.hud.sleep_requested.emit()
+    assert_eq(feedback.text, "Harvest finale complete.")
+    assert_eq(repository.save_calls, 1)
+    await _await_world_teardown(app)
+
 func test_terminal_settlement_pays_pending_once_and_keeps_carried_crops() -> void:
     _seed_slot(_day14_pre_final_state())
     var repository := CountingSaveRepository.new(TEST_PATH)

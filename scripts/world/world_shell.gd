@@ -194,6 +194,14 @@ func _on_deposit_requested(kind: int, quantity: int) -> void:
     _finish_command(_session.deposit_crop(kind, quantity, target))
 
 func _on_sleep_requested() -> void:
+    # The finale transition is terminal. The sleep confirmation modal stays
+    # open while _finish_finale awaits the cue (closing it would play
+    # CONFIRM_SFX and cut the cue itself), so the world-input gate does not
+    # cover this signal. A duplicate sleep here would resolve to
+    # FINALE_ALREADY_TRIGGERED and show_feedback() would restart FINALE_SFX,
+    # cutting the original cue. Guard it explicitly.
+    if _finale_in_progress:
+        return
     var target: Variant = player.current_target_cell()
     var code := _session.sleep(target)
     if code == GameRules.CommandCode.FINALE_TRIGGERED:
