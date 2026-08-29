@@ -95,6 +95,15 @@ func _day14_pre_final_state() -> Dictionary:
     assert_true(session.restore_state(seeded))
     return session.state()
 
+func _await_world_teardown(app: AppRoot) -> void:
+    # The finale cue holds the live world for a beat before finale_completed
+    # fires and AppRoot tears it down; wait (bounded) for that handoff.
+    for _frame in 120:
+        if app.get_node_or_null("World") == null:
+            return
+        await get_tree().process_frame
+    fail_test("World was never torn down after the finale cue")
+
 func _launch_continued(repository: SaveRepository) -> AppRoot:
     var app := APP_SCENE.instantiate() as AppRoot
     app.configure(repository)
@@ -119,17 +128,18 @@ func test_market_and_bed_finalizations_save_once_and_reach_identical_result() ->
     )
     _target_market(market_world)
     market_world.interact()
+    # The save stays synchronous; only the emit/teardown wait out the cue.
     assert_eq(market_repository.save_calls, 1)
-    assert_eq(finale_emits, [OK])
     var market_state := market_world._session.state()
-    assert_null(market_app.get_node_or_null("World"))
-    var market_result := market_app.get_node("ResultScreen") as ResultScreen
-    assert_true(market_result.visible)
 
-    # A duplicate terminal attempt through the same world cannot add a save.
+    # A duplicate terminal attempt during the cue cannot add a save.
     market_world.interact()
     assert_eq(market_repository.save_calls, 1)
+
+    await _await_world_teardown(market_app)
     assert_eq(finale_emits, [OK])
+    var market_result := market_app.get_node("ResultScreen") as ResultScreen
+    assert_true(market_result.visible)
 
     _seed_slot(pre_final)
     var bed_repository := CountingSaveRepository.new(TEST_PATH)
@@ -139,6 +149,7 @@ func test_market_and_bed_finalizations_save_once_and_reach_identical_result() ->
     bed_world.hud.sleep_requested.emit()
     assert_eq(bed_repository.save_calls, 1)
     var bed_state := bed_world._session.state()
+    await _await_world_teardown(bed_app)
     assert_null(bed_app.get_node_or_null("World"))
     assert_true((bed_app.get_node("ResultScreen") as ResultScreen).visible)
 
@@ -170,6 +181,7 @@ func test_terminal_settlement_pays_pending_once_and_keeps_carried_crops() -> voi
     assert_eq(state["harvested"], {&"turnip": 3, &"potato": 0, &"pumpkin": 0})
     var expected_result := ContentRules.build_harvest_result(state)
     assert_eq(int(expected_result["shipped_count"]), 3)
+    await _await_world_teardown(app)
     var result := app.get_node("ResultScreen") as ResultScreen
     assert_eq(
         (result.get_node("Panel/Shipped") as Label).text,
@@ -201,10 +213,11 @@ func test_finale_save_failure_still_completes_and_shows_unsaved_result() -> void
     assert_eq(DirAccess.remove_absolute(failure_dir), OK)
 
     world.interact()
+    assert_true(bool(world._session.state()["finale_triggered"]))
 
+    await _await_world_teardown(app)
     assert_eq(finale_errors.size(), 1)
     assert_ne(int(finale_errors[0]), OK)
-    assert_true(bool(world._session.state()["finale_triggered"]))
     assert_null(app.get_node_or_null("World"))
     var result := app.get_node("ResultScreen") as ResultScreen
     assert_true(result.visible)
@@ -218,6 +231,7 @@ func test_result_return_to_title_reloads_save_and_new_game_keeps_slot() -> void:
     _target_market(world)
     world.interact()
     assert_eq(repository.save_calls, 1)
+    await _await_world_teardown(app)
     var result := app.get_node("ResultScreen") as ResultScreen
     assert_true(result.visible)
 

@@ -315,6 +315,17 @@ func _build_audio() -> void:
     add_child(_music_player)
     _music_player.play()
 
+func await_feedback_cue() -> void:
+    # Lets a caller hold the world until the just-started feedback stream has
+    # been heard. Never waits off-tree: a detached World replays feedback
+    # silently (see _play_sfx) and must not hang the awaiting caller.
+    if not is_inside_tree():
+        return
+    var stream := _sfx_player.stream
+    if stream == null or not _sfx_player.playing:
+        return
+    await get_tree().create_timer(maxf(stream.get_length(), 0.05)).timeout
+
 func _play_sfx(stream: AudioStream) -> void:
     # A detached World can still receive commands (e.g. duplicate terminal
     # attempts after the result teardown); playing off-tree only logs errors.
