@@ -175,8 +175,15 @@ func test_nine_crop_roots_are_direct_entities_children_at_cell_centers() -> void
             crop_root.position.distance_to(_cell_center(cell)) <= 0.0001,
             "crop %s center" % cell,
         )
-        assert_eq(crop_root.get_child_count(), 1)
-        var crop_sprite := crop_root.get_child(0) as Sprite2D
+        assert_eq(crop_root.get_child_count(), 2)
+        var crop_shadow := crop_root.get_child(0) as Sprite2D
+        assert_not_null(crop_shadow)
+        if crop_shadow == null:
+            continue
+        assert_eq(String(crop_shadow.name), "Shadow")
+        assert_eq(crop_shadow.texture.resource_path, "res://assets/sprites/proof-shadow.png")
+        assert_false(crop_shadow.visible)
+        var crop_sprite := crop_root.get_child(1) as Sprite2D
         assert_not_null(crop_sprite)
         if crop_sprite == null:
             continue
@@ -766,3 +773,119 @@ func test_all_villagers_route_through_same_direct_interaction_path() -> void:
         hud.close_dialogue()
         assert_true(world._world_input_enabled)
         assert_null(get_viewport().gui_get_focus_owner())
+
+func _press_escape() -> void:
+    var pressed := InputEventAction.new()
+    pressed.action = &"ui_cancel"
+    pressed.pressed = true
+    Input.parse_input_event(pressed)
+    await get_tree().process_frame
+
+    var released := InputEventAction.new()
+    released.action = &"ui_cancel"
+    released.pressed = false
+    Input.parse_input_event(released)
+    await get_tree().process_frame
+
+func test_escape_does_not_open_help_over_blocking_intro() -> void:
+    var world := _locked_world()
+    var hud := _hud(world)
+    var overlay := hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
+    assert_true(overlay.is_opening_visible())
+
+    await _press_escape()
+
+    assert_true(overlay.is_opening_visible())
+    assert_false(_panel(hud, "PauseHelp").visible)
+    assert_false(world._world_input_enabled)
+
+
+func test_escape_toggles_code_built_help_and_world_gate() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var help := _panel(hud, "PauseHelp")
+
+    await _press_escape()
+    assert_true(help.visible)
+    assert_false(world._world_input_enabled)
+
+    await _press_escape()
+    assert_false(help.visible)
+    assert_true(world._world_input_enabled)
+
+
+func test_escape_closes_shop_before_help() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    hud.open_shop()
+
+    await _press_escape()
+
+    assert_false(_panel(hud, "ShopPanel").visible)
+    assert_false(_panel(hud, "PauseHelp").visible)
+
+
+func test_escape_closes_shipping_before_help() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    hud.open_shipping()
+
+    await _press_escape()
+
+    assert_false(_panel(hud, "ShippingPanel").visible)
+    assert_false(_panel(hud, "PauseHelp").visible)
+
+
+func test_escape_closes_sleep_before_help() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    hud.open_sleep_confirmation()
+
+    await _press_escape()
+
+    assert_false(_panel(hud, "SleepPanel").visible)
+    assert_false(_panel(hud, "PauseHelp").visible)
+
+
+func test_dialogue_consumes_escape_before_help() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var villager_id := VillagerRules.VillagerId.SHOPKEEPER
+    var result := world._session.talk_to(
+        villager_id,
+        WorldContract.villager_cell(villager_id),
+    )
+    hud.open_dialogue(villager_id, result, world._session.snapshot())
+
+    await _press_escape()
+
+    assert_false(_panel(hud, "DialoguePanel").visible)
+    assert_false(_panel(hud, "PauseHelp").visible)
+
+
+func test_weather_tint_matches_rainy_and_sunny_snapshots() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var tint := hud.get_node("HudRoot/WeatherTint") as ColorRect
+    var snapshot := world._session.snapshot()
+    snapshot["weather"] = GameRules.weather_key(GameRules.Weather.RAINY)
+    hud.render(snapshot)
+    assert_eq(tint.color, GameHud.RAINY_TINT)
+    snapshot["weather"] = GameRules.weather_key(GameRules.Weather.SUNNY)
+    hud.render(snapshot)
+    assert_eq(tint.color, GameHud.SUNNY_TINT)
+
+
+func test_escape_over_morning_summary_keeps_lock_and_help_hidden() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var snapshot := world._session.snapshot()
+    snapshot["pending_morning_summary"] = {"completed_day": 1, "next_day": 2}
+    hud.render(snapshot)
+    assert_true(_panel(hud, "MorningSummaryPanel").visible)
+
+    await _press_escape()
+
+    assert_true(_panel(hud, "MorningSummaryPanel").visible)
+    assert_false(_panel(hud, "PauseHelp").visible)
+    assert_false(world._world_input_enabled)
