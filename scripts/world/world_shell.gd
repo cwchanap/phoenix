@@ -194,12 +194,11 @@ func _on_deposit_requested(kind: int, quantity: int) -> void:
     _finish_command(_session.deposit_crop(kind, quantity, target))
 
 func _on_sleep_requested() -> void:
-    # The finale transition is terminal. The sleep confirmation modal stays
-    # open while _finish_finale awaits the cue (closing it would play
-    # CONFIRM_SFX and cut the cue itself), so the world-input gate does not
-    # cover this signal. A duplicate sleep here would resolve to
-    # FINALE_ALREADY_TRIGGERED and show_feedback() would restart FINALE_SFX,
-    # cutting the original cue. Guard it explicitly.
+    # The finale transition is terminal. _finish_finale closes the sleep
+    # modal before starting the cue, but sleep_requested is a HUD signal
+    # that bypasses _world_input_enabled, so a duplicate emit here would
+    # still resolve to FINALE_ALREADY_TRIGGERED and show_feedback() would
+    # restart FINALE_SFX, cutting the original cue. Guard it explicitly.
     if _finale_in_progress:
         return
     var target: Variant = player.current_target_cell()
@@ -225,6 +224,14 @@ func _finish_finale(code: GameRules.CommandCode) -> void:
         _finish_command(code)
         return
     _finale_in_progress = true
+    hud.set_finale_in_progress(true)
+    # Close the sleep confirmation modal before starting the finale cue so
+    # its Cancel button and Esc (which route to close_sleep_confirmation →
+    # _play_sfx(CONFIRM_SFX)) cannot replace FINALE_SFX during the
+    # await_feedback_cue() window. The HUD finale lock suppresses
+    # CONFIRM_SFX, so the modal closes silently and only FINALE_SFX plays.
+    # No-op on the market path, where the sleep modal was never opened.
+    hud.close_sleep_confirmation()
     hud.show_feedback(code)
     _refresh_from_session()
     var state := _session.state()
