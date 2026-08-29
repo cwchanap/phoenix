@@ -15,6 +15,7 @@ var _session: GameSession
 var _initial_state: Variant = null
 var _save_repository: SaveRepository = null
 var _world_input_enabled := true
+var _finale_in_progress := false
 
 @onready var player: PlayerController = $Entities/Player as PlayerController
 @onready var farm_view: FarmView = $Entities as FarmView
@@ -116,7 +117,11 @@ func _refresh_from_session() -> void:
     _refresh_world_input_gate()
 
 func _refresh_world_input_gate() -> void:
-    _world_input_enabled = not hud.has_blocking_modal()
+    # The finale transition is terminal: once it begins, no command may reach
+    # the session/HUD, so the finale cue stream cannot be replaced mid-play
+    # while _finish_finale awaits the cue (the terminal state opens no modal,
+    # so the modal gate alone would leave input enabled).
+    _world_input_enabled = not _finale_in_progress and not hud.has_blocking_modal()
     player.set_input_enabled(_world_input_enabled)
 
 func select_action_slot(slot: int) -> void:
@@ -211,6 +216,7 @@ func _finish_finale(code: GameRules.CommandCode) -> void:
     if code != GameRules.CommandCode.FINALE_TRIGGERED:
         _finish_command(code)
         return
+    _finale_in_progress = true
     hud.show_feedback(code)
     _refresh_from_session()
     var state := _session.state()
