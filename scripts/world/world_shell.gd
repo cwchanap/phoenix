@@ -217,6 +217,9 @@ func _finish_finale(code: GameRules.CommandCode) -> void:
     var save_error := ERR_UNAVAILABLE
     if _save_repository != null:
         save_error = _save_repository.save(state)
+    # Hold the live world until the finale cue has played so AppRoot's
+    # synchronous result teardown cannot cut the stream off before a frame.
+    await hud.await_feedback_cue()
     finale_completed.emit(state, save_error)
 
 func _on_gift_requested(villager_id: int, crop_kind: int) -> void:

@@ -76,7 +76,11 @@ There is no JavaScript or Tauri runtime in the current checkout.
 - GameSession.state()/state_error()/restore_state() own mutable-state export, all persisted-state validation, and canonical restore; snapshot() remains the view read model.
 - WorldShell remains the only live production session holder and synchronously writes once after successful overnight advancement.
 - Player position/facing/camera/UI state remain transient/authored.
-- HPA-599 is the next delivery slice.
+- HPA-599 delivered the release closeout: truthful farm preview/target tint
+  and feedback table, code-built pause help with real Esc propagation, weather
+  tint + ground shadows, placeholder audio with import-time music looping, the
+  deterministic 5-Turnip/175G Promising GUT route, and pinned-SHA CI with
+  import + unsigned macOS ZIP export; final docs live in README/CLAUDE.
 
 ## Closed shell contract
 
