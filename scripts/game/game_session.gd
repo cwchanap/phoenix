@@ -317,19 +317,127 @@ func apply_selected_action(target_cell: Variant) -> GameRules.CommandCode:
     assert(false, "unsupported farming action")
     return GameRules.CommandCode.NO_TARGET
 
-func hoe(target_cell: Variant) -> GameRules.CommandCode:
+func preview_selected_action(target_cell: Variant) -> GameRules.CommandCode:
+    var failure := _selected_action_failure(target_cell)
+    if failure != -1:
+        return failure
+    match _selected_action:
+        GameRules.FarmingAction.HOE:
+            return GameRules.CommandCode.SOIL_TILLED
+        GameRules.FarmingAction.SEEDS:
+            return GameRules.CommandCode.CROP_PLANTED
+        GameRules.FarmingAction.WATERING_CAN:
+            return GameRules.CommandCode.CROP_WATERED
+        GameRules.FarmingAction.HANDS:
+            return GameRules.CommandCode.CROP_HARVESTED
+    assert(false, "unsupported farming action")
+    return GameRules.CommandCode.NO_TARGET
+
+func _hoe_failure(target_cell: Variant) -> int:
     var active_failure := _active_day_failure()
     if active_failure != -1:
         return active_failure
     var target_failure := _target_failure(target_cell)
     if target_failure != -1:
         return target_failure
-    var index := _farm_index(target_cell)
-    var tile: Dictionary = _farm[index]
+    var tile: Dictionary = _farm[_farm_index(target_cell)]
     if tile["crop"] != null:
         return GameRules.CommandCode.CROP_PRESENT
     if bool(tile["tilled"]):
         return GameRules.CommandCode.ALREADY_TILLED
+    var budget := GameRules.evaluate_action_budget(
+        _time_minutes,
+        _stamina,
+        GameRules.FarmingAction.HOE,
+    )
+    return -1 if bool(budget["ok"]) else int(budget["code"])
+
+func _plant_failure(target_cell: Variant) -> int:
+    var active_failure := _active_day_failure()
+    if active_failure != -1:
+        return active_failure
+    var target_failure := _target_failure(target_cell)
+    if target_failure != -1:
+        return target_failure
+    var tile: Dictionary = _farm[_farm_index(target_cell)]
+    if not bool(tile["tilled"]):
+        return GameRules.CommandCode.SOIL_UNTILLED
+    if tile["crop"] != null:
+        return GameRules.CommandCode.CROP_PRESENT
+    if _seed_counts[_selected_seed] == 0:
+        return GameRules.CommandCode.NO_SELECTED_SEEDS
+    var budget := GameRules.evaluate_action_budget(
+        _time_minutes,
+        _stamina,
+        GameRules.FarmingAction.SEEDS,
+    )
+    return -1 if bool(budget["ok"]) else int(budget["code"])
+
+func _water_failure(target_cell: Variant) -> int:
+    var active_failure := _active_day_failure()
+    if active_failure != -1:
+        return active_failure
+    var target_failure := _target_failure(target_cell)
+    if target_failure != -1:
+        return target_failure
+    var tile: Dictionary = _farm[_farm_index(target_cell)]
+    if tile["crop"] == null:
+        return GameRules.CommandCode.NO_CROP
+    var crop: Dictionary = tile["crop"]
+    var kind: GameRules.CropKind = crop["kind"]
+    if GameRules.is_mature(kind, int(crop["growth"])):
+        return GameRules.CommandCode.CROP_MATURE
+    if _weather == GameRules.Weather.RAINY:
+        return GameRules.CommandCode.RAIN_WATERS_CROPS
+    if bool(crop["watered_today"]):
+        return GameRules.CommandCode.ALREADY_WATERED
+    var budget := GameRules.evaluate_action_budget(
+        _time_minutes,
+        _stamina,
+        GameRules.FarmingAction.WATERING_CAN,
+    )
+    return -1 if bool(budget["ok"]) else int(budget["code"])
+
+func _harvest_failure(target_cell: Variant) -> int:
+    var active_failure := _active_day_failure()
+    if active_failure != -1:
+        return active_failure
+    var target_failure := _target_failure(target_cell)
+    if target_failure != -1:
+        return target_failure
+    var tile: Dictionary = _farm[_farm_index(target_cell)]
+    if tile["crop"] == null:
+        return GameRules.CommandCode.NO_CROP
+    var crop: Dictionary = tile["crop"]
+    var kind: GameRules.CropKind = crop["kind"]
+    if not GameRules.is_mature(kind, int(crop["growth"])):
+        return GameRules.CommandCode.CROP_IMMATURE
+    var budget := GameRules.evaluate_action_budget(
+        _time_minutes,
+        _stamina,
+        GameRules.FarmingAction.HANDS,
+    )
+    return -1 if bool(budget["ok"]) else int(budget["code"])
+
+func _selected_action_failure(target_cell: Variant) -> int:
+    match _selected_action:
+        GameRules.FarmingAction.HOE:
+            return _hoe_failure(target_cell)
+        GameRules.FarmingAction.SEEDS:
+            return _plant_failure(target_cell)
+        GameRules.FarmingAction.WATERING_CAN:
+            return _water_failure(target_cell)
+        GameRules.FarmingAction.HANDS:
+            return _harvest_failure(target_cell)
+    assert(false, "unsupported farming action")
+    return GameRules.CommandCode.NO_TARGET
+
+func hoe(target_cell: Variant) -> GameRules.CommandCode:
+    var failure := _hoe_failure(target_cell)
+    if failure != -1:
+        return failure
+    var index := _farm_index(target_cell)
+    var tile: Dictionary = _farm[index]
 
     var budget := GameRules.evaluate_action_budget(
         _time_minutes,
@@ -345,20 +453,11 @@ func hoe(target_cell: Variant) -> GameRules.CommandCode:
     return _commit(GameRules.CommandCode.SOIL_TILLED)
 
 func plant(target_cell: Variant) -> GameRules.CommandCode:
-    var active_failure := _active_day_failure()
-    if active_failure != -1:
-        return active_failure
-    var target_failure := _target_failure(target_cell)
-    if target_failure != -1:
-        return target_failure
+    var failure := _plant_failure(target_cell)
+    if failure != -1:
+        return failure
     var index := _farm_index(target_cell)
     var tile: Dictionary = _farm[index]
-    if not bool(tile["tilled"]):
-        return GameRules.CommandCode.SOIL_UNTILLED
-    if tile["crop"] != null:
-        return GameRules.CommandCode.CROP_PRESENT
-    if _seed_counts[_selected_seed] == 0:
-        return GameRules.CommandCode.NO_SELECTED_SEEDS
 
     var budget := GameRules.evaluate_action_budget(
         _time_minutes,
@@ -379,25 +478,11 @@ func plant(target_cell: Variant) -> GameRules.CommandCode:
     return _commit(GameRules.CommandCode.CROP_PLANTED)
 
 func water(target_cell: Variant) -> GameRules.CommandCode:
-    var active_failure := _active_day_failure()
-    if active_failure != -1:
-        return active_failure
-    var target_failure := _target_failure(target_cell)
-    if target_failure != -1:
-        return target_failure
+    var failure := _water_failure(target_cell)
+    if failure != -1:
+        return failure
     var index := _farm_index(target_cell)
     var tile: Dictionary = _farm[index]
-    if tile["crop"] == null:
-        return GameRules.CommandCode.NO_CROP
-
-    var crop: Dictionary = tile["crop"]
-    var kind: GameRules.CropKind = crop["kind"]
-    if GameRules.is_mature(kind, int(crop["growth"])):
-        return GameRules.CommandCode.CROP_MATURE
-    if _weather == GameRules.Weather.RAINY:
-        return GameRules.CommandCode.RAIN_WATERS_CROPS
-    if bool(crop["watered_today"]):
-        return GameRules.CommandCode.ALREADY_WATERED
 
     var budget := GameRules.evaluate_action_budget(
         _time_minutes,
@@ -407,6 +492,7 @@ func water(target_cell: Variant) -> GameRules.CommandCode:
     if not bool(budget["ok"]):
         return budget["code"]
 
+    var crop: Dictionary = tile["crop"]
     crop["watered_today"] = true
     tile["crop"] = crop
     _farm[index] = tile
@@ -414,21 +500,11 @@ func water(target_cell: Variant) -> GameRules.CommandCode:
     return _commit(GameRules.CommandCode.CROP_WATERED)
 
 func harvest(target_cell: Variant) -> GameRules.CommandCode:
-    var active_failure := _active_day_failure()
-    if active_failure != -1:
-        return active_failure
-    var target_failure := _target_failure(target_cell)
-    if target_failure != -1:
-        return target_failure
+    var failure := _harvest_failure(target_cell)
+    if failure != -1:
+        return failure
     var index := _farm_index(target_cell)
     var tile: Dictionary = _farm[index]
-    if tile["crop"] == null:
-        return GameRules.CommandCode.NO_CROP
-
-    var crop: Dictionary = tile["crop"]
-    var kind: GameRules.CropKind = crop["kind"]
-    if not GameRules.is_mature(kind, int(crop["growth"])):
-        return GameRules.CommandCode.CROP_IMMATURE
 
     var budget := GameRules.evaluate_action_budget(
         _time_minutes,
@@ -438,6 +514,8 @@ func harvest(target_cell: Variant) -> GameRules.CommandCode:
     if not bool(budget["ok"]):
         return budget["code"]
 
+    var crop: Dictionary = tile["crop"]
+    var kind: GameRules.CropKind = crop["kind"]
     tile["crop"] = null
     _farm[index] = tile
     _harvested_counts[kind] += 1

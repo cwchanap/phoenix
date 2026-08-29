@@ -35,6 +35,23 @@ func set_input_enabled(enabled: bool) -> void:
 func current_target_cell() -> Variant:
     return WorldMath.target_cell(WorldMath.world_to_grid(global_position), facing)
 
+enum TargetTint { NEUTRAL, VALID, INVALID }
+
+const TARGET_NEUTRAL := Color(1.0, 0.85, 0.2, 0.9)
+const TARGET_VALID := Color(0.35, 1.0, 0.45, 0.9)
+const TARGET_INVALID := Color(1.0, 0.35, 0.35, 0.9)
+
+func set_target_tint(tint: TargetTint) -> void:
+    if target_highlight == null:
+        return
+    match tint:
+        TargetTint.NEUTRAL:
+            target_highlight.default_color = TARGET_NEUTRAL
+        TargetTint.VALID:
+            target_highlight.default_color = TARGET_VALID
+        TargetTint.INVALID:
+            target_highlight.default_color = TARGET_INVALID
+
 func _physics_process(_delta: float) -> void:
     if not _input_enabled:
         velocity = Vector2.ZERO

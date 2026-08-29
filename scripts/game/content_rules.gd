@@ -8,7 +8,7 @@ const TUTORIALS: Array[Dictionary] = [
     {
         "id": &"farm_basics",
         "title": "Prepare the field",
-        "body": "Face a farm diamond until the gold outline appears. Press 1 for Hoe, then Space.",
+        "body": "Face a farm diamond. Green means the selected action can run; red means it cannot. Press 1 for Hoe, then Space.",
         "completed_by": GameRules.CommandCode.SOIL_TILLED,
     },
     {

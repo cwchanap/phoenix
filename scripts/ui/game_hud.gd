@@ -154,88 +154,99 @@ func close_dialogue() -> void:
     _dialogue_panel.close_panel()
     modal_state_changed.emit()
 
-func show_feedback(code: GameRules.CommandCode) -> void:
+func feedback_text(code: GameRules.CommandCode) -> String:
     match code:
         GameRules.CommandCode.ACTION_SELECTED:
-            _feedback.text = "Action selected."
+            return "Action selected."
         GameRules.CommandCode.SEED_SELECTED:
-            _feedback.text = "Seed selected."
+            return "Seed selected."
         GameRules.CommandCode.SOIL_TILLED:
-            _feedback.text = "Soil tilled."
+            return "Soil tilled."
         GameRules.CommandCode.CROP_PLANTED:
-            _feedback.text = "Crop planted."
+            return "Crop planted."
         GameRules.CommandCode.CROP_WATERED:
-            _feedback.text = "Crop watered."
+            return "Crop watered."
         GameRules.CommandCode.CROP_HARVESTED:
-            _feedback.text = "Crop harvested."
+            return "Crop harvested."
         GameRules.CommandCode.SEEDS_PURCHASED:
-            _feedback.text = "Seeds purchased."
+            return "Seeds purchased."
         GameRules.CommandCode.CROP_DEPOSITED:
-            _feedback.text = "Crop deposited."
+            return "Crop deposited."
         GameRules.CommandCode.DAY_ADVANCED:
-            _feedback.text = "Day advanced."
+            return "Day advanced."
         GameRules.CommandCode.DAY_STARTED:
-            _feedback.text = "Morning acknowledged."
+            return "Morning acknowledged."
         GameRules.CommandCode.NO_TARGET:
-            _feedback.text = "No target."
+            return "No target."
         GameRules.CommandCode.NOT_FARM_CELL:
-            _feedback.text = "That is not a farm cell."
+            return "That is not a farm cell."
         GameRules.CommandCode.ALREADY_TILLED:
-            _feedback.text = "Soil is already tilled."
+            return "Soil is already tilled."
         GameRules.CommandCode.SOIL_UNTILLED:
-            _feedback.text = "Till the soil first."
+            return "Till the soil first."
         GameRules.CommandCode.CROP_PRESENT:
-            _feedback.text = "A crop is already there."
+            return "A crop is already there."
         GameRules.CommandCode.NO_SELECTED_SEEDS:
-            _feedback.text = "No selected seeds."
+            return "No selected seeds."
         GameRules.CommandCode.NO_CROP:
-            _feedback.text = "There is no crop there."
+            return "There is no crop there."
         GameRules.CommandCode.ALREADY_WATERED:
-            _feedback.text = "Crop is already watered."
+            return "Crop is already watered."
         GameRules.CommandCode.CROP_MATURE:
-            _feedback.text = "Crop is mature."
+            return "Crop is mature."
         GameRules.CommandCode.CROP_IMMATURE:
-            _feedback.text = "Crop is not mature."
+            return "Crop is not mature."
         GameRules.CommandCode.NOT_AT_BED:
-            _feedback.text = "Stand at the bed."
+            return "Stand at the bed."
         GameRules.CommandCode.NOT_AT_SHOP:
-            _feedback.text = "Stand at the shop."
+            return "Stand at the shop."
         GameRules.CommandCode.NOT_AT_SHIPPING_BIN:
-            _feedback.text = "Stand at the shipping bin."
+            return "Stand at the shipping bin."
         GameRules.CommandCode.INVALID_QUANTITY:
-            _feedback.text = "Choose a positive quantity."
+            return "Choose a positive quantity."
         GameRules.CommandCode.INSUFFICIENT_FUNDS:
-            _feedback.text = "Not enough money."
+            return "Not enough money."
         GameRules.CommandCode.INSUFFICIENT_CROPS:
-            _feedback.text = "Not enough harvested crops."
+            return "Not enough harvested crops."
         GameRules.CommandCode.ACTION_TOO_LATE:
-            _feedback.text = "It is too late for that action."
+            return "It is too late for that action."
         GameRules.CommandCode.INSUFFICIENT_STAMINA:
-            _feedback.text = "Not enough stamina."
+            return "Not enough stamina."
         GameRules.CommandCode.RAIN_WATERS_CROPS:
-            _feedback.text = "Rain is watering the crops."
+            return "Rain is watering the crops."
         GameRules.CommandCode.DAY_SUMMARY_PENDING:
-            _feedback.text = "Acknowledge the morning summary first."
+            return "Acknowledge the morning summary first."
         GameRules.CommandCode.NO_DAY_SUMMARY:
-            _feedback.text = "No morning summary."
-        GameRules.CommandCode.FINALE_TRIGGERED:
-            _feedback.text = "Harvest finale complete."
-        GameRules.CommandCode.MARKET_NOT_READY:
-            _feedback.text = "The Harvest Market opens on Day 14."
-        GameRules.CommandCode.NOT_AT_MARKET:
-            _feedback.text = "Stand at the Harvest Market."
-        GameRules.CommandCode.FINALE_ALREADY_TRIGGERED:
-            _feedback.text = "The harvest finale is already complete."
-        GameRules.CommandCode.VILLAGER_TALKED:
-            _feedback.text = "Talked to villager."
-        GameRules.CommandCode.CROP_GIFTED:
-            _feedback.text = "Gift given."
-        GameRules.CommandCode.NOT_AT_VILLAGER:
-            _feedback.text = "Stand at the villager."
-        GameRules.CommandCode.GIFT_ALREADY_GIVEN:
-            _feedback.text = "Gift already given today."
+            return "No morning summary."
         GameRules.CommandCode.NOTHING_TO_INTERACT:
-            _feedback.text = "Nothing to interact with."
+            return "Nothing to interact with."
+        GameRules.CommandCode.VILLAGER_TALKED:
+            return "Talked to villager."
+        GameRules.CommandCode.CROP_GIFTED:
+            return "Gift given."
+        GameRules.CommandCode.NOT_AT_VILLAGER:
+            return "Stand at the villager."
+        GameRules.CommandCode.GIFT_ALREADY_GIVEN:
+            return "Gift already given today."
+        GameRules.CommandCode.INTRO_ACKNOWLEDGED, \
+        GameRules.CommandCode.INTRO_ALREADY_ACKNOWLEDGED:
+            return ""
+        GameRules.CommandCode.FINALE_TRIGGERED:
+            return "Harvest finale complete."
+        GameRules.CommandCode.MARKET_NOT_READY:
+            return "The Harvest Market opens on Day 14."
+        GameRules.CommandCode.NOT_AT_MARKET:
+            return "Stand at the Harvest Market."
+        GameRules.CommandCode.FINALE_ALREADY_TRIGGERED:
+            return "The harvest finale is already complete."
+        _:
+            assert(false, "unmapped command feedback: %s" % code)
+            return ""
+
+func show_feedback(code: GameRules.CommandCode) -> void:
+    var text := feedback_text(code)
+    if text != "":
+        _feedback.text = text
 
 func _build_always_visible_hud() -> void:
     _day_label = _add_label(_root, "Day", "Day", Vector2(8, 8), Vector2(72, 20))
