@@ -168,5 +168,6 @@ Local clean export:
 
 ```bash
 godot --headless --path . --import
+mkdir -p build
 godot --headless --path . --export-release "macOS" build/Phoenix.zip
 ```
