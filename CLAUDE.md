@@ -138,6 +138,28 @@ asset import settings and resource UIDs survive clean clones and CI. Git
 history and historical `docs/superpowers/` documents are the behavior
 reference; no dormant second runtime or TypeScript rules tree is maintained.
 
+## Release gates
+
+A release candidate passes four automated gates: the GUT/headless verifier
+above, the GdUnit4 lane, the godot-e2e lane, and the import + unsigned macOS
+export. CI wraps the two GdUnit4 lanes in `xvfb-run`; locally on macOS run
+them without the wrapper after `./tools/bootstrap-gdunit.sh`:
+
+```bash
+./tools/verify-clean.sh
+GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/gdunit -c
+GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/e2e -c
+godot --headless --path . --import
+godot --headless --path . --export-release "macOS" build/Phoenix.zip
+unzip -l build/Phoenix.zip | grep -F "Phoenix.app/Contents/MacOS/Phoenix"
+```
+
+The deterministic Promising route is pinned by
+`test_representative_reinvestment_route_reaches_promising()`:
+five Turnips (3 starter + 2 reinvested from the first 105G shipment) settle
+175G and reach the `promising_farmer` tier. Do not retune balance without
+updating that route and its exact-value assertions in the same commit.
+
 Sprite-isometric art contract
 - Ground diamonds are 64×32.
 - Entity roots are bottom-center ground contacts.

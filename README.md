@@ -49,6 +49,12 @@ The target diamond is hidden when the faced cell is outside the map. Facing
 the shop cell `(6,7)`, bed cell `(6,8)`, or shipping cell `(6,10)` from an
 adjacent tile shows a contextual interaction hint (for example `Shop — E`).
 
+- Green farm target = selected action can run.
+- Red farm target = selected action is blocked; the hint explains why.
+- Gold target = neutral/non-farm interaction targeting.
+- Esc opens Controls when no blocking/closable UI owns the event.
+- Phoenix includes lightweight placeholder music/SFX.
+
 - Face Mira, Rowan, or June and press E to talk.
 - The first talk with each villager each day adds 1 relationship point.
 - Give at most one harvested crop per villager per day from the dialogue panel.
@@ -157,3 +163,10 @@ project contract smoke, world-math smoke, and world-shell smoke in that
 order. There is no second JavaScript or desktop-shell runtime in the current
 checkout; historical behavior references remain in Git history and
 `docs/superpowers/`.
+
+Local clean export:
+
+```bash
+godot --headless --path . --import
+godot --headless --path . --export-release "macOS" build/Phoenix.zip
+```
