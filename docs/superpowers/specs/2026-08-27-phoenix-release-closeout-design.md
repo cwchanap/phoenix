@@ -6,11 +6,11 @@
 
 ## Context
 
-HPA-597 completed the last gameplay/content slice. Phoenix now has one Godot-native 14-day loop, persistence, villagers/social progression, contextual onboarding, a Day 14 harvest finale, and terminal results. PR #11 added GdUnit4 and godot-e2e as focused parallel workflows beside the mature GUT/headless clean verifier.
+HPA-597 completed the final gameplay/content slice. Phoenix now has one Godot-native 14-day loop, persistence, villagers/social progression, contextual onboarding, a Day 14 finale, and terminal results. PR #11 added GdUnit4 and godot-e2e as focused parallel workflows beside the mature GUT/headless clean verifier.
 
-HPA-599 is therefore a release closeout, not a new gameplay slice. It should make existing behavior readable, add a deliberately small presentation/audio pass, verify the frozen balance against an actual packaged run, produce the unsigned macOS build, and prove a normal New Game → Day 14 result path without developer instructions.
+HPA-599 is a release closeout, not a new gameplay slice. Extend the current owners, make the remaining feedback readable, add a deliberately small visual/audio pass, prove the frozen economy is viable, export the unsigned macOS package, and perform one real packaged playthrough.
 
-The existing owners are already sufficient:
+Existing owners are sufficient:
 
 - `GameRules`, `VillagerRules`, and `ContentRules` own closed rules/content.
 - `GameSession` owns mutable gameplay and command validation.
@@ -18,23 +18,24 @@ The existing owners are already sufficient:
 - `PlayerController`, `FarmView`, and `GameHud` own presentation.
 - `SaveFile`/`SaveRepository` own persistence.
 - GUT is the broad rules/integration release oracle.
-- GdUnit4 and godot-e2e remain focused parallel lanes.
-- `export_presets.cfg` already owns the single macOS export preset.
+- GdUnit4 and godot-e2e stay focused parallel lanes.
+- `export_presets.cfg` already owns the macOS export preset.
 
 ## Decision
 
-Use an **in-place closeout**. Extend the owners above and do not introduce a polish service, event bus, audio manager, settings subsystem, generic pause manager, renderer abstraction, second gameplay state layer, or new test framework migration.
+Use an **in-place closeout**. Do not introduce a polish service, feedback bus, audio manager, settings subsystem, generic pause manager, renderer abstraction, second gameplay state layer, or test-framework migration.
 
 ### Alternatives rejected
 
-1. **Generic feedback/polish subsystem.** Rejected because Phoenix has one gameplay shell and the current command-code/HUD seams already carry the required information.
-2. **GdUnit-only release rules.** Rejected because `tools/verify-clean.sh` runs the mature GUT suite; release-critical session contracts must remain in that oracle.
-3. **Verification-only closeout.** Rejected because the ticket explicitly owns remaining target/readability/audio/help gaps.
-4. **Separate help scene.** Rejected because every current HUD modal is code-built through `GameHud._build_modals()`/`_add_panel()`; a one-off `pause_help.tscn` would create a second construction convention for a static panel.
+1. **Generic polish/feedback subsystem.** One gameplay shell already has command codes and HUD seams for the required feedback.
+2. **GdUnit-only release rules.** `tools/verify-clean.sh` runs GUT; release-critical session and balance contracts belong there.
+3. **Verification-only closeout.** Target readability, help, visual depth, and audio remain real HPA-599 gaps.
+4. **Separate help scene.** Current HUD panels are code-built through `GameHud`; a one-off `pause_help.tscn` creates a second convention for static UI.
+5. **Manual-only balance proof.** `GameSession` already supports deterministic weather and direct command tests, so arithmetic reachability should be automated rather than inferred from one human run.
 
 ## Release-candidate balance
 
-Do not tune by instinct. The existing values are the release-candidate baseline:
+Do not tune by instinct. Keep the existing values as release candidates:
 
 | Rule | Release candidate |
 | --- | ---: |
@@ -56,9 +57,17 @@ Do not tune by instinct. The existing values are the release-candidate baseline:
 | Promising threshold | 150G shipped value, or Friend |
 | Heart threshold | 300G shipped value + Close Friend |
 
-These values are already pinned by the GUT rules/content/session tests. Change a value only when the release checks expose a concrete defect: a representative normal run cannot reach **Promising Farmer** (`shipped_value >= 150` without relying on friendship), a forced economy dead-end appears, or a specific value creates an observed usability/readability failure. Heart of the Harvest remains optional for the packaged acceptance run.
+Add one deterministic GUT route that starts from normal Day 1 state, uses the public farming/shop/shipping/sleep commands, reaches Day 14, triggers the finale, and proves `shipped_value >= ContentRules.PROMISING_SHIPPED_VALUE` without friendship or direct state mutation. The smallest representative route is five Turnips: grow/ship the three starter Turnips, buy two Turnip seeds, grow/ship those two, then advance normally to Day 14. Their shipped value is 175G, so the test proves the current 150G Promising threshold is reachable with reinvestment.
 
-## 1. Farming preview, target color, hint text, and onboarding copy
+Change a numeric rule only if:
+
+- that deterministic representative route fails the Promising threshold after a legitimate implementation change;
+- the packaged run exposes a forced economy dead-end not represented by the scripted route; or
+- a specific timing/threshold value causes an observed usability defect that presentation cannot solve.
+
+Heart of the Harvest remains optional for the packaged acceptance run.
+
+## 1. Farming preview, target tint, hint text, and onboarding copy
 
 ### Shared read-only preview
 
@@ -68,61 +77,64 @@ Add:
 GameSession.preview_selected_action(target_cell: Variant) -> GameRules.CommandCode
 ```
 
-The preview must share the exact validation path used by `hoe`, `plant`, `water`, and `harvest`:
+Factor the current `hoe`, `plant`, `water`, and `harvest` guards into private read-only failure helpers. Both preview and each mutating command call the same helper in the same order. Preview never mutates session state and is covered beside the existing GUT command atomicity tests, reusing the existing `_assert_unchanged()` helper.
 
-- active-day/finale/summary guards;
-- target type and farm-cell membership;
-- tile state;
-- selected seed inventory;
-- weather constraints;
-- action time/stamina budget.
+Do not clone a session, execute/rollback a command, or copy the rule tree into presentation code.
 
-Factor the current guards into private read-only helpers and call those helpers from both preview and the mutating command. Preview never mutates state, time, stamina, farm tiles, inventory, tutorial progress, or relationship state. Do not implement preview by cloning a session and executing a command.
+### Closed presentation tint
 
-The release-critical preview contract belongs in `tests/unit/test_game_session.gd` beside the existing command guard/atomicity tests. Do not duplicate it in `tests/gdunit/test_game_session_flows.gd`.
+Avoid a `Variant` null/bool tri-state at the player seam. `PlayerController` owns one closed enum:
 
-### Green/red/gold target contract
+```gdscript
+enum TargetTint { NEUTRAL, VALID, INVALID }
 
-`WorldShell._process()` previews only when the faced target is one of `WorldContract.farm_cells()`:
+func set_target_tint(tint: TargetTint) -> void
+```
 
-- **green:** preview returns the selected action's success code;
-- **red:** target is a farm cell but preview returns any guard/failure code;
-- **gold:** target is non-farm, preserving the current ordinary target/interactable cue for shop, bed, shipping bin, harvest market, and villagers.
+`TargetTint.NEUTRAL` uses the existing gold color, `VALID` uses green, and `INVALID` uses red. `PlayerController` still owns no gameplay rules.
 
-`PlayerController` owns only the target colors/setter. It does not learn gameplay rules.
+### Let GameSession classify farm membership
 
-### Reuse the existing hint channel for “why”
+`WorldShell._process()` does not call `WorldContract.farm_cells().has(target)`. It asks `GameSession.preview_selected_action(target)` and classifies the returned code:
 
-Extract the current `GameHud.show_feedback()` text table into:
+- selected-action success code → green/valid;
+- `NO_TARGET` or `NOT_FARM_CELL` → gold/neutral, then use the existing villager/shop/bed/shipping/market hint chain;
+- every other preview code → red/invalid and show its reason.
+
+This keeps farm membership in the same session/`_target_failure()` authority used by actual commands and avoids rebuilding `farm_cells()` every frame just to duplicate membership policy.
+
+### Do not preview while world input is blocked
+
+If `_world_input_enabled` is false, `WorldShell._process()` sets neutral gold, clears the action/interact hint, and returns before calling preview. The blocking intro, morning summary, shop/dialogue/help panels therefore never advertise an action that input gating will ignore.
+
+### Reuse the existing sentence table
+
+Extract `GameHud.show_feedback()` into one reusable text function:
 
 ```gdscript
 func feedback_text(code: GameRules.CommandCode) -> String
 ```
 
-`show_feedback(code)` becomes a thin setter using `feedback_text(code)` so there is still one command-code → sentence table.
+All currently displayed sentences remain unchanged. `INTRO_ACKNOWLEDGED` and `INTRO_ALREADY_ACKNOWLEDGED` are explicit silent (`""`) cases because intro completion already flows through `_finish_command()` but intentionally shows no feedback. The default branch asserts on an actually unmapped command code instead of silently hiding a future missing mapping.
 
-For farm targets:
+For an active farm target:
 
-- valid preview: interaction hint is `Space — use selected action`;
-- invalid preview: interaction hint is `feedback_text(preview_code)`.
-
-This preserves green/red as the fast “can I?” signal while also explaining red states such as untilled soil, no selected seeds, rain watering crops, mature crops, insufficient stamina, or late actions before Space is pressed. No new widget or feedback model is added.
+- valid preview → `Space — use selected action`;
+- invalid preview → `feedback_text(preview_code)`.
 
 ### Fix the Day-1 tutorial in the same change
 
-The current `farm_basics` tutorial says “gold outline,” which becomes false once valid farm targets turn green. Change that one body to the new contract, for example:
+Change the current stale “gold outline” farm tutorial to the new contract:
 
 > Face a farm diamond. Green means the selected action can run; red means it cannot. Press 1 for Hoe, then Space.
 
-Pin that exact player-facing body in `tests/unit/test_content_rules.gd`; the current non-empty-only assertion is insufficient for this release cue.
+Pin that exact string in `tests/unit/test_content_rules.gd`.
 
-The current README does not need a gold-copy correction unless implementation introduces one. Keep gold documented only as the neutral/non-farm targeting state if the README is updated.
-
-## 2. HUD help, Esc ownership, weather tint, shadows, and depth readability
+## 2. HUD help, real Esc propagation, weather tint, shadows, and depth
 
 ### Code-built help panel
 
-Add `_build_pause_help()` beside the existing `_build_shop_panel()`, `_build_shipping_panel()`, `_build_sleep_panel()`, and `_build_summary_panel()` methods. Build it with the existing `_add_panel`, `_add_label`, and `_add_button` helpers.
+Add `_build_pause_help()` beside the existing HUD panel builders using `_add_panel`, `_add_label`, and `_add_button`. No `pause_help.tscn`; no `SceneTree.paused`.
 
 Required copy:
 
@@ -135,34 +147,35 @@ E — Interact
 Esc — Close / controls
 ```
 
-`GameHud` stores the panel, includes it in `has_blocking_modal()`, connects Resume, and emits the existing `modal_state_changed` signal on visibility changes. Do not create `pause_help.tscn`. Do not pause the `SceneTree`; Phoenix's clock is command-driven and the existing modal input gate is enough.
+The panel participates in the existing `has_blocking_modal()` / `modal_state_changed` world-input gate.
 
-### Esc ownership must preserve existing blocking flows
+### Esc ownership follows actual Godot propagation
 
-`GameHud._unhandled_input()` must use this order:
+`DialoguePanel` is a descendant of `GameHud`. Godot delivers `_unhandled_input()` in reverse depth-first scene-tree order, so visible dialogue receives Esc first and already calls `Viewport.set_input_as_handled()`. Therefore `GameHud` does **not** need a dialogue branch.
 
-1. If the morning summary is visible, consume Esc and do nothing.
-2. If `OnboardingOverlay.is_opening_visible()` is true, consume Esc and do nothing. Start remains the required opening action.
-3. If shop, shipping, or sleep is visible, close that panel, consume Esc, and return.
-4. If `DialoguePanel` is visible, **do not toggle help and do not directly close it**. Return without handling so `DialoguePanel._unhandled_input()` retains ownership of both normal close and the existing unskippable close-friend sequence.
-5. If the help panel is visible, close it and consume Esc.
-6. Otherwise open help and consume Esc.
+Extend the existing `GameHud._unhandled_input()` so it handles only events that reach it:
 
-This avoids stacking Help over the blocking intro and avoids bypassing `DialoguePanel`'s close-friend lock.
+1. morning summary → consume Esc and remain open;
+2. blocking intro → consume Esc and remain open;
+3. shop/shipping/sleep → close the visible panel and consume Esc;
+4. help visible → close help and consume Esc;
+5. otherwise → open help and consume Esc.
+
+`DialoguePanel._unhandled_input()` remains untouched and preserves its existing close-friend sequence lock.
+
+Integration tests inject Esc through the viewport/input pipeline (`Input.parse_input_event()` plus a processed frame) rather than directly calling either node's `_unhandled_input()`. This verifies real propagation instead of testing private methods in isolation. Reuse the existing `_hud(world)` and `_panel(hud, name)` helpers for HUD lookups.
 
 ### Weather tint
 
-Add one full-screen `ColorRect` under HUD content, owned by `GameHud`, and derive its color directly from the existing snapshot weather key. Use only subtle sunny/rainy tints. No shader, particles, post-processing, lighting system, or new weather state.
+Add one full-screen non-interactive `ColorRect` under HUD content and derive its subtle sunny/rainy tint from the existing snapshot weather key. No shader, particles, lighting system, post-processing, or new weather state.
 
 ### Reused ground shadow
 
-Add one small translucent `assets/sprites/proof-shadow.png` and reuse it under the player, tree, building, shipping bin, harvest market, three villagers, and dynamic crop roots where ground contact needs help.
+Add one small translucent `assets/sprites/proof-shadow.png` and reuse it under player, tree, building, shipping bin, market, villagers, and dynamic crop roots where ground contact needs help.
 
-Shadows are children of the existing entity roots and are never Y-sort roots. `Entities` remains the sole Y-sort owner. Crop shadow visibility follows crop visibility.
+Shadows remain children of existing entity roots; `Entities` stays the only Y-sort owner. Update the current exact smoke child-name assertions from `['Sprite2D']` to `['Shadow', 'Sprite2D']` where applicable, including dynamic crop roots. Do not bolt on parallel assertions while leaving the old exact contracts stale.
 
-The current smoke test has exact child-name contracts such as `['Sprite2D']`; implementation must update those existing assertions to the new exact child list (for example `['Shadow', 'Sprite2D']`) instead of merely adding separate shadow assertions.
-
-There is no authored fence entity in the current world. Do not add one for a checklist-only occlusion test.
+There is no authored fence entity; do not add one for release verification.
 
 ### Sprite-isometric art contract
 
@@ -170,99 +183,93 @@ Record in `CLAUDE.md`:
 
 - 64×32 ground diamonds;
 - entity root = bottom-center ground contact;
-- visible sprite offsets upward from that root;
-- shadows stay as children on the ground plane;
-- foreground/occluding entities stay under the existing Y-sorted `Entities` owner;
+- visible sprite offsets upward from the root;
+- shadows remain child sprites on the ground plane;
+- foreground/occluding objects stay under the existing Y-sorted `Entities` owner;
 - nearest filtering and integer scaling remain mandatory.
 
 ## 3. Minimal audio
 
-Use a tiny project-generated placeholder WAV set under `assets/audio/` and document its provenance in `assets/audio/README.md`. No external license dependency is required for the MVP placeholders.
+Generate a tiny project-owned placeholder WAV set under `assets/audio/` and document its provenance. Keep exactly two code-built players owned by `GameHud`:
 
-Keep exactly two players on `GameHud`:
+- `SfxPlayer` for short feedback;
+- `MusicPlayer` for one quiet daytime loop.
 
-- `SfxPlayer` — short feedback clips;
-- `MusicPlayer` — one quiet looping daytime track.
+Do not edit `game_hud.tscn` just to add these two nodes; `GameHud` already builds its runtime presentation children in code. Add the players in a small `_build_audio()` helper during `_ready()`.
 
-Reuse `show_feedback(code)`/`feedback_text(code)` as the command presentation seam and map representative command categories to SFX. Use the same players for confirm/cancel, save/day-transition, and finale cues where those transitions are not solely represented by a command code.
+### Loop at import time, not by duplicating the resource
 
-Minimum categories:
+Configure `assets/audio/farm-day-loop.wav.import` with WAV import `edit/loop_mode=2` (Forward), then assign the imported `FARM_DAY_LOOP` resource directly to `MusicPlayer`. Do not `duplicate()` the stream and mutate `loop_mode` at runtime; the duplicate would lose the imported resource path that the wiring test intentionally pins.
 
-- farming action;
-- commerce/shipping;
-- dialogue/gift;
-- confirm;
-- cancel/error;
-- sleep/wake/save transition;
-- finale;
-- one quiet music loop.
+Reuse `show_feedback()`/`feedback_text()` for command SFX categories and the same SFX player for modal confirmation/cancel and save transitions where no command code covers the event. No audio manager, bus abstraction, settings page, volume controls, or persisted audio state.
 
-No audio manager, bus abstraction, settings page, volume controls, or persistent audio settings are planned. If the packaged run exposes a bad default mix, adjust asset/player levels directly.
+## 4. Verification, deterministic economy gate, and unsigned macOS export
 
-## 4. Verification and unsigned macOS export
+### Keep current test lanes
 
-### Keep the current test lanes
+- `tools/verify-clean.sh`: broad clean archive + GUT + headless smoke oracle.
+- `.github/workflows/unit-tests.yml`: focused GdUnit4 lane.
+- `.github/workflows/e2e-tests.yml`: bounded godot-e2e lane.
 
-Do not migrate GUT to GdUnit4.
+Preview guard/atomicity and the representative economy route belong in GUT. Green/red/gold shell behavior and help/audio wiring belong in existing integration tests. Do not duplicate them into GdUnit4 just for symmetry.
 
-- `tools/verify-clean.sh` stays the broad release oracle: clean archive, import, full GUT unit/integration suite, project/world smokes.
-- `.github/workflows/unit-tests.yml` stays the focused GdUnit4 lane.
-- `.github/workflows/e2e-tests.yml` stays the bounded godot-e2e lane.
+Existing persistence tests already prove representative morning and pre-finale save/restore equivalence; extend only if HPA-599 changes those seams.
 
-Preview guard/no-mutation tests belong in GUT because the clean verifier runs them. The green/red/gold shell behavior belongs in `tests/integration/test_gameplay_shell.gd`. GdUnit4/godot-e2e gain HPA-599 coverage only if a new behavior is uniquely better exercised there; do not duplicate session-rule assertions.
+### Deterministic Promising reachability
 
-Existing persistence integration coverage already proves a representative complete morning and Day 14 pre-finale save/result equivalence; extend it only if HPA-599 changes those seams.
+Add `test_representative_reinvestment_route_reaches_promising()` in `tests/unit/test_game_session.gd` using `GameSession.new(func() -> float: return 0.9)` for deterministic sunny weather. The route:
 
-### CI pin convention
+1. Hoe, plant, and water three starter Turnips.
+2. Water them on the next two days; after the third growth night, harvest and deposit all three.
+3. Buy two Turnip seeds, replant two of the already-tilled cells, water them, and continue watering through maturity.
+4. Harvest and deposit those two; sleep once so the second shipment settles.
+5. Advance/acknowledge normally to Day 14, trigger the market finale, and build the harvest result from the final state.
+6. Assert `shipped_count == 5`, `shipped_value == 175`, `shipped_value >= ContentRules.PROMISING_SHIPPED_VALUE`, and tier `promising_farmer`.
 
-When editing `.github/workflows/ci.yml`, adopt the pin/security convention already used by `unit-tests.yml`/`e2e-tests.yml`:
+This gives any future balance change an immediate arithmetic release gate.
 
-```yaml
-- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-  with:
-    persist-credentials: false
-- uses: chickensoft-games/setup-godot@f166999204a4f2722c6fe042fbaa3b3ea0d9c789 # v2.4.1
-  with:
-    version: 4.7.1
-    use-dotnet: false
-    include-templates: true
-```
+### CI uses explicit import before release export
 
-Then run the existing clean verifier and export the current macOS preset:
+`tools/verify-clean.sh` imports/tests a temporary `git archive`, not the checked-out working tree. Godot's `--export-release` command does not document an implied import, while `--import` explicitly waits for resources to import. Therefore the checkout export path runs:
 
 ```bash
-./tools/verify-clean.sh
-mkdir -p build
+godot --headless --path . --import
 godot --headless --path . --export-release "macOS" build/Phoenix.zip
-unzip -l build/Phoenix.zip | grep -F "Phoenix.app/Contents/MacOS/Phoenix"
 ```
 
-Upload `build/Phoenix.zip` with the repository's pinned `actions/upload-artifact` convention. The package remains unsigned. No signing, notarization, DMG, macOS runner, release publication, installer, or updater is added.
+Use the same sequence in local/final verification blocks.
+
+When editing `.github/workflows/ci.yml`, also adopt the exact pinned checkout/setup-Godot SHAs and `persist-credentials: false` convention already used by the GdUnit/e2e workflows, with `include-templates: true`. Upload the unsigned ZIP with the repository's pinned `actions/upload-artifact` SHA.
+
+No signing, notarization, DMG, macOS runner, release publication, installer, or updater is added.
 
 ## 5. Packaged acceptance pass
 
-The implementation is not release-complete solely because CI is green. Run one normal exported macOS playthrough from New Game to the Day 14 result.
+The automated economy test owns Promising arithmetic. The real exported macOS playthrough owns what automated rules tests cannot establish:
 
-Verify:
-
-- onboarding and the code-built help panel are sufficient without README/developer instructions;
-- the Day-1 tutorial matches green/red/gold targeting;
-- all four farm actions show both pre-action validity/reason and post-action feedback;
+- onboarding/help are understandable without README/developer instructions;
+- green/red/gold target feedback is truthful and readable;
 - dry/wet soil and crop stages are distinguishable at 1×;
-- purchase, shipping income, gifts/relationship gains, sleep/wake/save, and finale transitions are readable/audible;
-- tree/building/mature-crop/villager crossings preserve front/behind order;
-- default and smaller supported windows keep required controls visible and pixel presentation crisp;
-- Continue restores the already-covered representative midgame morning and pre-finale state without presentation desynchronization;
-- repeated input does not duplicate purchase, shipment, gift, day transition, save, or finale processing;
-- a representative farming/reinvestment run reaches **Promising Farmer** via shipped value (`>= 150G`) without debug state; Heart is optional.
+- purchase, shipping, social, sleep/wake/save, and finale cues are readable/audible;
+- tree/building/mature-crop/villager crossings preserve depth order;
+- default and smaller supported windows keep controls visible and pixel art crisp;
+- Continue feels synchronized with restored authoritative state;
+- repeated user input does not visibly duplicate processing or soft-lock the run;
+- no practical economy dead-end appears during a normal playthrough.
 
-Retune only when this pass exposes an observable defect: Promising is unreachable under a normal farming/reinvestment route, a forced economy dead-end occurs, or a concrete readability/presentation issue requires a value change. Update the exact GUT value tests in the same commit as any accepted tuning.
+Record the final shipped value/tier as evidence, but do not use a one-shot human route as the arithmetic proof for the 150G threshold.
+
+## Risks
+
+1. **Linux-to-macOS export has no existing CI proof in Phoenix.** HPA-599 deliberately tests the supported Godot cross-export on `ubuntu-latest` with installed templates and explicit import. If that platform export fails for a real toolchain reason, treat it as a release-gate failure and revisit the delivery choice; do not silently add a macOS runner or signing machinery.
+2. **Audio import metadata can drift if the WAV is regenerated.** Pin `farm-day-loop.wav.import` loop mode in the committed import sidecar and verify the imported stream path/loop wiring in integration tests.
+3. **Balance changes can invalidate the representative route.** The new GUT route is intentionally coupled to the release-candidate economy and must change in the same review as any accepted balance adjustment.
 
 ## Explicit non-goals
 
 - No new crops, villagers, maps, tools, quests, seasons, endings, or post-game.
 - No controller remapping or settings screen.
-- No final soundtrack production, voice acting, particle system, dynamic lighting, projected shadows, shaders, or post-processing.
+- No final soundtrack production, voice acting, particles, dynamic lighting, projected shadows, shaders, or post-processing.
 - No GUT→GdUnit migration or 14-day UI automation script.
 - No browser/Tauri/C#/GDExtension path.
 - No signing, notarization, DMG, App Store, updater, installer, or release service.
@@ -272,7 +279,7 @@ Retune only when this pass exposes an observable defect: Promising is unreachabl
 
 ## Expected implementation footprint
 
-Production changes should stay concentrated in the existing owners:
+Production changes stay concentrated in existing owners:
 
 - `scripts/game/game_session.gd`
 - `scripts/game/content_rules.gd`
@@ -282,11 +289,10 @@ Production changes should stay concentrated in the existing owners:
 - `scripts/ui/game_hud.gd`
 - `scenes/player/player.tscn`
 - `scenes/world/world.tscn`
-- `scenes/ui/game_hud.tscn` only for the two audio players if kept scene-authored
 - `assets/sprites/proof-shadow.png`
 - `assets/audio/*`
 - focused existing GUT/integration/headless tests
 - `.github/workflows/ci.yml`
-- `README.md`/`CLAUDE.md` for final player/art/release instructions
+- `README.md` / `CLAUDE.md`
 
-There is no `pause_help.tscn`, no GdUnit-only session-rule oracle, and no second modal construction style. Anything substantially broader than this footprint is a signal to reduce scope rather than add another abstraction.
+There is no `pause_help.tscn`, no `game_hud.tscn` audio edit, no GdUnit-only session-rule oracle, and no second modal construction style. Anything substantially broader is a signal to reduce scope rather than add another abstraction.
