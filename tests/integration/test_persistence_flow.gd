@@ -187,6 +187,61 @@ func test_duplicate_sleep_during_finale_does_not_restart_cue() -> void:
     assert_eq(repository.save_calls, 1)
     await _await_world_teardown(app)
 
+func test_sleep_modal_close_paths_do_not_cut_finale_cue() -> void:
+    _seed_slot(_day14_pre_final_state())
+    var repository := CountingSaveRepository.new(TEST_PATH)
+    var app := await _launch_continued(repository)
+    var world := app.get_node("World") as WorldShell
+    _target_bed(world)
+    # Open the sleep confirmation modal as the player would (E at the bed),
+    # then confirm sleep to trigger the finale cue.
+    var sleep_panel := world.hud.get_node("HudRoot/SleepPanel") as Control
+    world.hud.open_sleep_confirmation()
+    assert_true(sleep_panel.visible)
+    world.hud.sleep_requested.emit()
+    assert_eq(repository.save_calls, 1)
+    var sfx := world.hud.get_node("SfxPlayer") as AudioStreamPlayer
+    assert_eq(sfx.stream, world.hud.FINALE_SFX)
+    assert_true(sfx.playing, "finale cue should be playing")
+    # The sleep modal must be hidden before the cue starts, and the HUD
+    # finale lock suppresses CONFIRM_SFX, so neither the Cancel button nor
+    # Esc (which route to close_sleep_confirmation → _close_modal) can
+    # replace FINALE_SFX mid-play.
+    assert_false(sleep_panel.visible, "sleep modal should be hidden before the cue")
+    # Cancel button path: close_sleep_confirmation is a no-op (panel hidden
+    # → _close_modal early-returns), and CONFIRM_SFX is suppressed by the
+    # finale lock regardless, so the finale stream is untouched.
+    world.hud.close_sleep_confirmation()
+    assert_eq(sfx.stream, world.hud.FINALE_SFX)
+    assert_true(sfx.playing, "Cancel must not cut the finale cue")
+    # Esc path: with the sleep panel hidden, the first ui_cancel opens the
+    # pause help panel (no SFX). A second ui_cancel closes it via
+    # _set_pause_help_visible(false), which would normally play
+    # CONFIRM_SFX; the finale lock suppresses it, so the cue survives.
+    var pause_panel := world.hud.get_node("HudRoot/PauseHelp") as Control
+    var cancel_open := InputEventAction.new()
+    cancel_open.action = &"ui_cancel"
+    cancel_open.pressed = true
+    get_viewport().push_input(cancel_open)
+    await get_tree().process_frame
+    assert_true(pause_panel.visible, "first Esc should open pause help")
+    assert_eq(sfx.stream, world.hud.FINALE_SFX)
+    assert_true(sfx.playing, "opening pause help must not cut the cue")
+    var cancel_close := InputEventAction.new()
+    cancel_close.action = &"ui_cancel"
+    cancel_close.pressed = true
+    get_viewport().push_input(cancel_close)
+    await get_tree().process_frame
+    assert_false(pause_panel.visible, "second Esc should close pause help")
+    assert_eq(sfx.stream, world.hud.FINALE_SFX)
+    assert_true(sfx.playing, "closing pause help must not cut the finale cue")
+    # Dialogue close path: the finale lock suppresses CONFIRM_SFX in
+    # close_dialogue too, so even an explicit close leaves the cue intact.
+    world.hud.close_dialogue()
+    assert_eq(sfx.stream, world.hud.FINALE_SFX)
+    assert_true(sfx.playing, "dialogue close must not cut the finale cue")
+    await _await_world_teardown(app)
+
 func test_terminal_settlement_pays_pending_once_and_keeps_carried_crops() -> void:
     _seed_slot(_day14_pre_final_state())
     var repository := CountingSaveRepository.new(TEST_PATH)

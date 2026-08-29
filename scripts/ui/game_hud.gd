@@ -55,6 +55,7 @@ var _shipping_count_labels: Array[Label] = []
 var _sfx_player: AudioStreamPlayer
 var _music_player: AudioStreamPlayer
 var _last_snapshot: Dictionary = {}
+var _finale_in_progress := false
 var _selected_action: StringName = GameRules.action_key(GameRules.FarmingAction.HOE)
 var _selected_seed: StringName = GameRules.crop_key(GameRules.CropKind.TURNIP)
 
@@ -132,6 +133,12 @@ func has_blocking_modal() -> bool:
         or _pause_help_panel.visible
     )
 
+func set_finale_in_progress(value: bool) -> void:
+    # While the finale cue plays, no close path may replace FINALE_SFX with
+    # CONFIRM_SFX. WorldShell sets this before closing the sleep modal and
+    # starting the cue; the three CONFIRM_SFX close paths check it.
+    _finale_in_progress = value
+
 func set_save_status(status: StringName, message: String = "") -> void:
     match status:
         &"idle":
@@ -175,7 +182,8 @@ func close_dialogue() -> void:
     if not _dialogue_panel.visible:
         return
     _dialogue_panel.close_panel()
-    _play_sfx(CONFIRM_SFX)
+    if not _finale_in_progress:
+        _play_sfx(CONFIRM_SFX)
     modal_state_changed.emit()
 
 func feedback_text(code: GameRules.CommandCode) -> String:
@@ -462,7 +470,7 @@ func _set_pause_help_visible(is_visible: bool) -> void:
     if _pause_help_panel.visible == is_visible:
         return
     _pause_help_panel.visible = is_visible
-    if not is_visible:
+    if not is_visible and not _finale_in_progress:
         _play_sfx(CONFIRM_SFX)
     modal_state_changed.emit()
 
@@ -649,7 +657,8 @@ func _close_modal(panel: Control) -> void:
     if not panel.visible:
         return
     panel.visible = false
-    _play_sfx(CONFIRM_SFX)
+    if not _finale_in_progress:
+        _play_sfx(CONFIRM_SFX)
     modal_state_changed.emit()
 
 func _render_morning_summary(summary: Dictionary) -> void:
