@@ -31,6 +31,12 @@ func test_tutorial_table_is_exact_and_unique() -> void:
     assert_eq(seen_ids.size(), expected.size())
     assert_eq(seen_codes.size(), expected.size())
 
+func test_farm_basics_copy_pins_green_red_target_preview() -> void:
+    assert_eq(
+        String(ContentRules.TUTORIALS[0]["body"]),
+        "Face a farm diamond. Green means the selected action can run; red means it cannot. Press 1 for Hoe, then Space.",
+    )
+
 func test_tutorial_helpers_derive_from_the_table() -> void:
     var expected_ids: Array[StringName] = []
     for definition in ContentRules.TUTORIALS:

@@ -4,6 +4,12 @@ extends Node2D
 signal finale_completed(final_state: Dictionary, save_error: int)
 
 const PERIMETER_BAND_WIDTH := 1.0
+const FARM_ACTION_SUCCESS_CODES := [
+    GameRules.CommandCode.SOIL_TILLED,
+    GameRules.CommandCode.CROP_PLANTED,
+    GameRules.CommandCode.CROP_WATERED,
+    GameRules.CommandCode.CROP_HARVESTED,
+]
 
 var _session: GameSession
 var _initial_state: Variant = null
@@ -71,6 +77,24 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
     var target: Variant = player.current_target_cell()
+
+    if not _world_input_enabled:
+        player.set_target_tint(PlayerController.TargetTint.NEUTRAL)
+        hud.set_interaction_hint("")
+        return
+
+    var preview := _session.preview_selected_action(target)
+    if FARM_ACTION_SUCCESS_CODES.has(preview):
+        player.set_target_tint(PlayerController.TargetTint.VALID)
+        hud.set_interaction_hint("Space — use selected action")
+        return
+    if preview != GameRules.CommandCode.NO_TARGET and preview != GameRules.CommandCode.NOT_FARM_CELL:
+        player.set_target_tint(PlayerController.TargetTint.INVALID)
+        hud.set_interaction_hint(hud.feedback_text(preview))
+        return
+
+    player.set_target_tint(PlayerController.TargetTint.NEUTRAL)
+    # Continue into the existing villager/shop/bed/shipping/market/empty hint chain.
     var villager_id := WorldContract.villager_at(target)
     if villager_id >= 0:
         hud.set_interaction_hint("%s — E" % VillagerRules.display_name(villager_id))

@@ -524,6 +524,39 @@ func test_market_target_hint_and_pre_finale_routing() -> void:
     var feedback := hud.get_node("HudRoot/Feedback") as Label
     assert_true(feedback.text.contains("opens on Day 14"))
 
+func test_farm_preview_uses_green_red_reason_and_non_farm_gold() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var hint := hud.get_node("HudRoot/InteractionHint") as Label
+    var cell: Vector2i = WorldContract.farm_cells()[0]
+
+    await _place_target(world, cell)
+    world._process(0.0)
+    assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_VALID)
+    assert_eq(hint.text, "Space — use selected action")
+
+    world.use_selected_action()
+    world._process(0.0)
+    assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_INVALID)
+    assert_eq(hint.text, "Soil is already tilled.")
+
+    world.select_action_slot(2)
+    world._process(0.0)
+    assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_VALID)
+
+    await _place_target(world, WorldContract.SHOP_CELL)
+    world._process(0.0)
+    assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_NEUTRAL)
+    assert_eq(hint.text, "Shop — E")
+
+func test_blocking_intro_never_advertises_farm_action() -> void:
+    var world := _locked_world()
+    var hud := _hud(world)
+    await _place_target(world, WorldContract.farm_cells()[0])
+    world._process(0.0)
+    assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_NEUTRAL)
+    assert_eq((hud.get_node("HudRoot/InteractionHint") as Label).text, "")
+
 func test_villager_interaction_opens_dialogue_and_gates_world_input() -> void:
     var world := _world()
     if world == null:
