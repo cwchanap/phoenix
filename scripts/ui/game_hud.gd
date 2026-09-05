@@ -25,6 +25,9 @@ const FARM_DAY_LOOP := preload("res://assets/audio/farm-day-loop.wav")
 const ONBOARDING_SCENE := preload("res://scenes/ui/onboarding_overlay.tscn")
 const SHOP_SCENE := preload("res://scenes/ui/shop_panel.tscn")
 const SHIPPING_SCENE := preload("res://scenes/ui/shipping_panel.tscn")
+const BAG_SCENE := preload("res://scenes/ui/bag_panel.tscn")
+const ALMANAC_SCENE := preload("res://scenes/ui/almanac_panel.tscn")
+const CALENDAR_SCENE := preload("res://scenes/ui/calendar_panel.tscn")
 
 var _root: Control
 var _weather_tint: ColorRect
@@ -52,6 +55,9 @@ var _feedback_panel: Panel
 var _stamina_pips: Array[ColorRect] = []
 var _shop_panel: ShopPanel
 var _shipping_panel: ShippingPanel
+var _bag_panel: BagPanel
+var _almanac_panel: AlmanacPanel
+var _calendar_panel: CalendarPanel
 var _sleep_panel: Control
 var _dialogue_panel: DialoguePanel
 var _onboarding_overlay: OnboardingOverlay
@@ -80,6 +86,9 @@ func _ready() -> void:
     _primary_modals = [
         _shop_panel,
         _shipping_panel,
+        _bag_panel,
+        _almanac_panel,
+        _calendar_panel,
         _sleep_panel,
         _dialogue_panel,
         _morning_summary_panel,
@@ -89,6 +98,9 @@ func _ready() -> void:
         {"control": _dialogue_panel, "close": close_dialogue},
         {"control": _shop_panel, "close": close_shop},
         {"control": _shipping_panel, "close": close_shipping},
+        {"control": _bag_panel, "close": close_bag},
+        {"control": _almanac_panel, "close": close_almanac},
+        {"control": _calendar_panel, "close": close_calendar},
         {"control": _sleep_panel, "close": close_sleep_confirmation},
         {"control": _pause_help_panel, "close": _close_pause_from_escape},
     ]
@@ -112,6 +124,9 @@ func render(snapshot: Dictionary) -> void:
     _last_snapshot = snapshot.duplicate(true)
     _shop_panel.present(snapshot)
     _shipping_panel.present(snapshot)
+    _bag_panel.present(snapshot)
+    _almanac_panel.present(snapshot)
+    _calendar_panel.present(snapshot)
     _onboarding_overlay.render(snapshot)
     _weather_tint.color = (
         RAINY_TINT
@@ -214,6 +229,27 @@ func open_shipping() -> void:
 
 func close_shipping() -> void:
     _close_modal(_shipping_panel)
+
+func open_bag() -> void:
+    if _open_modal(_bag_panel):
+        _bag_panel.open_panel(_last_snapshot)
+
+func close_bag() -> void:
+    _close_modal(_bag_panel)
+
+func open_almanac() -> void:
+    if _open_modal(_almanac_panel):
+        _almanac_panel.open_panel(_last_snapshot)
+
+func close_almanac() -> void:
+    _close_modal(_almanac_panel)
+
+func open_calendar() -> void:
+    if _open_modal(_calendar_panel):
+        _calendar_panel.open_panel(_last_snapshot)
+
+func close_calendar() -> void:
+    _close_modal(_calendar_panel)
 
 func open_sleep_confirmation() -> void:
     _open_modal(_sleep_panel)
@@ -528,6 +564,15 @@ func _build_modals() -> void:
     _shipping_panel.deposit_requested.connect(func(kind: int, quantity: int) -> void:
         deposit_requested.emit(kind, quantity)
     )
+    _bag_panel = BAG_SCENE.instantiate() as BagPanel
+    _root.add_child(_bag_panel)
+    _bag_panel.close_requested.connect(close_bag)
+    _almanac_panel = ALMANAC_SCENE.instantiate() as AlmanacPanel
+    _root.add_child(_almanac_panel)
+    _almanac_panel.close_requested.connect(close_almanac)
+    _calendar_panel = CALENDAR_SCENE.instantiate() as CalendarPanel
+    _root.add_child(_calendar_panel)
+    _calendar_panel.close_requested.connect(close_calendar)
     _sleep_panel = _build_sleep_panel()
     _morning_summary_panel = _build_summary_panel()
     _dialogue_panel = DialoguePanel.new()
@@ -540,6 +585,9 @@ func _build_modals() -> void:
     _pause_help_panel = _build_pause_help()
     _shop_panel.visible = false
     _shipping_panel.visible = false
+    _bag_panel.visible = false
+    _almanac_panel.visible = false
+    _calendar_panel.visible = false
     _sleep_panel.visible = false
     _dialogue_panel.visible = false
     _morning_summary_panel.visible = false
@@ -782,6 +830,27 @@ func _display_weather(key: Variant) -> String:
     return "Rainy" if key == GameRules.weather_key(GameRules.Weather.RAINY) else "Sunny"
 
 func _unhandled_input(event: InputEvent) -> void:
+    if event.is_action_pressed("toggle_bag"):
+        if _bag_panel.visible:
+            close_bag()
+        else:
+            open_bag()
+        get_viewport().set_input_as_handled()
+        return
+    if event.is_action_pressed("toggle_almanac"):
+        if _almanac_panel.visible:
+            close_almanac()
+        else:
+            open_almanac()
+        get_viewport().set_input_as_handled()
+        return
+    if event.is_action_pressed("toggle_calendar"):
+        if _calendar_panel.visible:
+            close_calendar()
+        else:
+            open_calendar()
+        get_viewport().set_input_as_handled()
+        return
     if not event.is_action_pressed("ui_cancel"):
         return
     if _morning_summary_panel.visible or _onboarding_overlay.is_opening_visible():

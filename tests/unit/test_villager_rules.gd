@@ -102,3 +102,17 @@ func test_finale_lines_cover_every_villager_and_relationship() -> void:
             assert_false(seen_lines.has(line), "duplicate finale line %s" % line)
             seen_lines[line] = true
     assert_eq(seen_lines.size(), VillagerRules.VillagerId.size() * VillagerRules.RelationshipLevel.size())
+
+func test_favourite_villager_lookup_is_inverse() -> void:
+    assert_eq(
+        VillagerRules.favourite_villager_for_crop(GameRules.CropKind.TURNIP),
+        VillagerRules.VillagerId.RESIDENT,
+    )
+    assert_eq(
+        VillagerRules.favourite_villager_for_crop(GameRules.CropKind.POTATO),
+        VillagerRules.VillagerId.SHOPKEEPER,
+    )
+    assert_eq(
+        VillagerRules.favourite_villager_for_crop(GameRules.CropKind.PUMPKIN),
+        VillagerRules.VillagerId.FARMER,
+    )

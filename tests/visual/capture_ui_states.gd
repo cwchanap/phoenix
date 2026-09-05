@@ -14,7 +14,14 @@ func _initialize() -> void:
         elif argument.begins_with("--evidence="):
             evidence_path = argument.trim_prefix("--evidence=")
 
-    if not ["01-hud", "02-seed-shop", "03-shipping-day14"].has(state_name):
+    if not [
+        "01-hud",
+        "02-seed-shop",
+        "03-shipping-day14",
+        "04-bag",
+        "05-almanac",
+        "06-calendar",
+    ].has(state_name):
         push_error("unsupported visual state: %s" % state_name)
         quit(2)
         return

@@ -1,0 +1,1152 @@
+[gd_scene load_steps=8 format=4]
+
+[ext_resource type="Script" path="res://scripts/ui/calendar_panel.gd" id="1_calendar"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/calendar.png" id="2_calendar"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/sun.png" id="3_sun"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/rain.png" id="4_rain"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/market.png" id="5_market"]
+[ext_resource type="Texture2D" path="res://assets/ui/crops/turnip.png" id="6_turnip"]
+[ext_resource type="Texture2D" path="res://assets/ui/crops/pumpkin.png" id="7_pumpkin"]
+
+[node name="CalendarPanel" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+script = ExtResource("1_calendar")
+
+[node name="Dim" type="ColorRect" parent="."]
+layout_mode = 0
+offset_right = 640.0
+offset_bottom = 360.0
+mouse_filter = 2
+color = Color(0.054902, 0.07451, 0.105882, 1)
+
+[node name="Frame" type="Panel" parent="."]
+layout_mode = 0
+offset_left = 37.0
+offset_top = 73.0
+offset_right = 603.0
+offset_bottom = 287.0
+mouse_filter = 1
+
+[node name="Header" type="Panel" parent="Frame"]
+layout_mode = 0
+offset_left = 2.0
+offset_top = 2.0
+offset_right = 564.0
+offset_bottom = 42.0
+mouse_filter = 2
+
+[node name="Icon" type="TextureRect" parent="Frame/Header"]
+layout_mode = 0
+offset_left = 14.0
+offset_top = 7.0
+offset_right = 34.0
+offset_bottom = 27.0
+mouse_filter = 2
+texture = ExtResource("2_calendar")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Title" type="Label" parent="Frame/Header"]
+layout_mode = 0
+offset_left = 40.0
+offset_top = 7.0
+offset_right = 180.0
+offset_bottom = 30.0
+text = "SEASON"
+
+[node name="Market" type="Label" parent="Frame/Header"]
+visible = false
+layout_mode = 0
+offset_left = 438.0
+offset_top = 9.0
+offset_right = 552.0
+offset_bottom = 30.0
+text = "11 DAYS TO MARKET"
+horizontal_alignment = 2
+
+[node name="MarketBadge" type="Panel" parent="Frame/Header"]
+layout_mode = 0
+offset_left = 436.0
+offset_top = 7.0
+offset_right = 552.0
+offset_bottom = 33.0
+mouse_filter = 2
+
+[node name="MarketIcon" type="TextureRect" parent="Frame/Header/MarketBadge"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 6.0
+offset_right = 20.0
+offset_bottom = 20.0
+mouse_filter = 2
+texture = ExtResource("5_market")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="MarketValue" type="Label" parent="Frame/Header/MarketBadge"]
+layout_mode = 0
+offset_left = 22.0
+offset_top = 3.0
+offset_right = 112.0
+offset_bottom = 23.0
+mouse_filter = 2
+text = "11 DAYS TO MARKET"
+horizontal_alignment = 2
+
+[node name="Body" type="Control" parent="Frame"]
+layout_mode = 0
+offset_left = 2.0
+offset_top = 42.0
+offset_right = 564.0
+offset_bottom = 178.0
+mouse_filter = 2
+clip_contents = false
+
+[node name="Day_01" type="Panel" parent="Frame/Body"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 8.0
+offset_right = 82.0
+offset_bottom = 51.0
+mouse_filter = 2
+
+[node name="Day" type="Label" parent="Frame/Body/Day_01"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 5.0
+offset_right = 62.0
+offset_bottom = 21.0
+text = "1"
+
+[node name="Weather" type="TextureRect" parent="Frame/Body/Day_01"]
+layout_mode = 0
+offset_left = 47.0
+offset_top = 6.0
+offset_right = 63.0
+offset_bottom = 22.0
+mouse_filter = 2
+texture = ExtResource("3_sun")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="Today" type="Label" parent="Frame/Body/Day_01"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 26.0
+offset_right = 65.0
+offset_bottom = 41.0
+text = "TODAY"
+visible = false
+
+[node name="Market" type="TextureRect" parent="Frame/Body/Day_01"]
+layout_mode = 0
+offset_left = 28.0
+offset_top = 24.0
+offset_right = 46.0
+offset_bottom = 42.0
+mouse_filter = 2
+texture = ExtResource("5_market")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessIcon" type="TextureRect" parent="Frame/Body/Day_01"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 25.0
+offset_right = 22.0
+offset_bottom = 41.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessLabel" type="Label" parent="Frame/Body/Day_01"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 26.0
+offset_right = 69.0
+offset_bottom = 41.0
+text = "EARLIEST"
+visible = false
+
+[node name="Day_02" type="Panel" parent="Frame/Body"]
+layout_mode = 0
+offset_left = 90.0
+offset_top = 8.0
+offset_right = 162.0
+offset_bottom = 51.0
+mouse_filter = 2
+
+[node name="Day" type="Label" parent="Frame/Body/Day_02"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 5.0
+offset_right = 62.0
+offset_bottom = 21.0
+text = "2"
+
+[node name="Weather" type="TextureRect" parent="Frame/Body/Day_02"]
+layout_mode = 0
+offset_left = 47.0
+offset_top = 6.0
+offset_right = 63.0
+offset_bottom = 22.0
+mouse_filter = 2
+texture = ExtResource("3_sun")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="Today" type="Label" parent="Frame/Body/Day_02"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 26.0
+offset_right = 65.0
+offset_bottom = 41.0
+text = "TODAY"
+visible = false
+
+[node name="Market" type="TextureRect" parent="Frame/Body/Day_02"]
+layout_mode = 0
+offset_left = 28.0
+offset_top = 24.0
+offset_right = 46.0
+offset_bottom = 42.0
+mouse_filter = 2
+texture = ExtResource("5_market")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessIcon" type="TextureRect" parent="Frame/Body/Day_02"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 25.0
+offset_right = 22.0
+offset_bottom = 41.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessLabel" type="Label" parent="Frame/Body/Day_02"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 26.0
+offset_right = 69.0
+offset_bottom = 41.0
+text = "EARLIEST"
+visible = false
+
+[node name="Day_03" type="Panel" parent="Frame/Body"]
+layout_mode = 0
+offset_left = 170.0
+offset_top = 8.0
+offset_right = 242.0
+offset_bottom = 51.0
+mouse_filter = 2
+
+[node name="Day" type="Label" parent="Frame/Body/Day_03"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 5.0
+offset_right = 62.0
+offset_bottom = 21.0
+text = "3"
+
+[node name="Weather" type="TextureRect" parent="Frame/Body/Day_03"]
+layout_mode = 0
+offset_left = 47.0
+offset_top = 6.0
+offset_right = 63.0
+offset_bottom = 22.0
+mouse_filter = 2
+texture = ExtResource("3_sun")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="Today" type="Label" parent="Frame/Body/Day_03"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 26.0
+offset_right = 65.0
+offset_bottom = 41.0
+text = "TODAY"
+visible = false
+
+[node name="Market" type="TextureRect" parent="Frame/Body/Day_03"]
+layout_mode = 0
+offset_left = 28.0
+offset_top = 24.0
+offset_right = 46.0
+offset_bottom = 42.0
+mouse_filter = 2
+texture = ExtResource("5_market")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessIcon" type="TextureRect" parent="Frame/Body/Day_03"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 25.0
+offset_right = 22.0
+offset_bottom = 41.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessLabel" type="Label" parent="Frame/Body/Day_03"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 26.0
+offset_right = 69.0
+offset_bottom = 41.0
+text = "EARLIEST"
+visible = false
+
+[node name="Day_04" type="Panel" parent="Frame/Body"]
+layout_mode = 0
+offset_left = 250.0
+offset_top = 8.0
+offset_right = 322.0
+offset_bottom = 51.0
+mouse_filter = 2
+
+[node name="Day" type="Label" parent="Frame/Body/Day_04"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 5.0
+offset_right = 62.0
+offset_bottom = 21.0
+text = "4"
+
+[node name="Weather" type="TextureRect" parent="Frame/Body/Day_04"]
+layout_mode = 0
+offset_left = 47.0
+offset_top = 6.0
+offset_right = 63.0
+offset_bottom = 22.0
+mouse_filter = 2
+texture = ExtResource("3_sun")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="Today" type="Label" parent="Frame/Body/Day_04"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 26.0
+offset_right = 65.0
+offset_bottom = 41.0
+text = "TODAY"
+visible = false
+
+[node name="Market" type="TextureRect" parent="Frame/Body/Day_04"]
+layout_mode = 0
+offset_left = 28.0
+offset_top = 24.0
+offset_right = 46.0
+offset_bottom = 42.0
+mouse_filter = 2
+texture = ExtResource("5_market")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessIcon" type="TextureRect" parent="Frame/Body/Day_04"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 25.0
+offset_right = 22.0
+offset_bottom = 41.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessLabel" type="Label" parent="Frame/Body/Day_04"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 26.0
+offset_right = 69.0
+offset_bottom = 41.0
+text = "EARLIEST"
+visible = false
+
+[node name="Day_05" type="Panel" parent="Frame/Body"]
+layout_mode = 0
+offset_left = 330.0
+offset_top = 8.0
+offset_right = 402.0
+offset_bottom = 51.0
+mouse_filter = 2
+
+[node name="Day" type="Label" parent="Frame/Body/Day_05"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 5.0
+offset_right = 62.0
+offset_bottom = 21.0
+text = "5"
+
+[node name="Weather" type="TextureRect" parent="Frame/Body/Day_05"]
+layout_mode = 0
+offset_left = 47.0
+offset_top = 6.0
+offset_right = 63.0
+offset_bottom = 22.0
+mouse_filter = 2
+texture = ExtResource("3_sun")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="Today" type="Label" parent="Frame/Body/Day_05"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 26.0
+offset_right = 65.0
+offset_bottom = 41.0
+text = "TODAY"
+visible = false
+
+[node name="Market" type="TextureRect" parent="Frame/Body/Day_05"]
+layout_mode = 0
+offset_left = 28.0
+offset_top = 24.0
+offset_right = 46.0
+offset_bottom = 42.0
+mouse_filter = 2
+texture = ExtResource("5_market")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessIcon" type="TextureRect" parent="Frame/Body/Day_05"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 25.0
+offset_right = 22.0
+offset_bottom = 41.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessLabel" type="Label" parent="Frame/Body/Day_05"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 26.0
+offset_right = 69.0
+offset_bottom = 41.0
+text = "EARLIEST"
+visible = false
+
+[node name="Day_06" type="Panel" parent="Frame/Body"]
+layout_mode = 0
+offset_left = 410.0
+offset_top = 8.0
+offset_right = 482.0
+offset_bottom = 51.0
+mouse_filter = 2
+
+[node name="Day" type="Label" parent="Frame/Body/Day_06"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 5.0
+offset_right = 62.0
+offset_bottom = 21.0
+text = "6"
+
+[node name="Weather" type="TextureRect" parent="Frame/Body/Day_06"]
+layout_mode = 0
+offset_left = 47.0
+offset_top = 6.0
+offset_right = 63.0
+offset_bottom = 22.0
+mouse_filter = 2
+texture = ExtResource("3_sun")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="Today" type="Label" parent="Frame/Body/Day_06"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 26.0
+offset_right = 65.0
+offset_bottom = 41.0
+text = "TODAY"
+visible = false
+
+[node name="Market" type="TextureRect" parent="Frame/Body/Day_06"]
+layout_mode = 0
+offset_left = 28.0
+offset_top = 24.0
+offset_right = 46.0
+offset_bottom = 42.0
+mouse_filter = 2
+texture = ExtResource("5_market")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessIcon" type="TextureRect" parent="Frame/Body/Day_06"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 25.0
+offset_right = 22.0
+offset_bottom = 41.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessLabel" type="Label" parent="Frame/Body/Day_06"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 26.0
+offset_right = 69.0
+offset_bottom = 41.0
+text = "EARLIEST"
+visible = false
+
+[node name="Day_07" type="Panel" parent="Frame/Body"]
+layout_mode = 0
+offset_left = 490.0
+offset_top = 8.0
+offset_right = 562.0
+offset_bottom = 51.0
+mouse_filter = 2
+
+[node name="Day" type="Label" parent="Frame/Body/Day_07"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 5.0
+offset_right = 62.0
+offset_bottom = 21.0
+text = "7"
+
+[node name="Weather" type="TextureRect" parent="Frame/Body/Day_07"]
+layout_mode = 0
+offset_left = 47.0
+offset_top = 6.0
+offset_right = 63.0
+offset_bottom = 22.0
+mouse_filter = 2
+texture = ExtResource("3_sun")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="Today" type="Label" parent="Frame/Body/Day_07"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 26.0
+offset_right = 65.0
+offset_bottom = 41.0
+text = "TODAY"
+visible = false
+
+[node name="Market" type="TextureRect" parent="Frame/Body/Day_07"]
+layout_mode = 0
+offset_left = 28.0
+offset_top = 24.0
+offset_right = 46.0
+offset_bottom = 42.0
+mouse_filter = 2
+texture = ExtResource("5_market")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessIcon" type="TextureRect" parent="Frame/Body/Day_07"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 25.0
+offset_right = 22.0
+offset_bottom = 41.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessLabel" type="Label" parent="Frame/Body/Day_07"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 26.0
+offset_right = 69.0
+offset_bottom = 41.0
+text = "EARLIEST"
+visible = false
+
+[node name="Day_08" type="Panel" parent="Frame/Body"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 56.0
+offset_right = 82.0
+offset_bottom = 120.0
+mouse_filter = 2
+
+[node name="Day" type="Label" parent="Frame/Body/Day_08"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 5.0
+offset_right = 62.0
+offset_bottom = 21.0
+text = "8"
+
+[node name="Weather" type="TextureRect" parent="Frame/Body/Day_08"]
+layout_mode = 0
+offset_left = 47.0
+offset_top = 6.0
+offset_right = 63.0
+offset_bottom = 22.0
+mouse_filter = 2
+texture = ExtResource("3_sun")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="Today" type="Label" parent="Frame/Body/Day_08"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 26.0
+offset_right = 65.0
+offset_bottom = 41.0
+text = "TODAY"
+visible = false
+
+[node name="Market" type="TextureRect" parent="Frame/Body/Day_08"]
+layout_mode = 0
+offset_left = 28.0
+offset_top = 24.0
+offset_right = 46.0
+offset_bottom = 42.0
+mouse_filter = 2
+texture = ExtResource("5_market")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessIcon" type="TextureRect" parent="Frame/Body/Day_08"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 25.0
+offset_right = 22.0
+offset_bottom = 41.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessLabel" type="Label" parent="Frame/Body/Day_08"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 26.0
+offset_right = 69.0
+offset_bottom = 41.0
+text = "EARLIEST"
+visible = false
+
+[node name="Day_09" type="Panel" parent="Frame/Body"]
+layout_mode = 0
+offset_left = 90.0
+offset_top = 56.0
+offset_right = 162.0
+offset_bottom = 120.0
+mouse_filter = 2
+
+[node name="Day" type="Label" parent="Frame/Body/Day_09"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 5.0
+offset_right = 62.0
+offset_bottom = 21.0
+text = "9"
+
+[node name="Weather" type="TextureRect" parent="Frame/Body/Day_09"]
+layout_mode = 0
+offset_left = 47.0
+offset_top = 6.0
+offset_right = 63.0
+offset_bottom = 22.0
+mouse_filter = 2
+texture = ExtResource("3_sun")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="Today" type="Label" parent="Frame/Body/Day_09"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 26.0
+offset_right = 65.0
+offset_bottom = 41.0
+text = "TODAY"
+visible = false
+
+[node name="Market" type="TextureRect" parent="Frame/Body/Day_09"]
+layout_mode = 0
+offset_left = 28.0
+offset_top = 24.0
+offset_right = 46.0
+offset_bottom = 42.0
+mouse_filter = 2
+texture = ExtResource("5_market")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessIcon" type="TextureRect" parent="Frame/Body/Day_09"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 25.0
+offset_right = 22.0
+offset_bottom = 41.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessLabel" type="Label" parent="Frame/Body/Day_09"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 26.0
+offset_right = 69.0
+offset_bottom = 41.0
+text = "EARLIEST"
+visible = false
+
+[node name="Day_10" type="Panel" parent="Frame/Body"]
+layout_mode = 0
+offset_left = 170.0
+offset_top = 56.0
+offset_right = 242.0
+offset_bottom = 120.0
+mouse_filter = 2
+
+[node name="Day" type="Label" parent="Frame/Body/Day_10"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 5.0
+offset_right = 62.0
+offset_bottom = 21.0
+text = "10"
+
+[node name="Weather" type="TextureRect" parent="Frame/Body/Day_10"]
+layout_mode = 0
+offset_left = 47.0
+offset_top = 6.0
+offset_right = 63.0
+offset_bottom = 22.0
+mouse_filter = 2
+texture = ExtResource("3_sun")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="Today" type="Label" parent="Frame/Body/Day_10"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 26.0
+offset_right = 65.0
+offset_bottom = 41.0
+text = "TODAY"
+visible = false
+
+[node name="Market" type="TextureRect" parent="Frame/Body/Day_10"]
+layout_mode = 0
+offset_left = 28.0
+offset_top = 24.0
+offset_right = 46.0
+offset_bottom = 42.0
+mouse_filter = 2
+texture = ExtResource("5_market")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessIcon" type="TextureRect" parent="Frame/Body/Day_10"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 25.0
+offset_right = 22.0
+offset_bottom = 41.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessLabel" type="Label" parent="Frame/Body/Day_10"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 26.0
+offset_right = 69.0
+offset_bottom = 41.0
+text = "EARLIEST"
+visible = false
+
+[node name="Day_11" type="Panel" parent="Frame/Body"]
+layout_mode = 0
+offset_left = 250.0
+offset_top = 56.0
+offset_right = 322.0
+offset_bottom = 120.0
+mouse_filter = 2
+
+[node name="Day" type="Label" parent="Frame/Body/Day_11"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 5.0
+offset_right = 62.0
+offset_bottom = 21.0
+text = "11"
+
+[node name="Weather" type="TextureRect" parent="Frame/Body/Day_11"]
+layout_mode = 0
+offset_left = 47.0
+offset_top = 6.0
+offset_right = 63.0
+offset_bottom = 22.0
+mouse_filter = 2
+texture = ExtResource("3_sun")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="Today" type="Label" parent="Frame/Body/Day_11"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 26.0
+offset_right = 65.0
+offset_bottom = 41.0
+text = "TODAY"
+visible = false
+
+[node name="Market" type="TextureRect" parent="Frame/Body/Day_11"]
+layout_mode = 0
+offset_left = 28.0
+offset_top = 24.0
+offset_right = 46.0
+offset_bottom = 42.0
+mouse_filter = 2
+texture = ExtResource("5_market")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessIcon" type="TextureRect" parent="Frame/Body/Day_11"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 25.0
+offset_right = 22.0
+offset_bottom = 41.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessLabel" type="Label" parent="Frame/Body/Day_11"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 26.0
+offset_right = 69.0
+offset_bottom = 41.0
+text = "EARLIEST"
+visible = false
+
+[node name="Day_12" type="Panel" parent="Frame/Body"]
+layout_mode = 0
+offset_left = 330.0
+offset_top = 56.0
+offset_right = 402.0
+offset_bottom = 120.0
+mouse_filter = 2
+
+[node name="Day" type="Label" parent="Frame/Body/Day_12"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 5.0
+offset_right = 62.0
+offset_bottom = 21.0
+text = "12"
+
+[node name="Weather" type="TextureRect" parent="Frame/Body/Day_12"]
+layout_mode = 0
+offset_left = 47.0
+offset_top = 6.0
+offset_right = 63.0
+offset_bottom = 22.0
+mouse_filter = 2
+texture = ExtResource("3_sun")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="Today" type="Label" parent="Frame/Body/Day_12"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 26.0
+offset_right = 65.0
+offset_bottom = 41.0
+text = "TODAY"
+visible = false
+
+[node name="Market" type="TextureRect" parent="Frame/Body/Day_12"]
+layout_mode = 0
+offset_left = 28.0
+offset_top = 24.0
+offset_right = 46.0
+offset_bottom = 42.0
+mouse_filter = 2
+texture = ExtResource("5_market")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessIcon" type="TextureRect" parent="Frame/Body/Day_12"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 25.0
+offset_right = 22.0
+offset_bottom = 41.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessLabel" type="Label" parent="Frame/Body/Day_12"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 26.0
+offset_right = 69.0
+offset_bottom = 41.0
+text = "EARLIEST"
+visible = false
+
+[node name="Day_13" type="Panel" parent="Frame/Body"]
+layout_mode = 0
+offset_left = 410.0
+offset_top = 56.0
+offset_right = 482.0
+offset_bottom = 120.0
+mouse_filter = 2
+
+[node name="Day" type="Label" parent="Frame/Body/Day_13"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 5.0
+offset_right = 62.0
+offset_bottom = 21.0
+text = "13"
+
+[node name="Weather" type="TextureRect" parent="Frame/Body/Day_13"]
+layout_mode = 0
+offset_left = 47.0
+offset_top = 6.0
+offset_right = 63.0
+offset_bottom = 22.0
+mouse_filter = 2
+texture = ExtResource("3_sun")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="Today" type="Label" parent="Frame/Body/Day_13"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 26.0
+offset_right = 65.0
+offset_bottom = 41.0
+text = "TODAY"
+visible = false
+
+[node name="Market" type="TextureRect" parent="Frame/Body/Day_13"]
+layout_mode = 0
+offset_left = 28.0
+offset_top = 24.0
+offset_right = 46.0
+offset_bottom = 42.0
+mouse_filter = 2
+texture = ExtResource("5_market")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessIcon" type="TextureRect" parent="Frame/Body/Day_13"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 25.0
+offset_right = 22.0
+offset_bottom = 41.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessLabel" type="Label" parent="Frame/Body/Day_13"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 26.0
+offset_right = 69.0
+offset_bottom = 41.0
+text = "EARLIEST"
+visible = false
+
+[node name="Day_14" type="Panel" parent="Frame/Body"]
+layout_mode = 0
+offset_left = 490.0
+offset_top = 56.0
+offset_right = 562.0
+offset_bottom = 120.0
+mouse_filter = 2
+
+[node name="Day" type="Label" parent="Frame/Body/Day_14"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 5.0
+offset_right = 62.0
+offset_bottom = 21.0
+text = "14"
+
+[node name="Weather" type="TextureRect" parent="Frame/Body/Day_14"]
+layout_mode = 0
+offset_left = 47.0
+offset_top = 6.0
+offset_right = 63.0
+offset_bottom = 22.0
+mouse_filter = 2
+texture = ExtResource("3_sun")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="Today" type="Label" parent="Frame/Body/Day_14"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 26.0
+offset_right = 65.0
+offset_bottom = 41.0
+text = "TODAY"
+visible = false
+
+[node name="Market" type="TextureRect" parent="Frame/Body/Day_14"]
+layout_mode = 0
+offset_left = 28.0
+offset_top = 24.0
+offset_right = 46.0
+offset_bottom = 42.0
+mouse_filter = 2
+texture = ExtResource("5_market")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessIcon" type="TextureRect" parent="Frame/Body/Day_14"]
+layout_mode = 0
+offset_left = 6.0
+offset_top = 25.0
+offset_right = 22.0
+offset_bottom = 41.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessLabel" type="Label" parent="Frame/Body/Day_14"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 26.0
+offset_right = 69.0
+offset_bottom = 41.0
+text = "EARLIEST"
+visible = false
+
+[node name="Footer" type="Panel" parent="Frame"]
+layout_mode = 0
+offset_left = 2.0
+offset_top = 178.0
+offset_right = 564.0
+offset_bottom = 212.0
+mouse_filter = 2
+
+[node name="Sun" type="ColorRect" parent="Frame/Footer"]
+visible = false
+layout_mode = 0
+offset_left = 12.0
+offset_top = 12.0
+offset_right = 20.0
+offset_bottom = 20.0
+color = Color(0.498039, 0.74902, 0.372549, 1)
+
+[node name="Legend" type="Label" parent="Frame/Footer"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 8.0
+offset_right = 205.0
+offset_bottom = 26.0
+text = "watered    rain did it for you"
+
+[node name="Close" type="Button" parent="Frame/Footer"]
+layout_mode = 0
+offset_left = 506.0
+offset_top = 7.0
+offset_right = 524.0
+offset_bottom = 27.0
+custom_minimum_size = Vector2(0, 0)
+mouse_filter = 2
+text = "C"
+
+[node name="LastNight" type="Label" parent="Frame/Body/Day_13"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 26.0
+offset_right = 67.0
+offset_bottom = 41.0
+mouse_filter = 2
+text = "LAST NIGHT"
+visible = false
+
+[node name="MarketLabel" type="Label" parent="Frame/Body/Day_14"]
+layout_mode = 0
+offset_left = 7.0
+offset_top = 48.0
+offset_right = 67.0
+offset_bottom = 62.0
+mouse_filter = 2
+text = "MARKET"
+visible = false
+
+[node name="CloseHelp" type="Label" parent="Frame/Footer"]
+layout_mode = 0
+offset_left = 528.0
+offset_top = 9.0
+offset_right = 558.0
+offset_bottom = 26.0
+text = "close"
