@@ -1,7 +1,7 @@
 class_name SaveFileCodec
 extends RefCounted
 
-const SCHEMA_VERSION := 1
+const SCHEMA_VERSION := 2
 const TYPE_MARKER := "__phoenix_type"
 const VECTOR2I_MARKER := "Vector2i"
 

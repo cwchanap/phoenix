@@ -54,6 +54,9 @@ func test_continue_with_completed_finale_shows_result_screen() -> void:
     var session := GameSession.new(func() -> float: return 0.9)
     var seeded := session.state()
     seeded["day"] = GameRules.MAX_DAY
+    seeded["weather_history"] = []
+    for _day in GameRules.MAX_DAY:
+        seeded["weather_history"].append(&"sunny")
     seeded["shipped"] = {&"turnip": 4, &"potato": 0, &"pumpkin": 0}
     seeded["relationships"][&"shopkeeper"]["points"] = VillagerRules.CLOSE_FRIEND_POINTS
     seeded["relationships"][&"farmer"]["points"] = VillagerRules.FRIEND_POINTS

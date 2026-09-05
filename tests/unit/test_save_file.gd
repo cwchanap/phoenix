@@ -26,6 +26,8 @@ func test_codec_round_trip_restores_canonical_state() -> void:
     assert_true(restored.restore_state(decoded["state"]))
     assert_eq(restored.state(), original)
     assert_true(restored.state()["weather"] is StringName)
+    assert_eq(restored.state()["weather_history"], [&"sunny", &"sunny"])
+    assert_true(restored.state()["weather_history"][0] is StringName)
     assert_true(restored.state()["seeds"].keys()[0] is StringName)
 
 func test_decode_rejects_malformed_json_wrong_schema_and_bad_vector_marker() -> void:
@@ -34,7 +36,10 @@ func test_decode_rejects_malformed_json_wrong_schema_and_bad_vector_marker() -> 
     assert_false(SaveFileCodec.decode('{"schema_version":"1","state":{}}')["ok"])
     assert_false(SaveFileCodec.decode('{"schema_version":true,"state":{}}')["ok"])
     assert_false(SaveFileCodec.decode('{"schema_version":1.5,"state":{}}')["ok"])
-    assert_false(SaveFileCodec.decode('{"schema_version":2,"state":{}}')["ok"])
+    assert_false(SaveFileCodec.decode('{"schema_version":3,"state":{}}')["ok"])
+    var legacy := SaveFileCodec.decode('{"schema_version":1,"state":{}}')
+    assert_false(legacy["ok"])
+    assert_eq(legacy["error"], "Unsupported save schema")
     assert_false(SaveFileCodec.decode('{"schema_version":1,"state":5}')["ok"])
     assert_false(SaveFileCodec.decode(
         '{"schema_version":1,"state":{"__phoenix_type":"Vector2i","x":1}}'
@@ -55,8 +60,10 @@ func test_decoded_state_is_deeply_isolated_from_original() -> void:
     decoded["state"]["farm"][0]["tilled"] = false
     decoded["state"]["farm"][0]["crop"]["growth"] = 99
     decoded["state"]["relationships"]["resident"]["points"] = 99
+    decoded["state"]["weather_history"][0] = "rainy"
 
     assert_eq(original["seeds"][&"turnip"], 2)
     assert_true(original["farm"][0]["tilled"])
     assert_eq(original["farm"][0]["crop"]["growth"], 1)
     assert_eq(original["relationships"][&"resident"]["points"], 0)
+    assert_eq(original["weather_history"], [&"sunny", &"sunny"])

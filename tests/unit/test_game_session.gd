@@ -49,13 +49,14 @@ func _seed_harvested(session: GameSession, counts: Array[int]) -> void:
 func test_new_session_has_exact_starter_state() -> void:
     var session := GameSession.new(func() -> float: return 0.9)
     var snapshot := session.snapshot()
-    assert_eq(snapshot.size(), 18)
+    assert_eq(snapshot.size(), 19)
     assert_eq(snapshot.keys(), [
         "day",
         "time_minutes",
         "stamina",
         "max_stamina",
         "weather",
+        "weather_history",
         "selected_action",
         "selected_seed",
         "money",
@@ -75,6 +76,7 @@ func test_new_session_has_exact_starter_state() -> void:
     assert_eq(snapshot["time_minutes"], GameRules.DAY_START_MINUTES)
     assert_eq(snapshot["stamina"], GameRules.MAX_STAMINA)
     assert_eq(snapshot["weather"], &"sunny")
+    assert_eq(snapshot["weather_history"], [&"sunny"])
     assert_eq(snapshot["money"], GameRules.STARTING_MONEY)
     assert_eq(snapshot["seeds"], {&"turnip": 3, &"potato": 0, &"pumpkin": 0})
     assert_eq(snapshot["harvested"], {&"turnip": 0, &"potato": 0, &"pumpkin": 0})
@@ -130,12 +132,14 @@ func test_snapshot_is_deeply_isolated() -> void:
     snapshot["relationships"][&"resident"]["points"] = 99
     snapshot["tutorial"][&"farm_basics"] = true
     snapshot["shipped"][&"turnip"] = 99
+    snapshot["weather_history"][0] = &"rainy"
     var fresh := session.snapshot()
     assert_false(fresh["farm"][0]["tilled"])
     assert_eq(fresh["seeds"][&"turnip"], 3)
     assert_eq(fresh["relationships"][&"resident"]["points"], 0)
     assert_false(fresh["tutorial"][&"farm_basics"])
     assert_eq(fresh["shipped"][&"turnip"], 0)
+    assert_eq(fresh["weather_history"], [&"sunny"])
 
     _plant_turnip(session)
     var planted := session.snapshot()
@@ -165,6 +169,7 @@ func test_state_is_deeply_isolated_and_excludes_derived_fields() -> void:
     mutable_state["farm"][0]["tilled"] = true
     mutable_state["tutorial"][&"gift"] = true
     mutable_state["shipped"][&"pumpkin"] = 99
+    mutable_state["weather_history"][0] = &"rainy"
 
     var fresh := session.state()
     assert_eq(fresh["harvested"][&"turnip"], 1)
@@ -172,6 +177,7 @@ func test_state_is_deeply_isolated_and_excludes_derived_fields() -> void:
     assert_false(fresh["farm"][0]["tilled"])
     assert_false(fresh["tutorial"][&"gift"])
     assert_eq(fresh["shipped"][&"pumpkin"], 0)
+    assert_eq(fresh["weather_history"], [&"sunny"])
     assert_eq(session.snapshot()["max_stamina"], GameRules.MAX_STAMINA)
     assert_eq(session.snapshot()["relationships"][&"resident"]["level"], &"stranger")
 
@@ -189,6 +195,31 @@ func test_state_error_returns_messages_for_missing_and_wrong_typed_fields() -> v
     var bad_farm := GameSession.new().state()
     bad_farm["farm"] = "farm"
     assert_ne(GameSession.state_error(bad_farm), "")
+
+func test_weather_history_starts_day_one_and_appends_on_sleep() -> void:
+    var session := GameSession.new(func() -> float: return 0.0)
+    assert_eq(session.snapshot()["weather_history"], [&"sunny"])
+    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+    assert_eq(session.snapshot()["weather_history"], [&"sunny", &"rainy"])
+
+func test_weather_history_requires_one_entry_per_day() -> void:
+    var state := GameSession.new().state()
+    state["weather_history"] = []
+    assert_eq(GameSession.state_error(state), "weather_history must contain one entry per day")
+
+func test_weather_history_rejects_invalid_entry() -> void:
+    var state := GameSession.new().state()
+    state["day"] = 2
+    state["weather_history"] = [&"sunny", &"stormy"]
+    assert_eq(GameSession.state_error(state), "weather_history[1] is unknown")
+
+func test_weather_history_requires_final_entry_to_match_current_weather() -> void:
+    var state := GameSession.new().state()
+    state["weather_history"] = [&"rainy"]
+    assert_eq(
+        GameSession.state_error(state),
+        "weather_history final entry must match weather",
+    )
 
 func test_command_driven_state_restores_farm_and_does_not_alias_candidate() -> void:
     var original := GameSession.new(func() -> float: return 0.9)
@@ -1251,8 +1282,12 @@ func _day14_session_from(state: Dictionary, session: GameSession = null) -> Game
         session = GameSession.new(func() -> float: return 0.9)
     var seeded := session.state()
     seeded["day"] = GameRules.MAX_DAY
+    seeded["weather_history"] = []
+    for _day in GameRules.MAX_DAY:
+        seeded["weather_history"].append(&"sunny")
     for field in state:
         seeded[field] = state[field]
+    seeded["weather_history"][GameRules.MAX_DAY - 1] = seeded["weather"]
     assert_eq(GameSession.state_error(seeded), "")
     assert_true(session.restore_state(seeded))
     var snapshot := session.snapshot()
