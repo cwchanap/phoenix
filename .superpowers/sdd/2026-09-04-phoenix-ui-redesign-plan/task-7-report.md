@@ -113,6 +113,19 @@ editor-settings diagnostics. Native visual captures emit the existing
 ObjectDB/resource cleanup warning on some modal states; the visual comparer
 still reports exact zero mismatches. No Linux visual claim is made.
 
+## Final package
+
+- Base: `b716196`
+- Implementation and approved-golden commit: `4762fcd06ddcac719ce0a3a6e3c7d68487838674`
+- Focused shell: 49/49 tests, 622 assertions
+- Rule lanes: 14/14 tests with 76 assertions; 4/4 tests with 77 assertions
+- Native visual lane: 01–06 all exact zero mismatches; 01–03 BASE hashes are
+  unchanged (`4b2685c8d9367819eaf5f95dc29be74d2cc3cd85`,
+  `dfed7037d46edf7abc66e118ed63a3d549ea2a36`,
+  `ba044d8c5ff34186cc52f865eb26c57cdef12dc3`)
+- Working tree was clean immediately after the implementation commit.
+- Remaining verification is the committed-HEAD `tools/verify-clean.sh` run.
+
 ## Status
 
-`APPROVED_GOLDENS_READY_FOR_COMMIT`
+`COMMITTED_READY_FOR_VERIFY_CLEAN`
