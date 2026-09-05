@@ -87,6 +87,9 @@ func _day14_pre_final_state() -> Dictionary:
     var session := GameSession.new(func() -> float: return 0.9)
     var seeded := session.state()
     seeded["day"] = GameRules.MAX_DAY
+    seeded["weather_history"] = []
+    for _day in GameRules.MAX_DAY:
+        seeded["weather_history"].append(&"sunny")
     seeded["intro_acknowledged"] = true
     seeded["harvested"] = {&"turnip": 3, &"potato": 0, &"pumpkin": 0}
     seeded["pending_shipment"] = {&"turnip": 2, &"potato": 0, &"pumpkin": 0}
@@ -114,6 +117,21 @@ func _launch_continued(repository: SaveRepository) -> AppRoot:
 
 func _seed_slot(state: Dictionary) -> void:
     assert_eq(SaveRepository.new(TEST_PATH).save(state), OK)
+
+func test_save_load_preserves_ordered_weather_history() -> void:
+    var session := GameSession.new(func() -> float: return 0.0)
+    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+    assert_eq(session.state()["weather_history"], [&"sunny", &"rainy"])
+
+    var repository := SaveRepository.new(TEST_PATH)
+    assert_eq(repository.save(session.state()), OK)
+    var loaded := repository.load()
+    assert_eq(loaded["status"], &"loaded")
+    assert_eq(loaded["state"]["weather_history"], ["sunny", "rainy"])
+
+    var restored := GameSession.new(func() -> float: return 0.9)
+    assert_true(restored.restore_state(loaded["state"]))
+    assert_eq(restored.state()["weather_history"], [&"sunny", &"rainy"])
 
 func test_market_and_bed_finalizations_save_once_and_reach_identical_result() -> void:
     var pre_final := _day14_pre_final_state()

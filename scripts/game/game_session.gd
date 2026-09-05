@@ -5,6 +5,7 @@ var _day: int = 1
 var _time_minutes: int = GameRules.DAY_START_MINUTES
 var _stamina: int = GameRules.MAX_STAMINA
 var _weather: GameRules.Weather = GameRules.Weather.SUNNY
+var _weather_history: Array[StringName] = [GameRules.weather_key(GameRules.Weather.SUNNY)]
 var _selected_action: GameRules.FarmingAction = GameRules.FarmingAction.HOE
 var _selected_seed: GameRules.CropKind = GameRules.CropKind.TURNIP
 var _money: int = GameRules.STARTING_MONEY
@@ -41,6 +42,7 @@ func state() -> Dictionary:
         "time_minutes": _time_minutes,
         "stamina": _stamina,
         "weather": GameRules.weather_key(_weather),
+        "weather_history": _weather_history.duplicate(),
         "selected_action": GameRules.action_key(_selected_action),
         "selected_seed": GameRules.crop_key(_selected_seed),
         "money": _money,
@@ -64,6 +66,7 @@ func snapshot() -> Dictionary:
         "stamina": state_result["stamina"],
         "max_stamina": GameRules.MAX_STAMINA,
         "weather": state_result["weather"],
+        "weather_history": state_result["weather_history"],
         "selected_action": state_result["selected_action"],
         "selected_seed": state_result["selected_seed"],
         "money": state_result["money"],
@@ -128,6 +131,32 @@ static func state_error(candidate: Variant) -> String:
     var weather_result := _named(weather_field["value"], GameRules.WEATHER_KEYS, "weather")
     if not bool(weather_result["ok"]):
         return String(weather_result["error"])
+
+    var weather_history_field := _field(state, "weather_history", "weather_history")
+    if not bool(weather_history_field["ok"]):
+        return String(weather_history_field["error"])
+    var weather_history_result := _array(
+        weather_history_field["value"],
+        "weather_history",
+    )
+    if not bool(weather_history_result["ok"]):
+        return String(weather_history_result["error"])
+    var weather_history: Array = weather_history_result["value"]
+    if weather_history.size() != day:
+        return "weather_history must contain one entry per day"
+    for index in weather_history.size():
+        var history_weather := _named(
+            weather_history[index],
+            GameRules.WEATHER_KEYS,
+            "weather_history[%d]" % index,
+        )
+        if not bool(history_weather["ok"]):
+            return String(history_weather["error"])
+        if (
+            index == weather_history.size() - 1
+            and history_weather["value"] != weather_result["value"]
+        ):
+            return "weather_history final entry must match weather"
 
     var action_field := _field(state, "selected_action", "selected_action")
     if not bool(action_field["ok"]):
@@ -254,6 +283,11 @@ func restore_state(candidate: Dictionary) -> bool:
     _time_minutes = int(candidate["time_minutes"])
     _stamina = int(candidate["stamina"])
     _weather = GameRules.WEATHER_KEYS.find(StringName(candidate["weather"]))
+    _weather_history = []
+    for weather_value in candidate["weather_history"]:
+        var weather_key := StringName(weather_value)
+        var weather_index := GameRules.WEATHER_KEYS.find(weather_key)
+        _weather_history.append(GameRules.WEATHER_KEYS[weather_index])
     _selected_action = GameRules.ACTION_KEYS.find(StringName(candidate["selected_action"]))
     _selected_seed = GameRules.CROP_KEYS.find(StringName(candidate["selected_seed"]))
     _money = int(candidate["money"])
@@ -676,6 +710,7 @@ func sleep(target_cell: Variant) -> GameRules.CommandCode:
     _time_minutes = GameRules.DAY_START_MINUTES
     _stamina = GameRules.MAX_STAMINA
     _weather = next_weather
+    _weather_history.append(GameRules.weather_key(next_weather))
     _pending_morning_summary = {
         "completed_day": completed_day,
         "next_day": _day,

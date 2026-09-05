@@ -14,6 +14,9 @@ func _day14_pre_final_state() -> Dictionary:
     var session := GameSession.new(func() -> float: return 0.9)
     var seeded := session.state()
     seeded["day"] = GameRules.MAX_DAY
+    seeded["weather_history"] = []
+    for _day in GameRules.MAX_DAY:
+        seeded["weather_history"].append(&"sunny")
     seeded["intro_acknowledged"] = true
     seeded["harvested"] = {&"turnip": 3, &"potato": 0, &"pumpkin": 0}
     seeded["pending_shipment"] = {&"turnip": 2, &"potato": 0, &"pumpkin": 0}
