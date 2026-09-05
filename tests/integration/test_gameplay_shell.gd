@@ -466,6 +466,11 @@ func test_summary_snapshot_derives_morning_modal_visibility() -> void:
     snapshot["pending_morning_summary"] = {"completed_day": 1, "next_day": 2}
     hud.render(snapshot)
     assert_true(_panel(hud, "MorningSummaryPanel").visible)
+    var visible_primary_count := 0
+    for panel in hud._primary_modals:
+        if panel.visible:
+            visible_primary_count += 1
+    assert_eq(visible_primary_count, 1)
     assert_true(hud.has_blocking_modal())
 
 func test_acknowledgment_clears_summary_and_restores_input() -> void:
@@ -850,6 +855,11 @@ func test_escape_toggles_code_built_help_and_world_gate() -> void:
 
     await _press_escape()
     assert_true(help.visible)
+    var visible_primary_count := 0
+    for panel in hud._primary_modals:
+        if panel.visible:
+            visible_primary_count += 1
+    assert_eq(visible_primary_count, 1)
     assert_false(world._world_input_enabled)
 
     await _press_escape()
