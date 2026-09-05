@@ -23,6 +23,8 @@ const DAY_TRANSITION_SFX := preload("res://assets/audio/day-transition.wav")
 const FINALE_SFX := preload("res://assets/audio/finale.wav")
 const FARM_DAY_LOOP := preload("res://assets/audio/farm-day-loop.wav")
 const ONBOARDING_SCENE := preload("res://scenes/ui/onboarding_overlay.tscn")
+const SHOP_SCENE := preload("res://scenes/ui/shop_panel.tscn")
+const SHIPPING_SCENE := preload("res://scenes/ui/shipping_panel.tscn")
 
 var _root: Control
 var _weather_tint: ColorRect
@@ -48,22 +50,19 @@ var _pending_value_label: Label
 var _seed_action_badge: Label
 var _feedback_panel: Panel
 var _stamina_pips: Array[ColorRect] = []
-var _shop_panel: Control
-var _shipping_panel: Control
+var _shop_panel: ShopPanel
+var _shipping_panel: ShippingPanel
 var _sleep_panel: Control
 var _dialogue_panel: DialoguePanel
 var _onboarding_overlay: OnboardingOverlay
 var _morning_summary_panel: Control
 var _pause_help_panel: Control
-var _day14_shipping_boundary: Label
 var _day14_sleep_boundary: Label
 var _objective_label: Label
 var _action_buttons: Array[Button] = []
 var _seed_buttons: Array[Button] = []
 var _seed_count_labels: Array[Label] = []
 var _harvested_count_labels: Array[Label] = []
-var _shop_count_labels: Array[Label] = []
-var _shipping_count_labels: Array[Label] = []
 var _sfx_player: AudioStreamPlayer
 var _music_player: AudioStreamPlayer
 var _settings: UiSettings
@@ -111,6 +110,8 @@ func apply_settings() -> void:
 
 func render(snapshot: Dictionary) -> void:
     _last_snapshot = snapshot.duplicate(true)
+    _shop_panel.present(snapshot)
+    _shipping_panel.present(snapshot)
     _onboarding_overlay.render(snapshot)
     _weather_tint.color = (
         RAINY_TINT
@@ -149,11 +150,6 @@ func render(snapshot: Dictionary) -> void:
         var key := GameRules.crop_key(kind)
         _seed_count_labels[kind].text = "%d" % int(seeds.get(key, 0))
         _harvested_count_labels[kind].text = "%d" % int(harvested.get(key, 0))
-        _shop_count_labels[kind].text = "%dG · %d seeds" % [
-            GameRules.seed_price(kind),
-            int(seeds.get(key, 0)),
-        ]
-        _shipping_count_labels[kind].text = "%d harvested" % int(harvested.get(key, 0))
         pending_total += int(pending.get(key, 0))
         harvested_total += int(harvested.get(key, 0))
     _pending_shipment_label.text = "Pending shipment: %d" % pending_total
@@ -166,11 +162,6 @@ func render(snapshot: Dictionary) -> void:
         _objective_label.text = "Harvest Market today — ship crops first, then visit the village path stall."
     else:
         _objective_label.text = "Harvest Market: Day 14 · %d days left" % (GameRules.MAX_DAY - day)
-    _day14_shipping_boundary.text = (
-        "Day 14: only crops deposited here count toward the finale."
-        if day == GameRules.MAX_DAY
-        else ""
-    )
     _day14_sleep_boundary.text = (
         "Day 14: sleeping ends the run and settles the shipping bin."
         if day == GameRules.MAX_DAY
@@ -212,12 +203,14 @@ func set_interaction_hint(text: String) -> void:
 
 func open_shop() -> void:
     _open_modal(_shop_panel)
+    _shop_panel.open_panel(_last_snapshot)
 
 func close_shop() -> void:
     _close_modal(_shop_panel)
 
 func open_shipping() -> void:
     _open_modal(_shipping_panel)
+    _shipping_panel.open_panel(_last_snapshot)
 
 func close_shipping() -> void:
     _close_modal(_shipping_panel)
@@ -241,6 +234,8 @@ func close_dialogue() -> void:
     _dialogue_panel.close_panel()
     if not _finale_in_progress:
         _play_sfx(CONFIRM_SFX)
+    _onboarding_overlay.render(_last_snapshot)
+    _set_hud_chrome_visible(true)
     modal_state_changed.emit()
 
 func feedback_text(code: GameRules.CommandCode) -> String:
@@ -515,8 +510,24 @@ func _apply_authored_hud_style() -> void:
     )
 
 func _build_modals() -> void:
-    _shop_panel = _build_shop_panel()
-    _shipping_panel = _build_shipping_panel()
+    _onboarding_overlay = ONBOARDING_SCENE.instantiate() as OnboardingOverlay
+    _root.add_child(_onboarding_overlay)
+    _onboarding_overlay.intro_acknowledged.connect(func() -> void:
+        intro_acknowledged.emit()
+    )
+    _onboarding_overlay.blocking_state_changed.connect(func() -> void:
+        modal_state_changed.emit()
+    )
+    _shop_panel = SHOP_SCENE.instantiate() as ShopPanel
+    _root.add_child(_shop_panel)
+    _shop_panel.buy_requested.connect(func(kind: int, quantity: int) -> void:
+        buy_requested.emit(kind, quantity)
+    )
+    _shipping_panel = SHIPPING_SCENE.instantiate() as ShippingPanel
+    _root.add_child(_shipping_panel)
+    _shipping_panel.deposit_requested.connect(func(kind: int, quantity: int) -> void:
+        deposit_requested.emit(kind, quantity)
+    )
     _sleep_panel = _build_sleep_panel()
     _morning_summary_panel = _build_summary_panel()
     _dialogue_panel = DialoguePanel.new()
@@ -526,14 +537,6 @@ func _build_modals() -> void:
         gift_requested.emit(villager_id, crop_kind)
     )
     _dialogue_panel.close_requested.connect(close_dialogue)
-    _onboarding_overlay = ONBOARDING_SCENE.instantiate() as OnboardingOverlay
-    _root.add_child(_onboarding_overlay)
-    _onboarding_overlay.intro_acknowledged.connect(func() -> void:
-        intro_acknowledged.emit()
-    )
-    _onboarding_overlay.blocking_state_changed.connect(func() -> void:
-        modal_state_changed.emit()
-    )
     _pause_help_panel = _build_pause_help()
     _shop_panel.visible = false
     _shipping_panel.visible = false
@@ -573,45 +576,6 @@ func _set_pause_help_visible(is_visible: bool) -> void:
 
 func _close_pause_from_escape() -> void:
     _set_pause_help_visible(false)
-
-func _build_shop_panel() -> Control:
-    var panel := _add_panel(_root, "ShopPanel", "Seed Shop", Vector2(300, 38), Vector2(332, 260))
-    _add_label(panel, "Header", "Buy seeds", Vector2(10, 28), Vector2(300, 20))
-    for kind in range(GameRules.CropKind.size()):
-        var row := _add_row(panel, kind, "Buy", 62 + kind * 48)
-        _shop_count_labels.append(row["count"])
-        var spin: SpinBox = row["spin"]
-        var max_button: Button = row["max"]
-        var buy_button: Button = row["action"]
-        max_button.pressed.connect(func() -> void:
-            spin.value = maxi(1, _max_shop_quantity(kind))
-        )
-        buy_button.pressed.connect(func() -> void:
-            buy_requested.emit(kind, int(spin.value))
-        )
-    var close_button := _add_button(panel, "Close", "Close", Vector2(244, 218), Vector2(76, 28))
-    close_button.pressed.connect(close_shop)
-    return panel
-
-func _build_shipping_panel() -> Control:
-    var panel := _add_panel(_root, "ShippingPanel", "Shipping", Vector2(300, 38), Vector2(332, 260))
-    _add_label(panel, "Header", "Deposit harvested crops", Vector2(10, 28), Vector2(300, 20))
-    _day14_shipping_boundary = _add_label(panel, "Boundary", "", Vector2(10, 48), Vector2(310, 20))
-    for kind in range(GameRules.CropKind.size()):
-        var row := _add_row(panel, kind, "Deposit", 74 + kind * 42)
-        _shipping_count_labels.append(row["count"])
-        var spin: SpinBox = row["spin"]
-        var max_button: Button = row["max"]
-        var deposit_button: Button = row["action"]
-        max_button.pressed.connect(func() -> void:
-            spin.value = maxi(1, _max_shipping_quantity(kind))
-        )
-        deposit_button.pressed.connect(func() -> void:
-            deposit_requested.emit(kind, int(spin.value))
-        )
-    var close_button := _add_button(panel, "Close", "Close", Vector2(244, 218), Vector2(76, 28))
-    close_button.pressed.connect(close_shipping)
-    return panel
 
 func _build_sleep_panel() -> Control:
     var panel := _add_panel(_root, "SleepPanel", "Sleep Confirmation", Vector2(300, 94), Vector2(332, 168))
@@ -653,38 +617,6 @@ func _add_surface(parent: Control, node_name: String, position: Vector2, size: V
     panel.mouse_filter = Control.MOUSE_FILTER_STOP
     parent.add_child(panel)
     return panel
-
-func _add_row(parent: Control, kind: int, action_name: String, y: float) -> Dictionary:
-    var row := Control.new()
-    row.name = "Row_%d" % kind
-    row.position = Vector2(8, y)
-    row.size = Vector2(316, 38)
-    parent.add_child(row)
-    var label := _add_label(
-        row,
-        "Crop",
-        GameRules.crop_display_name(kind),
-        Vector2(0, 8),
-        Vector2(92, 22),
-    )
-    var spin := SpinBox.new()
-    spin.name = "Quantity"
-    spin.position = Vector2(94, 4)
-    spin.size = Vector2(58, 28)
-    spin.min_value = 1
-    spin.max_value = 99
-    spin.step = 1
-    spin.value = 1
-    row.add_child(spin)
-    var max_button := _add_button(row, "Max", "Max", Vector2(156, 4), Vector2(52, 28))
-    var action_button := _add_button(
-        row,
-        action_name,
-        action_name,
-        Vector2(212, 4),
-        Vector2(96, 28),
-    )
-    return {"label": label, "count": _add_label(row, "Count", "", Vector2(0, 25), Vector2(92, 16)), "spin": spin, "max": max_button, "action": action_button}
 
 func _add_label(parent: Node, node_name: String, text: String, position: Vector2, size: Vector2, font_size: int = 10, color: Color = UiStyle.TEXT, weight: int = 400, mono: bool = false) -> Label:
     var label := Label.new()
@@ -767,12 +699,16 @@ func _set_morning_summary_visible(is_visible: bool) -> void:
         _morning_summary_panel.visible = false
     if not is_visible:
         set_save_status(&"idle")
+    _set_hud_chrome_visible(not is_visible)
     if was_visible != is_visible:
         modal_state_changed.emit()
 
 func _open_modal(panel: Control) -> void:
     if _morning_summary_panel.visible and panel != _morning_summary_panel:
         return
+    if not _onboarding_overlay.is_opening_visible():
+        (_onboarding_overlay.get_node("TutorialCard") as Control).visible = false
+    _set_hud_chrome_visible(false)
     for registered in _primary_modals:
         if registered == panel:
             registered.visible = true
@@ -789,7 +725,25 @@ func _close_modal(panel: Control) -> void:
     panel.visible = false
     if not _finale_in_progress:
         _play_sfx(CONFIRM_SFX)
+    _onboarding_overlay.render(_last_snapshot)
+    _set_hud_chrome_visible(true)
     modal_state_changed.emit()
+
+func _set_hud_chrome_visible(is_visible: bool) -> void:
+    for node_path in [
+        "TopBar",
+        "ResourceStrip",
+        "Hotbar",
+        "Action_0",
+        "Action_1",
+        "Action_2",
+        "Action_3",
+        "Seed_0",
+        "Seed_1",
+        "Seed_2",
+        "SeedCycleHint",
+    ]:
+        ($HudRoot.get_node(node_path) as Control).visible = is_visible
 
 func _render_morning_summary(summary: Dictionary) -> void:
     var lines: Array[String] = [
@@ -816,13 +770,6 @@ func _render_morning_summary(summary: Dictionary) -> void:
             )
     lines.append("Money after shipping: %sG" % summary.get("money_after_shipping", 0))
     _summary_body.text = "\n".join(lines)
-
-func _max_shop_quantity(kind: int) -> int:
-    return int(_last_snapshot.get("money", 0)) / GameRules.seed_price(kind)
-
-func _max_shipping_quantity(kind: int) -> int:
-    var harvested: Dictionary = _last_snapshot.get("harvested", {})
-    return int(harvested.get(GameRules.crop_key(kind), 0))
 
 func _display_crop(key: Variant) -> String:
     for kind in range(GameRules.CropKind.size()):

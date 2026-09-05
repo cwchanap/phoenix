@@ -14,7 +14,7 @@ func _initialize() -> void:
         elif argument.begins_with("--evidence="):
             evidence_path = argument.trim_prefix("--evidence=")
 
-    if state_name != "01-hud":
+    if not ["01-hud", "02-seed-shop", "03-shipping-day14"].has(state_name):
         push_error("unsupported visual state: %s" % state_name)
         quit(2)
         return
@@ -25,9 +25,10 @@ func _initialize() -> void:
     DirAccess.make_dir_recursive_absolute(output_path.get_base_dir())
 
     var host := HOST_SCENE.instantiate() as UiCaptureHost
-    host.configure(UiFixtureFactory.hud_state())
+    host.configure(UiFixtureFactory.state_for(state_name), state_name)
     root.add_child(host)
     await process_frame
+    await host.prepare_state()
     var raw := await host.capture_root()
     var output_error := raw.save_png(output_path)
     if output_error != OK:

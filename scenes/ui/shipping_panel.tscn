@@ -1,0 +1,481 @@
+[gd_scene load_steps=8 format=4]
+
+[ext_resource type="Script" path="res://scripts/ui/shipping_panel.gd" id="1_shipping"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/shipping.png" id="2_shipping"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/warning.png" id="3_warning"]
+[ext_resource type="Texture2D" path="res://assets/ui/crops/turnip.png" id="4_turnip"]
+[ext_resource type="Texture2D" path="res://assets/ui/crops/potato.png" id="5_potato"]
+[ext_resource type="Texture2D" path="res://assets/ui/crops/pumpkin.png" id="6_pumpkin"]
+
+[node name="ShippingPanel" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+script = ExtResource("1_shipping")
+
+[node name="Dim" type="ColorRect" parent="."]
+layout_mode = 0
+offset_right = 640.0
+offset_bottom = 360.0
+mouse_filter = 2
+color = Color(0.027451, 0.035294, 0.047059, 0.62)
+
+[node name="Frame" type="Panel" parent="."]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 29.0
+offset_right = 512.0
+offset_bottom = 331.0
+mouse_filter = 1
+
+[node name="Header" type="Panel" parent="Frame"]
+layout_mode = 0
+offset_left = 2.0
+offset_top = 2.0
+offset_right = 382.0
+offset_bottom = 40.0
+mouse_filter = 2
+
+[node name="Icon" type="TextureRect" parent="Frame/Header"]
+layout_mode = 0
+offset_left = 14.0
+offset_top = 10.0
+offset_right = 32.0
+offset_bottom = 28.0
+mouse_filter = 2
+texture = ExtResource("2_shipping")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Title" type="Label" parent="Frame/Header"]
+layout_mode = 0
+offset_left = 40.0
+offset_top = 8.0
+offset_right = 190.0
+offset_bottom = 30.0
+text = "SHIPPING BIN"
+
+[node name="PendingCaption" type="Label" parent="Frame/Header"]
+layout_mode = 0
+offset_left = 270.0
+offset_top = 11.0
+offset_right = 330.0
+offset_bottom = 25.0
+text = "PENDING"
+horizontal_alignment = 2
+
+[node name="PendingValue" type="Label" parent="Frame/Header"]
+layout_mode = 0
+offset_left = 331.0
+offset_top = 7.0
+offset_right = 370.0
+offset_bottom = 30.0
+text = "0G"
+horizontal_alignment = 2
+
+[node name="Warning" type="Panel" parent="Frame"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 46.0
+offset_right = 376.0
+offset_bottom = 84.0
+mouse_filter = 2
+
+[node name="Icon" type="TextureRect" parent="Frame/Warning"]
+layout_mode = 0
+offset_left = 12.0
+offset_top = 11.0
+offset_right = 24.0
+offset_bottom = 27.0
+mouse_filter = 2
+texture = ExtResource("3_warning")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Text" type="Label" parent="Frame/Warning"]
+visible = false
+layout_mode = 0
+offset_left = 29.0
+offset_top = 7.0
+offset_right = 355.0
+offset_bottom = 32.0
+text = "Day 14 — only crops deposited here count toward the finale. Anything still in the bag scores nothing."
+autowrap_mode = 2
+
+[node name="Boundary" type="Label" parent="."]
+layout_mode = 0
+offset_left = 167.0
+offset_top = 83.0
+offset_right = 491.0
+offset_bottom = 108.0
+text = "Day 14 — only crops deposited here count toward the finale. Anything still in the bag scores nothing."
+autowrap_mode = 2
+
+[node name="Body" type="ColorRect" parent="Frame"]
+layout_mode = 0
+offset_left = 2.0
+offset_top = 84.0
+offset_right = 382.0
+offset_bottom = 263.0
+mouse_filter = 2
+color = Color(0.054902, 0.07451, 0.105882, 1)
+
+[node name="Row_0" type="Panel" parent="Frame/Body"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = 376.0
+offset_bottom = 58.0
+mouse_filter = 2
+
+[node name="Accent" type="ColorRect" parent="Frame/Body/Row_0"]
+layout_mode = 0
+offset_right = 3.0
+offset_bottom = 50.0
+mouse_filter = 2
+color = Color(1, 0.901961, 0.45098, 1)
+
+[node name="Icon" type="TextureRect" parent="Frame/Body/Row_0"]
+layout_mode = 0
+offset_left = 14.0
+offset_top = 6.0
+offset_right = 52.0
+offset_bottom = 44.0
+mouse_filter = 2
+texture = ExtResource("4_turnip")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Name" type="Label" parent="Frame/Body/Row_0"]
+layout_mode = 0
+offset_left = 55.0
+offset_top = 8.0
+offset_right = 150.0
+offset_bottom = 25.0
+text = "Turnip"
+
+[node name="Details" type="Label" parent="Frame/Body/Row_0"]
+layout_mode = 0
+offset_left = 55.0
+offset_top = 28.0
+offset_right = 153.0
+offset_bottom = 43.0
+text = "7 in bag · 35G each"
+
+[node name="Minus" type="Button" parent="Frame/Body/Row_0"]
+layout_mode = 0
+offset_left = 154.0
+offset_top = 13.0
+offset_right = 172.0
+offset_bottom = 36.0
+mouse_filter = 1
+text = "A"
+
+[node name="Quantity" type="Button" parent="Frame/Body/Row_0"]
+layout_mode = 0
+offset_left = 176.0
+offset_top = 13.0
+offset_right = 221.0
+offset_bottom = 36.0
+mouse_filter = 2
+text = "×1"
+
+[node name="Plus" type="Button" parent="Frame/Body/Row_0"]
+layout_mode = 0
+offset_left = 225.0
+offset_top = 13.0
+offset_right = 243.0
+offset_bottom = 36.0
+mouse_filter = 1
+text = "D"
+
+[node name="Max" type="Button" parent="Frame/Body/Row_0"]
+layout_mode = 0
+offset_left = 252.0
+offset_top = 10.0
+offset_right = 290.0
+offset_bottom = 40.0
+mouse_filter = 1
+text = "M ALL"
+
+[node name="MetaCaption" type="Label" parent="Frame/Body/Row_0"]
+layout_mode = 0
+offset_left = 326.0
+offset_top = 8.0
+offset_right = 354.0
+offset_bottom = 20.0
+text = "VALUE"
+horizontal_alignment = 2
+
+[node name="MetaValue" type="Label" parent="Frame/Body/Row_0"]
+layout_mode = 0
+offset_left = 315.0
+offset_top = 24.0
+offset_right = 354.0
+offset_bottom = 44.0
+text = "35"
+horizontal_alignment = 2
+
+[node name="Row_1" type="Panel" parent="Frame/Body"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 64.0
+offset_right = 376.0
+offset_bottom = 114.0
+mouse_filter = 2
+
+[node name="Accent" type="ColorRect" parent="Frame/Body/Row_1"]
+layout_mode = 0
+offset_right = 3.0
+offset_bottom = 50.0
+mouse_filter = 2
+color = Color(1, 0.901961, 0.45098, 1)
+
+[node name="Icon" type="TextureRect" parent="Frame/Body/Row_1"]
+layout_mode = 0
+offset_left = 14.0
+offset_top = 6.0
+offset_right = 52.0
+offset_bottom = 44.0
+mouse_filter = 2
+texture = ExtResource("5_potato")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Name" type="Label" parent="Frame/Body/Row_1"]
+layout_mode = 0
+offset_left = 55.0
+offset_top = 8.0
+offset_right = 150.0
+offset_bottom = 25.0
+text = "Potato"
+
+[node name="Details" type="Label" parent="Frame/Body/Row_1"]
+layout_mode = 0
+offset_left = 55.0
+offset_top = 28.0
+offset_right = 153.0
+offset_bottom = 43.0
+text = "0 in bag · 75G each"
+
+[node name="Minus" type="Button" parent="Frame/Body/Row_1"]
+layout_mode = 0
+offset_left = 154.0
+offset_top = 13.0
+offset_right = 172.0
+offset_bottom = 36.0
+mouse_filter = 1
+text = "A"
+
+[node name="Quantity" type="Button" parent="Frame/Body/Row_1"]
+layout_mode = 0
+offset_left = 176.0
+offset_top = 13.0
+offset_right = 221.0
+offset_bottom = 36.0
+mouse_filter = 2
+text = "×0"
+
+[node name="Plus" type="Button" parent="Frame/Body/Row_1"]
+layout_mode = 0
+offset_left = 225.0
+offset_top = 13.0
+offset_right = 243.0
+offset_bottom = 36.0
+mouse_filter = 1
+text = "D"
+
+[node name="Max" type="Button" parent="Frame/Body/Row_1"]
+layout_mode = 0
+offset_left = 252.0
+offset_top = 10.0
+offset_right = 290.0
+offset_bottom = 40.0
+mouse_filter = 1
+text = "M ALL"
+
+[node name="MetaCaption" type="Label" parent="Frame/Body/Row_1"]
+layout_mode = 0
+offset_left = 326.0
+offset_top = 8.0
+offset_right = 354.0
+offset_bottom = 20.0
+text = ""
+horizontal_alignment = 2
+
+[node name="MetaValue" type="Label" parent="Frame/Body/Row_1"]
+layout_mode = 0
+offset_left = 315.0
+offset_top = 24.0
+offset_right = 354.0
+offset_bottom = 44.0
+text = "—"
+horizontal_alignment = 2
+
+[node name="Row_2" type="Panel" parent="Frame/Body"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 120.0
+offset_right = 376.0
+offset_bottom = 170.0
+mouse_filter = 2
+
+[node name="Accent" type="ColorRect" parent="Frame/Body/Row_2"]
+layout_mode = 0
+offset_right = 3.0
+offset_bottom = 50.0
+mouse_filter = 2
+color = Color(1, 0.901961, 0.45098, 1)
+
+[node name="Icon" type="TextureRect" parent="Frame/Body/Row_2"]
+layout_mode = 0
+offset_left = 14.0
+offset_top = 6.0
+offset_right = 52.0
+offset_bottom = 44.0
+mouse_filter = 2
+texture = ExtResource("6_pumpkin")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Name" type="Label" parent="Frame/Body/Row_2"]
+layout_mode = 0
+offset_left = 55.0
+offset_top = 8.0
+offset_right = 150.0
+offset_bottom = 25.0
+text = "Pumpkin"
+
+[node name="Details" type="Label" parent="Frame/Body/Row_2"]
+layout_mode = 0
+offset_left = 55.0
+offset_top = 28.0
+offset_right = 153.0
+offset_bottom = 43.0
+text = "0 in bag · 140G each"
+
+[node name="Minus" type="Button" parent="Frame/Body/Row_2"]
+layout_mode = 0
+offset_left = 154.0
+offset_top = 13.0
+offset_right = 172.0
+offset_bottom = 36.0
+mouse_filter = 1
+text = "A"
+
+[node name="Quantity" type="Button" parent="Frame/Body/Row_2"]
+layout_mode = 0
+offset_left = 176.0
+offset_top = 13.0
+offset_right = 221.0
+offset_bottom = 36.0
+mouse_filter = 2
+text = "×0"
+
+[node name="Plus" type="Button" parent="Frame/Body/Row_2"]
+layout_mode = 0
+offset_left = 225.0
+offset_top = 13.0
+offset_right = 243.0
+offset_bottom = 36.0
+mouse_filter = 1
+text = "D"
+
+[node name="Max" type="Button" parent="Frame/Body/Row_2"]
+layout_mode = 0
+offset_left = 252.0
+offset_top = 10.0
+offset_right = 290.0
+offset_bottom = 40.0
+mouse_filter = 1
+text = "M ALL"
+
+[node name="MetaCaption" type="Label" parent="Frame/Body/Row_2"]
+layout_mode = 0
+offset_left = 326.0
+offset_top = 8.0
+offset_right = 354.0
+offset_bottom = 20.0
+text = ""
+horizontal_alignment = 2
+
+[node name="MetaValue" type="Label" parent="Frame/Body/Row_2"]
+layout_mode = 0
+offset_left = 315.0
+offset_top = 24.0
+offset_right = 354.0
+offset_bottom = 44.0
+text = "—"
+horizontal_alignment = 2
+
+[node name="Footer" type="Panel" parent="Frame"]
+layout_mode = 0
+offset_left = 2.0
+offset_top = 263.0
+offset_right = 382.0
+offset_bottom = 299.0
+mouse_filter = 2
+
+[node name="W" type="Button" parent="Frame/Footer"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 8.0
+offset_right = 28.0
+offset_bottom = 27.0
+mouse_filter = 2
+text = "W"
+
+[node name="S" type="Button" parent="Frame/Footer"]
+layout_mode = 0
+offset_left = 34.0
+offset_top = 8.0
+offset_right = 52.0
+offset_bottom = 27.0
+mouse_filter = 2
+text = "S"
+
+[node name="Choose" type="Label" parent="Frame/Footer"]
+layout_mode = 0
+offset_left = 58.0
+offset_top = 10.0
+offset_right = 145.0
+offset_bottom = 27.0
+text = "choose crop"
+
+[node name="Esc" type="Button" parent="Frame/Footer"]
+layout_mode = 0
+offset_left = 211.0
+offset_top = 8.0
+offset_right = 240.0
+offset_bottom = 27.0
+mouse_filter = 2
+text = "ESC"
+
+[node name="Leave" type="Label" parent="Frame/Footer"]
+layout_mode = 0
+offset_left = 245.0
+offset_top = 10.0
+offset_right = 277.0
+offset_bottom = 27.0
+text = "leave"
+
+[node name="Enter" type="Button" parent="Frame/Footer"]
+layout_mode = 0
+offset_left = 277.0
+offset_top = 8.0
+offset_right = 318.0
+offset_bottom = 27.0
+mouse_filter = 2
+text = "ENTER"
+
+[node name="Action" type="Label" parent="Frame/Footer"]
+layout_mode = 0
+offset_left = 321.0
+offset_top = 10.0
+offset_right = 378.0
+offset_bottom = 27.0
+text = "DEPOSIT ×1"

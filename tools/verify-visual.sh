@@ -41,10 +41,14 @@ artifact_dir="$root_dir/test_output/ui-visual"
 mkdir -p "$artifact_dir"
 
 for state in $states; do
-    if [ "$state" != "01-hud" ]; then
+    case "$state" in
+        01-hud|02-seed-shop|03-shipping-day14)
+            ;;
+        *)
         echo "unsupported visual state: $state" >&2
         exit 2
-    fi
+            ;;
+    esac
     capture_path="$artifact_dir/$state.png"
     evidence_path="$artifact_dir/$state-2x.png"
     "$godot_bin" --path "$root_dir" --script "$root_dir/tests/visual/capture_ui_states.gd" -- \

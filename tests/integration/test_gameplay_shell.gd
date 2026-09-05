@@ -330,6 +330,78 @@ func test_interaction_targets_open_only_their_modal() -> void:
         hud.call(entry["close"])
         assert_false(hud.has_blocking_modal())
 
+func test_shop_keyboard_rows_update_quantity_max_and_enter_request() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var requests: Array[Dictionary] = []
+    hud.buy_requested.connect(func(kind: int, quantity: int) -> void:
+        requests.append({"kind": kind, "quantity": quantity})
+    )
+
+    var snapshot := world._session.snapshot()
+    snapshot["money"] = 150
+    snapshot["seeds"] = {&"turnip": 3, &"potato": 0, &"pumpkin": 0}
+    hud.render(snapshot)
+    hud.open_shop()
+    var panel := _panel(hud, "ShopPanel")
+    assert_true(panel.has_method("selected_kind"))
+    assert_true(panel.has_method("selected_quantity"))
+    assert_eq(int(panel.call("selected_kind")), GameRules.CropKind.TURNIP)
+    assert_eq(int(panel.call("selected_quantity")), 1)
+
+    await _press_panel_action("move_right")
+    assert_eq(int(panel.call("selected_quantity")), 2)
+    await _press_panel_action("panel_max")
+    assert_eq(int(panel.call("selected_quantity")), 7)
+    await _press_panel_action("ui_accept")
+    assert_eq(requests, [{"kind": GameRules.CropKind.TURNIP, "quantity": 7}])
+
+func test_shipping_keyboard_rows_update_quantity_max_and_enter_request() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var requests: Array[Dictionary] = []
+    hud.deposit_requested.connect(func(kind: int, quantity: int) -> void:
+        requests.append({"kind": kind, "quantity": quantity})
+    )
+
+    var snapshot := world._session.snapshot()
+    snapshot["day"] = GameRules.MAX_DAY
+    snapshot["harvested"] = {&"turnip": 7, &"potato": 0, &"pumpkin": 0}
+    snapshot["pending_shipment"] = {&"turnip": 0, &"potato": 0, &"pumpkin": 0}
+    hud.render(snapshot)
+    hud.open_shipping()
+    var panel := _panel(hud, "ShippingPanel")
+    assert_true(panel.has_method("selected_kind"))
+    assert_true(panel.has_method("selected_quantity"))
+    assert_eq(int(panel.call("selected_kind")), GameRules.CropKind.TURNIP)
+    assert_eq(int(panel.call("selected_quantity")), 1)
+
+    await _press_panel_action("move_right")
+    assert_eq(int(panel.call("selected_quantity")), 2)
+    await _press_panel_action("panel_max")
+    assert_eq(int(panel.call("selected_quantity")), 7)
+    await _press_panel_action("ui_accept")
+    assert_eq(requests, [{"kind": GameRules.CropKind.TURNIP, "quantity": 7}])
+
+func _press_panel_action(action: StringName) -> void:
+    var press := InputEventAction.new()
+    press.action = action
+    press.pressed = true
+    get_viewport().push_input(press)
+    var release := InputEventAction.new()
+    release.action = action
+    release.pressed = false
+    get_viewport().push_input(release)
+    await get_tree().process_frame
+
 func test_primary_modal_registry_keeps_surfaces_exclusive() -> void:
     var world := _world()
     if world == null:
@@ -393,6 +465,27 @@ func test_opening_shop_immediately_blocks_movement_and_world_commands() -> void:
     assert_eq(world._session.snapshot(), before)
     hud.close_shop()
     assert_true(world._world_input_enabled)
+
+func test_primary_shop_modal_covers_tutorial_card_and_restores_it() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var tutorial := hud.get_node("HudRoot/OnboardingOverlay/TutorialCard") as Control
+    assert_true(tutorial.visible)
+
+    hud.open_shop()
+    assert_true(_panel(hud, "ShopPanel").visible)
+    assert_false(tutorial.visible)
+    assert_false((hud.get_node("HudRoot/TopBar") as Control).visible)
+    assert_false((hud.get_node("HudRoot/ResourceStrip") as Control).visible)
+    assert_false((hud.get_node("HudRoot/Hotbar") as Control).visible)
+
+    hud.close_shop()
+    assert_true(tutorial.visible)
+    assert_true((hud.get_node("HudRoot/Hotbar") as Control).visible)
 
 func test_closing_shop_restores_input_without_session_refresh() -> void:
     var world := _world()
