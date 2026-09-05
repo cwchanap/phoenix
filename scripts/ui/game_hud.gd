@@ -202,15 +202,15 @@ func set_interaction_hint(text: String) -> void:
     _interaction_hint.text = text
 
 func open_shop() -> void:
-    _open_modal(_shop_panel)
-    _shop_panel.open_panel(_last_snapshot)
+    if _open_modal(_shop_panel):
+        _shop_panel.open_panel(_last_snapshot)
 
 func close_shop() -> void:
     _close_modal(_shop_panel)
 
 func open_shipping() -> void:
-    _open_modal(_shipping_panel)
-    _shipping_panel.open_panel(_last_snapshot)
+    if _open_modal(_shipping_panel):
+        _shipping_panel.open_panel(_last_snapshot)
 
 func close_shipping() -> void:
     _close_modal(_shipping_panel)
@@ -222,8 +222,8 @@ func close_sleep_confirmation() -> void:
     _close_modal(_sleep_panel)
 
 func open_dialogue(villager_id: int, result: Dictionary, snapshot: Dictionary) -> void:
-    _open_modal(_dialogue_panel)
-    _dialogue_panel.present(villager_id, result, snapshot)
+    if _open_modal(_dialogue_panel):
+        _dialogue_panel.present(villager_id, result, snapshot)
 
 func update_dialogue(villager_id: int, result: Dictionary, snapshot: Dictionary) -> void:
     _dialogue_panel.present(villager_id, result, snapshot)
@@ -703,9 +703,9 @@ func _set_morning_summary_visible(is_visible: bool) -> void:
     if was_visible != is_visible:
         modal_state_changed.emit()
 
-func _open_modal(panel: Control) -> void:
+func _open_modal(panel: Control) -> bool:
     if _morning_summary_panel.visible and panel != _morning_summary_panel:
-        return
+        return false
     if not _onboarding_overlay.is_opening_visible():
         (_onboarding_overlay.get_node("TutorialCard") as Control).visible = false
     _set_hud_chrome_visible(false)
@@ -718,6 +718,7 @@ func _open_modal(panel: Control) -> void:
         else:
             registered.visible = false
     modal_state_changed.emit()
+    return true
 
 func _close_modal(panel: Control) -> void:
     if not panel.visible:

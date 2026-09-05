@@ -566,6 +566,38 @@ func test_summary_snapshot_derives_morning_modal_visibility() -> void:
     assert_eq(visible_primary_count, 1)
     assert_true(hud.has_blocking_modal())
 
+func test_public_primary_opens_are_denied_while_morning_summary_is_visible() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var snapshot := world._session.snapshot()
+    snapshot["pending_morning_summary"] = {"completed_day": 1, "next_day": 2}
+    hud.render(snapshot)
+
+    var summary := _panel(hud, "MorningSummaryPanel")
+    var shop := _panel(hud, "ShopPanel")
+    var shipping := _panel(hud, "ShippingPanel")
+    assert_true(summary.visible)
+    assert_false(shop.visible)
+    assert_false(shipping.visible)
+    assert_false((hud.get_node("HudRoot/TopBar") as Control).visible)
+
+    hud.open_shop()
+    hud.open_shipping()
+
+    assert_true(summary.visible)
+    assert_false(shop.visible)
+    assert_false(shipping.visible)
+    assert_false((hud.get_node("HudRoot/TopBar") as Control).visible)
+    var visible_primary_count := 0
+    for panel in hud._primary_modals:
+        if panel.visible:
+            visible_primary_count += 1
+    assert_eq(visible_primary_count, 1)
+
 func test_acknowledgment_clears_summary_and_restores_input() -> void:
     var world := _world()
     if world == null:

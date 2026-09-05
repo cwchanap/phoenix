@@ -138,3 +138,18 @@ from the native capture path and did not cause test failures.
 `DONE_WITH_CONCERNS`; the approved local implementation, goldens, clean
 verification, and browser-session cleanup are complete. Hosted or
 cross-platform visual evidence is outside this task.
+
+## Follow-up modal guard fix
+
+Review found that `_open_modal()` correctly denied a Shop or Shipping open
+while Morning Summary was visible, but the public callers still unconditionally
+called the panel's `open_panel()` afterward. That transient setup method set
+the denied panel visible and bypassed the modal registry. `_open_modal()` now
+returns whether the request was accepted; Shop, Shipping, and Dialogue only
+perform their panel setup after an accepted open. The summary remains the sole
+visible primary modal and HUD chrome stays hidden.
+
+The focused gameplay-shell lane passed 46/46 tests with 559 assertions,
+including direct public Shop and Shipping open attempts while Summary is
+visible. The normal macOS visual gate for States 01–03 passed unchanged with
+zero mismatch. No golden or visual-reference files changed in this follow-up.
