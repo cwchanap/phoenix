@@ -1,18 +1,26 @@
 extends GutTest
 
 const TEST_PATH := "user://phoenix-hpa-598-app-launch-test.json"
+const SETTINGS_PATH := "user://phoenix-ui-settings-app-launch-test.cfg"
 
 func _clean() -> void:
-    if FileAccess.file_exists(TEST_PATH):
-        DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_PATH))
+    for path in [TEST_PATH, SETTINGS_PATH]:
+        if FileAccess.file_exists(path):
+            DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
 func before_each() -> void:
+    OS.unset_environment("PHOENIX_SETTINGS_PATH")
     _clean()
 
 func after_each() -> void:
+    OS.unset_environment("PHOENIX_SETTINGS_PATH")
     _clean()
 
-func _spawn_app(repository: SaveRepository) -> AppRoot:
+func _spawn_app(
+    repository: SaveRepository,
+    settings: UiSettings = null,
+    use_environment_settings := false,
+) -> AppRoot:
     var packed := load("res://scenes/app/app.tscn") as PackedScene
     assert_not_null(packed)
     if packed == null:
@@ -21,9 +29,66 @@ func _spawn_app(repository: SaveRepository) -> AppRoot:
     assert_not_null(app)
     if app == null:
         return null
-    app.configure(repository)
+    app.configure(
+        repository,
+        settings if settings != null or use_environment_settings else UiSettings.new(),
+    )
     add_child_autoqfree(app)
     return app
+
+func test_new_game_propagates_settings_and_tutorial_toggle_to_world_hud() -> void:
+    var settings := UiSettings.load(SETTINGS_PATH)
+    assert_eq(settings.set_music(0), OK)
+    assert_eq(settings.set_sound(10), OK)
+    assert_eq(settings.set_window_scale(3), OK)
+    assert_eq(settings.set_tutorial_cards(false), OK)
+
+    var app := _spawn_app(SaveRepository.new(TEST_PATH), settings)
+    if app == null:
+        return
+    (app.get_node("TitleScreen") as TitleScreen).new_game_requested.emit()
+    await get_tree().process_frame
+
+    var world := app.get_node("World") as WorldShell
+    var hud := world.hud
+    assert_eq(world._settings, settings)
+    assert_eq(hud._settings, settings)
+    assert_eq((hud.get_node("MusicPlayer") as AudioStreamPlayer).volume_db, -80.0)
+    assert_eq((hud.get_node("SfxPlayer") as AudioStreamPlayer).volume_db, 0.0)
+
+    var opening := hud.get_node("HudRoot/OnboardingOverlay/OpeningPanel") as Control
+    var card := hud.get_node("HudRoot/OnboardingOverlay/TutorialCard") as Control
+    assert_true(opening.visible)
+    assert_false(card.visible)
+    var tutorial_before: Dictionary = world._session.snapshot()["tutorial"].duplicate(true)
+
+    (opening.get_node("Start") as Button).pressed.emit()
+    assert_false(opening.visible)
+    assert_false(card.visible)
+    assert_eq(world._session.snapshot()["tutorial"], tutorial_before)
+
+    assert_eq(settings.set_tutorial_cards(true), OK)
+    hud.apply_settings()
+    assert_true(card.visible)
+    assert_eq(world._session.snapshot()["tutorial"], tutorial_before)
+
+func test_settings_environment_path_is_loaded_without_using_save_override() -> void:
+    var settings := UiSettings.load(SETTINGS_PATH)
+    assert_eq(settings.set_music(0), OK)
+    assert_eq(settings.set_tutorial_cards(false), OK)
+    OS.set_environment("PHOENIX_SETTINGS_PATH", SETTINGS_PATH)
+
+    var app := _spawn_app(SaveRepository.new(TEST_PATH), null, true)
+    if app == null:
+        return
+    (app.get_node("TitleScreen") as TitleScreen).new_game_requested.emit()
+    await get_tree().process_frame
+
+    var world := app.get_node("World") as WorldShell
+    var hud := world.hud
+    assert_eq(hud._settings._path, SETTINGS_PATH)
+    assert_eq((hud.get_node("MusicPlayer") as AudioStreamPlayer).volume_db, -80.0)
+    assert_false((hud.get_node("HudRoot/OnboardingOverlay/TutorialCard") as Control).visible)
 
 func test_continue_restores_state_and_uses_authored_spawn() -> void:
     var repository := SaveRepository.new(TEST_PATH)

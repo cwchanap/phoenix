@@ -3,13 +3,15 @@ extends Node
 
 const WORLD_SCENE := preload("res://scenes/world/world.tscn")
 var _save_repository: SaveRepository
+var _settings: UiSettings
 var _continue_state: Variant = null
 @onready var _title_screen: TitleScreen = $TitleScreen as TitleScreen
 @onready var _result_screen: ResultScreen = $ResultScreen as ResultScreen
 
-func configure(repository: SaveRepository) -> void:
+func configure(repository: SaveRepository, settings: UiSettings = null) -> void:
     assert(not is_inside_tree())
     _save_repository = repository
+    _settings = settings
 
 func _ready() -> void:
     if _save_repository == null:
@@ -17,6 +19,12 @@ func _ready() -> void:
         _save_repository = SaveRepository.new(
             path if not path.is_empty() else SaveRepository.DEFAULT_PATH
         )
+    if _settings == null:
+        var settings_path := OS.get_environment("PHOENIX_SETTINGS_PATH")
+        _settings = UiSettings.load(
+            settings_path if not settings_path.is_empty() else UiSettings.DEFAULT_PATH
+        )
+    _settings.apply_window(get_window())
     _title_screen.new_game_requested.connect(_on_new_game_requested)
     _title_screen.continue_requested.connect(_on_continue_requested)
     _result_screen.new_game_requested.connect(_on_result_new_game_requested)
@@ -56,7 +64,7 @@ func _launch(initial_state: Variant) -> void:
         return
     var world := WORLD_SCENE.instantiate() as WorldShell
     world.name = "World"
-    world.configure(initial_state, _save_repository)
+    world.configure(initial_state, _save_repository, _settings)
     world.finale_completed.connect(_on_finale_completed)
     add_child(world)
     _title_screen.visible = false

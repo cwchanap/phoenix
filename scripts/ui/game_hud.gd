@@ -54,6 +54,7 @@ var _shop_count_labels: Array[Label] = []
 var _shipping_count_labels: Array[Label] = []
 var _sfx_player: AudioStreamPlayer
 var _music_player: AudioStreamPlayer
+var _settings: UiSettings
 var _last_snapshot: Dictionary = {}
 var _finale_in_progress := false
 var _selected_action: StringName = GameRules.action_key(GameRules.FarmingAction.HOE)
@@ -64,7 +65,20 @@ func _ready() -> void:
     _build_always_visible_hud()
     _build_modals()
     _build_audio()
+    apply_settings()
     modal_state_changed.connect(_update_toggle_enabled)
+
+func configure(settings: UiSettings = null) -> void:
+    if settings != null:
+        _settings = settings
+    apply_settings()
+
+func apply_settings() -> void:
+    if _settings == null or _music_player == null or _sfx_player == null:
+        return
+    _music_player.volume_db = _settings.db_for_level(_settings.music)
+    _sfx_player.volume_db = _settings.db_for_level(_settings.sound)
+    _onboarding_overlay.set_tutorial_cards_enabled(_settings.tutorial_cards)
 
 func render(snapshot: Dictionary) -> void:
     _last_snapshot = snapshot.duplicate(true)
