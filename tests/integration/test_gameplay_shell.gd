@@ -46,7 +46,7 @@ func test_start_releases_gate_and_tutorial_card_guides_first_actions() -> void:
     var card := overlay.get_node("TutorialCard") as Control
     assert_false(overlay.is_opening_visible())
     assert_true(card.visible)
-    assert_eq((card.get_node("Title") as Label).text, "Prepare the field")
+    assert_eq((card.get_node("Title") as Label).text, "PREPARE THE FIELD")
 
     var selected: Array[int] = []
     world.hud.select_action_requested.connect(func(action: int) -> void:
@@ -69,7 +69,7 @@ func test_start_releases_gate_and_tutorial_card_guides_first_actions() -> void:
     world.use_selected_action()
     assert_true(world._session.snapshot()["tutorial"][&"farm_basics"])
     assert_true(card.visible)
-    assert_eq((card.get_node("Title") as Label).text, "Plant a seed")
+    assert_eq((card.get_node("Title") as Label).text, "PLANT A SEED")
 
 func test_repeated_seed_slot_cycles_selected_seed() -> void:
     var world := _world()

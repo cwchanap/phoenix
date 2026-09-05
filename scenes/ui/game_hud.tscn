@@ -1,6 +1,22 @@
-[gd_scene load_steps=2 format=4]
+[gd_scene load_steps=19 format=4]
 
 [ext_resource type="Script" path="res://scripts/ui/game_hud.gd" id="1_hud"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/calendar.png" id="2_calendar"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/clock.png" id="3_clock"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/sun.png" id="4_sun"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/stamina.png" id="5_stamina"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/coin.png" id="6_coin"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/bag.png" id="7_bag"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/shipping.png" id="8_shipping"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/controls.png" id="9_controls"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/market.png" id="17_market"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/hoe.png" id="10_hoe"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/seeds.png" id="11_seeds"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/watering-can.png" id="12_water"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/hands.png" id="13_hands"]
+[ext_resource type="Texture2D" path="res://assets/ui/crops/seed-packet-turnip.png" id="14_turnip"]
+[ext_resource type="Texture2D" path="res://assets/ui/crops/seed-packet-potato.png" id="15_potato"]
+[ext_resource type="Texture2D" path="res://assets/ui/crops/seed-packet-pumpkin.png" id="16_pumpkin"]
 
 [node name="GameHud" type="CanvasLayer"]
 layer = 10
@@ -14,3 +30,1116 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
+clip_contents = false
+
+[node name="WeatherTint" type="ColorRect" parent="HudRoot"]
+layout_mode = 0
+offset_right = 640.0
+offset_bottom = 360.0
+mouse_filter = 2
+color = Color(1, 0.96, 0.86, 0.03)
+
+[node name="TopBar" type="Panel" parent="HudRoot"]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 640.0
+offset_bottom = 36.0
+mouse_filter = 2
+
+[node name="DayIcon" type="TextureRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 8.0
+offset_right = 30.0
+offset_bottom = 28.0
+mouse_filter = 2
+texture = ExtResource("2_calendar")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="DayCaption" type="Label" parent="HudRoot/TopBar"]
+
+visible = false
+layout_mode = 0
+offset_left = 30.0
+offset_top = 5.0
+offset_right = 56.0
+offset_bottom = 17.0
+text = "DAY"
+
+[node name="DayValue" type="Label" parent="HudRoot/TopBar"]
+
+layout_mode = 0
+offset_left = 36.0
+offset_top = 9.0
+offset_right = 54.0
+offset_bottom = 27.0
+text = "1"
+
+[node name="DayMax" type="Label" parent="HudRoot/TopBar"]
+
+layout_mode = 0
+offset_left = 52.0
+offset_top = 11.0
+offset_right = 74.0
+offset_bottom = 27.0
+text = "/14"
+
+[node name="DaySeparator" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 76.0
+offset_top = 8.0
+offset_right = 77.0
+offset_bottom = 28.0
+mouse_filter = 2
+
+[node name="ClockIcon" type="TextureRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 87.0
+offset_top = 9.0
+offset_right = 107.0
+offset_bottom = 25.0
+mouse_filter = 2
+texture = ExtResource("3_clock")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TimeValue" type="Label" parent="HudRoot/TopBar"]
+
+layout_mode = 0
+offset_left = 108.0
+offset_top = 8.0
+offset_right = 166.0
+offset_bottom = 24.0
+text = "06:00"
+
+[node name="SunIcon" type="TextureRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 188.0
+offset_top = 9.0
+offset_right = 208.0
+offset_bottom = 29.0
+mouse_filter = 2
+texture = ExtResource("4_sun")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="WeatherValue" type="Label" parent="HudRoot/TopBar"]
+
+layout_mode = 0
+offset_left = 214.0
+offset_top = 8.0
+offset_right = 260.0
+offset_bottom = 28.0
+text = "SUNNY"
+
+[node name="MarketPanel" type="Panel" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 260.0
+offset_top = 5.0
+offset_right = 412.0
+offset_bottom = 31.0
+mouse_filter = 2
+
+[node name="MarketIcon" type="TextureRect" parent="HudRoot/TopBar/MarketPanel"]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 6.0
+offset_right = 22.0
+offset_bottom = 20.0
+mouse_filter = 2
+texture = ExtResource("17_market")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Market" type="Label" parent="HudRoot/TopBar/MarketPanel"]
+layout_mode = 0
+offset_left = 27.0
+offset_top = 4.0
+offset_right = 148.0
+offset_bottom = 21.0
+text = "HARVEST MARKET IN 13"
+
+[node name="TimeRule" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 108.0
+offset_top = 25.0
+offset_right = 168.0
+offset_bottom = 29.0
+mouse_filter = 2
+
+[node name="Track" type="ColorRect" parent="HudRoot/TopBar/TimeRule"]
+layout_mode = 0
+offset_left = 1.0
+offset_top = 1.0
+offset_right = 59.0
+offset_bottom = 3.0
+mouse_filter = 2
+color = Color(0.054902, 0.07451, 0.105882, 1)
+
+[node name="Fill" type="ColorRect" parent="HudRoot/TopBar/TimeRule"]
+layout_mode = 0
+offset_left = 1.0
+offset_top = 1.0
+offset_right = 16.0
+offset_bottom = 3.0
+mouse_filter = 2
+color = Color(1, 0.901961, 0.45098, 1)
+
+[node name="StatsSeparator" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 410.0
+offset_top = 8.0
+offset_right = 411.0
+offset_bottom = 28.0
+mouse_filter = 2
+
+[node name="StaminaIcon" type="TextureRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 428.0
+offset_top = 8.0
+offset_right = 448.0
+offset_bottom = 28.0
+mouse_filter = 2
+texture = ExtResource("5_stamina")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="StaminaCaption" type="Label" parent="HudRoot/TopBar"]
+
+visible = false
+layout_mode = 0
+offset_left = 443.0
+offset_top = 5.0
+offset_right = 491.0
+offset_bottom = 16.0
+text = "STAMINA"
+
+[node name="StaminaPip_00" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 450.0
+offset_top = 11.0
+offset_right = 455.0
+offset_bottom = 25.0
+mouse_filter = 2
+
+[node name="StaminaPip_01" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 456.0
+offset_top = 11.0
+offset_right = 461.0
+offset_bottom = 25.0
+mouse_filter = 2
+
+[node name="StaminaPip_02" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 462.0
+offset_top = 11.0
+offset_right = 467.0
+offset_bottom = 25.0
+mouse_filter = 2
+
+[node name="StaminaPip_03" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 468.0
+offset_top = 11.0
+offset_right = 473.0
+offset_bottom = 25.0
+mouse_filter = 2
+
+[node name="StaminaPip_04" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 474.0
+offset_top = 11.0
+offset_right = 479.0
+offset_bottom = 25.0
+mouse_filter = 2
+
+[node name="StaminaPip_05" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 480.0
+offset_top = 11.0
+offset_right = 485.0
+offset_bottom = 25.0
+mouse_filter = 2
+
+[node name="StaminaPip_06" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 486.0
+offset_top = 11.0
+offset_right = 491.0
+offset_bottom = 25.0
+mouse_filter = 2
+
+[node name="StaminaPip_07" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 492.0
+offset_top = 11.0
+offset_right = 497.0
+offset_bottom = 25.0
+mouse_filter = 2
+
+[node name="StaminaPip_08" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 498.0
+offset_top = 11.0
+offset_right = 503.0
+offset_bottom = 25.0
+mouse_filter = 2
+
+[node name="StaminaPip_09" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 504.0
+offset_top = 11.0
+offset_right = 509.0
+offset_bottom = 25.0
+mouse_filter = 2
+
+[node name="StaminaPip_10" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 510.0
+offset_top = 11.0
+offset_right = 515.0
+offset_bottom = 25.0
+mouse_filter = 2
+
+[node name="StaminaPip_11" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 516.0
+offset_top = 11.0
+offset_right = 521.0
+offset_bottom = 25.0
+mouse_filter = 2
+
+[node name="StaminaPip_12" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 522.0
+offset_top = 11.0
+offset_right = 527.0
+offset_bottom = 25.0
+mouse_filter = 2
+
+[node name="StaminaPip_13" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 528.0
+offset_top = 11.0
+offset_right = 533.0
+offset_bottom = 25.0
+mouse_filter = 2
+
+[node name="StaminaPip_14" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 534.0
+offset_top = 11.0
+offset_right = 539.0
+offset_bottom = 25.0
+mouse_filter = 2
+
+[node name="StaminaPip_15" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 540.0
+offset_top = 11.0
+offset_right = 545.0
+offset_bottom = 25.0
+mouse_filter = 2
+
+[node name="StaminaPip_16" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 546.0
+offset_top = 11.0
+offset_right = 551.0
+offset_bottom = 25.0
+mouse_filter = 2
+
+[node name="StaminaPip_17" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 552.0
+offset_top = 11.0
+offset_right = 557.0
+offset_bottom = 25.0
+mouse_filter = 2
+
+[node name="StaminaPip_18" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 558.0
+offset_top = 11.0
+offset_right = 563.0
+offset_bottom = 25.0
+mouse_filter = 2
+
+[node name="StaminaPip_19" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 564.0
+offset_top = 11.0
+offset_right = 569.0
+offset_bottom = 25.0
+mouse_filter = 2
+
+[node name="MoneySeparator" type="ColorRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 579.0
+offset_top = 8.0
+offset_right = 580.0
+offset_bottom = 28.0
+mouse_filter = 2
+
+[node name="MoneyIcon" type="TextureRect" parent="HudRoot/TopBar"]
+layout_mode = 0
+offset_left = 589.0
+offset_top = 8.0
+offset_right = 609.0
+offset_bottom = 28.0
+mouse_filter = 2
+texture = ExtResource("6_coin")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="MoneyValue" type="Label" parent="HudRoot/TopBar"]
+
+layout_mode = 0
+offset_left = 610.0
+offset_top = 7.0
+offset_right = 652.0
+offset_bottom = 29.0
+text = "150"
+
+[node name="MoneySuffix" type="Label" parent="HudRoot/TopBar"]
+
+visible = false
+layout_mode = 0
+offset_left = 587.0
+offset_top = 10.0
+offset_right = 599.0
+offset_bottom = 26.0
+text = "G"
+
+[node name="ResourceStrip" type="Control" parent="HudRoot"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 46.0
+offset_right = 110.0
+offset_bottom = 98.0
+mouse_filter = 2
+
+[node name="BagPanel" type="Panel" parent="HudRoot/ResourceStrip"]
+layout_mode = 0
+offset_right = 100.0
+offset_bottom = 24.0
+mouse_filter = 2
+
+[node name="BagIcon" type="TextureRect" parent="HudRoot/ResourceStrip/BagPanel"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 6.0
+offset_right = 22.0
+offset_bottom = 18.0
+mouse_filter = 2
+texture = ExtResource("7_bag")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="BagCaption" type="Label" parent="HudRoot/ResourceStrip/BagPanel"]
+
+layout_mode = 0
+offset_left = 34.0
+offset_top = 7.0
+offset_right = 58.0
+offset_bottom = 19.0
+text = "BAG"
+
+[node name="BagValue" type="Label" parent="HudRoot/ResourceStrip/BagPanel"]
+
+layout_mode = 0
+offset_left = 74.0
+offset_top = 5.0
+offset_right = 82.0
+offset_bottom = 19.0
+text = "0"
+
+[node name="BagCropIcon" type="TextureRect" parent="HudRoot/ResourceStrip/BagPanel"]
+layout_mode = 0
+offset_left = 59.0
+offset_top = 6.0
+offset_right = 70.0
+offset_bottom = 17.0
+mouse_filter = 2
+texture = ExtResource("14_turnip")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="BagKey" type="Button" parent="HudRoot/ResourceStrip/BagPanel"]
+layout_mode = 0
+offset_left = 82.0
+offset_top = 3.0
+offset_right = 100.0
+offset_bottom = 21.0
+mouse_filter = 2
+text = "I"
+
+[node name="PendingPanel" type="Panel" parent="HudRoot/ResourceStrip"]
+layout_mode = 0
+offset_top = 28.0
+offset_right = 100.0
+offset_bottom = 52.0
+mouse_filter = 2
+
+[node name="BinIcon" type="TextureRect" parent="HudRoot/ResourceStrip/PendingPanel"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 6.0
+offset_right = 22.0
+offset_bottom = 18.0
+mouse_filter = 2
+texture = ExtResource("8_shipping")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="PendingCaption" type="Label" parent="HudRoot/ResourceStrip/PendingPanel"]
+
+layout_mode = 0
+offset_left = 34.0
+offset_top = 7.0
+offset_right = 84.0
+offset_bottom = 19.0
+text = "PENDING"
+
+[node name="PendingValue" type="Label" parent="HudRoot/ResourceStrip/PendingPanel"]
+
+layout_mode = 0
+offset_left = 84.0
+offset_top = 5.0
+offset_right = 98.0
+offset_bottom = 19.0
+text = "0"
+
+[node name="FeedbackPanel" type="Panel" parent="HudRoot"]
+layout_mode = 0
+offset_left = 300.0
+offset_top = 248.0
+offset_right = 435.0
+offset_bottom = 280.0
+mouse_filter = 2
+
+[node name="Feedback" type="Label" parent="HudRoot"]
+
+layout_mode = 0
+offset_left = 310.0
+offset_top = 255.0
+offset_right = 425.0
+offset_bottom = 273.0
+text = ""
+
+[node name="InteractionHint" type="Label" parent="HudRoot"]
+
+visible = false
+layout_mode = 0
+offset_left = 448.0
+offset_top = 252.0
+offset_right = 628.0
+offset_bottom = 278.0
+text = ""
+
+[node name="Hotbar" type="Panel" parent="HudRoot"]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 294.0
+offset_right = 640.0
+offset_bottom = 360.0
+mouse_filter = 2
+
+[node name="ActionCaption" type="Label" parent="HudRoot/Hotbar"]
+
+visible = false
+layout_mode = 0
+offset_left = 12.0
+offset_top = 4.0
+offset_right = 62.0
+offset_bottom = 14.0
+text = "ACTIONS"
+
+[node name="ActionDivider" type="ColorRect" parent="HudRoot/Hotbar"]
+layout_mode = 0
+offset_left = 294.0
+offset_top = 12.0
+offset_right = 295.0
+offset_bottom = 56.0
+mouse_filter = 2
+
+[node name="SeedCaption" type="Label" parent="HudRoot/Hotbar"]
+
+visible = false
+layout_mode = 0
+offset_left = 307.0
+offset_top = 4.0
+offset_right = 347.0
+offset_bottom = 14.0
+text = "SEEDS"
+
+[node name="SeedDivider" type="ColorRect" parent="HudRoot/Hotbar"]
+layout_mode = 0
+offset_left = 453.0
+offset_top = 12.0
+offset_right = 454.0
+offset_bottom = 56.0
+mouse_filter = 2
+
+[node name="ControlsIcon" type="TextureRect" parent="HudRoot/Hotbar"]
+visible = false
+layout_mode = 0
+offset_left = 438.0
+offset_top = 11.0
+offset_right = 454.0
+offset_bottom = 27.0
+mouse_filter = 2
+texture = ExtResource("9_controls")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="SpaceKey" type="Button" parent="HudRoot/Hotbar"]
+layout_mode = 0
+offset_left = 466.0
+offset_top = 11.0
+offset_right = 528.0
+offset_bottom = 31.0
+mouse_filter = 2
+text = "SPACE"
+
+[node name="TillIcon" type="TextureRect" parent="HudRoot/Hotbar"]
+layout_mode = 0
+offset_left = 534.0
+offset_top = 13.0
+offset_right = 548.0
+offset_bottom = 27.0
+mouse_filter = 2
+texture = ExtResource("10_hoe")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TillLabel" type="Label" parent="HudRoot/Hotbar"]
+layout_mode = 0
+offset_left = 553.0
+offset_top = 13.0
+offset_right = 624.0
+offset_bottom = 29.0
+text = "TILL"
+
+[node name="InteractKey" type="Button" parent="HudRoot/Hotbar"]
+layout_mode = 0
+offset_left = 466.0
+offset_top = 37.0
+offset_right = 528.0
+offset_bottom = 57.0
+mouse_filter = 2
+text = "E"
+
+[node name="ShopIcon" type="TextureRect" parent="HudRoot/Hotbar"]
+layout_mode = 0
+offset_left = 534.0
+offset_top = 39.0
+offset_right = 548.0
+offset_bottom = 53.0
+mouse_filter = 2
+texture = ExtResource("17_market")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="ShopLabel" type="Label" parent="HudRoot/Hotbar"]
+layout_mode = 0
+offset_left = 553.0
+offset_top = 39.0
+offset_right = 624.0
+offset_bottom = 55.0
+text = "SHOP"
+
+[node name="ContextCaption" type="Label" parent="HudRoot/Hotbar"]
+
+visible = false
+layout_mode = 0
+offset_left = 460.0
+offset_top = 6.0
+offset_right = 524.0
+offset_bottom = 16.0
+text = "INTERACT"
+
+[node name="ContextValue" type="Label" parent="HudRoot/Hotbar"]
+
+visible = false
+layout_mode = 0
+offset_left = 460.0
+offset_top = 20.0
+offset_right = 480.0
+offset_bottom = 37.0
+text = "E"
+
+[node name="ContextHint" type="Label" parent="HudRoot/Hotbar"]
+
+visible = false
+layout_mode = 0
+offset_left = 484.0
+offset_top = 21.0
+offset_right = 624.0
+offset_bottom = 35.0
+text = "SHOP · BED · BIN"
+
+[node name="Action_0" type="Button" parent="HudRoot"]
+layout_mode = 0
+offset_left = 60.0
+offset_top = 300.0
+offset_right = 115.0
+offset_bottom = 354.0
+text = ""
+
+[node name="Icon" type="TextureRect" parent="HudRoot/Action_0"]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 14.0
+offset_right = 38.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("10_hoe")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Key" type="Label" parent="HudRoot/Action_0"]
+
+visible = false
+layout_mode = 0
+offset_left = 31.0
+offset_top = 4.0
+offset_right = 47.0
+offset_bottom = 16.0
+text = "1"
+
+[node name="Keycap" type="Button" parent="HudRoot/Action_0"]
+layout_mode = 0
+offset_left = 4.0
+offset_top = 3.0
+offset_right = 24.0
+offset_bottom = 20.0
+mouse_filter = 2
+text = "1"
+
+[node name="Name" type="Label" parent="HudRoot/Action_0"]
+
+layout_mode = 0
+offset_left = 0.0
+offset_top = 38.0
+offset_right = 55.0
+offset_bottom = 52.0
+text = "HOE"
+
+[node name="Action_1" type="Button" parent="HudRoot"]
+layout_mode = 0
+offset_left = 118.0
+offset_top = 300.0
+offset_right = 170.0
+offset_bottom = 354.0
+text = ""
+
+[node name="Icon" type="TextureRect" parent="HudRoot/Action_1"]
+layout_mode = 0
+offset_left = 15.0
+offset_top = 14.0
+offset_right = 37.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("11_seeds")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Key" type="Label" parent="HudRoot/Action_1"]
+
+visible = false
+layout_mode = 0
+offset_left = 31.0
+offset_top = 4.0
+offset_right = 47.0
+offset_bottom = 16.0
+text = "2"
+
+[node name="Keycap" type="Button" parent="HudRoot/Action_1"]
+layout_mode = 0
+offset_left = 4.0
+offset_top = 3.0
+offset_right = 24.0
+offset_bottom = 20.0
+mouse_filter = 2
+text = "2"
+
+[node name="Badge" type="Label" parent="HudRoot/Action_1"]
+layout_mode = 0
+offset_left = 31.0
+offset_top = 3.0
+offset_right = 49.0
+offset_bottom = 18.0
+text = "×3"
+
+[node name="Name" type="Label" parent="HudRoot/Action_1"]
+
+layout_mode = 0
+offset_left = 0.0
+offset_top = 38.0
+offset_right = 52.0
+offset_bottom = 52.0
+text = "SEEDS"
+
+[node name="Action_2" type="Button" parent="HudRoot"]
+layout_mode = 0
+offset_left = 174.0
+offset_top = 300.0
+offset_right = 226.0
+offset_bottom = 354.0
+text = ""
+
+[node name="Icon" type="TextureRect" parent="HudRoot/Action_2"]
+layout_mode = 0
+offset_left = 15.0
+offset_top = 14.0
+offset_right = 37.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("12_water")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Key" type="Label" parent="HudRoot/Action_2"]
+
+visible = false
+layout_mode = 0
+offset_left = 31.0
+offset_top = 4.0
+offset_right = 47.0
+offset_bottom = 16.0
+text = "3"
+
+[node name="Keycap" type="Button" parent="HudRoot/Action_2"]
+layout_mode = 0
+offset_left = 4.0
+offset_top = 3.0
+offset_right = 24.0
+offset_bottom = 20.0
+mouse_filter = 2
+text = "3"
+
+[node name="Name" type="Label" parent="HudRoot/Action_2"]
+
+layout_mode = 0
+offset_left = 0.0
+offset_top = 38.0
+offset_right = 52.0
+offset_bottom = 52.0
+text = "WATER"
+
+[node name="Action_3" type="Button" parent="HudRoot"]
+layout_mode = 0
+offset_left = 231.0
+offset_top = 300.0
+offset_right = 283.0
+offset_bottom = 354.0
+text = ""
+
+[node name="Icon" type="TextureRect" parent="HudRoot/Action_3"]
+layout_mode = 0
+offset_left = 15.0
+offset_top = 14.0
+offset_right = 37.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("13_hands")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Key" type="Label" parent="HudRoot/Action_3"]
+
+visible = false
+layout_mode = 0
+offset_left = 31.0
+offset_top = 4.0
+offset_right = 47.0
+offset_bottom = 16.0
+text = "4"
+
+[node name="Keycap" type="Button" parent="HudRoot/Action_3"]
+layout_mode = 0
+offset_left = 4.0
+offset_top = 3.0
+offset_right = 24.0
+offset_bottom = 20.0
+mouse_filter = 2
+text = "4"
+
+[node name="Name" type="Label" parent="HudRoot/Action_3"]
+
+layout_mode = 0
+offset_left = 0.0
+offset_top = 38.0
+offset_right = 52.0
+offset_bottom = 52.0
+text = "HANDS"
+
+[node name="Seed_0" type="Button" parent="HudRoot"]
+layout_mode = 0
+offset_left = 307.0
+offset_top = 300.0
+offset_right = 349.0
+offset_bottom = 340.0
+text = ""
+
+[node name="Icon" type="TextureRect" parent="HudRoot/Seed_0"]
+layout_mode = 0
+offset_left = 12.0
+offset_top = 8.0
+offset_right = 30.0
+offset_bottom = 26.0
+mouse_filter = 2
+texture = ExtResource("14_turnip")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Key" type="Label" parent="HudRoot/Seed_0"]
+
+visible = false
+layout_mode = 0
+offset_left = 30.0
+offset_top = 4.0
+offset_right = 44.0
+offset_bottom = 16.0
+text = "Q"
+
+[node name="Count" type="Label" parent="HudRoot/Seed_0"]
+
+layout_mode = 0
+offset_left = 11.0
+offset_top = 29.0
+offset_right = 31.0
+offset_bottom = 39.0
+text = "0"
+
+[node name="Seed_1" type="Button" parent="HudRoot"]
+layout_mode = 0
+offset_left = 354.0
+offset_top = 300.0
+offset_right = 396.0
+offset_bottom = 340.0
+text = ""
+
+[node name="Icon" type="TextureRect" parent="HudRoot/Seed_1"]
+layout_mode = 0
+offset_left = 12.0
+offset_top = 8.0
+offset_right = 30.0
+offset_bottom = 26.0
+mouse_filter = 2
+texture = ExtResource("15_potato")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Key" type="Label" parent="HudRoot/Seed_1"]
+
+visible = false
+layout_mode = 0
+offset_left = 30.0
+offset_top = 4.0
+offset_right = 44.0
+offset_bottom = 16.0
+text = "W"
+
+[node name="Count" type="Label" parent="HudRoot/Seed_1"]
+
+layout_mode = 0
+offset_left = 11.0
+offset_top = 29.0
+offset_right = 31.0
+offset_bottom = 39.0
+text = "0"
+
+[node name="Seed_2" type="Button" parent="HudRoot"]
+layout_mode = 0
+offset_left = 401.0
+offset_top = 300.0
+offset_right = 443.0
+offset_bottom = 340.0
+text = ""
+
+[node name="Icon" type="TextureRect" parent="HudRoot/Seed_2"]
+layout_mode = 0
+offset_left = 12.0
+offset_top = 8.0
+offset_right = 30.0
+offset_bottom = 26.0
+mouse_filter = 2
+texture = ExtResource("16_pumpkin")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Key" type="Label" parent="HudRoot/Seed_2"]
+
+visible = false
+layout_mode = 0
+offset_left = 30.0
+offset_top = 4.0
+offset_right = 44.0
+offset_bottom = 16.0
+text = "R"
+
+[node name="Count" type="Label" parent="HudRoot/Seed_2"]
+
+layout_mode = 0
+offset_left = 11.0
+offset_top = 29.0
+offset_right = 31.0
+offset_bottom = 39.0
+text = "0"
+
+[node name="SeedCycleHint" type="Label" parent="HudRoot"]
+layout_mode = 0
+offset_left = 344.0
+offset_top = 342.0
+offset_right = 453.0
+offset_bottom = 356.0
+text = "2 CYCLES SEED"
+
+[node name="Day" type="Label" parent="HudRoot"]
+visible = false
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 1.0
+offset_bottom = 1.0
+text = "Day"
+
+[node name="Time" type="Label" parent="HudRoot"]
+visible = false
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 1.0
+offset_bottom = 1.0
+text = "06:00"
+
+[node name="Weather" type="Label" parent="HudRoot"]
+visible = false
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 1.0
+offset_bottom = 1.0
+text = "Weather: Sunny"
+
+[node name="Stamina" type="Label" parent="HudRoot"]
+visible = false
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 1.0
+offset_bottom = 1.0
+text = "Stamina: 20/20"
+
+[node name="Money" type="Label" parent="HudRoot"]
+visible = false
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 1.0
+offset_bottom = 1.0
+text = "Money: 150G"
+
+[node name="SelectedSeed" type="Label" parent="HudRoot"]
+visible = false
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 1.0
+offset_bottom = 1.0
+text = "Selected: Turnip"
+
+[node name="PendingShipment" type="Label" parent="HudRoot"]
+visible = false
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 1.0
+offset_bottom = 1.0
+text = "Pending shipment: 0"
+
+[node name="Objective" type="Label" parent="HudRoot"]
+visible = false
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 1.0
+offset_bottom = 1.0
+text = ""
+
+[node name="HarvestedTitle" type="Label" parent="HudRoot"]
+visible = false
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 1.0
+offset_bottom = 1.0
+text = ""
+
+[node name="HarvestedCount_0" type="Label" parent="HudRoot"]
+visible = false
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 1.0
+offset_bottom = 1.0
+text = ""
+
+[node name="HarvestedCount_1" type="Label" parent="HudRoot"]
+visible = false
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 1.0
+offset_bottom = 1.0
+text = ""
+
+[node name="HarvestedCount_2" type="Label" parent="HudRoot"]
+visible = false
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 1.0
+offset_bottom = 1.0
+text = ""
+
+[node name="SeedTitle" type="Label" parent="HudRoot"]
+visible = false
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 1.0
+offset_bottom = 1.0
+text = ""
+
+[node name="SeedCount_0" type="Label" parent="HudRoot"]
+visible = false
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 1.0
+offset_bottom = 1.0
+text = ""
+
+[node name="SeedCount_1" type="Label" parent="HudRoot"]
+visible = false
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 1.0
+offset_bottom = 1.0
+text = ""
+
+[node name="SeedCount_2" type="Label" parent="HudRoot"]
+visible = false
+layout_mode = 0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 1.0
+offset_bottom = 1.0
+text = ""

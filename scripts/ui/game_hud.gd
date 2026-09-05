@@ -22,6 +22,7 @@ const CANCEL_SFX := preload("res://assets/audio/cancel.wav")
 const DAY_TRANSITION_SFX := preload("res://assets/audio/day-transition.wav")
 const FINALE_SFX := preload("res://assets/audio/finale.wav")
 const FARM_DAY_LOOP := preload("res://assets/audio/farm-day-loop.wav")
+const ONBOARDING_SCENE := preload("res://scenes/ui/onboarding_overlay.tscn")
 
 var _root: Control
 var _weather_tint: ColorRect
@@ -36,6 +37,17 @@ var _interaction_hint: Label
 var _feedback: Label
 var _summary_body: Label
 var _save_status_label: Label
+var _day_value_label: Label
+var _day_max_label: Label
+var _time_value_label: Label
+var _weather_value_label: Label
+var _market_label: Label
+var _money_value_label: Label
+var _bag_value_label: Label
+var _pending_value_label: Label
+var _seed_action_badge: Label
+var _feedback_panel: Panel
+var _stamina_pips: Array[ColorRect] = []
 var _shop_panel: Control
 var _shipping_panel: Control
 var _sleep_panel: Control
@@ -107,9 +119,21 @@ func render(snapshot: Dictionary) -> void:
     )
     _day_label.text = "Day %d" % int(snapshot["day"])
     _time_label.text = GameRules.format_time(int(snapshot["time_minutes"]))
+    _time_value_label.text = _time_label.text
     _weather_label.text = "Weather: %s" % _display_weather(snapshot["weather"])
     _stamina_label.text = "Stamina: %d/%d" % [int(snapshot["stamina"]), int(snapshot["max_stamina"])]
     _money_label.text = "Money: %dG" % int(snapshot["money"])
+    _day_value_label.text = "%d" % int(snapshot["day"])
+    _day_max_label.text = "/%d" % GameRules.MAX_DAY
+    _weather_value_label.text = _display_weather(snapshot["weather"]).to_upper()
+    _market_label.text = (
+        "HARVEST MARKET TODAY"
+        if int(snapshot["day"]) >= GameRules.MAX_DAY
+        else "HARVEST MARKET IN %d" % (GameRules.MAX_DAY - int(snapshot["day"]))
+    )
+    _money_value_label.text = "%d" % int(snapshot["money"])
+    for index in _stamina_pips.size():
+        _stamina_pips[index].color = UiStyle.GREEN if index < int(snapshot["stamina"]) else Color("22301c")
 
     _selected_action = snapshot["selected_action"]
     _selected_seed = snapshot["selected_seed"]
@@ -120,6 +144,7 @@ func render(snapshot: Dictionary) -> void:
     var harvested: Dictionary = snapshot["harvested"]
     var pending: Dictionary = snapshot["pending_shipment"]
     var pending_total := 0
+    var harvested_total := 0
     for kind in range(GameRules.CropKind.size()):
         var key := GameRules.crop_key(kind)
         _seed_count_labels[kind].text = "%d" % int(seeds.get(key, 0))
@@ -130,7 +155,11 @@ func render(snapshot: Dictionary) -> void:
         ]
         _shipping_count_labels[kind].text = "%d harvested" % int(harvested.get(key, 0))
         pending_total += int(pending.get(key, 0))
+        harvested_total += int(harvested.get(key, 0))
     _pending_shipment_label.text = "Pending shipment: %d" % pending_total
+    _bag_value_label.text = "%d" % harvested_total
+    _pending_value_label.text = "%d" % pending_total
+    _seed_action_badge.text = "×%d" % int(seeds.get(GameRules.crop_key(GameRules.CropKind.TURNIP), 0))
 
     var day := int(snapshot["day"])
     if day >= GameRules.MAX_DAY:
@@ -307,6 +336,9 @@ func show_feedback(code: GameRules.CommandCode) -> void:
     var text := feedback_text(code)
     if text != "":
         _feedback.text = text
+        var tutorial_visible: bool = $HudRoot/OnboardingOverlay/TutorialCard.visible
+        _feedback_panel.visible = not tutorial_visible
+        _feedback.visible = not tutorial_visible
     var sfx := _sfx_for_code(code)
     if sfx != null:
         _play_sfx(sfx)
@@ -371,78 +403,116 @@ func _play_sfx(stream: AudioStream) -> void:
     _sfx_player.play()
 
 func _build_always_visible_hud() -> void:
-    _weather_tint = ColorRect.new()
-    _weather_tint.name = "WeatherTint"
-    _weather_tint.position = Vector2.ZERO
-    _weather_tint.size = Vector2(640, 360)
-    _weather_tint.color = SUNNY_TINT
-    _weather_tint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    _root.add_child(_weather_tint)
+    _weather_tint = $HudRoot/WeatherTint as ColorRect
+    _day_value_label = $HudRoot/TopBar/DayValue as Label
+    _day_max_label = $HudRoot/TopBar/DayMax as Label
+    _time_value_label = $HudRoot/TopBar/TimeValue as Label
+    _weather_value_label = $HudRoot/TopBar/WeatherValue as Label
+    _market_label = $HudRoot/TopBar/MarketPanel/Market as Label
+    _money_value_label = $HudRoot/TopBar/MoneyValue as Label
+    _stamina_pips.clear()
+    for index in 20:
+        _stamina_pips.append($HudRoot/TopBar.get_node("StaminaPip_%02d" % index) as ColorRect)
 
-    _day_label = _add_label(_root, "Day", "Day", Vector2(8, 8), Vector2(72, 20))
-    _time_label = _add_label(_root, "Time", "06:00", Vector2(82, 8), Vector2(58, 20))
-    _weather_label = _add_label(_root, "Weather", "Weather: Sunny", Vector2(148, 8), Vector2(124, 20))
-    _stamina_label = _add_label(_root, "Stamina", "Stamina: 20/20", Vector2(278, 8), Vector2(108, 20))
-    _money_label = _add_label(_root, "Money", "Money: 150G", Vector2(394, 8), Vector2(100, 20))
-
-    _add_label(_root, "ActionTitle", "Actions", Vector2(8, 34), Vector2(64, 20))
-    var action_names := ["Hoe", "Seeds", "Water", "Hands"]
-    for action in action_names.size():
-        var button := _add_button(
-            _root,
-            "Action_%d" % action,
-            "%d %s" % [action + 1, action_names[action]],
-            Vector2(8 + action * 72, 52),
-            Vector2(68, 24),
-        )
-        button.toggle_mode = true
-        button.pressed.connect(_on_action_button_pressed.bind(action))
-        _action_buttons.append(button)
-
-    _add_label(_root, "SeedTitle", "Seeds", Vector2(8, 82), Vector2(52, 20))
-    _selected_seed_label = _add_label(_root, "SelectedSeed", "Selected: Turnip", Vector2(64, 82), Vector2(140, 20))
+    _day_label = $HudRoot/Day as Label
+    _time_label = $HudRoot/Time as Label
+    _weather_label = $HudRoot/Weather as Label
+    _stamina_label = $HudRoot/Stamina as Label
+    _money_label = $HudRoot/Money as Label
+    _selected_seed_label = $HudRoot/SelectedSeed as Label
+    _pending_shipment_label = $HudRoot/PendingShipment as Label
+    _interaction_hint = $HudRoot/InteractionHint as Label
+    _feedback = $HudRoot/Feedback as Label
+    _feedback_panel = $HudRoot/FeedbackPanel as Panel
+    _bag_value_label = $HudRoot/ResourceStrip/BagPanel/BagValue as Label
+    _pending_value_label = $HudRoot/ResourceStrip/PendingPanel/PendingValue as Label
+    _seed_action_badge = $HudRoot/Action_1/Badge as Label
+    _objective_label = $HudRoot/Objective as Label
+    _harvested_count_labels = [
+        $HudRoot/HarvestedCount_0 as Label,
+        $HudRoot/HarvestedCount_1 as Label,
+        $HudRoot/HarvestedCount_2 as Label,
+    ]
+    _seed_count_labels.clear()
+    _action_buttons.clear()
+    _seed_buttons.clear()
+    for action in 4:
+        var action_button := $HudRoot.get_node("Action_%d" % action) as Button
+        action_button.toggle_mode = true
+        action_button.pressed.connect(_on_action_button_pressed.bind(action))
+        _action_buttons.append(action_button)
     for kind in range(GameRules.CropKind.size()):
-        var button := _add_button(
-            _root,
-            "Seed_%d" % kind,
-            GameRules.crop_display_name(kind),
-            Vector2(8 + kind * 72, 102),
-            Vector2(68, 22),
-        )
-        button.toggle_mode = true
-        button.pressed.connect(_on_seed_button_pressed.bind(kind))
-        _seed_buttons.append(button)
-        var count := _add_label(
-            _root,
-            "SeedCount_%d" % kind,
-            "0",
-            Vector2(35 + kind * 72, 124),
-            Vector2(22, 18),
-        )
-        _seed_count_labels.append(count)
+        var seed_button := $HudRoot.get_node("Seed_%d" % kind) as Button
+        seed_button.toggle_mode = true
+        seed_button.pressed.connect(_on_seed_button_pressed.bind(kind))
+        _seed_buttons.append(seed_button)
+        _seed_count_labels.append(seed_button.get_node("Count") as Label)
 
-    _add_label(_root, "HarvestedTitle", "Harvested", Vector2(8, 144), Vector2(72, 20))
-    for kind in range(GameRules.CropKind.size()):
-        var count := _add_label(
-            _root,
-            "HarvestedCount_%d" % kind,
-            "%s: 0" % GameRules.crop_display_name(kind),
-            Vector2(8 + kind * 88, 164),
-            Vector2(84, 20),
-        )
-        _harvested_count_labels.append(count)
+    _style_authored_tree(_root)
+    _apply_authored_hud_style()
+    _feedback_panel.visible = false
+    _feedback.visible = false
 
-    _pending_shipment_label = _add_label(
-        _root,
-        "PendingShipment",
-        "Pending shipment: 0",
-        Vector2(8, 188),
-        Vector2(160, 20),
+func _style_authored_tree(node: Node) -> void:
+    for child in node.get_children():
+        if child is Label:
+            UiStyle.text(child as Label)
+        elif child is Button:
+            UiStyle.button(child as Button)
+        _style_authored_tree(child)
+
+func _apply_authored_hud_style() -> void:
+    for panel_path in ["TopBar", "TopBar/MarketPanel", "FeedbackPanel", "Hotbar", "ResourceStrip/BagPanel", "ResourceStrip/PendingPanel"]:
+        var panel := $HudRoot.get_node(panel_path) as Panel
+        panel.add_theme_stylebox_override("panel", UiStyle.panel(UiStyle.PRIMARY, UiStyle.BORDER, 1))
+    _feedback_panel.add_theme_stylebox_override("panel", UiStyle.panel(UiStyle.HEADER, UiStyle.BORDER, 1))
+    var topbar := $HudRoot/TopBar as Control
+    UiStyle.text(topbar.get_node("DayCaption") as Label, 8, UiStyle.MUTED, 700)
+    UiStyle.text(_day_value_label, 14, UiStyle.CREAM, 800)
+    UiStyle.text(_day_max_label, 9, UiStyle.MUTED, 600)
+    UiStyle.text(_time_value_label, 12, UiStyle.CREAM, 700, true)
+    UiStyle.text(_weather_value_label, 10, UiStyle.CREAM, 700)
+    UiStyle.text(_market_label, 9, UiStyle.GOLD, 700)
+    UiStyle.text($HudRoot/TopBar/StaminaCaption as Label, 7, UiStyle.MUTED, 700)
+    UiStyle.text(_money_value_label, 14, UiStyle.GOLD, 800, true)
+    UiStyle.text($HudRoot/TopBar/MoneySuffix as Label, 9, UiStyle.MUTED, 700)
+    UiStyle.text($HudRoot/ResourceStrip/BagPanel/BagCaption as Label, 8, UiStyle.MUTED, 600)
+    UiStyle.text(_bag_value_label, 8, UiStyle.CREAM, 700)
+    UiStyle.text($HudRoot/ResourceStrip/PendingPanel/PendingCaption as Label, 8, UiStyle.MUTED, 600)
+    UiStyle.text(_pending_value_label, 8, UiStyle.CREAM, 700)
+    UiStyle.button($HudRoot/ResourceStrip/BagPanel/BagKey as Button, 8)
+    UiStyle.text(_interaction_hint, 9, UiStyle.GOLD, 700)
+    _interaction_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    UiStyle.text($HudRoot/SeedCycleHint as Label, 8, UiStyle.MUTED, 700)
+    UiStyle.text($HudRoot/Hotbar/TillLabel as Label, 9, UiStyle.CREAM, 700)
+    UiStyle.text($HudRoot/Hotbar/ShopLabel as Label, 9, UiStyle.CREAM, 700)
+    UiStyle.button($HudRoot/Hotbar/SpaceKey as Button, 9, true)
+    UiStyle.button($HudRoot/Hotbar/InteractKey as Button, 9)
+    for action in _action_buttons.size():
+        UiStyle.button(_action_buttons[action], 8)
+        var keycap := _action_buttons[action].get_node("Keycap") as Button
+        UiStyle.button(keycap, 8)
+        keycap.add_theme_stylebox_override("normal", UiStyle.panel(UiStyle.INSET, UiStyle.BORDER_LIGHT, 1))
+        UiStyle.text(_action_buttons[action].get_node("Key") as Label, 8, UiStyle.GOLD, 700)
+        UiStyle.text(_action_buttons[action].get_node("Name") as Label, 8, UiStyle.TEXT, 600)
+    UiStyle.text(_seed_action_badge, 8, UiStyle.GOLD, 700)
+    for seed in _seed_buttons.size():
+        UiStyle.button(_seed_buttons[seed], 8)
+        UiStyle.text(_seed_buttons[seed].get_node("Key") as Label, 8, UiStyle.GOLD, 700)
+        UiStyle.text(_seed_count_labels[seed], 8, UiStyle.TEXT, 700)
+    for separator_path in [
+        "TopBar/DaySeparator",
+        "TopBar/StatsSeparator",
+        "TopBar/MoneySeparator",
+        "Hotbar/ActionDivider",
+        "Hotbar/SeedDivider",
+    ]:
+        ($HudRoot.get_node(separator_path) as ColorRect).color = UiStyle.BORDER
+    ($HudRoot/TopBar/TimeRule as ColorRect).color = UiStyle.BORDER
+    ($HudRoot/TopBar/MarketPanel as Panel).add_theme_stylebox_override(
+        "panel",
+        UiStyle.panel(UiStyle.PRIMARY, UiStyle.GOLD, 1),
     )
-    _interaction_hint = _add_label(_root, "InteractionHint", "", Vector2(8, 214), Vector2(180, 20))
-    _feedback = _add_label(_root, "Feedback", "", Vector2(8, 238), Vector2(280, 24))
-    _objective_label = _add_label(_root, "Objective", "", Vector2(8, 338), Vector2(624, 20))
-    _objective_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 
 func _build_modals() -> void:
     _shop_panel = _build_shop_panel()
@@ -456,8 +526,7 @@ func _build_modals() -> void:
         gift_requested.emit(villager_id, crop_kind)
     )
     _dialogue_panel.close_requested.connect(close_dialogue)
-    _onboarding_overlay = OnboardingOverlay.new()
-    _onboarding_overlay.name = "OnboardingOverlay"
+    _onboarding_overlay = ONBOARDING_SCENE.instantiate() as OnboardingOverlay
     _root.add_child(_onboarding_overlay)
     _onboarding_overlay.intro_acknowledged.connect(func() -> void:
         intro_acknowledged.emit()
@@ -571,14 +640,18 @@ func _build_summary_panel() -> Control:
     return panel
 
 func _add_panel(parent: Control, node_name: String, title: String, position: Vector2, size: Vector2) -> Control:
-    var panel := ColorRect.new()
+    var panel := _add_surface(parent, node_name, position, size, UiStyle.PRIMARY, UiStyle.BORDER_LIGHT)
+    _add_label(panel, "Title", title, Vector2(10, 6), Vector2(size.x - 20, 22), 12, UiStyle.CREAM, 700)
+    return panel
+
+func _add_surface(parent: Control, node_name: String, position: Vector2, size: Vector2, fill: Color, border: Color) -> Panel:
+    var panel := Panel.new()
     panel.name = node_name
     panel.position = position
     panel.size = size
-    panel.color = Color(0.08, 0.1, 0.14, 0.96)
+    panel.add_theme_stylebox_override("panel", UiStyle.panel(fill, border, 1))
     panel.mouse_filter = Control.MOUSE_FILTER_STOP
     parent.add_child(panel)
-    _add_label(panel, "Title", title, Vector2(10, 6), Vector2(size.x - 20, 22))
     return panel
 
 func _add_row(parent: Control, kind: int, action_name: String, y: float) -> Dictionary:
@@ -613,12 +686,14 @@ func _add_row(parent: Control, kind: int, action_name: String, y: float) -> Dict
     )
     return {"label": label, "count": _add_label(row, "Count", "", Vector2(0, 25), Vector2(92, 16)), "spin": spin, "max": max_button, "action": action_button}
 
-func _add_label(parent: Node, node_name: String, text: String, position: Vector2, size: Vector2) -> Label:
+func _add_label(parent: Node, node_name: String, text: String, position: Vector2, size: Vector2, font_size: int = 10, color: Color = UiStyle.TEXT, weight: int = 400, mono: bool = false) -> Label:
     var label := Label.new()
     label.name = node_name
     label.text = text
     label.position = position
     label.size = size
+    label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    UiStyle.text(label, font_size, color, weight, mono)
     parent.add_child(label)
     return label
 
@@ -628,9 +703,31 @@ func _add_button(parent: Node, node_name: String, text: String, position: Vector
     button.text = text
     button.position = position
     button.size = size
-    button.focus_mode = Control.FOCUS_NONE
+    UiStyle.button(button)
     parent.add_child(button)
     return button
+
+func _add_texture(parent: Control, path: String, position: Vector2, size: Vector2) -> TextureRect:
+    var texture := TextureRect.new()
+    texture.name = path.get_file().get_basename().capitalize()
+    texture.position = position
+    texture.size = size
+    texture.texture = load(path) as Texture2D
+    texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+    texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+    texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    parent.add_child(texture)
+    return texture
+
+func _add_separator(parent: Control, node_name: String, position: Vector2, size: Vector2) -> ColorRect:
+    var separator := ColorRect.new()
+    separator.name = node_name
+    separator.position = position
+    separator.size = size
+    separator.color = UiStyle.BORDER
+    separator.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    parent.add_child(separator)
+    return separator
 
 func _on_action_button_pressed(action: int) -> void:
     select_action_requested.emit(action)
@@ -643,6 +740,9 @@ func _refresh_action_selection() -> void:
         var selected: bool = GameRules.ACTION_KEYS[action] == _selected_action
         _action_buttons[action].button_pressed = selected
         _action_buttons[action].modulate = Color(1.0, 0.9, 0.45) if selected else Color.WHITE
+        var name_label := _action_buttons[action].get_node("Name") as Label
+        UiStyle.text(name_label, 8, UiStyle.GOLD if selected else UiStyle.TEXT, 700 if selected else 600)
+        name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 func _refresh_seed_selection() -> void:
     _selected_seed_label.text = "Selected: %s" % _display_crop(_selected_seed)
