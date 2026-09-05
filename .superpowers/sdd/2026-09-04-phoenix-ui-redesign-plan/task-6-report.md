@@ -33,8 +33,11 @@ Shipping.
 
 ### GREEN
 
-After adding both authored panels, the focused integration suite passed 44/44.
-The modal layering test was then added and the final integration lane passed:
+After adding both authored panels, the focused
+`tests/integration/test_gameplay_shell.gd` suite passed 44/44 with 536
+assertions. The real GameHud modal layering test was then added; the focused
+file finished at 45/45 with 547 assertions. The complete integration directory
+lane passed:
 
 - 66/66 integration tests passed
 - 778 assertions passed
@@ -76,11 +79,27 @@ compared_pixels=65280
 mismatch_ratio=0.00000000
 ```
 
-State 02 and State 03 report-only comparisons correctly report
-`golden_missing=true`; no Task 6 golden was created or updated. Native capture
-processes retain the existing shutdown diagnostics of two leaked ObjectDB
-instances and one resource still in use; capture files were written
-successfully and the focused tests pass.
+Before coordinator approval, the State 02 and State 03 report-only
+comparisons correctly reported `golden_missing=true`; that pre-approval run did
+not update any Task 6 golden. Native capture processes retain the existing
+shutdown diagnostics of two leaked ObjectDB instances and one resource still
+in use; capture files were written successfully and the focused tests pass.
+
+After coordinator approval, only the approved State 02 and State 03 goldens
+were updated:
+
+- `tests/visual/goldens/02-seed-shop.png`
+- `tests/visual/goldens/03-shipping-day14.png`
+
+The normal native macOS visual gate then passed all three states. State 01
+reported `max_channel_delta=0`, `differing_pixels=0`,
+`pixels_over_tolerance=0`, `compared_pixels=65280`, and
+`mismatch_ratio=0.00000000`. States 02 and 03 each reported the same zero
+metrics over `compared_pixels=230400`.
+
+The owned `phoenix-reference-headless` Playwright session was closed after the
+normalized reference capture. The task-owned `.playwright-cli` directory is
+absent and no browser artifacts are staged or committed.
 
 After committing the implementation, `rtk ./tools/verify-clean.sh` passed
 against committed `HEAD`, including editor import/quit, the full GUT lane
@@ -109,14 +128,13 @@ smoke result was successful.
 
 ## Remaining concerns and gates
 
-The coordinator must approve the fresh Shop and Shipping candidates before any
-explicit State 02/03 golden update. The visual comparison gate is intentionally
-macOS-local with the existing measured one-channel / `0.0005` ratio tolerance;
-Linux parity and calibration remain outside this task. The shutdown diagnostics
-listed above are unchanged from the native capture path and did not cause test
-failures.
+The visual comparison gate is intentionally macOS-local with the existing
+measured one-channel / `0.0005` ratio tolerance; Linux parity and calibration
+remain outside this task. The shutdown diagnostics listed above are unchanged
+from the native capture path and did not cause test failures.
 
 ## Status
 
-`DONE_WITH_CONCERNS` pending coordinator visual approval and the later explicit
-golden-update decision.
+`DONE_WITH_CONCERNS`; the approved local implementation, goldens, clean
+verification, and browser-session cleanup are complete. Hosted or
+cross-platform visual evidence is outside this task.
