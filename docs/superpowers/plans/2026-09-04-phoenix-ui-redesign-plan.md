@@ -433,22 +433,22 @@ Generate current 1280x720 evidence and compare its two UI bands side-by-side wit
 ./tools/verify-visual.sh --update-goldens 01-hud
 ```
 
-- [ ] **Step 8: Calibrate macOS/Linux renderer drift before freezing thresholds**
+- [ ] **Step 8: Measure native-macOS repeatability and enable the normal visual gate**
 
-Run locally:
+Run at least two fresh captures on a native macOS display:
 
 ```bash
 ./tools/verify-visual.sh --report-only 01-hud
 ```
 
-Push the branch with CI temporarily invoking `--report-only 01-hud`; download/inspect its state-01 artifact. Compare the two production captures. Set:
+Record each run's `max_channel_delta`, raw `differing_pixels`, `pixels_over_tolerance`, and `mismatch_ratio`. Set:
 
 ```text
 channel tolerance = observed max channel delta + 1/255, rounded up to an 8-bit step
 mismatch ratio = max(0.0005, observed ratio * 2)
 ```
 
-Both must remain at or below the contract ceilings `12/255` and `0.002`. If either exceeds the ceiling, fix determinism rather than increasing the ceiling. Remove report-only from the state-01 CI path once calibrated.
+Both must remain at or below the contract ceilings `12/255` and `0.002`. If either exceeds the ceiling, fix determinism rather than increasing the ceiling. Enable the normal local gate with those thresholds. The workflow adds a macOS state-01 job using the pinned checkout/setup-godot actions, Godot 4.7.1, a clean editor/import step, native display, and retained current/evidence artifacts; hosted evidence is pending until that job runs. Linux visual parity/calibration is out of scope, while existing Linux behavior CI remains unchanged.
 
 - [ ] **Step 9: Run behavior + state-01 visual regression and commit**
 
@@ -461,7 +461,7 @@ git add scenes/ui/game_hud.tscn scenes/ui/onboarding_overlay.tscn scripts/ui/gam
 git commit -m "feat: rebuild Phoenix HUD and prove visual harness"
 ```
 
-Linux developers may prefix display-requiring commands with Xvfb manually; repository scripts remain cross-platform.
+Visual acceptance commands require a native macOS display. Existing Linux behavior CI remains covered by its current Xvfb-backed e2e job.
 
 ---
 
@@ -779,18 +779,16 @@ For every state, load current/golden images through raw `Image` APIs, apply logi
 
 Do not compare browser design-reference PNGs in this automated step.
 
-- [ ] **Step 3: Add CI wrapper**
+- [ ] **Step 3: Extend the macOS visual CI job to all 14 states**
 
-After the existing godot-e2e step:
+Extend the Task 5 state-01 job to enumerate all 14 already-approved states on `macos-latest`, using the pinned checkout/setup-godot actions, Godot 4.7.1, a clean editor/import step, and the native display:
 
 ```yaml
 - name: Verify UI visual regression
-  run: >-
-    xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24"
-    ./tools/verify-visual.sh
+  run: ./tools/verify-visual.sh
 ```
 
-Keep `test_output` artifact upload. CI must fail if `--update-goldens` is passed or if a golden is missing.
+Keep current/evidence `test_output/ui-visual` artifacts on failure. CI must fail if `--update-goldens` is passed or if a golden is missing.
 
 - [ ] **Step 4: Update README**
 
@@ -806,7 +804,7 @@ Document schema 2, I/B/C, repeated 2, M, O-from-Pause, settings, `./tools/verify
 ./tools/verify-visual.sh
 ```
 
-On Linux without a display, prefix display-requiring commands with Xvfb manually; CI already does this.
+Run the visual lane on native macOS. The existing Linux workflow continues to provide behavior/e2e coverage through Xvfb.
 
 Expected: all behavior gates pass and all 14 regression captures match approved production goldens within calibrated drift.
 
@@ -827,9 +825,9 @@ git commit -m "test: enforce Phoenix UI visual regression"
 
 Mitigation: mock/browser references are human design oracles only; machine regression uses Godot-generated goldens.
 
-### Cross-platform GL drift
+### Native-macOS capture repeatability
 
-Mitigation: prove/calibrate state 01 before other panels land; hard ceilings `12/255` channel and `0.002` mismatch prevent weakening the gate.
+Mitigation: repeat state 01 on native macOS before aggregating other panels; use the observed-max-plus-one-step and doubled-ratio formula, with hard ceilings `12/255` channel and `0.002` mismatch. Hosted macOS evidence is recorded only after the workflow runs.
 
 ### Golden blessing risk
 
