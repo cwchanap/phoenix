@@ -35,6 +35,12 @@ func render(snapshot: Dictionary) -> void:
 func is_opening_visible() -> bool:
     return _opening_panel.visible
 
+func _unhandled_input(event: InputEvent) -> void:
+    if not _opening_panel.visible or not event.is_action_pressed("ui_accept"):
+        return
+    get_viewport().set_input_as_handled()
+    intro_acknowledged.emit()
+
 func set_tutorial_cards_enabled(enabled: bool) -> void:
     _tutorial_cards_enabled = enabled
     if not enabled or _opening_panel.visible:

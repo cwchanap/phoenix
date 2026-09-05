@@ -30,9 +30,8 @@ func _start_new_game() -> Variant:
 	assert_bool(
 		await game.click_node("/root/AppRoot/TitleScreen/Panel/NewGame")
 	).is_true()
-	assert_bool(
-		await game.click_node(HUD + "/OnboardingOverlay/OpeningPanel/Start")
-	).is_true()
+    assert_bool(await game.input_action("ui_accept", true)).is_true()
+    assert_bool(await game.input_action("ui_accept", false)).is_true()
 	assert_bool(await game.wait_for_property(HUD + "/Day", "text", "Day 1", 10.0)).is_true()
 	return game
 

@@ -62,7 +62,14 @@ func test_new_game_propagates_settings_and_tutorial_toggle_to_world_hud() -> voi
     assert_false(card.visible)
     var tutorial_before: Dictionary = world._session.snapshot()["tutorial"].duplicate(true)
 
-    (opening.get_node("Start") as Button).pressed.emit()
+    var accepted := InputEventAction.new()
+    accepted.action = &"ui_accept"
+    accepted.pressed = true
+    hud.get_viewport().push_input(accepted)
+    var released := InputEventAction.new()
+    released.action = &"ui_accept"
+    released.pressed = false
+    hud.get_viewport().push_input(released)
     assert_false(opening.visible)
     assert_false(card.visible)
     assert_eq(world._session.snapshot()["tutorial"], tutorial_before)
