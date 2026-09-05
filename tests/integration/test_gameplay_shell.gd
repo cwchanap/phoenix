@@ -67,6 +67,17 @@ func test_start_releases_gate_and_tutorial_card_guides_first_actions() -> void:
     assert_true(card.visible)
     assert_eq((card.get_node("Title") as Label).text, "Plant a seed")
 
+func test_repeated_seed_slot_cycles_selected_seed() -> void:
+    var world := _world()
+    world.select_action_slot(2)
+    assert_eq(world._session.snapshot()["selected_seed"], &"turnip")
+    world.select_action_slot(2)
+    assert_eq(world._session.snapshot()["selected_seed"], &"potato")
+    world.select_action_slot(2)
+    assert_eq(world._session.snapshot()["selected_seed"], &"pumpkin")
+    world.select_action_slot(2)
+    assert_eq(world._session.snapshot()["selected_seed"], &"turnip")
+
 func test_objective_label_counts_down_to_market_day() -> void:
     var world := _world()
     if world == null:
