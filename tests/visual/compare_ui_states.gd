@@ -6,6 +6,7 @@ const CONTRACT_CHANNEL_CEILING := 12
 const CONTRACT_MISMATCH_RATIO_CEILING := 0.002
 const VALIDATION_SCOPE := "macos-local"
 const HUD_RECTS := [Rect2i(0, 0, 640, 36), Rect2i(0, 294, 640, 66)]
+const FULL_FRAME_RECTS := [Rect2i(0, 0, 640, 360)]
 
 func _initialize() -> void:
     var state_name := "01-hud"
@@ -22,7 +23,7 @@ func _initialize() -> void:
         elif argument.begins_with("--golden="):
             golden_path = argument.trim_prefix("--golden=")
 
-    if state_name != "01-hud":
+    if not ["01-hud", "02-seed-shop", "03-shipping-day14"].has(state_name):
         push_error("unsupported visual state: %s" % state_name)
         quit(2)
         return
@@ -55,7 +56,7 @@ func _initialize() -> void:
         push_error("golden must be a non-empty 640x360 image: %s" % golden_path)
         quit(2)
         return
-    var metrics := compare_images(capture, golden)
+    var metrics := compare_images(capture, golden, state_name)
     print("golden_missing=false")
     print("validation_scope=%s" % VALIDATION_SCOPE)
     print("max_channel_delta=%d" % int(metrics["max_channel_delta"]))
@@ -78,13 +79,14 @@ func _initialize() -> void:
         return
     quit(0)
 
-func compare_images(capture: Image, golden: Image) -> Dictionary:
+func compare_images(capture: Image, golden: Image, state_name: String = "01-hud") -> Dictionary:
     var max_channel_delta := 0
     var differing_pixels := 0
     var pixels_over_tolerance := 0
     var pixels_over_contract_channel_ceiling := 0
     var compared_pixels := 0
-    for rect in HUD_RECTS:
+    var rects := FULL_FRAME_RECTS if state_name != "01-hud" else HUD_RECTS
+    for rect in rects:
         for y in range(rect.position.y, rect.end.y):
             for x in range(rect.position.x, rect.end.x):
                 var delta := _pixel_delta(capture.get_pixel(x, y), golden.get_pixel(x, y))

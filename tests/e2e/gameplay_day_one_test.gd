@@ -150,12 +150,15 @@ func test_shop_purchase_updates_money() -> void:
 		await game.wait_for_property(HUD + "/ShopPanel", "visible", true, 5.0)
 	).is_true()
 
-	# Row_0 quantity SpinBox defaults to 1: one turnip seed costs 20.
-	assert_bool(await game.click_node(HUD + "/ShopPanel/Row_0/Buy")).is_true()
+	# The selected Turnip row defaults to one seed; Enter uses the real panel
+	# request path and costs 20.
+	assert_bool(await game.input_action("ui_accept", true)).is_true()
+	assert_bool(await game.input_action("ui_accept", false)).is_true()
 	assert_bool(
 		await game.wait_for_property(HUD + "/Money", "text", "Money: 130G", 5.0)
 	).is_true()
-	assert_bool(await game.click_node(HUD + "/ShopPanel/Close")).is_true()
+	assert_bool(await game.input_action("ui_cancel", true)).is_true()
+	assert_bool(await game.input_action("ui_cancel", false)).is_true()
 	assert_bool(
 		await game.wait_for_property(HUD + "/ShopPanel", "visible", false, 5.0)
 	).is_true()

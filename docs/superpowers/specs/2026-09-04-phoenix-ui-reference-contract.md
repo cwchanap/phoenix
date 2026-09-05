@@ -116,6 +116,12 @@ required `150` money value. The normalized HUD capture applies
 spacer so the complete `150` remains inside the 1280px frame. Result replaces
 the mock's unreachable `415G` with the production-valid `645G` fixture above.
 
+State 03 applies the same presentation-only normalization to the supplied browser
+reference: its Shipping header carried stale `PENDING 245G` text even though the
+frozen fixture starts with pending `0/0/0`. The normalized DOM re-render shows
+`PENDING 0G`; the selected Turnip `VALUE 245` and `DEPOSIT ×7` remain unchanged.
+This corrects the browser datum without editing PNG pixels or changing the economy.
+
 The raw mock’s `415G` result is unreachable for any non-negative combination of the fixed 35/75/140 sale values. Like the Calendar corrections, the normalized reference fixes the datum rather than changing gameplay.
 
 ## Rule helpers required by the reference

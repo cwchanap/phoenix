@@ -22,7 +22,38 @@ static func hud_state() -> Dictionary:
     state["tutorial"] = ContentRules.initial_tutorial_progress()
     state["shipped"] = {&"turnip": 0, &"potato": 0, &"pumpkin": 0}
     state["finale_triggered"] = false
-    state["max_stamina"] = GameRules.MAX_STAMINA
     var error := GameSession.state_error(state)
     assert(error == "", "invalid HUD fixture state: %s" % error)
     return state
+
+static func shop_state() -> Dictionary:
+    var state := hud_state()
+    state["money"] = 150
+    state["seeds"] = {&"turnip": 3, &"potato": 0, &"pumpkin": 0}
+    var error := GameSession.state_error(state)
+    assert(error == "", "invalid shop fixture state: %s" % error)
+    return state
+
+static func shipping_state() -> Dictionary:
+    var state := hud_state()
+    state["day"] = GameRules.MAX_DAY
+    state["weather_history"] = []
+    for _day in GameRules.MAX_DAY:
+        state["weather_history"].append(GameRules.weather_key(GameRules.Weather.SUNNY))
+    state["harvested"] = {&"turnip": 7, &"potato": 0, &"pumpkin": 0}
+    state["pending_shipment"] = {&"turnip": 0, &"potato": 0, &"pumpkin": 0}
+    var error := GameSession.state_error(state)
+    assert(error == "", "invalid shipping fixture state: %s" % error)
+    return state
+
+static func state_for(name: String) -> Dictionary:
+    match name:
+        "01-hud":
+            return hud_state()
+        "02-seed-shop":
+            return shop_state()
+        "03-shipping-day14":
+            return shipping_state()
+        _:
+            assert(false, "unsupported fixture state: %s" % name)
+            return {}
