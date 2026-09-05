@@ -140,7 +140,12 @@ func select_action_slot(slot: int) -> void:
         1:
             _finish_command(_session.select_action(GameRules.FarmingAction.HOE))
         2:
-            _finish_command(_session.select_action(GameRules.FarmingAction.SEEDS))
+            var snapshot := _session.snapshot()
+            if snapshot["selected_action"] == GameRules.action_key(GameRules.FarmingAction.SEEDS):
+                var current := GameRules.CROP_KEYS.find(StringName(snapshot["selected_seed"]))
+                _finish_command(_session.select_seed((current + 1) % GameRules.CropKind.size()))
+            else:
+                _finish_command(_session.select_action(GameRules.FarmingAction.SEEDS))
         3:
             _finish_command(_session.select_action(GameRules.FarmingAction.WATERING_CAN))
         4:
