@@ -11,6 +11,7 @@ var _tutorial_title: Label
 var _tutorial_body: Label
 var _last_snapshot: Dictionary = {}
 var _current_prompt_id: StringName = &""
+var _tutorial_cards_enabled := true
 
 func _ready() -> void:
     _opening_panel = _build_opening_panel()
@@ -24,6 +25,8 @@ func render(snapshot: Dictionary) -> void:
     _opening_panel.visible = not bool(snapshot["intro_acknowledged"])
     if _opening_panel.visible:
         _tutorial_card.visible = false
+    elif not _tutorial_cards_enabled:
+        _tutorial_card.visible = false
     else:
         _render_tutorial(ContentRules.next_tutorial_prompt(snapshot, _dismissed))
     if was_blocking != _opening_panel.visible:
@@ -31,6 +34,13 @@ func render(snapshot: Dictionary) -> void:
 
 func is_opening_visible() -> bool:
     return _opening_panel.visible
+
+func set_tutorial_cards_enabled(enabled: bool) -> void:
+    _tutorial_cards_enabled = enabled
+    if not enabled or _opening_panel.visible:
+        _tutorial_card.visible = false
+    elif not _last_snapshot.is_empty():
+        _render_tutorial(ContentRules.next_tutorial_prompt(_last_snapshot, _dismissed))
 
 func _build_opening_panel() -> Control:
     var panel := ColorRect.new()

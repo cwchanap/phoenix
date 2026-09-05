@@ -14,6 +14,7 @@ const FARM_ACTION_SUCCESS_CODES := [
 var _session: GameSession
 var _initial_state: Variant = null
 var _save_repository: SaveRepository = null
+var _settings: UiSettings
 var _world_input_enabled := true
 var _finale_in_progress := false
 
@@ -30,18 +31,26 @@ static func perimeter_footprints() -> Array[Rect2]:
         Rect2(-PERIMETER_BAND_WIDTH, 0.0, PERIMETER_BAND_WIDTH, map_size.y),
     ]
 
-func configure(initial_state: Variant, repository: SaveRepository) -> void:
+func configure(
+    initial_state: Variant,
+    repository: SaveRepository,
+    settings: UiSettings = null,
+) -> void:
     assert(not is_inside_tree())
     _initial_state = initial_state.duplicate(true) if initial_state != null else null
     _save_repository = repository
+    _settings = settings
 
 func _ready() -> void:
+    if _settings == null:
+        _settings = UiSettings.new()
     _session = GameSession.new()
     if _initial_state != null and not _session.restore_state(_initial_state):
         push_error("AppRoot supplied invalid restored state")
         _session = GameSession.new()
 
     get_window().min_size = Vector2i(640, 360)
+    hud.configure(_settings)
 
     var static_collision := get_node("StaticCollision") as StaticBody2D
     var tree_collision := static_collision.get_node("TreeCollision") as CollisionPolygon2D
