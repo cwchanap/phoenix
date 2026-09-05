@@ -273,7 +273,7 @@ Cover:
 
 The harness is not deferred until the end.
 
-- Task 5 creates capture/compare support for `01-hud`, proves the 640x360 capture path, deterministic fonts, masks, raw-image loading, and cross-platform tolerance.
+- Task 5 creates capture/compare support for `01-hud`, proves the 640x360 capture path, deterministic fonts, masks, raw-image loading, and native-macOS repeatability.
 - After HUD is visually approved against the mock-derived reference, create its production golden.
 - Each later UI task adds and visually approves the states it introduces, then adds their production goldens.
 - Task 11 only aggregates the already-proven states into CI and final evidence.
@@ -284,14 +284,16 @@ The harness is not deferred until the end.
 - raw PNGs are loaded with `Image.load_from_file(ProjectSettings.globalize_path(...))`,
 - reference/golden/plate directories are `.gdignore`d,
 - `--update-goldens` is explicit and unavailable to CI,
-- thresholds are calibrated from state 01 across local macOS and Linux/Xvfb before being frozen,
+- visual acceptance and threshold calibration are native-macOS only; Linux visual parity/calibration is out of scope while existing Linux behavior CI remains unchanged,
+- thresholds use the state-01 macOS repeatability measurement: observed maximum channel delta plus one 8-bit step, and the greater of `0.0005` or twice the observed mismatch ratio,
+- hard ceilings remain `12/255` per channel and `0.002` mismatch ratio,
 - browser mock PNGs are never compared as strict pixel goldens.
 
 ## Risks and mitigations
 
-### Renderer drift
+### Renderer repeatability
 
-Risk: macOS GL and Linux/Xvfb llvmpipe may differ slightly. Mitigation: state-01 report-only calibration before thresholds are frozen; hard ceilings prevent “solving” large drift by weakening the gate.
+Risk: repeated native-macOS captures may drift slightly. Mitigation: state-01 report-only repeats establish the local thresholds before the normal gate is enabled; hard ceilings prevent “solving” large drift by weakening the gate. Linux visual parity and calibration are outside this redesign scope.
 
 ### Design/reference drift
 

@@ -71,19 +71,19 @@ Parity-critical text must not depend on host fonts. Bundle pinned open-licensed 
 
 `UiStyle` loads them as `FontFile`s and uses `FontVariation` weights 400/600/700/800. Do not use `SystemFont`, and do not extract the mock’s embedded webfont bytes.
 
-## Platform-drift calibration
+## Native-macOS visual calibration
 
-Godot uses `gl_compatibility`; Linux CI renders through Xvfb/llvmpipe while local macOS uses its GL stack. Do not freeze arbitrary image-diff tolerances before measuring this.
+Visual acceptance and calibration use a native macOS display with Godot 4.7.1. Linux visual parity and calibration are out of scope for this redesign; the existing Linux behavior CI remains unchanged.
 
 State `01-hud` proves the harness first. After it is visually approved and a production golden exists:
 
-1. Run the comparer in `--report-only` mode on macOS.
-2. Let the PR CI run the same state under Linux/Xvfb in `--report-only` mode and retain its capture artifact.
-3. Compare the two production captures and record `max_channel_delta` and `mismatch_ratio` in the PR.
-4. Set the machine thresholds to the smallest values that cover the observed drift plus one 8-bit channel step. Hard ceiling: channel tolerance `12/255` and mismatch ratio `0.002`. If measured drift exceeds either ceiling, fix rendering determinism instead of weakening the gate.
-5. Remove `--report-only` from CI for state 01 before adding further states.
+1. Run at least two fresh native-macOS captures in `--report-only` mode and retain their raw and nearest-2x evidence artifacts.
+2. Record `max_channel_delta` and the tolerance-exceeding `mismatch_ratio` from each run. Raw `differing_pixels` and `pixels_over_tolerance` remain separate report fields.
+3. Set the machine thresholds from the largest observed repeat: channel tolerance is the observed maximum channel delta plus one 8-bit channel step, and mismatch ratio is `max(0.0005, observed ratio * 2)`.
+4. Keep the hard ceilings at channel tolerance `12/255` and mismatch ratio `0.002`. If measured drift exceeds either ceiling, fix rendering determinism instead of weakening the gate.
+5. Enable normal comparison locally and in the macOS state-01 visual job. Do not claim hosted evidence until that workflow has run successfully.
 
-Later states use the already-proven capture path and thresholds.
+Later states use the already-proven capture path and thresholds; Task 11 extends the macOS job to all 14 states.
 
 ## Frozen fixture table
 
