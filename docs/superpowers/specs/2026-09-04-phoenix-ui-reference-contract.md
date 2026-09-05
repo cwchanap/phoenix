@@ -106,6 +106,16 @@ All farm-state fixtures must satisfy `GameSession.state_error(state) == ""` befo
 | 13 | Title | Continue unavailable; reason exactly `Save is incompatible; start a New Game.`; New Game selected; footer `Godot 4.7.1 · 640×360`. |
 | 14 | Result | **Normalized to production-valid data:** Day 14 completed state with shipped Turnip `4`, Potato `3`, Pumpkin `2` = `9` crops / `645G`; final money `505G`; June at Close Friend and featured; tier `Heart of the Harvest`. The normalized design reference replaces the mock’s impossible `415G` text with `645G`. Capture goes through `ContentRules.build_harvest_result()` -> `ResultScreen.present()`, not a capture-only dictionary. |
 
+The Calendar, HUD, and Result design references apply small source-mock
+normalizations while preserving their approved styling. Calendar removes the
+mock's future Day-4 rain icon and labels Day 9 with Pumpkin's earliest-ready
+marker. The raw HUD top bar declares `width: 1280px` with `padding: 0 20px`
+under content-box sizing, making its content 1320px wide and clipping the
+required `150` money value. The normalized HUD capture applies
+`box-sizing: border-box` to that top bar only, shrinking its flexible market
+spacer so the complete `150` remains inside the 1280px frame. Result replaces
+the mock's unreachable `415G` with the production-valid `645G` fixture above.
+
 The raw mock’s `415G` result is unreachable for any non-negative combination of the fixed 35/75/140 sale values. Like the Calendar corrections, the normalized reference fixes the datum rather than changing gameplay.
 
 ## Rule helpers required by the reference
