@@ -31,6 +31,22 @@ jobs:
         run: >-
           xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24"
           ./addons/gdUnit4/runtest.sh -a tests/e2e -c
+      # Temporary Task 5 calibration lane. Remove after macOS/Linux drift
+      # thresholds are measured and the normal visual gate is frozen.
+      - name: Capture state-01 visual calibration candidate
+        if: always()
+        run: >-
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24"
+          ./tools/verify-visual.sh --report-only 01-hud
+      - name: Upload state-01 visual calibration candidate
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ui-visual-state01-calibration
+          if-no-files-found: warn
+          path: |
+            test_output/ui-visual/01-hud.png
+            test_output/ui-visual/01-hud-2x.png
       - name: Upload reports and failure artifacts
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
