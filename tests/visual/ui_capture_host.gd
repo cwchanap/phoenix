@@ -46,6 +46,12 @@ func prepare_state() -> void:
         "03-shipping-day14":
             _hud.open_shipping()
             await _press_panel_action("panel_max")
+        "04-bag":
+            _hud.open_bag()
+        "05-almanac":
+            _hud.open_almanac()
+        "06-calendar":
+            _hud.open_calendar()
 
 func _press_panel_action(action: StringName) -> void:
     var press := InputEventAction.new()

@@ -92,6 +92,11 @@ static func role_label(id: VillagerId) -> String:
 static func favourite_crop(id: VillagerId) -> GameRules.CropKind:
     return FAVOURITE_CROPS[id]
 
+static func favourite_villager_for_crop(kind: GameRules.CropKind) -> VillagerId:
+    var index := FAVOURITE_CROPS.find(kind)
+    assert(index >= 0)
+    return index as VillagerId
+
 static func relationship_key(level: RelationshipLevel) -> StringName:
     return RELATIONSHIP_KEYS[level]
 

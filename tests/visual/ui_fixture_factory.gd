@@ -46,6 +46,42 @@ static func shipping_state() -> Dictionary:
     assert(error == "", "invalid shipping fixture state: %s" % error)
     return state
 
+static func bag_state() -> Dictionary:
+    var state := hud_state()
+    state["seeds"] = {&"turnip": 3, &"potato": 0, &"pumpkin": 0}
+    state["harvested"] = {&"turnip": 7, &"potato": 2, &"pumpkin": 0}
+    state["pending_shipment"] = {&"turnip": 4, &"potato": 0, &"pumpkin": 0}
+    var error := GameSession.state_error(state)
+    assert(error == "", "invalid bag fixture state: %s" % error)
+    return state
+
+static func almanac_state() -> Dictionary:
+    var state := hud_state()
+    var error := GameSession.state_error(state)
+    assert(error == "", "invalid almanac fixture state: %s" % error)
+    return state
+
+static func calendar_state() -> Dictionary:
+    var state := hud_state()
+    state["weather_history"] = [&"sunny", &"rainy", &"sunny"]
+    var farm: Array = state["farm"]
+    farm[0]["tilled"] = true
+    farm[0]["crop"] = {
+        "kind": GameRules.crop_key(GameRules.CropKind.TURNIP),
+        "growth": 0,
+        "watered_today": false,
+    }
+    farm[1]["tilled"] = true
+    farm[1]["crop"] = {
+        "kind": GameRules.crop_key(GameRules.CropKind.PUMPKIN),
+        "growth": 1,
+        "watered_today": false,
+    }
+    state["farm"] = farm
+    var error := GameSession.state_error(state)
+    assert(error == "", "invalid calendar fixture state: %s" % error)
+    return state
+
 static func state_for(name: String) -> Dictionary:
     match name:
         "01-hud":
@@ -54,6 +90,12 @@ static func state_for(name: String) -> Dictionary:
             return shop_state()
         "03-shipping-day14":
             return shipping_state()
+        "04-bag":
+            return bag_state()
+        "05-almanac":
+            return almanac_state()
+        "06-calendar":
+            return calendar_state()
         _:
             assert(false, "unsupported fixture state: %s" % name)
             return {}

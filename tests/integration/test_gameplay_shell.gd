@@ -391,6 +391,178 @@ func test_shipping_keyboard_rows_update_quantity_max_and_enter_request() -> void
     await _press_panel_action("ui_accept")
     assert_eq(requests, [{"kind": GameRules.CropKind.TURNIP, "quantity": 7}])
 
+func test_inventory_modal_keys_are_exclusive_same_key_closes_and_gate_input() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    assert_eq(hud._primary_modals.size(), 9)
+    for entry in [
+        {"action": &"toggle_bag", "panel": "BagPanel"},
+        {"action": &"toggle_almanac", "panel": "AlmanacPanel"},
+        {"action": &"toggle_calendar", "panel": "CalendarPanel"},
+    ]:
+        await _press_panel_action(entry["action"])
+        assert_true(_panel(hud, entry["panel"]).visible)
+        var visible_count := 0
+        for panel in hud._primary_modals:
+            if panel.visible:
+                visible_count += 1
+        assert_eq(visible_count, 1)
+        assert_false(world._world_input_enabled)
+
+        await _press_panel_action(entry["action"])
+        assert_false(_panel(hud, entry["panel"]).visible)
+        assert_true(world._world_input_enabled)
+
+func test_inventory_escape_closes_one_surface_and_morning_summary_guard_wins() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+
+    await _press_panel_action("toggle_bag")
+    assert_true(_panel(hud, "BagPanel").visible)
+    await _press_escape()
+    assert_false(_panel(hud, "BagPanel").visible)
+    assert_false(_panel(hud, "PauseHelp").visible)
+    assert_true(world._world_input_enabled)
+
+    var snapshot := world._session.snapshot()
+    snapshot["pending_morning_summary"] = {"completed_day": 2, "next_day": 3}
+    hud.render(snapshot)
+    assert_true(_panel(hud, "MorningSummaryPanel").visible)
+    await _press_panel_action("toggle_bag")
+    assert_false(_panel(hud, "BagPanel").visible)
+    assert_true(_panel(hud, "MorningSummaryPanel").visible)
+    assert_false(world._world_input_enabled)
+
+func test_read_only_panels_render_rules_and_only_known_calendar_weather() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var state := world._session.state()
+    state["day"] = 3
+    state["weather"] = &"sunny"
+    state["weather_history"] = [&"sunny", &"rainy", &"sunny"]
+    var farm: Array = state["farm"]
+    farm[0]["tilled"] = true
+    farm[0]["crop"] = {
+        "kind": GameRules.crop_key(GameRules.CropKind.TURNIP),
+        "growth": 0,
+        "watered_today": false,
+    }
+    farm[1]["tilled"] = true
+    farm[1]["crop"] = {
+        "kind": GameRules.crop_key(GameRules.CropKind.PUMPKIN),
+        "growth": 1,
+        "watered_today": false,
+    }
+    state["farm"] = farm
+    state["pending_shipment"] = {&"turnip": 4, &"potato": 0, &"pumpkin": 0}
+    var restored := GameSession.new()
+    assert_true(restored.restore_state(state))
+    hud.render(restored.snapshot())
+
+    hud.open_bag()
+    var bag := _panel(hud, "BagPanel")
+    assert_eq((bag.get_node("Frame/Body/Detail/Title") as Label).text, "Turnip seeds")
+    assert_eq((bag.get_node("Frame/Body/Detail/Economy") as Label).text, "20G buy · 35G sell")
+    assert_eq((bag.get_node("Frame/Body/Detail/Favourite") as Label).text, "June's favourite")
+    await _press_panel_action("move_down")
+    await _press_panel_action("move_down")
+    assert_eq((bag.get_node("Frame/Body/Left/Shelf_2/PayoutValue") as Label).text, "140G")
+    assert_eq(
+        (bag.get_node("Frame/Body/Left/Shelf_2/PayoutText") as Label).text,
+        "Pays out tomorrow morning",
+    )
+    assert_true((bag.get_node("Frame/Body/Left/Shelf_2/Slot_0") as Panel).visible)
+    assert_false((bag.get_node("Frame/Body/Left/Shelf_2/Slot_1") as Panel).visible)
+    hud.close_bag()
+
+    var season_end_state := state.duplicate(true)
+    season_end_state["day"] = GameRules.MAX_DAY
+    season_end_state["weather"] = &"sunny"
+    var season_weather: Array[StringName] = []
+    for _day in GameRules.MAX_DAY:
+        season_weather.append(&"sunny")
+    season_end_state["weather_history"] = season_weather
+    season_end_state["pending_shipment"] = {&"turnip": 1, &"potato": 0, &"pumpkin": 0}
+    var season_end_pending := GameSession.new()
+    assert_true(season_end_pending.restore_state(season_end_state))
+    hud.render(season_end_pending.snapshot())
+    hud.open_bag()
+    bag = _panel(hud, "BagPanel")
+    await _press_panel_action("move_down")
+    await _press_panel_action("move_down")
+    assert_eq(
+        (bag.get_node("Frame/Body/Detail/Description") as Label).text,
+        "Payout is collected at season end.",
+    )
+    assert_eq(
+        (bag.get_node("Frame/Body/Left/Shelf_2/PayoutText") as Label).text,
+        "Paid at season end",
+    )
+    hud.close_bag()
+
+    state["day"] = 3
+    state["weather"] = &"sunny"
+    state["weather_history"] = [&"sunny", &"rainy", &"sunny"]
+    state["pending_shipment"] = {&"turnip": 0, &"potato": 1, &"pumpkin": 0}
+    var sparse_pending := GameSession.new()
+    assert_true(sparse_pending.restore_state(state))
+    hud.render(sparse_pending.snapshot())
+    hud.open_bag()
+    bag = _panel(hud, "BagPanel")
+    await _press_panel_action("move_down")
+    await _press_panel_action("move_down")
+    assert_eq(bag.selected_kind(), GameRules.CropKind.POTATO)
+    assert_false((bag.get_node("Frame/Body/Left/Shelf_2/Slot_0") as Panel).visible)
+    assert_true((bag.get_node("Frame/Body/Left/Shelf_2/Slot_1") as Panel).visible)
+    await _press_panel_action("move_right")
+    assert_eq(bag.selected_kind(), GameRules.CropKind.POTATO)
+    hud.close_bag()
+
+    state["pending_shipment"] = {&"turnip": 0, &"potato": 0, &"pumpkin": 0}
+    var empty_pending := GameSession.new()
+    assert_true(empty_pending.restore_state(state))
+    hud.render(empty_pending.snapshot())
+    hud.open_bag()
+    bag = _panel(hud, "BagPanel")
+    await _press_panel_action("move_down")
+    await _press_panel_action("move_down")
+    assert_false((bag.get_node("Frame/Body/Left/Shelf_2/Slot_0") as Panel).visible)
+    assert_false((bag.get_node("Frame/Body/Left/Shelf_2/Slot_1") as Panel).visible)
+    assert_false((bag.get_node("Frame/Body/Left/Shelf_2/Slot_2") as Panel).visible)
+    assert_false((bag.get_node("Frame/Body/Left/Shelf_2/PayoutValue") as Label).visible)
+    hud.close_bag()
+
+    hud.open_almanac()
+    var almanac := _panel(hud, "AlmanacPanel")
+    assert_eq((almanac.get_node("Frame/Body/Card_0/Name") as Label).text, "Turnip")
+    assert_eq((almanac.get_node("Frame/Body/Card_1/SellValue") as Label).text, "75G")
+    assert_eq((almanac.get_node("Frame/Body/Card_2/MarginValue") as Label).text, "+70")
+    hud.close_almanac()
+
+    hud.open_calendar()
+    var calendar := _panel(hud, "CalendarPanel")
+    assert_true((calendar.get_node("Frame/Body/Day_06/ReadinessIcon") as TextureRect).visible)
+    assert_eq((calendar.get_node("Frame/Body/Day_06/ReadinessLabel") as Label).text, "EARLIEST")
+    assert_true((calendar.get_node("Frame/Body/Day_09/ReadinessIcon") as TextureRect).visible)
+    assert_eq(
+        (calendar.get_node("Frame/Body/Day_09/ReadinessIcon") as TextureRect).texture.resource_path,
+        "res://assets/ui/crops/pumpkin.png",
+    )
+    assert_false((calendar.get_node("Frame/Body/Day_04/Weather") as TextureRect).visible)
+    assert_true((calendar.get_node("Frame/Body/Day_03/Weather") as TextureRect).visible)
+
 func _press_panel_action(action: StringName) -> void:
     var press := InputEventAction.new()
     press.action = action
@@ -409,7 +581,7 @@ func test_primary_modal_registry_keeps_surfaces_exclusive() -> void:
     var hud := _hud(world)
     if hud == null:
         return
-    assert_eq(hud._primary_modals.size(), 6)
+    assert_eq(hud._primary_modals.size(), 9)
     for entry in [
         {"name": "ShopPanel", "open": Callable(hud, "open_shop"), "close": Callable(hud, "close_shop")},
         {"name": "ShippingPanel", "open": Callable(hud, "open_shipping"), "close": Callable(hud, "close_shipping")},

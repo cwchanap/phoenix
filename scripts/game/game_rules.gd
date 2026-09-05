@@ -103,6 +103,12 @@ static func visual_stage(kind: CropKind, progress: int) -> int:
 static func is_mature(kind: CropKind, progress: int) -> bool:
     return progress >= growth_nights(kind)
 
+static func earliest_ready_day(kind: CropKind, growth: int, current_day: int) -> int:
+    assert(growth >= 0 and growth <= growth_nights(kind))
+    assert(current_day >= 1 and current_day <= MAX_DAY)
+    var ready_day := current_day + (growth_nights(kind) - growth)
+    return ready_day if ready_day <= MAX_DAY else -1
+
 static func evaluate_action_budget(
     time_minutes: int,
     stamina: int,

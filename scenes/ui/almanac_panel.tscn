@@ -1,0 +1,709 @@
+[gd_scene load_steps=6 format=4]
+
+[ext_resource type="Script" path="res://scripts/ui/almanac_panel.gd" id="1_almanac"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/almanac.png" id="2_almanac"]
+[ext_resource type="Texture2D" path="res://assets/ui/crops/turnip-art.png" id="3_turnip"]
+[ext_resource type="Texture2D" path="res://assets/ui/crops/potato-art.png" id="4_potato"]
+[ext_resource type="Texture2D" path="res://assets/ui/crops/pumpkin-art.png" id="5_pumpkin"]
+
+[node name="AlmanacPanel" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+script = ExtResource("1_almanac")
+
+[node name="Dim" type="ColorRect" parent="."]
+layout_mode = 0
+offset_right = 640.0
+offset_bottom = 360.0
+mouse_filter = 2
+color = Color(0.054902, 0.07451, 0.105882, 1)
+
+[node name="Frame" type="Panel" parent="."]
+layout_mode = 0
+offset_left = 37.0
+offset_top = 14.0
+offset_right = 603.0
+offset_bottom = 344.0
+mouse_filter = 1
+
+[node name="Header" type="Panel" parent="Frame"]
+layout_mode = 0
+offset_left = 2.0
+offset_top = 2.0
+offset_right = 564.0
+offset_bottom = 42.0
+mouse_filter = 2
+
+[node name="Icon" type="TextureRect" parent="Frame/Header"]
+layout_mode = 0
+offset_left = 14.0
+offset_top = 7.0
+offset_right = 34.0
+offset_bottom = 27.0
+mouse_filter = 2
+texture = ExtResource("2_almanac")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Title" type="Label" parent="Frame/Header"]
+layout_mode = 0
+offset_left = 40.0
+offset_top = 7.0
+offset_right = 180.0
+offset_bottom = 30.0
+text = "ALMANAC"
+
+[node name="Subtitle" type="Label" parent="Frame/Header"]
+layout_mode = 0
+offset_left = 436.0
+offset_top = 11.0
+offset_right = 552.0
+offset_bottom = 28.0
+text = "3 crops · 14-day season"
+horizontal_alignment = 2
+
+[node name="Body" type="Control" parent="Frame"]
+layout_mode = 0
+offset_left = 2.0
+offset_top = 42.0
+offset_right = 564.0
+offset_bottom = 290.0
+mouse_filter = 2
+
+[node name="Card_0" type="Panel" parent="Frame/Body"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 184.0
+offset_bottom = 245.0
+mouse_filter = 2
+
+[node name="FavouriteBadge" type="Panel" parent="Frame/Body/Card_0"]
+layout_mode = 0
+offset_left = 124.0
+offset_top = 112.0
+offset_right = 164.0
+offset_bottom = 129.0
+mouse_filter = 2
+
+[node name="Value" type="Label" parent="Frame/Body/Card_0/FavouriteBadge"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="SeedCell" type="Panel" parent="Frame/Body/Card_0"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 180.0
+offset_right = 57.0
+offset_bottom = 219.0
+mouse_filter = 2
+
+[node name="SellCell" type="Panel" parent="Frame/Body/Card_0"]
+layout_mode = 0
+offset_left = 64.0
+offset_top = 180.0
+offset_right = 111.0
+offset_bottom = 219.0
+mouse_filter = 2
+
+[node name="MarginCell" type="Panel" parent="Frame/Body/Card_0"]
+layout_mode = 0
+offset_left = 118.0
+offset_top = 180.0
+offset_right = 165.0
+offset_bottom = 219.0
+mouse_filter = 2
+
+[node name="Art" type="TextureRect" parent="Frame/Body/Card_0"]
+layout_mode = 0
+offset_left = 2.0
+offset_top = 2.0
+offset_right = 172.0
+offset_bottom = 102.0
+mouse_filter = 2
+texture = ExtResource("3_turnip")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Name" type="Label" parent="Frame/Body/Card_0"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 114.0
+offset_right = 92.0
+offset_bottom = 136.0
+text = "Turnip"
+
+[node name="Favourite" type="Label" parent="Frame/Body/Card_0"]
+layout_mode = 0
+offset_left = 102.0
+offset_top = 104.0
+offset_right = 164.0
+offset_bottom = 120.0
+visible = false
+text = "♥ JUNE"
+horizontal_alignment = 2
+
+[node name="GrowthCaption" type="Label" parent="Frame/Body/Card_0"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 139.0
+offset_right = 90.0
+offset_bottom = 153.0
+text = "GROWTH"
+
+[node name="Growth" type="Control" parent="Frame/Body/Card_0"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 150.0
+offset_right = 164.0
+offset_bottom = 164.0
+mouse_filter = 2
+
+[node name="Pip_0" type="ColorRect" parent="Frame/Body/Card_0/Growth"]
+layout_mode = 0
+offset_right = 19.0
+offset_bottom = 8.0
+
+[node name="Pip_1" type="ColorRect" parent="Frame/Body/Card_0/Growth"]
+layout_mode = 0
+offset_left = 23.0
+offset_right = 42.0
+offset_bottom = 8.0
+
+[node name="Pip_2" type="ColorRect" parent="Frame/Body/Card_0/Growth"]
+layout_mode = 0
+offset_left = 46.0
+offset_right = 65.0
+offset_bottom = 8.0
+
+[node name="Pip_3" type="ColorRect" parent="Frame/Body/Card_0/Growth"]
+layout_mode = 0
+offset_left = 69.0
+offset_right = 88.0
+offset_bottom = 8.0
+
+[node name="Pip_4" type="ColorRect" parent="Frame/Body/Card_0/Growth"]
+layout_mode = 0
+offset_left = 92.0
+offset_right = 111.0
+offset_bottom = 8.0
+
+[node name="Pip_5" type="ColorRect" parent="Frame/Body/Card_0/Growth"]
+layout_mode = 0
+offset_left = 115.0
+offset_right = 134.0
+offset_bottom = 8.0
+
+[node name="Pip_6" type="ColorRect" parent="Frame/Body/Card_0/Growth"]
+layout_mode = 0
+offset_left = 138.0
+offset_right = 157.0
+offset_bottom = 8.0
+
+[node name="GrowthValue" type="Label" parent="Frame/Body/Card_0"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 164.0
+offset_right = 164.0
+offset_bottom = 180.0
+text = "3 watered nights"
+
+[node name="SeedCaption" type="Label" parent="Frame/Body/Card_0"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 180.0
+offset_right = 54.0
+offset_bottom = 198.0
+text = "SEED"
+
+[node name="SeedValue" type="Label" parent="Frame/Body/Card_0"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 195.0
+offset_right = 54.0
+offset_bottom = 219.0
+text = "20G"
+
+[node name="SellCaption" type="Label" parent="Frame/Body/Card_0"]
+layout_mode = 0
+offset_left = 64.0
+offset_top = 180.0
+offset_right = 108.0
+offset_bottom = 198.0
+text = "SELL"
+
+[node name="SellValue" type="Label" parent="Frame/Body/Card_0"]
+layout_mode = 0
+offset_left = 64.0
+offset_top = 195.0
+offset_right = 108.0
+offset_bottom = 219.0
+text = "35G"
+
+[node name="MarginCaption" type="Label" parent="Frame/Body/Card_0"]
+layout_mode = 0
+offset_left = 118.0
+offset_top = 180.0
+offset_right = 164.0
+offset_bottom = 198.0
+text = "MARGIN"
+
+[node name="MarginValue" type="Label" parent="Frame/Body/Card_0"]
+layout_mode = 0
+offset_left = 118.0
+offset_top = 195.0
+offset_right = 164.0
+offset_bottom = 219.0
+text = "+15"
+
+[node name="Card_1" type="Panel" parent="Frame/Body"]
+layout_mode = 0
+offset_left = 194.0
+offset_top = 10.0
+offset_right = 368.0
+offset_bottom = 245.0
+mouse_filter = 2
+
+[node name="FavouriteBadge" type="Panel" parent="Frame/Body/Card_1"]
+layout_mode = 0
+offset_left = 124.0
+offset_top = 112.0
+offset_right = 164.0
+offset_bottom = 129.0
+mouse_filter = 2
+
+[node name="Value" type="Label" parent="Frame/Body/Card_1/FavouriteBadge"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="SeedCell" type="Panel" parent="Frame/Body/Card_1"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 180.0
+offset_right = 57.0
+offset_bottom = 219.0
+mouse_filter = 2
+
+[node name="SellCell" type="Panel" parent="Frame/Body/Card_1"]
+layout_mode = 0
+offset_left = 64.0
+offset_top = 180.0
+offset_right = 111.0
+offset_bottom = 219.0
+mouse_filter = 2
+
+[node name="MarginCell" type="Panel" parent="Frame/Body/Card_1"]
+layout_mode = 0
+offset_left = 118.0
+offset_top = 180.0
+offset_right = 165.0
+offset_bottom = 219.0
+mouse_filter = 2
+
+[node name="Art" type="TextureRect" parent="Frame/Body/Card_1"]
+layout_mode = 0
+offset_left = 2.0
+offset_top = 2.0
+offset_right = 172.0
+offset_bottom = 102.0
+mouse_filter = 2
+texture = ExtResource("4_potato")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Name" type="Label" parent="Frame/Body/Card_1"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 114.0
+offset_right = 92.0
+offset_bottom = 136.0
+text = "Potato"
+
+[node name="Favourite" type="Label" parent="Frame/Body/Card_1"]
+layout_mode = 0
+offset_left = 102.0
+offset_top = 104.0
+offset_right = 164.0
+offset_bottom = 120.0
+visible = false
+text = "♥ MIRA"
+horizontal_alignment = 2
+
+[node name="GrowthCaption" type="Label" parent="Frame/Body/Card_1"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 139.0
+offset_right = 90.0
+offset_bottom = 153.0
+text = "GROWTH"
+
+[node name="Growth" type="Control" parent="Frame/Body/Card_1"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 150.0
+offset_right = 164.0
+offset_bottom = 164.0
+mouse_filter = 2
+
+[node name="Pip_0" type="ColorRect" parent="Frame/Body/Card_1/Growth"]
+layout_mode = 0
+offset_right = 19.0
+offset_bottom = 8.0
+
+[node name="Pip_1" type="ColorRect" parent="Frame/Body/Card_1/Growth"]
+layout_mode = 0
+offset_left = 23.0
+offset_right = 42.0
+offset_bottom = 8.0
+
+[node name="Pip_2" type="ColorRect" parent="Frame/Body/Card_1/Growth"]
+layout_mode = 0
+offset_left = 46.0
+offset_right = 65.0
+offset_bottom = 8.0
+
+[node name="Pip_3" type="ColorRect" parent="Frame/Body/Card_1/Growth"]
+layout_mode = 0
+offset_left = 69.0
+offset_right = 88.0
+offset_bottom = 8.0
+
+[node name="Pip_4" type="ColorRect" parent="Frame/Body/Card_1/Growth"]
+layout_mode = 0
+offset_left = 92.0
+offset_right = 111.0
+offset_bottom = 8.0
+
+[node name="Pip_5" type="ColorRect" parent="Frame/Body/Card_1/Growth"]
+layout_mode = 0
+offset_left = 115.0
+offset_right = 134.0
+offset_bottom = 8.0
+
+[node name="Pip_6" type="ColorRect" parent="Frame/Body/Card_1/Growth"]
+layout_mode = 0
+offset_left = 138.0
+offset_right = 157.0
+offset_bottom = 8.0
+
+[node name="GrowthValue" type="Label" parent="Frame/Body/Card_1"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 164.0
+offset_right = 164.0
+offset_bottom = 180.0
+text = "5 watered nights"
+
+[node name="SeedCaption" type="Label" parent="Frame/Body/Card_1"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 180.0
+offset_right = 54.0
+offset_bottom = 198.0
+text = "SEED"
+
+[node name="SeedValue" type="Label" parent="Frame/Body/Card_1"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 195.0
+offset_right = 54.0
+offset_bottom = 219.0
+text = "40G"
+
+[node name="SellCaption" type="Label" parent="Frame/Body/Card_1"]
+layout_mode = 0
+offset_left = 64.0
+offset_top = 180.0
+offset_right = 108.0
+offset_bottom = 198.0
+text = "SELL"
+
+[node name="SellValue" type="Label" parent="Frame/Body/Card_1"]
+layout_mode = 0
+offset_left = 64.0
+offset_top = 195.0
+offset_right = 108.0
+offset_bottom = 219.0
+text = "75G"
+
+[node name="MarginCaption" type="Label" parent="Frame/Body/Card_1"]
+layout_mode = 0
+offset_left = 118.0
+offset_top = 180.0
+offset_right = 164.0
+offset_bottom = 198.0
+text = "MARGIN"
+
+[node name="MarginValue" type="Label" parent="Frame/Body/Card_1"]
+layout_mode = 0
+offset_left = 118.0
+offset_top = 195.0
+offset_right = 164.0
+offset_bottom = 219.0
+text = "+35"
+
+[node name="Card_2" type="Panel" parent="Frame/Body"]
+layout_mode = 0
+offset_left = 378.0
+offset_top = 10.0
+offset_right = 552.0
+offset_bottom = 245.0
+mouse_filter = 2
+
+[node name="FavouriteBadge" type="Panel" parent="Frame/Body/Card_2"]
+layout_mode = 0
+offset_left = 124.0
+offset_top = 112.0
+offset_right = 164.0
+offset_bottom = 129.0
+mouse_filter = 2
+
+[node name="Value" type="Label" parent="Frame/Body/Card_2/FavouriteBadge"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="SeedCell" type="Panel" parent="Frame/Body/Card_2"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 180.0
+offset_right = 57.0
+offset_bottom = 219.0
+mouse_filter = 2
+
+[node name="SellCell" type="Panel" parent="Frame/Body/Card_2"]
+layout_mode = 0
+offset_left = 64.0
+offset_top = 180.0
+offset_right = 111.0
+offset_bottom = 219.0
+mouse_filter = 2
+
+[node name="MarginCell" type="Panel" parent="Frame/Body/Card_2"]
+layout_mode = 0
+offset_left = 118.0
+offset_top = 180.0
+offset_right = 165.0
+offset_bottom = 219.0
+mouse_filter = 2
+
+[node name="Art" type="TextureRect" parent="Frame/Body/Card_2"]
+layout_mode = 0
+offset_left = 2.0
+offset_top = 2.0
+offset_right = 172.0
+offset_bottom = 102.0
+mouse_filter = 2
+texture = ExtResource("5_pumpkin")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Name" type="Label" parent="Frame/Body/Card_2"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 114.0
+offset_right = 92.0
+offset_bottom = 136.0
+text = "Pumpkin"
+
+[node name="Favourite" type="Label" parent="Frame/Body/Card_2"]
+layout_mode = 0
+offset_left = 102.0
+offset_top = 104.0
+offset_right = 164.0
+offset_bottom = 120.0
+visible = false
+text = "♥ ROWAN"
+horizontal_alignment = 2
+
+[node name="GrowthCaption" type="Label" parent="Frame/Body/Card_2"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 139.0
+offset_right = 90.0
+offset_bottom = 153.0
+text = "GROWTH"
+
+[node name="Growth" type="Control" parent="Frame/Body/Card_2"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 150.0
+offset_right = 164.0
+offset_bottom = 164.0
+mouse_filter = 2
+
+[node name="Pip_0" type="ColorRect" parent="Frame/Body/Card_2/Growth"]
+layout_mode = 0
+offset_right = 19.0
+offset_bottom = 8.0
+
+[node name="Pip_1" type="ColorRect" parent="Frame/Body/Card_2/Growth"]
+layout_mode = 0
+offset_left = 23.0
+offset_right = 42.0
+offset_bottom = 8.0
+
+[node name="Pip_2" type="ColorRect" parent="Frame/Body/Card_2/Growth"]
+layout_mode = 0
+offset_left = 46.0
+offset_right = 65.0
+offset_bottom = 8.0
+
+[node name="Pip_3" type="ColorRect" parent="Frame/Body/Card_2/Growth"]
+layout_mode = 0
+offset_left = 69.0
+offset_right = 88.0
+offset_bottom = 8.0
+
+[node name="Pip_4" type="ColorRect" parent="Frame/Body/Card_2/Growth"]
+layout_mode = 0
+offset_left = 92.0
+offset_right = 111.0
+offset_bottom = 8.0
+
+[node name="Pip_5" type="ColorRect" parent="Frame/Body/Card_2/Growth"]
+layout_mode = 0
+offset_left = 115.0
+offset_right = 134.0
+offset_bottom = 8.0
+
+[node name="Pip_6" type="ColorRect" parent="Frame/Body/Card_2/Growth"]
+layout_mode = 0
+offset_left = 138.0
+offset_right = 157.0
+offset_bottom = 8.0
+
+[node name="GrowthValue" type="Label" parent="Frame/Body/Card_2"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 164.0
+offset_right = 164.0
+offset_bottom = 180.0
+text = "7 watered nights"
+
+[node name="SeedCaption" type="Label" parent="Frame/Body/Card_2"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 180.0
+offset_right = 54.0
+offset_bottom = 198.0
+text = "SEED"
+
+[node name="SeedValue" type="Label" parent="Frame/Body/Card_2"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 195.0
+offset_right = 54.0
+offset_bottom = 219.0
+text = "70G"
+
+[node name="SellCaption" type="Label" parent="Frame/Body/Card_2"]
+layout_mode = 0
+offset_left = 64.0
+offset_top = 180.0
+offset_right = 108.0
+offset_bottom = 198.0
+text = "SELL"
+
+[node name="SellValue" type="Label" parent="Frame/Body/Card_2"]
+layout_mode = 0
+offset_left = 64.0
+offset_top = 195.0
+offset_right = 108.0
+offset_bottom = 219.0
+text = "140G"
+
+[node name="MarginCaption" type="Label" parent="Frame/Body/Card_2"]
+layout_mode = 0
+offset_left = 118.0
+offset_top = 180.0
+offset_right = 164.0
+offset_bottom = 198.0
+text = "MARGIN"
+
+[node name="MarginValue" type="Label" parent="Frame/Body/Card_2"]
+layout_mode = 0
+offset_left = 118.0
+offset_top = 195.0
+offset_right = 164.0
+offset_bottom = 219.0
+text = "+70"
+
+[node name="Footer" type="Panel" parent="Frame"]
+layout_mode = 0
+offset_left = 2.0
+offset_top = 290.0
+offset_right = 564.0
+offset_bottom = 324.0
+mouse_filter = 2
+
+[node name="A" type="Button" parent="Frame/Footer"]
+layout_mode = 0
+custom_minimum_size = Vector2(0, 0)
+offset_left = 12.0
+offset_top = 7.0
+offset_right = 30.0
+offset_bottom = 27.0
+mouse_filter = 2
+text = "A"
+
+[node name="D" type="Button" parent="Frame/Footer"]
+layout_mode = 0
+custom_minimum_size = Vector2(0, 0)
+offset_left = 36.0
+offset_top = 7.0
+offset_right = 54.0
+offset_bottom = 27.0
+mouse_filter = 2
+text = "D"
+
+[node name="Help" type="Label" parent="Frame/Footer"]
+layout_mode = 0
+offset_left = 62.0
+offset_top = 9.0
+offset_right = 160.0
+offset_bottom = 26.0
+text = "browse"
+
+[node name="Close" type="Button" parent="Frame/Footer"]
+layout_mode = 0
+offset_left = 507.0
+offset_top = 7.0
+offset_right = 525.0
+offset_bottom = 27.0
+custom_minimum_size = Vector2(0, 0)
+mouse_filter = 2
+text = "B"
+
+[node name="CloseHelp" type="Label" parent="Frame/Footer"]
+layout_mode = 0
+offset_left = 529.0
+offset_top = 9.0
+offset_right = 559.0
+offset_bottom = 26.0
+text = "close"

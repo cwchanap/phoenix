@@ -140,3 +140,7 @@ func test_format_time_is_zero_padded() -> void:
     assert_eq(GameRules.format_time(0), "00:00")
     assert_eq(GameRules.format_time(360), "06:00")
     assert_eq(GameRules.format_time(1320), "22:00")
+
+func test_earliest_ready_day_uses_remaining_growth() -> void:
+    assert_eq(GameRules.earliest_ready_day(GameRules.CropKind.TURNIP, 1, 4), 6)
+    assert_eq(GameRules.earliest_ready_day(GameRules.CropKind.PUMPKIN, 0, 13), -1)
