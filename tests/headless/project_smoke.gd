@@ -30,4 +30,13 @@ func _init() -> void:
     if ProjectSettings.get_setting("rendering/textures/canvas_textures/default_texture_filter") != 0:
         _fail("default CanvasItem texture filter must be nearest")
         return
+    for path in [
+        "res://assets/ui/icons/hoe.png",
+        "res://assets/ui/crops/turnip.png",
+        "res://assets/ui/portraits/mira.png",
+        "res://assets/ui/logo/phoenix.png",
+        "res://assets/ui/fonts/open-sans-variable.ttf",
+        "res://assets/ui/fonts/jetbrains-mono-variable.ttf",
+    ]:
+        assert(ResourceLoader.exists(path))
     quit(0)
