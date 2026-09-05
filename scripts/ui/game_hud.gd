@@ -57,6 +57,8 @@ var _music_player: AudioStreamPlayer
 var _settings: UiSettings
 var _last_snapshot: Dictionary = {}
 var _finale_in_progress := false
+var _primary_modals: Array[Control] = []
+var _esc_close_order: Array[Dictionary] = []
 var _selected_action: StringName = GameRules.action_key(GameRules.FarmingAction.HOE)
 var _selected_seed: StringName = GameRules.crop_key(GameRules.CropKind.TURNIP)
 
@@ -64,6 +66,21 @@ func _ready() -> void:
     _root = $HudRoot as Control
     _build_always_visible_hud()
     _build_modals()
+    _primary_modals = [
+        _shop_panel,
+        _shipping_panel,
+        _sleep_panel,
+        _dialogue_panel,
+        _morning_summary_panel,
+        _pause_help_panel,
+    ]
+    _esc_close_order = [
+        {"control": _dialogue_panel, "close": close_dialogue},
+        {"control": _shop_panel, "close": close_shop},
+        {"control": _shipping_panel, "close": close_shipping},
+        {"control": _sleep_panel, "close": close_sleep_confirmation},
+        {"control": _pause_help_panel, "close": _close_pause_from_escape},
+    ]
     _build_audio()
     apply_settings()
     modal_state_changed.connect(_update_toggle_enabled)
@@ -137,15 +154,12 @@ func render(snapshot: Dictionary) -> void:
         _render_morning_summary(summary)
 
 func has_blocking_modal() -> bool:
-    return (
-        _shop_panel.visible
-        or _shipping_panel.visible
-        or _sleep_panel.visible
-        or _dialogue_panel.visible
-        or _morning_summary_panel.visible
-        or _onboarding_overlay.is_opening_visible()
-        or _pause_help_panel.visible
-    )
+    if _onboarding_overlay.is_opening_visible():
+        return true
+    for panel in _primary_modals:
+        if panel.visible:
+            return true
+    return false
 
 func set_finale_in_progress(value: bool) -> void:
     # While the finale cue plays, no close path may replace FINALE_SFX with
@@ -488,6 +502,9 @@ func _set_pause_help_visible(is_visible: bool) -> void:
         _play_sfx(CONFIRM_SFX)
     modal_state_changed.emit()
 
+func _close_pause_from_escape() -> void:
+    _set_pause_help_visible(false)
+
 func _build_shop_panel() -> Control:
     var panel := _add_panel(_root, "ShopPanel", "Seed Shop", Vector2(300, 38), Vector2(332, 260))
     _add_label(panel, "Header", "Buy seeds", Vector2(10, 28), Vector2(300, 20))
@@ -645,26 +662,25 @@ func _update_toggle_enabled() -> void:
 func _set_morning_summary_visible(is_visible: bool) -> void:
     var was_visible := _morning_summary_panel.visible
     if is_visible:
-        _shop_panel.visible = false
-        _shipping_panel.visible = false
-        _sleep_panel.visible = false
-        if _dialogue_panel.visible:
-            _dialogue_panel.close_panel()
-    _morning_summary_panel.visible = is_visible
+        _open_modal(_morning_summary_panel)
+    else:
+        _morning_summary_panel.visible = false
     if not is_visible:
         set_save_status(&"idle")
     if was_visible != is_visible:
         modal_state_changed.emit()
 
 func _open_modal(panel: Control) -> void:
-    if _morning_summary_panel.visible:
+    if _morning_summary_panel.visible and panel != _morning_summary_panel:
         return
-    _shop_panel.visible = false
-    _shipping_panel.visible = false
-    _sleep_panel.visible = false
-    if panel != _dialogue_panel and _dialogue_panel.visible:
-        _dialogue_panel.close_panel()
-    panel.visible = true
+    for registered in _primary_modals:
+        if registered == panel:
+            registered.visible = true
+            continue
+        if registered == _dialogue_panel and registered.visible:
+            _dialogue_panel.close_panel()
+        else:
+            registered.visible = false
     modal_state_changed.emit()
 
 func _close_modal(panel: Control) -> void:
@@ -723,14 +739,13 @@ func _unhandled_input(event: InputEvent) -> void:
     if _morning_summary_panel.visible or _onboarding_overlay.is_opening_visible():
         get_viewport().set_input_as_handled()
         return
-    if _shop_panel.visible:
-        close_shop()
-    elif _shipping_panel.visible:
-        close_shipping()
-    elif _sleep_panel.visible:
-        close_sleep_confirmation()
-    elif _pause_help_panel.visible:
-        _set_pause_help_visible(false)
-    else:
+    for entry in _esc_close_order:
+        var panel := entry["control"] as Control
+        if not panel.visible:
+            continue
+        (entry["close"] as Callable).call()
+        get_viewport().set_input_as_handled()
+        return
+    if not _pause_help_panel.visible:
         _set_pause_help_visible(true)
     get_viewport().set_input_as_handled()

@@ -11,10 +11,14 @@ func _spawn_world(acknowledge_intro: bool) -> WorldShell:
         return null
     add_child_autoqfree(world)
     if acknowledge_intro:
-        var start := world.hud.get_node(
-            "HudRoot/OnboardingOverlay/OpeningPanel/Start"
-        ) as Button
-        start.pressed.emit()
+        var accepted := InputEventAction.new()
+        accepted.action = &"ui_accept"
+        accepted.pressed = true
+        world.get_viewport().push_input(accepted)
+        var released := InputEventAction.new()
+        released.action = &"ui_accept"
+        released.pressed = false
+        world.get_viewport().push_input(released)
     return world
 
 func _world() -> WorldShell:
@@ -324,6 +328,34 @@ func test_interaction_targets_open_only_their_modal() -> void:
             if panel_name != entry["panel"]:
                 assert_false(_panel(hud, panel_name).visible)
         hud.call(entry["close"])
+        assert_false(hud.has_blocking_modal())
+
+func test_primary_modal_registry_keeps_surfaces_exclusive() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    assert_eq(hud._primary_modals.size(), 6)
+    for entry in [
+        {"name": "ShopPanel", "open": Callable(hud, "open_shop"), "close": Callable(hud, "close_shop")},
+        {"name": "ShippingPanel", "open": Callable(hud, "open_shipping"), "close": Callable(hud, "close_shipping")},
+        {"name": "SleepPanel", "open": Callable(hud, "open_sleep_confirmation"), "close": Callable(hud, "close_sleep_confirmation")},
+        {"name": "DialoguePanel", "open": Callable(hud, "open_dialogue").bind(
+            VillagerRules.VillagerId.RESIDENT,
+            {"code": GameRules.CommandCode.VILLAGER_TALKED, "lines": ["Hello"]},
+            world._session.snapshot(),
+        ), "close": Callable(hud, "close_dialogue")},
+    ]:
+        (entry["open"] as Callable).call()
+        var visible_count := 0
+        for panel in hud._primary_modals:
+            if panel.visible:
+                visible_count += 1
+        assert_eq(visible_count, 1, entry["name"])
+        assert_true(hud.has_blocking_modal())
+        (entry["close"] as Callable).call()
         assert_false(hud.has_blocking_modal())
 
 func test_off_target_interact_reports_nothing_without_session_mutation() -> void:

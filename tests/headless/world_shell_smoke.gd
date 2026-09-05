@@ -83,10 +83,14 @@ func _release_movement_actions() -> void:
         Input.action_release(action)
 
 func _acknowledge_intro(world: WorldShell) -> void:
-    var start := world.get_node(
-        "GameHud/HudRoot/OnboardingOverlay/OpeningPanel/Start"
-    ) as Button
-    start.pressed.emit()
+    var accepted := InputEventAction.new()
+    accepted.action = &"ui_accept"
+    accepted.pressed = true
+    world.get_viewport().push_input(accepted)
+    var released := InputEventAction.new()
+    released.action = &"ui_accept"
+    released.pressed = false
+    world.get_viewport().push_input(released)
 
 func _hold_actions(actions: Array, frames: int) -> void:
     for action in actions:
