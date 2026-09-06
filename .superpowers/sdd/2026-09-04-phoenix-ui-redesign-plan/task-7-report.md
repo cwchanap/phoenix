@@ -35,6 +35,15 @@ the footer, highlights Today and the Market badge, and shows Day 13 last night,
 full Day 14 market copy, known weather through Day 3, and earliest readiness
 help. Existing states 01–03 and their goldens were left unchanged.
 
+The review follow-up keeps every distinct crop-kind/day readiness projection,
+deduplicating repeated crops and rendering authored multi-marker nodes. A
+Day 14 current-market/readiness combination uses its authored alternate marker
+row, while the approved single-marker calendar composition remains unchanged.
+Global I/B/C shortcuts now close their own visible surface but only open from
+an unblocked world state, preserving the opening and unfinished close-friend
+sequences. An authored compact payout summary keeps two- and three-crop
+shipping-bin values inside the left pane.
+
 ## TDD evidence
 
 ### RED
@@ -51,12 +60,17 @@ Focused rule lanes passed:
 - `test_game_rules.gd`: 14/14 tests, 76 assertions
 - `test_villager_rules.gd`: 4/4 tests, 77 assertions
 
-The focused production shell lane passed 49/49 tests with 622 assertions,
+The focused production shell lane passed 53/53 tests with 694 assertions,
 including I/B/C same-key close behavior, one-surface exclusivity, world-input
-gating, Esc behavior, the Morning Summary guard, rules-derived Bag/Almanac
-values, pending Turnips to the snapshot-derived `140G` payout, sparse and
-empty pending-shelf navigation, Day 6/Day 9 crop markers, and the known-only
-weather history.
+gating, Esc behavior, the Morning Summary guard, intro and close-friend
+shortcut blocking, rules-derived Bag/Almanac values, pending Turnips to the
+snapshot-derived `140G` payout, all-three pending crops to `325G`, sparse and
+empty pending-shelf navigation, mixed Day 6 readiness markers, the combined
+Day 14 marker row, and the known-only weather history.
+
+The committed follow-up verifier passed 11 scripts, 170/170 tests, and 2,212
+assertions, including world-math and world-shell smoke. The documented macOS
+ObjectDB/resource cleanup diagnostics remain the only warnings.
 
 The editor import/quit probe completed successfully. Godot printed the
 existing macOS certificate/editor-settings diagnostics while running from the
@@ -83,6 +97,14 @@ states, after which only `04-bag.png`, `05-almanac.png`, and
 goldens retain their BASE hashes. The Calendar candidate shows
 sunny/rainy/sunny through Day 3, no future weather, the Turnip Day 6 and
 Pumpkin Day 9 earliest markers, and the Day 14 market marker.
+
+Review-only native macOS diagnostic captures were generated without extending
+the 01–06 comparer contract or updating any golden:
+
+- Day 14 current market/readiness raw: `test_output/ui-visual/07-calendar-day14-readiness.png`
+- Day 14 current market/readiness nearest-2x: `test_output/ui-visual/07-calendar-day14-readiness-2x.png`
+- Three-crop pending Bag raw: `test_output/ui-visual/08-bag-all-pending.png`
+- Three-crop pending Bag nearest-2x: `test_output/ui-visual/08-bag-all-pending-2x.png`
 
 ## Files changed
 
@@ -118,17 +140,19 @@ still reports exact zero mismatches. No Linux visual claim is made.
 - Base: `b716196`
 - Implementation and approved-golden commit: `4762fcd06ddcac719ce0a3a6e3c7d68487838674`
 - Verified committed HEAD: `40b011b627992a917a6f3f92e76b94a4c25dd5ea`
-- Focused shell: 49/49 tests, 622 assertions
+- Follow-up implementation commit: `df0b5c0`
+- Verified follow-up commit: `df0b5c0`
+- Focused shell: 53/53 tests, 694 assertions
 - Rule lanes: 14/14 tests with 76 assertions; 4/4 tests with 77 assertions
 - Native visual lane: 01–06 all exact zero mismatches; 01–03 BASE hashes are
   unchanged (`4b2685c8d9367819eaf5f95dc29be74d2cc3cd85`,
   `dfed7037d46edf7abc66e118ed63a3d549ea2a36`,
   `ba044d8c5ff34186cc52f865eb26c57cdef12dc3`)
-- Committed-HEAD `tools/verify-clean.sh` passed: 11 scripts, 166/166 tests,
-  2,140 assertions; world-math and world-shell smoke passed. The verifier
-  left the worktree clean. Existing macOS ObjectDB/resource cleanup warnings
-  remain baseline diagnostics and are not new failures.
+- Committed follow-up `tools/verify-clean.sh` passed: 11 scripts, 170/170
+  tests, 2,212 assertions; world-math and world-shell smoke passed. Existing
+  macOS ObjectDB/resource cleanup warnings remain baseline diagnostics and are
+  not new failures.
 
 ## Status
 
-`VERIFIED_COMMITTED_HEAD`
+`VERIFIED_FOLLOW_UP_IMPLEMENTATION`
