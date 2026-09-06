@@ -441,6 +441,159 @@ func test_inventory_escape_closes_one_surface_and_morning_summary_guard_wins() -
     assert_true(_panel(hud, "MorningSummaryPanel").visible)
     assert_false(world._world_input_enabled)
 
+func test_inventory_shortcuts_respect_opening_and_close_friend_blockers() -> void:
+    var locked_world := _locked_world()
+    var locked_hud := _hud(locked_world)
+    var opening := locked_hud.get_node("HudRoot/OnboardingOverlay/OpeningPanel") as Control
+    assert_true(opening.visible)
+    for action in [&"toggle_bag", &"toggle_almanac", &"toggle_calendar"]:
+        await _press_panel_action(action)
+        assert_true(opening.visible)
+        assert_false(_panel(locked_hud, "BagPanel").visible)
+        assert_false(_panel(locked_hud, "AlmanacPanel").visible)
+        assert_false(_panel(locked_hud, "CalendarPanel").visible)
+
+    var world := _world()
+    var hud := _hud(world)
+    var villager_id := VillagerRules.VillagerId.RESIDENT
+    var lines: Array[String] = VillagerRules.close_friend_dialogue_lines(villager_id)
+    var result := {
+        "code": GameRules.CommandCode.VILLAGER_TALKED,
+        "lines": lines,
+        "points_gained": 0,
+        "gift_reaction": &"",
+        "close_friend_sequence": true,
+    }
+    hud.open_dialogue(villager_id, result, world._session.snapshot())
+    var dialogue := _panel(hud, "DialoguePanel") as DialoguePanel
+    var line := dialogue.get_node("Panel/Line") as Label
+    assert_true(dialogue.visible)
+    assert_eq(line.text, lines[0])
+    for action in [&"toggle_bag", &"toggle_almanac", &"toggle_calendar"]:
+        await _press_panel_action(action)
+        assert_true(dialogue.visible)
+        assert_eq(line.text, lines[0])
+        assert_false(_panel(hud, "BagPanel").visible)
+        assert_false(_panel(hud, "AlmanacPanel").visible)
+        assert_false(_panel(hud, "CalendarPanel").visible)
+    hud.close_dialogue()
+
+func test_bag_all_pending_crops_use_compact_in_pane_payout_summary() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var state := world._session.state()
+    state["pending_shipment"] = {&"turnip": 1, &"potato": 2, &"pumpkin": 1}
+    var restored := GameSession.new()
+    assert_true(restored.restore_state(state))
+    hud.render(restored.snapshot())
+    hud.open_bag()
+    await _press_panel_action("move_down")
+    await _press_panel_action("move_down")
+    var bag := _panel(hud, "BagPanel") as BagPanel
+    var shelf := bag.get_node("Frame/Body/Left/Shelf_2") as Control
+    var compact := bag.get_node("Frame/Body/Left/PayoutCompact") as Control
+    assert_true((shelf.get_node("Slot_0") as Panel).visible)
+    assert_true((shelf.get_node("Slot_1") as Panel).visible)
+    assert_true((shelf.get_node("Slot_2") as Panel).visible)
+    assert_false((shelf.get_node("PayoutValue") as Label).visible)
+    assert_true(compact.visible)
+    assert_eq((compact.get_node("Value") as Label).text, "325G")
+    assert_eq((compact.get_node("Text") as Label).text, "Pays out tomorrow morning")
+    assert_true(compact.position.x + compact.size.x <= 270.0)
+
+func test_calendar_readiness_preserves_mixed_crop_kinds_per_day() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var state := world._session.state()
+    state["day"] = 3
+    state["weather"] = &"sunny"
+    state["weather_history"] = [&"sunny", &"rainy", &"sunny"]
+    var farm: Array = state["farm"]
+    farm[0]["tilled"] = true
+    farm[0]["crop"] = {
+        "kind": &"turnip",
+        "growth": 0,
+        "watered_today": false,
+    }
+    farm[1]["tilled"] = true
+    farm[1]["crop"] = {
+        "kind": &"potato",
+        "growth": 2,
+        "watered_today": false,
+    }
+    farm[2]["tilled"] = true
+    farm[2]["crop"] = {
+        "kind": &"turnip",
+        "growth": 0,
+        "watered_today": false,
+    }
+    state["farm"] = farm
+    var restored := GameSession.new()
+    assert_true(restored.restore_state(state))
+    hud.render(restored.snapshot())
+    hud.open_calendar()
+    var calendar := _panel(hud, "CalendarPanel") as CalendarPanel
+    var markers: Dictionary = calendar.call("_readiness_markers", 3)
+    assert_eq(markers[6], [GameRules.CropKind.TURNIP, GameRules.CropKind.POTATO])
+    var day_six := calendar.get_node("Frame/Body/Day_06") as Panel
+    assert_true((day_six.get_node("ReadinessMultiIcon_1") as TextureRect).visible)
+    assert_true((day_six.get_node("ReadinessMultiIcon_2") as TextureRect).visible)
+    assert_false((day_six.get_node("ReadinessMultiIcon_3") as TextureRect).visible)
+    assert_true((day_six.get_node("ReadinessMultiLabel") as Label).visible)
+    assert_false((day_six.get_node("ReadinessIcon") as TextureRect).visible)
+
+func test_calendar_day14_current_market_readiness_has_separate_authored_markers() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var state := world._session.state()
+    state["day"] = GameRules.MAX_DAY
+    state["weather"] = &"sunny"
+    state["weather_history"] = []
+    for _day in GameRules.MAX_DAY:
+        state["weather_history"].append(&"sunny")
+    var farm: Array = state["farm"]
+    farm[0]["tilled"] = true
+    farm[0]["crop"] = {
+        "kind": &"turnip",
+        "growth": GameRules.growth_nights(GameRules.CropKind.TURNIP),
+        "watered_today": false,
+    }
+    farm[1]["tilled"] = true
+    farm[1]["crop"] = {
+        "kind": &"pumpkin",
+        "growth": GameRules.growth_nights(GameRules.CropKind.PUMPKIN),
+        "watered_today": false,
+    }
+    state["farm"] = farm
+    var restored := GameSession.new()
+    assert_true(restored.restore_state(state))
+    hud.render(restored.snapshot())
+    hud.open_calendar()
+    var calendar := _panel(hud, "CalendarPanel") as CalendarPanel
+    var day_fourteen := calendar.get_node("Frame/Body/Day_14") as Panel
+    assert_true((day_fourteen.get_node("CombinedToday") as Label).visible)
+    assert_true((day_fourteen.get_node("CombinedMarket") as TextureRect).visible)
+    assert_true((day_fourteen.get_node("CombinedMarketLabel") as Label).visible)
+    assert_false((day_fourteen.get_node("Today") as Label).visible)
+    assert_false((day_fourteen.get_node("Market") as TextureRect).visible)
+    assert_false((day_fourteen.get_node("MarketLabel") as Label).visible)
+    assert_true((day_fourteen.get_node("ReadinessMultiIcon_1") as TextureRect).visible)
+    assert_true((day_fourteen.get_node("ReadinessMultiIcon_2") as TextureRect).visible)
+    assert_false((day_fourteen.get_node("ReadinessMultiIcon_3") as TextureRect).visible)
+    assert_true((day_fourteen.get_node("ReadinessMultiLabel") as Label).visible)
+
 func test_read_only_panels_render_rules_and_only_known_calendar_weather() -> void:
     var world := _world()
     if world == null:

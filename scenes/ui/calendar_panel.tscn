@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=4]
+[gd_scene load_steps=9 format=4]
 
 [ext_resource type="Script" path="res://scripts/ui/calendar_panel.gd" id="1_calendar"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/calendar.png" id="2_calendar"]
@@ -7,6 +7,7 @@
 [ext_resource type="Texture2D" path="res://assets/ui/icons/market.png" id="5_market"]
 [ext_resource type="Texture2D" path="res://assets/ui/crops/turnip.png" id="6_turnip"]
 [ext_resource type="Texture2D" path="res://assets/ui/crops/pumpkin.png" id="7_pumpkin"]
+[ext_resource type="Texture2D" path="res://assets/ui/crops/potato.png" id="8_potato"]
 
 [node name="CalendarPanel" type="Control"]
 layout_mode = 3
@@ -178,6 +179,53 @@ offset_bottom = 41.0
 text = "EARLIEST"
 visible = false
 
+[node name="ReadinessMultiIcon_1" type="TextureRect" parent="Frame/Body/Day_01"]
+layout_mode = 0
+offset_left = 5.0
+offset_top = 26.0
+offset_right = 15.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_2" type="TextureRect" parent="Frame/Body/Day_01"]
+layout_mode = 0
+offset_left = 17.0
+offset_top = 26.0
+offset_right = 27.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("8_potato")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_3" type="TextureRect" parent="Frame/Body/Day_01"]
+layout_mode = 0
+offset_left = 29.0
+offset_top = 26.0
+offset_right = 39.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("7_pumpkin")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiLabel" type="Label" parent="Frame/Body/Day_01"]
+layout_mode = 0
+offset_left = 42.0
+offset_top = 25.0
+offset_right = 70.0
+offset_bottom = 41.0
+mouse_filter = 2
+text = "EARLIEST"
+visible = false
+
+
 [node name="Day_02" type="Panel" parent="Frame/Body"]
 layout_mode = 0
 offset_left = 90.0
@@ -247,6 +295,53 @@ offset_right = 69.0
 offset_bottom = 41.0
 text = "EARLIEST"
 visible = false
+
+[node name="ReadinessMultiIcon_1" type="TextureRect" parent="Frame/Body/Day_02"]
+layout_mode = 0
+offset_left = 5.0
+offset_top = 26.0
+offset_right = 15.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_2" type="TextureRect" parent="Frame/Body/Day_02"]
+layout_mode = 0
+offset_left = 17.0
+offset_top = 26.0
+offset_right = 27.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("8_potato")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_3" type="TextureRect" parent="Frame/Body/Day_02"]
+layout_mode = 0
+offset_left = 29.0
+offset_top = 26.0
+offset_right = 39.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("7_pumpkin")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiLabel" type="Label" parent="Frame/Body/Day_02"]
+layout_mode = 0
+offset_left = 42.0
+offset_top = 25.0
+offset_right = 70.0
+offset_bottom = 41.0
+mouse_filter = 2
+text = "EARLIEST"
+visible = false
+
 
 [node name="Day_03" type="Panel" parent="Frame/Body"]
 layout_mode = 0
@@ -318,6 +413,53 @@ offset_bottom = 41.0
 text = "EARLIEST"
 visible = false
 
+[node name="ReadinessMultiIcon_1" type="TextureRect" parent="Frame/Body/Day_03"]
+layout_mode = 0
+offset_left = 5.0
+offset_top = 26.0
+offset_right = 15.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_2" type="TextureRect" parent="Frame/Body/Day_03"]
+layout_mode = 0
+offset_left = 17.0
+offset_top = 26.0
+offset_right = 27.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("8_potato")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_3" type="TextureRect" parent="Frame/Body/Day_03"]
+layout_mode = 0
+offset_left = 29.0
+offset_top = 26.0
+offset_right = 39.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("7_pumpkin")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiLabel" type="Label" parent="Frame/Body/Day_03"]
+layout_mode = 0
+offset_left = 42.0
+offset_top = 25.0
+offset_right = 70.0
+offset_bottom = 41.0
+mouse_filter = 2
+text = "EARLIEST"
+visible = false
+
+
 [node name="Day_04" type="Panel" parent="Frame/Body"]
 layout_mode = 0
 offset_left = 250.0
@@ -387,6 +529,53 @@ offset_right = 69.0
 offset_bottom = 41.0
 text = "EARLIEST"
 visible = false
+
+[node name="ReadinessMultiIcon_1" type="TextureRect" parent="Frame/Body/Day_04"]
+layout_mode = 0
+offset_left = 5.0
+offset_top = 26.0
+offset_right = 15.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_2" type="TextureRect" parent="Frame/Body/Day_04"]
+layout_mode = 0
+offset_left = 17.0
+offset_top = 26.0
+offset_right = 27.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("8_potato")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_3" type="TextureRect" parent="Frame/Body/Day_04"]
+layout_mode = 0
+offset_left = 29.0
+offset_top = 26.0
+offset_right = 39.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("7_pumpkin")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiLabel" type="Label" parent="Frame/Body/Day_04"]
+layout_mode = 0
+offset_left = 42.0
+offset_top = 25.0
+offset_right = 70.0
+offset_bottom = 41.0
+mouse_filter = 2
+text = "EARLIEST"
+visible = false
+
 
 [node name="Day_05" type="Panel" parent="Frame/Body"]
 layout_mode = 0
@@ -458,6 +647,53 @@ offset_bottom = 41.0
 text = "EARLIEST"
 visible = false
 
+[node name="ReadinessMultiIcon_1" type="TextureRect" parent="Frame/Body/Day_05"]
+layout_mode = 0
+offset_left = 5.0
+offset_top = 26.0
+offset_right = 15.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_2" type="TextureRect" parent="Frame/Body/Day_05"]
+layout_mode = 0
+offset_left = 17.0
+offset_top = 26.0
+offset_right = 27.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("8_potato")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_3" type="TextureRect" parent="Frame/Body/Day_05"]
+layout_mode = 0
+offset_left = 29.0
+offset_top = 26.0
+offset_right = 39.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("7_pumpkin")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiLabel" type="Label" parent="Frame/Body/Day_05"]
+layout_mode = 0
+offset_left = 42.0
+offset_top = 25.0
+offset_right = 70.0
+offset_bottom = 41.0
+mouse_filter = 2
+text = "EARLIEST"
+visible = false
+
+
 [node name="Day_06" type="Panel" parent="Frame/Body"]
 layout_mode = 0
 offset_left = 410.0
@@ -527,6 +763,53 @@ offset_right = 69.0
 offset_bottom = 41.0
 text = "EARLIEST"
 visible = false
+
+[node name="ReadinessMultiIcon_1" type="TextureRect" parent="Frame/Body/Day_06"]
+layout_mode = 0
+offset_left = 5.0
+offset_top = 26.0
+offset_right = 15.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_2" type="TextureRect" parent="Frame/Body/Day_06"]
+layout_mode = 0
+offset_left = 17.0
+offset_top = 26.0
+offset_right = 27.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("8_potato")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_3" type="TextureRect" parent="Frame/Body/Day_06"]
+layout_mode = 0
+offset_left = 29.0
+offset_top = 26.0
+offset_right = 39.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("7_pumpkin")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiLabel" type="Label" parent="Frame/Body/Day_06"]
+layout_mode = 0
+offset_left = 42.0
+offset_top = 25.0
+offset_right = 70.0
+offset_bottom = 41.0
+mouse_filter = 2
+text = "EARLIEST"
+visible = false
+
 
 [node name="Day_07" type="Panel" parent="Frame/Body"]
 layout_mode = 0
@@ -598,6 +881,53 @@ offset_bottom = 41.0
 text = "EARLIEST"
 visible = false
 
+[node name="ReadinessMultiIcon_1" type="TextureRect" parent="Frame/Body/Day_07"]
+layout_mode = 0
+offset_left = 5.0
+offset_top = 26.0
+offset_right = 15.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_2" type="TextureRect" parent="Frame/Body/Day_07"]
+layout_mode = 0
+offset_left = 17.0
+offset_top = 26.0
+offset_right = 27.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("8_potato")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_3" type="TextureRect" parent="Frame/Body/Day_07"]
+layout_mode = 0
+offset_left = 29.0
+offset_top = 26.0
+offset_right = 39.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("7_pumpkin")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiLabel" type="Label" parent="Frame/Body/Day_07"]
+layout_mode = 0
+offset_left = 42.0
+offset_top = 25.0
+offset_right = 70.0
+offset_bottom = 41.0
+mouse_filter = 2
+text = "EARLIEST"
+visible = false
+
+
 [node name="Day_08" type="Panel" parent="Frame/Body"]
 layout_mode = 0
 offset_left = 10.0
@@ -667,6 +997,53 @@ offset_right = 69.0
 offset_bottom = 41.0
 text = "EARLIEST"
 visible = false
+
+[node name="ReadinessMultiIcon_1" type="TextureRect" parent="Frame/Body/Day_08"]
+layout_mode = 0
+offset_left = 5.0
+offset_top = 26.0
+offset_right = 15.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_2" type="TextureRect" parent="Frame/Body/Day_08"]
+layout_mode = 0
+offset_left = 17.0
+offset_top = 26.0
+offset_right = 27.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("8_potato")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_3" type="TextureRect" parent="Frame/Body/Day_08"]
+layout_mode = 0
+offset_left = 29.0
+offset_top = 26.0
+offset_right = 39.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("7_pumpkin")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiLabel" type="Label" parent="Frame/Body/Day_08"]
+layout_mode = 0
+offset_left = 42.0
+offset_top = 25.0
+offset_right = 70.0
+offset_bottom = 41.0
+mouse_filter = 2
+text = "EARLIEST"
+visible = false
+
 
 [node name="Day_09" type="Panel" parent="Frame/Body"]
 layout_mode = 0
@@ -738,6 +1115,53 @@ offset_bottom = 41.0
 text = "EARLIEST"
 visible = false
 
+[node name="ReadinessMultiIcon_1" type="TextureRect" parent="Frame/Body/Day_09"]
+layout_mode = 0
+offset_left = 5.0
+offset_top = 26.0
+offset_right = 15.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_2" type="TextureRect" parent="Frame/Body/Day_09"]
+layout_mode = 0
+offset_left = 17.0
+offset_top = 26.0
+offset_right = 27.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("8_potato")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_3" type="TextureRect" parent="Frame/Body/Day_09"]
+layout_mode = 0
+offset_left = 29.0
+offset_top = 26.0
+offset_right = 39.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("7_pumpkin")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiLabel" type="Label" parent="Frame/Body/Day_09"]
+layout_mode = 0
+offset_left = 42.0
+offset_top = 25.0
+offset_right = 70.0
+offset_bottom = 41.0
+mouse_filter = 2
+text = "EARLIEST"
+visible = false
+
+
 [node name="Day_10" type="Panel" parent="Frame/Body"]
 layout_mode = 0
 offset_left = 170.0
@@ -807,6 +1231,53 @@ offset_right = 69.0
 offset_bottom = 41.0
 text = "EARLIEST"
 visible = false
+
+[node name="ReadinessMultiIcon_1" type="TextureRect" parent="Frame/Body/Day_10"]
+layout_mode = 0
+offset_left = 5.0
+offset_top = 26.0
+offset_right = 15.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_2" type="TextureRect" parent="Frame/Body/Day_10"]
+layout_mode = 0
+offset_left = 17.0
+offset_top = 26.0
+offset_right = 27.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("8_potato")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_3" type="TextureRect" parent="Frame/Body/Day_10"]
+layout_mode = 0
+offset_left = 29.0
+offset_top = 26.0
+offset_right = 39.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("7_pumpkin")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiLabel" type="Label" parent="Frame/Body/Day_10"]
+layout_mode = 0
+offset_left = 42.0
+offset_top = 25.0
+offset_right = 70.0
+offset_bottom = 41.0
+mouse_filter = 2
+text = "EARLIEST"
+visible = false
+
 
 [node name="Day_11" type="Panel" parent="Frame/Body"]
 layout_mode = 0
@@ -878,6 +1349,53 @@ offset_bottom = 41.0
 text = "EARLIEST"
 visible = false
 
+[node name="ReadinessMultiIcon_1" type="TextureRect" parent="Frame/Body/Day_11"]
+layout_mode = 0
+offset_left = 5.0
+offset_top = 26.0
+offset_right = 15.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_2" type="TextureRect" parent="Frame/Body/Day_11"]
+layout_mode = 0
+offset_left = 17.0
+offset_top = 26.0
+offset_right = 27.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("8_potato")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_3" type="TextureRect" parent="Frame/Body/Day_11"]
+layout_mode = 0
+offset_left = 29.0
+offset_top = 26.0
+offset_right = 39.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("7_pumpkin")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiLabel" type="Label" parent="Frame/Body/Day_11"]
+layout_mode = 0
+offset_left = 42.0
+offset_top = 25.0
+offset_right = 70.0
+offset_bottom = 41.0
+mouse_filter = 2
+text = "EARLIEST"
+visible = false
+
+
 [node name="Day_12" type="Panel" parent="Frame/Body"]
 layout_mode = 0
 offset_left = 330.0
@@ -947,6 +1465,53 @@ offset_right = 69.0
 offset_bottom = 41.0
 text = "EARLIEST"
 visible = false
+
+[node name="ReadinessMultiIcon_1" type="TextureRect" parent="Frame/Body/Day_12"]
+layout_mode = 0
+offset_left = 5.0
+offset_top = 26.0
+offset_right = 15.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_2" type="TextureRect" parent="Frame/Body/Day_12"]
+layout_mode = 0
+offset_left = 17.0
+offset_top = 26.0
+offset_right = 27.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("8_potato")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_3" type="TextureRect" parent="Frame/Body/Day_12"]
+layout_mode = 0
+offset_left = 29.0
+offset_top = 26.0
+offset_right = 39.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("7_pumpkin")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiLabel" type="Label" parent="Frame/Body/Day_12"]
+layout_mode = 0
+offset_left = 42.0
+offset_top = 25.0
+offset_right = 70.0
+offset_bottom = 41.0
+mouse_filter = 2
+text = "EARLIEST"
+visible = false
+
 
 [node name="Day_13" type="Panel" parent="Frame/Body"]
 layout_mode = 0
@@ -1018,6 +1583,53 @@ offset_bottom = 41.0
 text = "EARLIEST"
 visible = false
 
+[node name="ReadinessMultiIcon_1" type="TextureRect" parent="Frame/Body/Day_13"]
+layout_mode = 0
+offset_left = 5.0
+offset_top = 26.0
+offset_right = 15.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_2" type="TextureRect" parent="Frame/Body/Day_13"]
+layout_mode = 0
+offset_left = 17.0
+offset_top = 26.0
+offset_right = 27.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("8_potato")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_3" type="TextureRect" parent="Frame/Body/Day_13"]
+layout_mode = 0
+offset_left = 29.0
+offset_top = 26.0
+offset_right = 39.0
+offset_bottom = 36.0
+mouse_filter = 2
+texture = ExtResource("7_pumpkin")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiLabel" type="Label" parent="Frame/Body/Day_13"]
+layout_mode = 0
+offset_left = 42.0
+offset_top = 25.0
+offset_right = 70.0
+offset_bottom = 41.0
+mouse_filter = 2
+text = "EARLIEST"
+visible = false
+
+
 [node name="Day_14" type="Panel" parent="Frame/Body"]
 layout_mode = 0
 offset_left = 490.0
@@ -1070,9 +1682,9 @@ visible = false
 [node name="ReadinessIcon" type="TextureRect" parent="Frame/Body/Day_14"]
 layout_mode = 0
 offset_left = 6.0
-offset_top = 25.0
+offset_top = 44.0
 offset_right = 22.0
-offset_bottom = 41.0
+offset_bottom = 59.0
 mouse_filter = 2
 texture = ExtResource("6_turnip")
 expand_mode = 1
@@ -1082,10 +1694,89 @@ visible = false
 [node name="ReadinessLabel" type="Label" parent="Frame/Body/Day_14"]
 layout_mode = 0
 offset_left = 24.0
-offset_top = 26.0
+offset_top = 44.0
 offset_right = 69.0
-offset_bottom = 41.0
+offset_bottom = 59.0
 text = "EARLIEST"
+visible = false
+
+[node name="ReadinessMultiIcon_1" type="TextureRect" parent="Frame/Body/Day_14"]
+layout_mode = 0
+offset_left = 5.0
+offset_top = 45.0
+offset_right = 15.0
+offset_bottom = 55.0
+mouse_filter = 2
+texture = ExtResource("6_turnip")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_2" type="TextureRect" parent="Frame/Body/Day_14"]
+layout_mode = 0
+offset_left = 17.0
+offset_top = 45.0
+offset_right = 27.0
+offset_bottom = 55.0
+mouse_filter = 2
+texture = ExtResource("8_potato")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiIcon_3" type="TextureRect" parent="Frame/Body/Day_14"]
+layout_mode = 0
+offset_left = 29.0
+offset_top = 45.0
+offset_right = 39.0
+offset_bottom = 55.0
+mouse_filter = 2
+texture = ExtResource("7_pumpkin")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="ReadinessMultiLabel" type="Label" parent="Frame/Body/Day_14"]
+layout_mode = 0
+offset_left = 42.0
+offset_top = 44.0
+offset_right = 70.0
+offset_bottom = 59.0
+mouse_filter = 2
+text = "EARLIEST"
+visible = false
+
+
+[node name="CombinedToday" type="Label" parent="Frame/Body/Day_14"]
+layout_mode = 0
+offset_left = 5.0
+offset_top = 26.0
+offset_right = 32.0
+offset_bottom = 41.0
+mouse_filter = 2
+text = "TODAY"
+visible = false
+
+[node name="CombinedMarket" type="TextureRect" parent="Frame/Body/Day_14"]
+layout_mode = 0
+offset_left = 34.0
+offset_top = 25.0
+offset_right = 45.0
+offset_bottom = 41.0
+mouse_filter = 2
+texture = ExtResource("5_market")
+expand_mode = 1
+stretch_mode = 5
+visible = false
+
+[node name="CombinedMarketLabel" type="Label" parent="Frame/Body/Day_14"]
+layout_mode = 0
+offset_left = 47.0
+offset_top = 26.0
+offset_right = 70.0
+offset_bottom = 41.0
+mouse_filter = 2
+text = "MARKET"
 visible = false
 
 [node name="Footer" type="Panel" parent="Frame"]

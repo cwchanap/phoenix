@@ -833,21 +833,21 @@ func _unhandled_input(event: InputEvent) -> void:
     if event.is_action_pressed("toggle_bag"):
         if _bag_panel.visible:
             close_bag()
-        else:
+        elif not has_blocking_modal():
             open_bag()
         get_viewport().set_input_as_handled()
         return
     if event.is_action_pressed("toggle_almanac"):
         if _almanac_panel.visible:
             close_almanac()
-        else:
+        elif not has_blocking_modal():
             open_almanac()
         get_viewport().set_input_as_handled()
         return
     if event.is_action_pressed("toggle_calendar"):
         if _calendar_panel.visible:
             close_calendar()
-        else:
+        elif not has_blocking_modal():
             open_calendar()
         get_viewport().set_input_as_handled()
         return
