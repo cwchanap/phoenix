@@ -23,6 +23,10 @@ func _ready() -> void:
     var plate_path := (
         "res://tests/visual/plates/shipping.png"
         if _state_name == "03-shipping-day14"
+        else "res://tests/visual/plates/morning.png"
+        if _state_name == "08-morning-summary"
+        else "res://tests/visual/plates/sleep.png"
+        if _state_name == "09-sleep"
         else "res://tests/visual/plates/farm.png"
     )
     plate.texture = ImageTexture.create_from_image(load_raw(plate_path))
@@ -52,6 +56,16 @@ func prepare_state() -> void:
             _hud.open_almanac()
         "06-calendar":
             _hud.open_calendar()
+        "07-dialogue":
+            _hud.open_dialogue(
+                VillagerRules.VillagerId.SHOPKEEPER,
+                UiFixtureFactory.dialogue_result(),
+                _state,
+            )
+        "08-morning-summary":
+            pass
+        "09-sleep":
+            _hud.open_sleep_confirmation()
 
 func _press_panel_action(action: StringName) -> void:
     var press := InputEventAction.new()

@@ -920,6 +920,75 @@ func test_summary_snapshot_derives_morning_modal_visibility() -> void:
     assert_eq(visible_primary_count, 1)
     assert_true(hud.has_blocking_modal())
 
+func test_task8_fixture_values_render_in_authored_social_and_morning_nodes() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+
+    var dialogue_snapshot := world._session.snapshot()
+    dialogue_snapshot["harvested"] = {&"turnip": 7, &"potato": 2, &"pumpkin": 0}
+    var relationships: Dictionary = dialogue_snapshot["relationships"]
+    var mira: Dictionary = relationships[&"shopkeeper"]
+    mira["points"] = 13
+    mira["level"] = VillagerRules.relationship_key(VillagerRules.RelationshipLevel.FRIEND)
+    mira["talked_today"] = true
+    relationships[&"shopkeeper"] = mira
+    dialogue_snapshot["relationships"] = relationships
+    hud.open_dialogue(
+        VillagerRules.VillagerId.SHOPKEEPER,
+        {
+            "code": GameRules.CommandCode.VILLAGER_TALKED,
+            "lines": ["Your fields are starting to look dependable."],
+            "points_gained": 1,
+            "gift_reaction": &"",
+            "close_friend_sequence": false,
+            "selected_crop_kind": GameRules.CropKind.POTATO,
+        },
+        dialogue_snapshot,
+    )
+    var dialogue := _panel(hud, "DialoguePanel") as DialoguePanel
+    assert_eq((dialogue.get_node("Panel/Name") as Label).text, "Mira")
+    assert_eq((dialogue.get_node("Panel/Relationship") as Label).text, "FRIEND  ·  13/18")
+    assert_eq(
+        (dialogue.get_node("Panel/Line") as Label).text,
+        "Your fields are starting to look dependable.",
+    )
+    var gifts := dialogue.get_node("Panel/GiftButtons") as HBoxContainer
+    assert_eq((gifts.get_node("Gift_0/Count") as Label).text, "7")
+    assert_eq((gifts.get_node("Gift_1/Count") as Label).text, "2")
+    assert_eq((gifts.get_node("Gift_1/Value") as Label).text, "+5 ♥")
+    assert_true((gifts.get_node("Gift_1") as Button).has_focus())
+    assert_true((gifts.get_node("Gift_2") as Button).disabled)
+    assert_eq((dialogue.get_node("Panel/Footer/ActionText") as Label).text, "GIVE POTATO")
+    hud.close_dialogue()
+
+    var summary_snapshot := world._session.snapshot()
+    summary_snapshot["day"] = 4
+    summary_snapshot["pending_morning_summary"] = {
+        "completed_day": 3,
+        "next_day": 4,
+        "crops_advanced": 2,
+        "next_weather": GameRules.weather_key(GameRules.Weather.RAINY),
+        "stamina_restored": GameRules.MAX_STAMINA,
+        "shipments": [{"crop": &"turnip", "quantity": 2, "amount": 70}],
+        "shipping_income": 70,
+        "money_after_shipping": 220,
+    }
+    hud.render(summary_snapshot)
+    var summary := _panel(hud, "MorningSummaryPanel")
+    assert_eq((summary.get_node("Frame/Header/CompletedDay") as Label).text, "3")
+    assert_eq((summary.get_node("Frame/Header/NextDay") as Label).text, "4")
+    assert_eq((summary.get_node("Frame/Card_0/Value") as Label).text, "+2")
+    assert_eq((summary.get_node("Frame/Card_1/Value") as Label).text, "RAINY")
+    assert_eq((summary.get_node("Frame/Card_2/Value") as Label).text, "20")
+    assert_eq((summary.get_node("Frame/Card_3/Value") as Label).text, "+70")
+    assert_eq((summary.get_node("Frame/ShipmentRow/Name") as Label).text, "Turnip ×2")
+    assert_eq((summary.get_node("Frame/ShipmentRow/Amount") as Label).text, "70G")
+    assert_eq((summary.get_node("Frame/MoneyRow/Amount") as Label).text, "220G")
+
 func test_public_primary_opens_are_denied_while_morning_summary_is_visible() -> void:
     var world := _world()
     if world == null:
@@ -1035,7 +1104,7 @@ func test_day_fourteen_boundary_copy_is_explicit_about_shipped_only() -> void:
 
     hud.open_sleep_confirmation()
     var sleep_boundary := _panel(hud, "SleepPanel").get_node("Boundary") as Label
-    assert_true(sleep_boundary.text.contains("sleeping ends the run and settles the shipping bin"))
+    assert_true(sleep_boundary.text.contains("this ends the season and settles the bin"))
 
 func test_market_target_hint_and_pre_finale_routing() -> void:
     var world := _world()
@@ -1223,9 +1292,9 @@ func test_close_friend_line_one_cannot_be_closed_or_gifted_early() -> void:
     var panel := _panel(hud, "DialoguePanel") as DialoguePanel
     var continue_button := panel.get_node("Panel/Continue") as Button
     var close_button := panel.get_node("Panel/Close") as Button
-    var gift_buttons := panel.get_node("Panel/GiftButtons") as VBoxContainer
+    var gift_buttons := panel.get_node("Panel/GiftButtons") as HBoxContainer
     assert_false(close_button.visible)
-    assert_eq(gift_buttons.get_child_count(), 0)
+    assert_eq(_visible_gift_count(gift_buttons), 0)
 
     var tab := InputEventAction.new()
     tab.action = &"ui_focus_next"
@@ -1263,10 +1332,10 @@ func test_gift_button_round_trips_through_session_and_updates_open_panel() -> vo
     await _place_target(world, WorldContract.villager_cell(june))
     world.interact()
     var panel := _panel(hud, "DialoguePanel") as DialoguePanel
-    var gift_buttons := panel.get_node("Panel/GiftButtons") as VBoxContainer
-    assert_eq(gift_buttons.get_child_count(), 1)
-    var give_turnip := gift_buttons.get_child(0) as Button
-    assert_eq(give_turnip.text, "Give Turnip")
+    var gift_buttons := panel.get_node("Panel/GiftButtons") as HBoxContainer
+    assert_eq(_visible_gift_count(gift_buttons), 1)
+    var give_turnip := gift_buttons.get_node("Gift_0") as Button
+    assert_eq((give_turnip.get_node("Value") as Label).text, "+5 ♥")
 
     give_turnip.pressed.emit()
 
@@ -1277,7 +1346,15 @@ func test_gift_button_round_trips_through_session_and_updates_open_panel() -> vo
         VillagerRules.gift_line(june, GameRules.CropKind.TURNIP),
     )
     assert_true((panel.get_node("Panel/Feedback") as Label).text.contains("Favourite gift"))
-    assert_eq(gift_buttons.get_child_count(), 0)
+    assert_eq(_visible_gift_count(gift_buttons), 0)
+
+func _visible_gift_count(gifts: HBoxContainer) -> int:
+    var count := 0
+    for child in gifts.get_children():
+        var button := child as Button
+        if button.visible and not button.disabled:
+            count += 1
+    return count
 
 func test_all_villagers_route_through_same_direct_interaction_path() -> void:
     var world := _world()

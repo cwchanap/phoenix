@@ -28,6 +28,9 @@ const SHIPPING_SCENE := preload("res://scenes/ui/shipping_panel.tscn")
 const BAG_SCENE := preload("res://scenes/ui/bag_panel.tscn")
 const ALMANAC_SCENE := preload("res://scenes/ui/almanac_panel.tscn")
 const CALENDAR_SCENE := preload("res://scenes/ui/calendar_panel.tscn")
+const DIALOGUE_SCENE := preload("res://scenes/ui/dialogue_panel.tscn")
+const MORNING_SUMMARY_SCENE := preload("res://scenes/ui/morning_summary_panel.tscn")
+const SLEEP_SCENE := preload("res://scenes/ui/sleep_panel.tscn")
 
 var _root: Control
 var _weather_tint: ColorRect
@@ -40,7 +43,6 @@ var _selected_seed_label: Label
 var _pending_shipment_label: Label
 var _interaction_hint: Label
 var _feedback: Label
-var _summary_body: Label
 var _save_status_label: Label
 var _day_value_label: Label
 var _day_max_label: Label
@@ -58,10 +60,10 @@ var _shipping_panel: ShippingPanel
 var _bag_panel: BagPanel
 var _almanac_panel: AlmanacPanel
 var _calendar_panel: CalendarPanel
-var _sleep_panel: Control
+var _sleep_panel: SleepPanel
 var _dialogue_panel: DialoguePanel
 var _onboarding_overlay: OnboardingOverlay
-var _morning_summary_panel: Control
+var _morning_summary_panel: MorningSummaryPanel
 var _pause_help_panel: Control
 var _day14_sleep_boundary: Label
 var _objective_label: Label
@@ -178,7 +180,7 @@ func render(snapshot: Dictionary) -> void:
     else:
         _objective_label.text = "Harvest Market: Day 14 · %d days left" % (GameRules.MAX_DAY - day)
     _day14_sleep_boundary.text = (
-        "Day 14: sleeping ends the run and settles the shipping bin."
+        "Day 14 — this ends the season and settles the bin."
         if day == GameRules.MAX_DAY
         else ""
     )
@@ -186,7 +188,8 @@ func render(snapshot: Dictionary) -> void:
     var summary: Variant = snapshot["pending_morning_summary"]
     _set_morning_summary_visible(summary != null)
     if summary != null:
-        _render_morning_summary(summary)
+        _morning_summary_panel.present(summary)
+    _sleep_panel.present(snapshot)
 
 func has_blocking_modal() -> bool:
     if _onboarding_overlay.is_opening_visible():
@@ -203,15 +206,7 @@ func set_finale_in_progress(value: bool) -> void:
     _finale_in_progress = value
 
 func set_save_status(status: StringName, message: String = "") -> void:
-    match status:
-        &"idle":
-            _save_status_label.text = ""
-        &"saved":
-            _save_status_label.text = "Saved."
-        &"error":
-            _save_status_label.text = message
-        _:
-            assert(false, "unknown save status")
+    _morning_summary_panel.set_save_status(status, message)
 
 func set_interaction_hint(text: String) -> void:
     _interaction_hint.text = text
@@ -252,7 +247,8 @@ func close_calendar() -> void:
     _close_modal(_calendar_panel)
 
 func open_sleep_confirmation() -> void:
-    _open_modal(_sleep_panel)
+    if _open_modal(_sleep_panel):
+        _sleep_panel.present(_last_snapshot)
 
 func close_sleep_confirmation() -> void:
     _close_modal(_sleep_panel)
@@ -573,10 +569,19 @@ func _build_modals() -> void:
     _calendar_panel = CALENDAR_SCENE.instantiate() as CalendarPanel
     _root.add_child(_calendar_panel)
     _calendar_panel.close_requested.connect(close_calendar)
-    _sleep_panel = _build_sleep_panel()
-    _morning_summary_panel = _build_summary_panel()
-    _dialogue_panel = DialoguePanel.new()
-    _dialogue_panel.name = "DialoguePanel"
+    _sleep_panel = SLEEP_SCENE.instantiate() as SleepPanel
+    _root.add_child(_sleep_panel)
+    _sleep_panel.sleep_requested.connect(func() -> void:
+        sleep_requested.emit()
+    )
+    _day14_sleep_boundary = _sleep_panel.get_node("Boundary") as Label
+    _morning_summary_panel = MORNING_SUMMARY_SCENE.instantiate() as MorningSummaryPanel
+    _root.add_child(_morning_summary_panel)
+    _morning_summary_panel.acknowledged.connect(func() -> void:
+        morning_summary_acknowledged.emit()
+    )
+    _save_status_label = _morning_summary_panel.get_node("SaveStatus") as Label
+    _dialogue_panel = DIALOGUE_SCENE.instantiate() as DialoguePanel
     _root.add_child(_dialogue_panel)
     _dialogue_panel.gift_requested.connect(func(villager_id: int, crop_kind: int) -> void:
         gift_requested.emit(villager_id, crop_kind)
@@ -624,32 +629,6 @@ func _set_pause_help_visible(is_visible: bool) -> void:
 
 func _close_pause_from_escape() -> void:
     _set_pause_help_visible(false)
-
-func _build_sleep_panel() -> Control:
-    var panel := _add_panel(_root, "SleepPanel", "Sleep Confirmation", Vector2(300, 94), Vector2(332, 168))
-    _add_label(panel, "Body", "Sleep until the next morning?", Vector2(10, 30), Vector2(310, 24))
-    _day14_sleep_boundary = _add_label(panel, "Boundary", "", Vector2(10, 56), Vector2(310, 20))
-    var confirm_button := _add_button(panel, "Confirm", "Sleep", Vector2(150, 116), Vector2(76, 28))
-    confirm_button.pressed.connect(func() -> void: sleep_requested.emit())
-    var cancel_button := _add_button(panel, "Cancel", "Cancel", Vector2(238, 116), Vector2(76, 28))
-    cancel_button.pressed.connect(close_sleep_confirmation)
-    return panel
-
-func _build_summary_panel() -> Control:
-    var panel := _add_panel(_root, "MorningSummaryPanel", "Morning Summary", Vector2(300, 66), Vector2(332, 210))
-    _summary_body = _add_label(panel, "Body", "", Vector2(12, 32), Vector2(308, 128))
-    _summary_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    _save_status_label = _add_label(panel, "SaveStatus", "", Vector2(12, 164), Vector2(190, 44))
-    _save_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    var acknowledge_button := _add_button(
-        panel,
-        "Acknowledge",
-        "Acknowledge",
-        Vector2(208, 170),
-        Vector2(104, 28),
-    )
-    acknowledge_button.pressed.connect(func() -> void: morning_summary_acknowledged.emit())
-    return panel
 
 func _add_panel(parent: Control, node_name: String, title: String, position: Vector2, size: Vector2) -> Control:
     var panel := _add_surface(parent, node_name, position, size, UiStyle.PRIMARY, UiStyle.BORDER_LIGHT)
@@ -742,11 +721,12 @@ func _update_toggle_enabled() -> void:
 func _set_morning_summary_visible(is_visible: bool) -> void:
     var was_visible := _morning_summary_panel.visible
     if is_visible:
-        _open_modal(_morning_summary_panel)
+        if not _open_modal(_morning_summary_panel):
+            return
     else:
         _morning_summary_panel.visible = false
     if not is_visible:
-        set_save_status(&"idle")
+        _morning_summary_panel.set_save_status(&"idle")
     _set_hud_chrome_visible(not is_visible)
     if was_visible != is_visible:
         modal_state_changed.emit()
@@ -793,32 +773,6 @@ func _set_hud_chrome_visible(is_visible: bool) -> void:
         "SeedCycleHint",
     ]:
         ($HudRoot.get_node(node_path) as Control).visible = is_visible
-
-func _render_morning_summary(summary: Dictionary) -> void:
-    var lines: Array[String] = [
-        "Day %s complete → Day %s" % [summary.get("completed_day", "?"), summary.get("next_day", "?")],
-        "Crops advanced: %s" % summary.get("crops_advanced", 0),
-        "Next weather: %s" % _display_weather(summary.get(
-            "next_weather",
-            GameRules.weather_key(GameRules.Weather.SUNNY),
-        )),
-        "Stamina restored: %s" % summary.get("stamina_restored", 0),
-    ]
-    var shipments: Array = summary.get("shipments", [])
-    if shipments.is_empty():
-        lines.append("Shipping income: 0G")
-    else:
-        for shipment_variant in shipments:
-            var shipment: Dictionary = shipment_variant
-            lines.append(
-                "%s x%s: %sG" % [
-                    _display_crop(shipment.get("crop", GameRules.crop_key(GameRules.CropKind.TURNIP))),
-                    shipment.get("quantity", 0),
-                    shipment.get("amount", 0),
-                ]
-            )
-    lines.append("Money after shipping: %sG" % summary.get("money_after_shipping", 0))
-    _summary_body.text = "\n".join(lines)
 
 func _display_crop(key: Variant) -> String:
     for kind in range(GameRules.CropKind.size()):

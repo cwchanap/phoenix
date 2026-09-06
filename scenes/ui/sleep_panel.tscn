@@ -1,0 +1,145 @@
+[gd_scene load_steps=4 format=4]
+
+[ext_resource type="Script" path="res://scripts/ui/sleep_panel.gd" id="1_sleep"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/bed.png" id="2_bed"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/warning.png" id="3_warning"]
+
+[node name="SleepPanel" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+script = ExtResource("1_sleep")
+
+[node name="Dim" type="ColorRect" parent="."]
+layout_mode = 0
+offset_right = 640.0
+offset_bottom = 360.0
+mouse_filter = 2
+color = Color(0.027451, 0.035294, 0.047059, 0.62)
+
+[node name="Frame" type="Panel" parent="."]
+layout_mode = 0
+offset_left = 198.0
+offset_top = 82.0
+offset_right = 442.0
+offset_bottom = 278.0
+mouse_filter = 1
+
+[node name="Bed" type="TextureRect" parent="Frame"]
+layout_mode = 0
+offset_left = 84.0
+offset_top = 18.0
+offset_right = 160.0
+offset_bottom = 68.0
+mouse_filter = 2
+texture = ExtResource("2_bed")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Title" type="Label" parent="Frame"]
+layout_mode = 0
+offset_left = 25.0
+offset_top = 87.0
+offset_right = 219.0
+offset_bottom = 111.0
+text = "Sleep until morning?"
+horizontal_alignment = 1
+
+[node name="WarningBox" type="Panel" parent="Frame"]
+layout_mode = 0
+offset_left = 14.0
+offset_top = 111.0
+offset_right = 230.0
+offset_bottom = 145.0
+mouse_filter = 2
+
+[node name="Icon" type="TextureRect" parent="Frame/WarningBox"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 9.0
+offset_right = 22.0
+offset_bottom = 25.0
+mouse_filter = 2
+texture = ExtResource("3_warning")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Boundary" type="Label" parent="."]
+layout_mode = 0
+offset_left = 240.0
+offset_top = 195.0
+offset_right = 418.0
+offset_bottom = 228.0
+text = "Day 14 — this ends the season and settles\nthe bin."
+autowrap_mode = 2
+
+[node name="Footer" type="Panel" parent="Frame"]
+layout_mode = 0
+offset_left = 2.0
+offset_top = 158.0
+offset_right = 242.0
+offset_bottom = 194.0
+mouse_filter = 2
+
+[node name="EscKeycap" type="Panel" parent="Frame/Footer"]
+layout_mode = 0
+offset_left = 46.0
+offset_top = 7.0
+offset_right = 78.0
+offset_bottom = 29.0
+mouse_filter = 2
+
+[node name="EnterKeycap" type="Panel" parent="Frame/Footer"]
+layout_mode = 0
+offset_left = 125.0
+offset_top = 7.0
+offset_right = 164.0
+offset_bottom = 29.0
+mouse_filter = 2
+
+[node name="EscKey" type="Label" parent="Frame/Footer"]
+layout_mode = 0
+offset_left = 48.0
+offset_top = 10.0
+offset_right = 76.0
+offset_bottom = 24.0
+text = "ESC"
+horizontal_alignment = 1
+
+[node name="EscText" type="Label" parent="Frame/Footer"]
+layout_mode = 0
+offset_left = 81.0
+offset_top = 10.0
+offset_right = 122.0
+offset_bottom = 25.0
+text = "not yet"
+
+[node name="EnterKey" type="Label" parent="Frame/Footer"]
+layout_mode = 0
+offset_left = 127.0
+offset_top = 10.0
+offset_right = 161.0
+offset_bottom = 24.0
+text = "ENTER"
+horizontal_alignment = 1
+
+[node name="ActionText" type="Label" parent="Frame/Footer"]
+layout_mode = 0
+offset_left = 166.0
+offset_top = 10.0
+offset_right = 232.0
+offset_bottom = 25.0
+text = "SLEEP"
+
+[node name="Confirm" type="Button" parent="."]
+layout_mode = 0
+offset_left = 325.0
+offset_top = 248.0
+offset_right = 363.0
+offset_bottom = 270.0
+mouse_filter = 1
+text = "ENTER"
