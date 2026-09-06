@@ -82,6 +82,66 @@ static func calendar_state() -> Dictionary:
     assert(error == "", "invalid calendar fixture state: %s" % error)
     return state
 
+static func dialogue_state() -> Dictionary:
+    var state := hud_state()
+    state["harvested"] = {&"turnip": 7, &"potato": 2, &"pumpkin": 0}
+    var relationships: Dictionary = state["relationships"]
+    relationships[&"shopkeeper"]["points"] = 13
+    relationships[&"shopkeeper"]["talked_today"] = true
+    state["relationships"] = relationships
+    var error := GameSession.state_error(state)
+    assert(error == "", "invalid dialogue fixture state: %s" % error)
+    return state
+
+static func dialogue_result() -> Dictionary:
+    return {
+        "code": GameRules.CommandCode.VILLAGER_TALKED,
+        "lines": [VillagerRules.dialogue_line(
+            VillagerRules.VillagerId.SHOPKEEPER,
+            VillagerRules.RelationshipLevel.FRIEND,
+        )],
+        "points_gained": 1,
+        "gift_reaction": &"",
+        "close_friend_sequence": false,
+        "selected_crop_kind": GameRules.CropKind.POTATO,
+    }
+
+static func morning_summary_state() -> Dictionary:
+    var state := hud_state()
+    state["day"] = 4
+    state["weather"] = GameRules.weather_key(GameRules.Weather.RAINY)
+    state["weather_history"] = [
+        GameRules.weather_key(GameRules.Weather.SUNNY),
+        GameRules.weather_key(GameRules.Weather.SUNNY),
+        GameRules.weather_key(GameRules.Weather.SUNNY),
+        GameRules.weather_key(GameRules.Weather.RAINY),
+    ]
+    state["stamina"] = GameRules.MAX_STAMINA
+    state["money"] = 220
+    state["pending_morning_summary"] = {
+        "completed_day": 3,
+        "next_day": 4,
+        "crops_advanced": 2,
+        "next_weather": GameRules.weather_key(GameRules.Weather.RAINY),
+        "stamina_restored": GameRules.MAX_STAMINA,
+        "shipments": [{"crop": &"turnip", "quantity": 2, "amount": 70}],
+        "shipping_income": 70,
+        "money_after_shipping": 220,
+    }
+    var error := GameSession.state_error(state)
+    assert(error == "", "invalid morning summary fixture state: %s" % error)
+    return state
+
+static func sleep_state() -> Dictionary:
+    var state := hud_state()
+    state["day"] = GameRules.MAX_DAY
+    state["weather_history"] = []
+    for _day in GameRules.MAX_DAY:
+        state["weather_history"].append(GameRules.weather_key(GameRules.Weather.SUNNY))
+    var error := GameSession.state_error(state)
+    assert(error == "", "invalid sleep fixture state: %s" % error)
+    return state
+
 static func state_for(name: String) -> Dictionary:
     match name:
         "01-hud":
@@ -96,6 +156,12 @@ static func state_for(name: String) -> Dictionary:
             return almanac_state()
         "06-calendar":
             return calendar_state()
+        "07-dialogue":
+            return dialogue_state()
+        "08-morning-summary":
+            return morning_summary_state()
+        "09-sleep":
+            return sleep_state()
         _:
             assert(false, "unsupported fixture state: %s" % name)
             return {}

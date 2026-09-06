@@ -21,6 +21,9 @@ func _initialize() -> void:
         "04-bag",
         "05-almanac",
         "06-calendar",
+        "07-dialogue",
+        "08-morning-summary",
+        "09-sleep",
     ].has(state_name):
         push_error("unsupported visual state: %s" % state_name)
         quit(2)
