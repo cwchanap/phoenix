@@ -629,6 +629,32 @@ offset_bottom = 63.0
 text = "0G"
 visible = false
 
+[node name="PayoutCompact" type="Control" parent="Frame/Body/Left"]
+layout_mode = 0
+offset_left = 180.0
+offset_top = 166.0
+offset_right = 270.0
+offset_bottom = 238.0
+mouse_filter = 2
+visible = false
+
+[node name="Text" type="Label" parent="Frame/Body/Left/PayoutCompact"]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 17.0
+offset_right = 88.0
+offset_bottom = 43.0
+text = "Pays out tomorrow morning"
+autowrap_mode = 2
+
+[node name="Value" type="Label" parent="Frame/Body/Left/PayoutCompact"]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 44.0
+offset_right = 88.0
+offset_bottom = 66.0
+text = "0G"
+
 [node name="Divider" type="ColorRect" parent="Frame/Body"]
 layout_mode = 0
 offset_left = 270.0

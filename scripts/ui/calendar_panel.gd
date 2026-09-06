@@ -75,11 +75,29 @@ func _update_calendar() -> void:
         market.visible = is_market
         var readiness_icon := cell.get_node("ReadinessIcon") as TextureRect
         var readiness_label := cell.get_node("ReadinessLabel") as Label
-        var crop_kind: Variant = readiness.get(day, null)
-        readiness_icon.visible = crop_kind != null
-        readiness_label.visible = crop_kind != null
-        if crop_kind != null:
-            readiness_icon.texture = load(CROP_TEXTURES[int(crop_kind)]) as Texture2D
+        var crop_kinds: Array = readiness.get(day, [])
+        var has_readiness := not crop_kinds.is_empty()
+        var combined_market := is_today and is_market and has_readiness
+        readiness_icon.visible = crop_kinds.size() == 1 and not combined_market
+        readiness_label.visible = crop_kinds.size() == 1 and not combined_market
+        if combined_market:
+            today_label.visible = false
+            market.visible = false
+        var multi_label := cell.get_node_or_null("ReadinessMultiLabel") as Label
+        if multi_label != null:
+            multi_label.visible = crop_kinds.size() > 1 and not combined_market
+            if multi_label.visible:
+                multi_label.text = "EARLIEST"
+                UiStyle.text(multi_label, 6, UiStyle.GREEN, 700, true)
+        for multi_index in range(3):
+            var multi_icon := cell.get_node_or_null("ReadinessMultiIcon_%d" % (multi_index + 1)) as TextureRect
+            if multi_icon == null:
+                continue
+            multi_icon.visible = multi_index < crop_kinds.size() and crop_kinds.size() > 1 and not combined_market
+            if multi_icon.visible:
+                multi_icon.texture = load(CROP_TEXTURES[int(crop_kinds[multi_index])]) as Texture2D
+        if crop_kinds.size() == 1:
+            readiness_icon.texture = load(CROP_TEXTURES[int(crop_kinds[0])]) as Texture2D
             readiness_label.text = "EARLIEST"
             UiStyle.text(readiness_label, 7, UiStyle.GREEN, 700, true)
         var last_night := cell.get_node_or_null("LastNight") as Label
@@ -87,9 +105,43 @@ func _update_calendar() -> void:
             last_night.visible = day == GameRules.MAX_DAY - 1
         var market_label := cell.get_node_or_null("MarketLabel") as Label
         if market_label != null:
-            market_label.visible = is_market
+            market_label.visible = is_market and not combined_market
         if is_market:
-            UiStyle.text(market_label, 8, UiStyle.GOLD, 800, true)
+            if market_label != null:
+                UiStyle.text(market_label, 8, UiStyle.GOLD, 800, true)
+        var combined_today := cell.get_node_or_null("CombinedToday") as Label
+        var combined_market_icon := cell.get_node_or_null("CombinedMarket") as TextureRect
+        var combined_market_label := cell.get_node_or_null("CombinedMarketLabel") as Label
+        if combined_today != null:
+            combined_today.visible = combined_market
+            combined_today.text = "TODAY"
+            UiStyle.text(combined_today, 7, UiStyle.GOLD, 800, true)
+        if combined_market_icon != null:
+            combined_market_icon.visible = combined_market
+        if combined_market_label != null:
+            combined_market_label.visible = combined_market
+            combined_market_label.text = "MARKET"
+            UiStyle.text(combined_market_label, 6, UiStyle.GOLD, 800, true)
+        if combined_market:
+            readiness_icon.visible = crop_kinds.size() == 1
+            readiness_label.visible = crop_kinds.size() == 1
+            multi_label = cell.get_node_or_null("ReadinessMultiLabel") as Label
+            if multi_label != null:
+                multi_label.visible = crop_kinds.size() > 1
+            for multi_index in range(3):
+                var combined_icon := cell.get_node_or_null("ReadinessMultiIcon_%d" % (multi_index + 1)) as TextureRect
+                if combined_icon == null:
+                    continue
+                combined_icon.visible = multi_index < crop_kinds.size() and crop_kinds.size() > 1
+                if combined_icon.visible:
+                    combined_icon.texture = load(CROP_TEXTURES[int(crop_kinds[multi_index])]) as Texture2D
+            if crop_kinds.size() == 1:
+                readiness_icon.texture = load(CROP_TEXTURES[int(crop_kinds[0])]) as Texture2D
+                readiness_label.text = "EARLIEST"
+                UiStyle.text(readiness_label, 6, UiStyle.GREEN, 700, true)
+            if multi_label != null and multi_label.visible:
+                multi_label.text = "EARLIEST"
+                UiStyle.text(multi_label, 6, UiStyle.GREEN, 700, true)
     var history_day := mini(history.size(), GameRules.MAX_DAY)
     var legend := get_node("Frame/Footer/Legend") as Label
     legend.text = "KNOWN WEATHER THROUGH DAY %d · EARLIEST READINESS" % history_day
@@ -107,7 +159,11 @@ func _readiness_markers(current_day: int) -> Dictionary:
         var kind := GameRules.CROP_KEYS.find(StringName(crop["kind"]))
         var ready_day := GameRules.earliest_ready_day(kind, int(crop["growth"]), current_day)
         if ready_day >= 1:
-            result[ready_day] = kind
+            var kinds: Array = result.get(ready_day, [])
+            if not kinds.has(kind):
+                kinds.append(kind)
+                kinds.sort()
+            result[ready_day] = kinds
     return result
 
 func _style_tree(node: Node) -> void:

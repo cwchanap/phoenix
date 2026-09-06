@@ -192,22 +192,34 @@ func _update_pending_summary(visible_count: int) -> void:
     var shelf := get_node("Frame/Body/Left/Shelf_2") as Control
     var payout_label := shelf.get_node("PayoutText") as Label
     var payout_value := shelf.get_node("PayoutValue") as Label
+    var compact_summary := get_node("Frame/Body/Left/PayoutCompact") as Control
+    var compact_label := compact_summary.get_node("Text") as Label
+    var compact_value := compact_summary.get_node("Value") as Label
     var payout_total := 0
     for kind in range(GameRules.CropKind.size()):
         payout_total += _count_for(2, kind) * GameRules.sale_value(kind)
-    var text_x := 10.0 + float(visible_count) * 58.0
-    payout_label.position.x = text_x
-    payout_value.position.x = text_x
-    payout_label.visible = visible_count > 0
-    payout_value.visible = visible_count > 0
-    payout_label.text = (
+    var has_pending := visible_count > 0
+    var use_compact := visible_count > 1
+    payout_label.visible = has_pending and not use_compact
+    payout_value.visible = has_pending and not use_compact
+    compact_summary.visible = has_pending and use_compact
+    var text := (
         "Paid at season end"
         if int(_snapshot.get("day", 1)) >= GameRules.MAX_DAY
         else "Pays out tomorrow morning"
     )
+    if not use_compact:
+        var text_x := 10.0 + float(visible_count) * 58.0
+        payout_label.position.x = text_x
+        payout_value.position.x = text_x
+    payout_label.text = text
     payout_value.text = "%dG" % payout_total
+    compact_label.text = text
+    compact_value.text = "%dG" % payout_total
     UiStyle.text(payout_label, 8, UiStyle.MUTED, 700)
     UiStyle.text(payout_value, 14, UiStyle.GREEN, 800, true)
+    UiStyle.text(compact_label, 6, UiStyle.MUTED, 700)
+    UiStyle.text(compact_value, 12, UiStyle.GREEN, 800, true)
 
 func _update_count_badge(slot: Panel, amount: int, shelf: int, selected: bool) -> void:
     var badge := slot.get_node("CountBadge") as Panel
