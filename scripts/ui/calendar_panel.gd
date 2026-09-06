@@ -77,7 +77,7 @@ func _update_calendar() -> void:
         var readiness_label := cell.get_node("ReadinessLabel") as Label
         var crop_kinds: Array = readiness.get(day, [])
         var has_readiness := not crop_kinds.is_empty()
-        var combined_market := is_today and is_market and has_readiness
+        var combined_market := is_today and is_market
         readiness_icon.visible = crop_kinds.size() == 1 and not combined_market
         readiness_label.visible = crop_kinds.size() == 1 and not combined_market
         if combined_market:

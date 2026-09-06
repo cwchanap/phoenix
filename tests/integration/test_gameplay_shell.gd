@@ -594,6 +594,35 @@ func test_calendar_day14_current_market_readiness_has_separate_authored_markers(
     assert_false((day_fourteen.get_node("ReadinessMultiIcon_3") as TextureRect).visible)
     assert_true((day_fourteen.get_node("ReadinessMultiLabel") as Label).visible)
 
+func test_calendar_day14_current_market_layout_without_readiness() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var state := world._session.state()
+    state["day"] = GameRules.MAX_DAY
+    state["weather"] = &"sunny"
+    state["weather_history"] = []
+    for _day in GameRules.MAX_DAY:
+        state["weather_history"].append(&"sunny")
+    var restored := GameSession.new()
+    assert_true(restored.restore_state(state))
+    hud.render(restored.snapshot())
+    hud.open_calendar()
+    var calendar := _panel(hud, "CalendarPanel") as CalendarPanel
+    var day_fourteen := calendar.get_node("Frame/Body/Day_14") as Panel
+    assert_true((day_fourteen.get_node("CombinedToday") as Label).visible)
+    assert_true((day_fourteen.get_node("CombinedMarket") as TextureRect).visible)
+    assert_true((day_fourteen.get_node("CombinedMarketLabel") as Label).visible)
+    assert_false((day_fourteen.get_node("Today") as Label).visible)
+    assert_false((day_fourteen.get_node("Market") as TextureRect).visible)
+    assert_false((day_fourteen.get_node("MarketLabel") as Label).visible)
+    assert_false((day_fourteen.get_node("ReadinessIcon") as TextureRect).visible)
+    assert_false((day_fourteen.get_node("ReadinessLabel") as Label).visible)
+    assert_false((day_fourteen.get_node("ReadinessMultiLabel") as Label).visible)
+
 func test_read_only_panels_render_rules_and_only_known_calendar_weather() -> void:
     var world := _world()
     if world == null:
