@@ -44,6 +44,11 @@ an unblocked world state, preserving the opening and unfinished close-friend
 sequences. An authored compact payout summary keeps two- and three-crop
 shipping-bin values inside the left pane.
 
+The final presentation follow-up keeps the Day 14 market badge within its
+authored frame with concise `MARKET TODAY` copy, while leaving the approved
+Day 3 countdown unchanged. The full-bin compact payout caption remains inside
+the left pane, wraps to two lines, and uses the readable 8px logical size.
+
 ## TDD evidence
 
 ### RED
@@ -106,6 +111,10 @@ the 01–06 comparer contract or updating any golden:
 - Three-crop pending Bag raw: `test_output/ui-visual/08-bag-all-pending.png`
 - Three-crop pending Bag nearest-2x: `test_output/ui-visual/08-bag-all-pending-2x.png`
 
+The fresh diagnostic pair after the final text-only review adjustment shows
+the fitted `MARKET TODAY` badge and the wrapped 8px full-bin payout caption;
+these remain review evidence and are not additional default comparer states.
+
 ## Files changed
 
 - `scripts/game/game_rules.gd`
@@ -142,6 +151,9 @@ still reports exact zero mismatches. No Linux visual claim is made.
 - Verified committed HEAD: `40b011b627992a917a6f3f92e76b94a4c25dd5ea`
 - Follow-up implementation commit: `df0b5c0`
 - Verified follow-up commit: `df0b5c0`
+- Final presentation follow-up commit: `504a872`
+- Final presentation verification: focused 53/53 and native 01–06 exact-zero
+  lanes passed before commit; no goldens were updated.
 - Focused shell: 53/53 tests, 694 assertions
 - Rule lanes: 14/14 tests with 76 assertions; 4/4 tests with 77 assertions
 - Native visual lane: 01–06 all exact zero mismatches; 01–03 BASE hashes are
