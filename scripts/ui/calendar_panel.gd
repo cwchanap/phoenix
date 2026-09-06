@@ -36,7 +36,7 @@ func _update_calendar() -> void:
         return
     var current_day := int(_snapshot.get("day", 1))
     var market_text := (
-        "HARVEST MARKET TODAY"
+        "MARKET TODAY"
         if current_day >= GameRules.MAX_DAY
         else "%d DAYS TO MARKET" % (GameRules.MAX_DAY - current_day)
     )

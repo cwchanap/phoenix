@@ -218,7 +218,7 @@ func _update_pending_summary(visible_count: int) -> void:
     compact_value.text = "%dG" % payout_total
     UiStyle.text(payout_label, 8, UiStyle.MUTED, 700)
     UiStyle.text(payout_value, 14, UiStyle.GREEN, 800, true)
-    UiStyle.text(compact_label, 6, UiStyle.MUTED, 700)
+    UiStyle.text(compact_label, 8, UiStyle.MUTED, 700)
     UiStyle.text(compact_value, 12, UiStyle.GREEN, 800, true)
 
 func _update_count_badge(slot: Panel, amount: int, shelf: int, selected: bool) -> void:
