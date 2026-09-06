@@ -115,6 +115,11 @@ The fresh diagnostic pair after the final text-only review adjustment shows
 the fitted `MARKET TODAY` badge and the wrapped 8px full-bin payout caption;
 these remain review evidence and are not additional default comparer states.
 
+The Calendar overlap follow-up makes the authored current-market row
+independent of readiness data, so Day 14 with an empty farm still separates
+Today and Market from the lower readiness projection row. Its review-only
+native diagnostic is `test_output/ui-visual/09-calendar-day14-empty-2x.png`.
+
 ## Files changed
 
 - `scripts/game/game_rules.gd`
@@ -154,6 +159,9 @@ still reports exact zero mismatches. No Linux visual claim is made.
 - Final presentation follow-up commit: `504a872`
 - Final presentation verification: focused 53/53 and native 01–06 exact-zero
   lanes passed before commit; no goldens were updated.
+- Calendar overlap follow-up commit: `a545c1b`
+- Calendar overlap verification: focused 54/54 tests, 707 assertions, and
+  native 01–06 exact-zero lanes; no goldens were updated.
 - Focused shell: 53/53 tests, 694 assertions
 - Rule lanes: 14/14 tests with 76 assertions; 4/4 tests with 77 assertions
 - Native visual lane: 01–06 all exact zero mismatches; 01–03 BASE hashes are
