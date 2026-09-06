@@ -117,15 +117,18 @@ still reports exact zero mismatches. No Linux visual claim is made.
 
 - Base: `b716196`
 - Implementation and approved-golden commit: `4762fcd06ddcac719ce0a3a6e3c7d68487838674`
+- Verified committed HEAD: `40b011b627992a917a6f3f92e76b94a4c25dd5ea`
 - Focused shell: 49/49 tests, 622 assertions
 - Rule lanes: 14/14 tests with 76 assertions; 4/4 tests with 77 assertions
 - Native visual lane: 01–06 all exact zero mismatches; 01–03 BASE hashes are
   unchanged (`4b2685c8d9367819eaf5f95dc29be74d2cc3cd85`,
   `dfed7037d46edf7abc66e118ed63a3d549ea2a36`,
   `ba044d8c5ff34186cc52f865eb26c57cdef12dc3`)
-- Working tree was clean immediately after the implementation commit.
-- Remaining verification is the committed-HEAD `tools/verify-clean.sh` run.
+- Committed-HEAD `tools/verify-clean.sh` passed: 11 scripts, 166/166 tests,
+  2,140 assertions; world-math and world-shell smoke passed. The verifier
+  left the worktree clean. Existing macOS ObjectDB/resource cleanup warnings
+  remain baseline diagnostics and are not new failures.
 
 ## Status
 
-`COMMITTED_READY_FOR_VERIFY_CLEAN`
+`VERIFIED_COMMITTED_HEAD`
