@@ -773,6 +773,19 @@ func _press_panel_action(action: StringName) -> void:
     get_viewport().push_input(release)
     await get_tree().process_frame
 
+func _press_physical_key(keycode: Key) -> void:
+    var press := InputEventKey.new()
+    press.keycode = keycode
+    press.physical_keycode = keycode
+    press.pressed = true
+    get_viewport().push_input(press)
+    var release := InputEventKey.new()
+    release.keycode = keycode
+    release.physical_keycode = keycode
+    release.pressed = false
+    get_viewport().push_input(release)
+    await get_tree().process_frame
+
 func test_primary_modal_registry_keeps_surfaces_exclusive() -> void:
     var world := _world()
     if world == null:
@@ -1525,6 +1538,10 @@ func test_pause_settings_nesting_keeps_world_gated_until_pause_closes() -> void:
     )
 
     await _press_escape()
+    assert_true(pause.visible)
+    assert_false(settings.visible)
+    assert_false(world._world_input_enabled)
+    await _press_physical_key(KEY_ENTER)
     assert_true(pause.visible)
     assert_false(settings.visible)
     assert_false(world._world_input_enabled)

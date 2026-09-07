@@ -22,9 +22,6 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed(&"open_settings"):
 		settings_requested.emit()
 		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed(&"ui_accept"):
-		resume_requested.emit()
-		get_viewport().set_input_as_handled()
 
 func _style_tree(node: Node) -> void:
 	for child in node.get_children():
