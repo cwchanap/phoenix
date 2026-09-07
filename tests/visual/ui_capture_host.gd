@@ -37,6 +37,7 @@ func _ready() -> void:
 
     _hud = HUD_SCENE.instantiate() as GameHud
     add_child(_hud)
+    _hud.configure(UiSettings.new())
     _hud.render(_state)
     _hud.set_interaction_hint("E SHOP")
     _hud.show_feedback(GameRules.CommandCode.SOIL_TILLED)
@@ -66,6 +67,11 @@ func prepare_state() -> void:
             pass
         "09-sleep":
             _hud.open_sleep_confirmation()
+        "10-pause":
+            _hud.open_pause()
+        "11-settings":
+            _hud.open_pause()
+            _hud.open_settings()
 
 func _press_panel_action(action: StringName) -> void:
     var press := InputEventAction.new()
