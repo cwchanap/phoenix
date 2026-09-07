@@ -227,6 +227,51 @@ func test_continue_with_completed_finale_shows_result_screen() -> void:
         )
     assert_eq((result.get_node("Panel/SaveStatus") as Label).text, "")
 
+func _seed_completed_save(repository: SaveRepository) -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    var seeded := session.state()
+    seeded["day"] = GameRules.MAX_DAY
+    seeded["weather_history"] = []
+    for _day in GameRules.MAX_DAY:
+        seeded["weather_history"].append(&"sunny")
+    seeded["shipped"] = {&"turnip": 4, &"potato": 3, &"pumpkin": 2}
+    seeded["pending_shipment"] = {&"turnip": 0, &"potato": 0, &"pumpkin": 0}
+    seeded["pending_morning_summary"] = null
+    seeded["money"] = 505
+    seeded["finale_triggered"] = true
+    assert_true(session.restore_state(seeded))
+    assert_eq(repository.save(session.state()), OK)
+
+func test_result_screen_keyboard_enter_and_esc_drive_app_flow() -> void:
+    var repository := SaveRepository.new(TEST_PATH)
+    _seed_completed_save(repository)
+    var app := _spawn_app(repository)
+    if app == null:
+        return
+    var title := app.get_node("TitleScreen") as TitleScreen
+    title.continue_requested.emit()
+    await get_tree().process_frame
+    var result := app.get_node("ResultScreen") as ResultScreen
+    assert_true(result.visible)
+
+    # Esc returns to the title without launching a world.
+    _push_action(result, &"ui_cancel")
+    await get_tree().process_frame
+    assert_false(result.visible)
+    assert_true((app.get_node("TitleScreen") as TitleScreen).visible)
+    assert_null(app.get_node_or_null("World"))
+
+    # Continue back to the result, then Enter starts a new game world.
+    title.continue_requested.emit()
+    await get_tree().process_frame
+    assert_true((app.get_node("ResultScreen") as ResultScreen).visible)
+    _push_action(result, &"ui_accept")
+    await get_tree().process_frame
+    assert_false((app.get_node("ResultScreen") as ResultScreen).visible)
+    var world := app.get_node("World") as WorldShell
+    assert_not_null(world)
+    assert_eq(world._session.state()["day"], 1)
+
 func test_title_keyboard_skips_disabled_continue_and_enter_starts_new_game() -> void:
     var repository := SaveRepository.new(TEST_PATH)
     var incompatible := GameSession.new(func() -> float: return 0.9).state()
