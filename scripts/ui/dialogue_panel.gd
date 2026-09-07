@@ -55,6 +55,14 @@ func _render() -> void:
     var name_label := $Panel/Name as Label
     var role_label := $Panel/Role as Label
     var relationship_label := $Panel/Relationship as Label
+    var portrait_name := (
+        "mira-full"
+        if _villager_id == VillagerRules.VillagerId.SHOPKEEPER
+        else VillagerRules.display_name(_villager_id).to_lower()
+    )
+    ($Portrait as TextureRect).texture = load(
+        "res://assets/ui/portraits/%s.png" % portrait_name
+    ) as Texture2D
     name_label.text = VillagerRules.display_name(_villager_id)
     role_label.text = VillagerRules.role_label(_villager_id)
 

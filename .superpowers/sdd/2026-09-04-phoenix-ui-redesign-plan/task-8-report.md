@@ -17,17 +17,23 @@ Existing states 01–06 and their goldens were left untouched. States 07–09 ar
 registered in the visual fixture/capture/comparer scripts but no new golden was
 created before native review approval.
 
+Fix round 1 keeps the single-crop morning layout and adds two authored compact
+shipment rows for mixed payouts, binds dialogue portraits to Mira, Rowan, and
+June, and hides the complete sleep warning box until Day 14. Existing E2E node
+paths remain valid; the Day 1 flow does not reach mixed payouts or villager
+portraits.
+
 ## Verification
 
-- Focused `test_gameplay_shell.gd`: 55/55 tests, 728 assertions.
-- Godot editor import/quit probe passed; existing macOS certificate and editor
-  settings diagnostics remain.
-- `./tools/bootstrap-gdunit.sh` could not download its addon because the
-  sandbox could not resolve `github.com`.
-- The gdUnit E2E lane was attempted but the native Mac was locked; the process
-  stalled before launch and was stopped. The native visual capture runner was
-  also blocked: headless mode has no viewport texture and native display waits
-  for `frame_post_draw` while the Mac is locked.
+- Focused command `godot --headless --path . -s addons/gut/gut_cmdln.gd
+  -gtest=res://tests/integration/test_gameplay_shell.gd -gexit`: 57/57 tests,
+  751 assertions.
+- Committed-HEAD `./tools/verify-clean.sh` before this fix round: GUT 172/172,
+  2,246 assertions, editor/import probe, and all three headless smokes passed.
+- The existing gdUnit4 addon was present; no bootstrap was needed for this fix.
+- E2E selectors were audited and require no changes. A bounded native E2E run
+  produced only macOS LaunchServices/XPC errors while the Mac was locked and
+  was stopped after 60 seconds; no E2E pass is claimed.
 
 ## Candidate evidence and gates
 
@@ -52,4 +58,4 @@ the three production goldens are created. No existing golden changed.
 
 ## Status
 
-`IMPLEMENTED_WITH_NATIVE_REVIEW_AND_E2E_PENDING`
+`FIX_ROUND_1_IMPLEMENTED_WITH_NATIVE_REVIEW_AND_E2E_PENDING`
