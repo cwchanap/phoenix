@@ -23,12 +23,16 @@ godot --path .
 ## Player contract
 
 Phoenix opens on a title screen. New Game starts a fresh run without deleting
-the current slot. Continue is enabled only for a schema-v1 save accepted by
+the current slot. Continue is enabled only for a schema-2 save accepted by
 current GameSession rules at user://phoenix-save.json. Successful sleep
 advances gameplay first, then synchronously writes the completed next-morning
 state and pending morning summary. Continue restores gameplay at the authored
 spawn. Invalid/incompatible loads and save failures never block New Game or
 roll back an already completed day.
+
+Farm saves use schema 2 and have no migration path; older schema versions are
+rejected. UI preferences are stored separately in
+user://phoenix-settings.cfg.
 
 A fresh run opens on a short blocking introduction; pressing Start releases
 the world and is followed by dismissible, contextual help for the current
@@ -44,6 +48,14 @@ there is no post-game or free play.
 | Space | Use the selected action on the targeted farm cell |
 | E | Interact with the targeted shop, bed, or shipping-bin cell |
 | Esc | Close the open modal |
+| `I` / `B` / `C` | Open or close Bag / Almanac / Calendar when the world is available |
+| `M` | Select the maximum quantity in Shop or Shipping |
+| `O` | Open Settings from Pause |
+
+Pressing `2` again while Seeds is selected cycles Turnip, Potato, and Pumpkin.
+Bag, Almanac, and Calendar each gate movement and close with the same key.
+Settings edits Music and Sound from `0..10`, Window at `1x`, `2x`, `3x`, `4x`,
+or `FULL`, and Tutorial Cards `ON` or `OFF`; `O` is handled only by Pause.
 
 The target diamond is hidden when the faced cell is outside the map. Facing
 the shop cell `(6,7)`, bed cell `(6,8)`, or shipping cell `(6,10)` from an
@@ -163,6 +175,27 @@ project contract smoke, world-math smoke, and world-shell smoke in that
 order. There is no second JavaScript or desktop-shell runtime in the current
 checkout; historical behavior references remain in Git history and
 `docs/superpowers/`.
+
+Native macOS UI regression uses the same Godot capture harness:
+
+```bash
+./tools/verify-visual.sh
+```
+
+The default run captures all 14 approved states as raw `640x360` production
+images, nearest-neighbour `1280x720` evidence images, and masked diff images
+under `test_output/ui-visual/`. It compares the production captures with the
+approved files in `tests/visual/goldens/`; a missing golden fails normal mode.
+`--update-goldens` is a manual local operation and is rejected in CI. The
+mock-derived files in `tests/visual/design-reference/` are approved manually
+side by side; production goldens are the automated regression oracle. Visual
+acceptance and calibration are macOS-native only, while Linux CI continues to
+run behavior and E2E coverage through Xvfb.
+
+The Calendar reference intentionally follows the truthful earliest-ready and
+actual-weather data. The Result reference retains the source mock's clipped
+vertical spacing; production uses the approved viewport-fit layout so the
+wreath and footer remain visible while the portrait keeps its intended crop.
 
 Local clean export:
 

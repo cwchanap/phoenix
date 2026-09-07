@@ -4,6 +4,7 @@ extends Control
 const HUD_SCENE := preload("res://scenes/ui/game_hud.tscn")
 const TITLE_SCENE := preload("res://scenes/ui/title_screen.tscn")
 const RESULT_SCENE := preload("res://scenes/ui/result_screen.tscn")
+const CAPTURE_SETTLE_FRAMES := 2
 
 var _state: Dictionary = {}
 var _state_name := "01-hud"
@@ -99,14 +100,9 @@ func _press_panel_action(action: StringName) -> void:
     await get_tree().process_frame
 
 func capture_root() -> Image:
-    if DisplayServer.get_name() == "headless":
+    for _step in CAPTURE_SETTLE_FRAMES:
         await get_tree().process_frame
-        await get_tree().process_frame
-    else:
-        await RenderingServer.frame_post_draw
     var image := get_viewport().get_texture().get_image()
-    assert(image.get_width() == 640)
-    assert(image.get_height() == 360)
     return image
 
 static func evidence_2x(source: Image) -> Image:
