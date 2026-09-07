@@ -35,6 +35,9 @@ func _initialize() -> void:
         "09-sleep",
         "10-pause",
         "11-settings",
+        "12-intro",
+        "13-title",
+        "14-result-heart-of-harvest",
     ].has(state_name):
         push_error("unsupported visual state: %s" % state_name)
         quit(2)

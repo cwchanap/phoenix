@@ -42,7 +42,7 @@ mkdir -p "$artifact_dir"
 
 for state in $states; do
     case "$state" in
-        01-hud|02-seed-shop|03-shipping-day14|04-bag|05-almanac|06-calendar|07-dialogue|08-morning-summary|09-sleep|10-pause|11-settings)
+        01-hud|02-seed-shop|03-shipping-day14|04-bag|05-almanac|06-calendar|07-dialogue|08-morning-summary|09-sleep|10-pause|11-settings|12-intro|13-title|14-result-heart-of-harvest)
             ;;
         *)
         echo "unsupported visual state: $state" >&2

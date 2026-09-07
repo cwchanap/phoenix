@@ -2,6 +2,8 @@ class_name UiCaptureHost
 extends Control
 
 const HUD_SCENE := preload("res://scenes/ui/game_hud.tscn")
+const TITLE_SCENE := preload("res://scenes/ui/title_screen.tscn")
+const RESULT_SCENE := preload("res://scenes/ui/result_screen.tscn")
 
 var _state: Dictionary = {}
 var _state_name := "01-hud"
@@ -13,6 +15,18 @@ func configure(state: Dictionary, state_name: String = "01-hud") -> void:
 
 func _ready() -> void:
     set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    if _state_name == "13-title":
+        var title := TITLE_SCENE.instantiate() as TitleScreen
+        add_child(title)
+        title.set_continue_state(false, "Save is incompatible; start a New Game.")
+        return
+    if _state_name == "14-result-heart-of-harvest":
+        var result := RESULT_SCENE.instantiate() as ResultScreen
+        add_child(result)
+        var restored_result := GameSession.new()
+        assert(restored_result.restore_state(_state), "result fixture must restore through GameSession")
+        result.present(ContentRules.build_harvest_result(restored_result.state()))
+        return
     var restored := GameSession.new()
     assert(restored.restore_state(_state), "visual fixture must restore through GameSession")
     _state = restored.snapshot()

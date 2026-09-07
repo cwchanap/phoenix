@@ -142,6 +142,37 @@ static func sleep_state() -> Dictionary:
     assert(error == "", "invalid sleep fixture state: %s" % error)
     return state
 
+static func intro_state() -> Dictionary:
+    var state := hud_state()
+    state["intro_acknowledged"] = false
+    var error := GameSession.state_error(state)
+    assert(error == "", "invalid intro fixture state: %s" % error)
+    return state
+
+static func result_state() -> Dictionary:
+    var state := hud_state()
+    state["day"] = GameRules.MAX_DAY
+    state["weather_history"] = []
+    for _day in GameRules.MAX_DAY:
+        state["weather_history"].append(GameRules.weather_key(GameRules.Weather.SUNNY))
+    state["shipped"] = {&"turnip": 4, &"potato": 3, &"pumpkin": 2}
+    state["pending_shipment"] = {&"turnip": 0, &"potato": 0, &"pumpkin": 0}
+    state["pending_morning_summary"] = null
+    state["money"] = 505
+    var relationships: Dictionary = state["relationships"]
+    relationships[&"shopkeeper"]["points"] = VillagerRules.FRIEND_POINTS
+    relationships[&"resident"]["points"] = VillagerRules.CLOSE_FRIEND_POINTS
+    state["relationships"] = relationships
+    state["finale_triggered"] = true
+    var error := GameSession.state_error(state)
+    assert(error == "", "invalid result fixture state: %s" % error)
+    var result := ContentRules.build_harvest_result(state)
+    assert(result["shipped_count"] == 9, "result fixture must ship nine crops")
+    assert(result["shipped_value"] == 645, "result fixture must ship 645G")
+    assert(result["tier"] == &"heart_of_harvest", "result fixture must reach heart tier")
+    assert(result["villager"] == "June", "result fixture must feature June")
+    return state
+
 static func state_for(name: String) -> Dictionary:
     match name:
         "01-hud":
@@ -164,6 +195,12 @@ static func state_for(name: String) -> Dictionary:
             return sleep_state()
         "10-pause", "11-settings":
             return hud_state()
+        "12-intro":
+            return intro_state()
+        "13-title":
+            return hud_state()
+        "14-result-heart-of-harvest":
+            return result_state()
         _:
             assert(false, "unsupported fixture state: %s" % name)
             return {}
