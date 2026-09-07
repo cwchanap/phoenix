@@ -25,6 +25,7 @@ Branch: `docs/ui-redesign-visual-parity`
 - `rtk godot --headless --rendering-method gl_compatibility --path . -s addons/gut/gut_cmdln.gd -gtest=res://tests/integration/test_app_launch.gd -gexit` — 9/9 passing, 78 assertions.
 - `rtk godot --headless --rendering-method gl_compatibility --path . -s addons/gut/gut_cmdln.gd -gtest=res://tests/integration/test_persistence_flow.gd -gexit` — 9/9 passing, 133 assertions.
 - `rtk godot --headless --rendering-method gl_compatibility --path . --check-only --script res://tests/e2e/ui_navigation_test.gd` — PASS.
+- `rtk ./tools/verify-clean.sh` at committed source HEAD `e411adf` — PASS: 178/178 GUT tests, 2,304 assertions, world math smoke passed, and world shell smoke passed. The verifier reported only its existing ObjectDB/resource leak warning at process exit.
 
 ## TDD evidence
 
@@ -49,10 +50,11 @@ The task brief required focused nesting/canonical-label tests but did not requir
 - `tests/visual/ui_capture_host.gd`
 - `tests/visual/ui_fixture_factory.gd`
 - `tools/verify-visual.sh`
+- `task-9-report.md`
 
 ## Self-review and concerns
 
 - Existing `PauseHelp` assertions were updated to the authored `PausePanel` node; no gameplay state or second settings authority was introduced.
 - Settings tests use a dedicated `user://phoenix-task9-gameplay-settings.cfg` and clean it before/after each test. The AppRoot canonical-label test uses isolated environment paths.
 - The real-key E2E test and native visual captures/golden approval were not executed because the coordinator marked the Mac unlock/native gates pending. No fake/headless capture or unapproved golden was created.
-- `./tools/verify-clean.sh` remains the final committed-HEAD gate and is run after the implementation commit.
+- The committed source HEAD `e411adf` passed `./tools/verify-clean.sh`; the follow-up report-only commit does not change source or tests.
