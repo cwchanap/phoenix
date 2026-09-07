@@ -40,6 +40,33 @@ fi
 
 artifact_dir="$root_dir/test_output/ui-visual"
 mkdir -p "$artifact_dir"
+capture_timeout_seconds=${PHOENIX_VISUAL_CAPTURE_TIMEOUT_SECONDS:-60}
+case "$capture_timeout_seconds" in
+    ''|*[!0-9]*)
+        echo "PHOENIX_VISUAL_CAPTURE_TIMEOUT_SECONDS must be a non-negative integer" >&2
+        exit 2
+        ;;
+esac
+
+wait_for_capture() {
+    capture_pid=$1
+    elapsed_seconds=0
+    while kill -0 "$capture_pid" 2>/dev/null; do
+        if [ "$elapsed_seconds" -ge "$capture_timeout_seconds" ]; then
+            echo "visual capture timed out after ${capture_timeout_seconds}s; terminating pid $capture_pid" >&2
+            kill -TERM "$capture_pid" 2>/dev/null || true
+            sleep 1
+            if kill -0 "$capture_pid" 2>/dev/null; then
+                kill -KILL "$capture_pid" 2>/dev/null || true
+            fi
+            wait "$capture_pid" 2>/dev/null || true
+            return 124
+        fi
+        sleep 1
+        elapsed_seconds=$((elapsed_seconds + 1))
+    done
+    wait "$capture_pid"
+}
 
 for state in $states; do
     case "$state" in
@@ -55,7 +82,18 @@ for state in $states; do
     diff_path="$artifact_dir/diff/$state.png"
     rm -f "$capture_path" "$evidence_path" "$diff_path"
     "$godot_bin" --path "$root_dir" --quit-after 120 --script "$root_dir/tests/visual/capture_ui_states.gd" -- \
-        --state="$state" --output="$capture_path" --evidence="$evidence_path"
+        --state="$state" --output="$capture_path" --evidence="$evidence_path" &
+    capture_pid=$!
+    capture_status=0
+    if wait_for_capture "$capture_pid"; then
+        :
+    else
+        capture_status=$?
+    fi
+    if [ "$capture_status" -ne 0 ]; then
+        echo "visual capture command failed for $state (exit $capture_status)" >&2
+        exit "$capture_status"
+    fi
     if [ ! -s "$capture_path" ] || [ ! -s "$evidence_path" ]; then
         echo "capture did not produce fresh output for $state" >&2
         exit 1
