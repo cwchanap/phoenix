@@ -46,6 +46,13 @@ remain valid; the Day 1 flow does not reach mixed payouts or villager portraits.
   `mismatch_ratio=0.00000000` (01 compared 65,280 pixels; 02–09 each
   compared 230,400 pixels). State 05 emitted the existing ObjectDB/resource
   cleanup warning but still completed with an exact comparison pass.
+- Post-approval focused command:
+  `godot --headless --path . -s addons/gut/gut_cmdln.gd
+  -gtest=res://tests/integration/test_gameplay_shell.gd -gexit`.
+  Output: `60/60 passed`, `Tests 60`, `Passing Tests 60`, `Asserts 786`,
+  `---- All tests passed! ----`; exit 0 in 24.762 seconds. The test-only
+  follow-up aligns stale Dialogue expectations with the approved curly quotes
+  and uppercase role labels.
 
 ## Candidate evidence and gates
 
@@ -71,4 +78,4 @@ approved captures were promoted only to `tests/visual/goldens/07-dialogue.png`,
 
 ## Status
 
-`GOLDENS_07_09_APPROVED_AND_NORMAL_01_09_PASS; NATIVE_E2E_DEFERRED_TO_COMBINED_TASK8_TASK9_RUN`
+`GOLDENS_07_09_APPROVED_NORMAL_01_09_PASS_FOCUSED_SHELL_60_60_786; NATIVE_E2E_DEFERRED_TO_COMBINED_TASK8_TASK9_RUN`

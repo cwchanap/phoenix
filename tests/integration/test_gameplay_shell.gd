@@ -485,11 +485,11 @@ func test_inventory_shortcuts_respect_opening_and_close_friend_blockers() -> voi
     var dialogue := _panel(hud, "DialoguePanel") as DialoguePanel
     var line := dialogue.get_node("Panel/Line") as Label
     assert_true(dialogue.visible)
-    assert_eq(line.text, lines[0])
+    assert_eq(line.text, "“%s”" % lines[0])
     for action in [&"toggle_bag", &"toggle_almanac", &"toggle_calendar"]:
         await _press_panel_action(action)
         assert_true(dialogue.visible)
-        assert_eq(line.text, lines[0])
+        assert_eq(line.text, "“%s”" % lines[0])
         assert_false(_panel(hud, "BagPanel").visible)
         assert_false(_panel(hud, "AlmanacPanel").visible)
         assert_false(_panel(hud, "CalendarPanel").visible)
@@ -984,7 +984,7 @@ func test_task8_fixture_values_render_in_authored_social_and_morning_nodes() -> 
     assert_eq((dialogue.get_node("Panel/Relationship") as Label).text, "FRIEND  ·  13/18")
     assert_eq(
         (dialogue.get_node("Panel/Line") as Label).text,
-        "Your fields are starting to look dependable.",
+        "“Your fields are starting to look dependable.”",
     )
     var gifts := dialogue.get_node("Panel/GiftButtons") as HBoxContainer
     assert_eq((gifts.get_node("Gift_0/Count") as Label).text, "7")
@@ -1301,7 +1301,7 @@ func test_close_friend_dialogue_uses_native_focus_and_cancel_progression() -> vo
     var close_button := panel.get_node("Panel/Close") as Button
     var line := panel.get_node("Panel/Line") as Label
     assert_eq(get_viewport().gui_get_focus_owner(), continue_button)
-    assert_eq(line.text, lines[0])
+    assert_eq(line.text, "“%s”" % lines[0])
 
     var cancel := InputEventAction.new()
     cancel.action = &"ui_cancel"
@@ -1309,7 +1309,7 @@ func test_close_friend_dialogue_uses_native_focus_and_cancel_progression() -> vo
     get_viewport().push_input(cancel)
     await get_tree().process_frame
     assert_true(panel.visible)
-    assert_eq(line.text, lines[0])
+    assert_eq(line.text, "“%s”" % lines[0])
 
     var accept_press := InputEventAction.new()
     accept_press.action = &"ui_accept"
@@ -1320,7 +1320,7 @@ func test_close_friend_dialogue_uses_native_focus_and_cancel_progression() -> vo
     accept_release.pressed = false
     get_viewport().push_input(accept_release)
     await get_tree().process_frame
-    assert_eq(line.text, lines[1])
+    assert_eq(line.text, "“%s”" % lines[1])
     assert_eq(panel._line_index, 1)
 
     close_button.pressed.emit()
@@ -1402,7 +1402,7 @@ func test_gift_button_round_trips_through_session_and_updates_open_panel() -> vo
     assert_eq(world._session.snapshot()["relationships"][&"resident"]["points"], 6)
     assert_eq(
         (panel.get_node("Panel/Line") as Label).text,
-        VillagerRules.gift_line(june, GameRules.CropKind.TURNIP),
+        "“%s”" % VillagerRules.gift_line(june, GameRules.CropKind.TURNIP),
     )
     assert_true((panel.get_node("Panel/Feedback") as Label).text.contains("Favourite gift"))
     assert_eq(_visible_gift_count(gift_buttons), 0)
@@ -1428,10 +1428,10 @@ func test_all_villagers_route_through_same_direct_interaction_path() -> void:
         var panel := _panel(hud, "DialoguePanel") as DialoguePanel
         assert_true(panel.visible)
         assert_eq((panel.get_node("Panel/Name") as Label).text, VillagerRules.display_name(id))
-        assert_eq((panel.get_node("Panel/Role") as Label).text, VillagerRules.role_label(id))
+        assert_eq((panel.get_node("Panel/Role") as Label).text, VillagerRules.role_label(id).to_upper())
         assert_eq(
             (panel.get_node("Panel/Line") as Label).text,
-            VillagerRules.dialogue_line(id, VillagerRules.RelationshipLevel.STRANGER),
+            "“%s”" % VillagerRules.dialogue_line(id, VillagerRules.RelationshipLevel.STRANGER),
         )
         hud.close_dialogue()
         assert_true(world._world_input_enabled)
