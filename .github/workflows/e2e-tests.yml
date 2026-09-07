@@ -41,7 +41,7 @@ jobs:
             reports
             test_output
 
-  visual-regression:
+  visual-state01:
     runs-on: macos-latest
     timeout-minutes: 20
     steps:
