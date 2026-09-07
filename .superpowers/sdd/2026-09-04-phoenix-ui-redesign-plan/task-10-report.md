@@ -12,6 +12,8 @@
 - Coordinator-approved golden update: `GODOT_BIN=/private/tmp/phoenix-task10-godot-wrapper.sh ./tools/verify-visual.sh --update-goldens 12-intro 13-title 14-result-heart-of-harvest` — passed; only 12–14 were added/updated.
 - Normal all-state visual verification: `GODOT_BIN=/private/tmp/phoenix-task10-godot-wrapper.sh ./tools/verify-visual.sh 01-hud 02-seed-shop 03-shipping-day14 04-bag 05-almanac 06-calendar 07-dialogue 08-morning-summary 09-sleep 10-pause 11-settings 12-intro 13-title 14-result-heart-of-harvest` — passed; all 14 states reported `differing_pixels=0`, `max_channel_delta=0`, and `mismatch_ratio=0.00000000`. Existing ObjectDB/resource cleanup warnings appeared during captures 03, 08, and 12 but did not affect comparisons.
 - Native E2E lane: `GODOT_BIN=/private/tmp/phoenix-task10-godot-wrapper.sh ./addons/gdUnit4/runtest.sh -a tests/e2e -c` — exit 100; 5 cases ran, 4 passed, and `test_player_moves_with_real_input` failed at `tests/e2e/gameplay_day_one_test.gd:136` (`expected <130.000000`, got `153.599976`). UI navigation and app launch cases passed.
+- Focused movement rerun: `GODOT_BIN=/private/tmp/phoenix-task10-godot-wrapper.sh ./addons/gdUnit4/runtest.sh -a tests/e2e/gameplay_day_one_test.gd -i gameplay_day_one_test:test_day_one_farming_loop_and_sleep -i gameplay_day_one_test:test_shop_purchase_updates_money -c` — exit 0; `test_player_moves_with_real_input` passed 1/1. The runner logged a cleanup-time child-process notice after the test, but reported no test failure.
+- Full native E2E rerun against unchanged commit `051de0e`: `GODOT_BIN=/private/tmp/phoenix-task10-godot-wrapper.sh ./addons/gdUnit4/runtest.sh -a tests/e2e -c` — exit 0; all 5/5 cases passed, including real movement (report `report_11`, total 13s 232ms).
 
 Candidate evidence:
 
@@ -32,4 +34,4 @@ Candidate evidence:
 - The 1280x720 candidates are design-review artifacts only; production goldens must not be added until coordinator approval.
 - The native command required an explicit temporary Godot log file because the default user log rotation crashes this local headless Godot invocation; this does not change project files or runtime configuration.
 - Reference 14 retains clipped source spacing in the original DOM; the coordinator-approved viewport-fit ruling is reflected in the authored result layout so the wreath, cards, and footer remain inside the 640x360 viewport. No browser capture was performed.
-- The native E2E movement failure is outside the Task10 title/result presentation changes and remains for the final branch gate to assess.
+- The first native E2E lane produced a one-step movement timing failure; the focused rerun and the requested full rerun both passed without code changes, so the initial failure is recorded as a native scheduling flake.
