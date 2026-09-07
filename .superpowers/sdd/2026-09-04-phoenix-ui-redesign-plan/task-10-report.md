@@ -27,11 +27,11 @@ Candidate evidence:
 - Result uses `ContentRules.build_harvest_result()` through the production capture/AppRoot path, preserves current result label contracts, and exposes `featured_villager_name()` without reranking villagers.
 - Result displays each `villager["line"]` directly as a quote and maps real relationship levels to the authored 0/2/3 heart presentation; focused assertions cover Mira/Rowan/June.
 - Intro continues to use its authored background and existing blocking/Enter behavior.
-- No existing golden was changed. States 12–14 goldens remain pending coordinator visual approval.
+- Final coordinator visual approval was recorded for states 12–14; those three goldens were added while existing 01–11 goldens were preserved.
 
 ## Concerns
 
-- The 1280x720 candidates are design-review artifacts only; production goldens must not be added until coordinator approval.
+- The 1280x720 candidates remain design-review evidence; coordinator approval permitted the corresponding 640x360 production goldens for states 12–14.
 - The native command required an explicit temporary Godot log file because the default user log rotation crashes this local headless Godot invocation; this does not change project files or runtime configuration.
 - Reference 14 retains clipped source spacing in the original DOM; the coordinator-approved viewport-fit ruling is reflected in the authored result layout so the wreath, cards, and footer remain inside the 640x360 viewport. No browser capture was performed.
 - The first native E2E lane produced a one-step movement timing failure; the focused rerun and the requested full rerun both passed without code changes, so the initial failure is recorded as a native scheduling flake.
