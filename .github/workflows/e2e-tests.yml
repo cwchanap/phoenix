@@ -41,7 +41,7 @@ jobs:
             reports
             test_output
 
-  visual-state01:
+  visual-regression:
     runs-on: macos-latest
     timeout-minutes: 20
     steps:
@@ -58,14 +58,13 @@ jobs:
         run: godot --headless --path . --editor --quit
       - name: Resolve Godot executable
         run: echo "GODOT_BIN=$(command -v godot)" >> "$GITHUB_ENV"
-      - name: Verify state-01 visual regression
-        run: ./tools/verify-visual.sh 01-hud
-      - name: Upload state-01 visual artifacts
+      - name: Verify UI visual regression
+        run: ./tools/verify-visual.sh
+      - name: Upload UI visual artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: ui-visual-state01
+          name: ui-visual-all14
           if-no-files-found: warn
           path: |
-            test_output/ui-visual/01-hud.png
-            test_output/ui-visual/01-hud-2x.png
+            test_output/ui-visual

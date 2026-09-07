@@ -1,6 +1,22 @@
 extends SceneTree
 
 const HOST_SCENE := preload("res://tests/visual/ui_capture_host.tscn")
+const VISUAL_STATES := [
+    "01-hud",
+    "02-seed-shop",
+    "03-shipping-day14",
+    "04-bag",
+    "05-almanac",
+    "06-calendar",
+    "07-dialogue",
+    "08-morning-summary",
+    "09-sleep",
+    "10-pause",
+    "11-settings",
+    "12-intro",
+    "13-title",
+    "14-result-heart-of-harvest",
+]
 
 func _initialize() -> void:
     var state_name := "01-hud"
@@ -14,22 +30,7 @@ func _initialize() -> void:
         elif argument.begins_with("--evidence="):
             evidence_path = argument.trim_prefix("--evidence=")
 
-    if not [
-        "01-hud",
-        "02-seed-shop",
-        "03-shipping-day14",
-        "04-bag",
-        "05-almanac",
-        "06-calendar",
-        "07-dialogue",
-        "08-morning-summary",
-        "09-sleep",
-        "10-pause",
-        "11-settings",
-        "12-intro",
-        "13-title",
-        "14-result-heart-of-harvest",
-    ].has(state_name):
+    if not VISUAL_STATES.has(state_name):
         push_error("unsupported visual state: %s" % state_name)
         quit(2)
         return
@@ -45,6 +46,10 @@ func _initialize() -> void:
     await process_frame
     await host.prepare_state()
     var raw := await host.capture_root()
+    if raw == null or raw.is_empty() or raw.get_width() != 640 or raw.get_height() != 360:
+        push_error("capture did not produce a non-empty 640x360 image: %s" % output_path)
+        quit(2)
+        return
     var output_error := raw.save_png(output_path)
     if output_error != OK:
         push_error("could not write capture %s: %s" % [output_path, output_error])

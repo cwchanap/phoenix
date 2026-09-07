@@ -9,6 +9,11 @@ action, Space uses it, and E interacts with the shop, bed, or shipping bin.
 There is no JavaScript or Tauri runtime in the current checkout.
 
 - E interacts with villagers as well as shop/bed/shipping.
+- I/B/C open and close Bag, Almanac, and Calendar while the world is available;
+  each panel gates movement and closes on its matching key.
+- Repeated `2` cycles the selected seed after the initial Seeds selection; M
+  chooses the maximum quantity in Shop or Shipping; O opens Settings from
+  Pause only.
 
 ## Architecture
 
@@ -71,8 +76,12 @@ There is no JavaScript or Tauri runtime in the current checkout.
 - Completed-run Continue routes straight to `ResultScreen`; the AppRoot
   result teardown removes the live World with `remove_child()` then
   `queue_free()` before presenting it.
-- scripts/persistence/save_file.gd owns schema-v1 JSON transport only; it does not validate gameplay content.
+- scripts/persistence/save_file.gd owns schema-v2 JSON transport only; older
+  saves are intentionally incompatible and there is no migration.
 - scripts/persistence/save_repository.gd writes user://phoenix-save.json with FileAccess.
+- `scripts/ui/ui_settings.gd` owns the separate preference file and its
+  Music/Sound `0..10`, Window `1x/2x/3x/4x/FULL`, and Tutorial Cards `ON/OFF`
+  settings; UI preferences never enter farm state.
 - GameSession.state()/state_error()/restore_state() own mutable-state export, all persisted-state validation, and canonical restore; snapshot() remains the view read model.
 - WorldShell remains the only live production session holder and synchronously writes once after successful overnight advancement.
 - Player position/facing/camera/UI state remain transient/authored.
@@ -81,6 +90,10 @@ There is no JavaScript or Tauri runtime in the current checkout.
   tint + ground shadows, placeholder audio with import-time music looping, the
   deterministic 5-Turnip/175G Promising GUT route, and pinned-SHA CI with
   import + unsigned macOS ZIP export; final docs live in README/CLAUDE.
+- The UI redesign closeout keeps browser/mock references as manual design
+  oracles and Godot production goldens as the automated oracle. Native macOS
+  `./tools/verify-visual.sh` captures all 14 approved states, nearest 2x
+  evidence, and masked diffs; Linux CI remains behavior/E2E-only.
 
 ## Closed shell contract
 
@@ -158,6 +171,13 @@ mkdir -p build
 godot --headless --path . --export-release "macOS" build/Phoenix.zip
 unzip -l build/Phoenix.zip | grep -F "Phoenix.app/Contents/MacOS/Phoenix"
 ```
+
+Native macOS visual acceptance runs separately with
+`./tools/verify-visual.sh`; it compares raw `640x360` captures to the approved
+production goldens, while `tests/visual/design-reference/` remains a manual
+side-by-side reference set. CI cannot bless goldens. Result reference 14 keeps
+the source mock's clipped vertical spacing; the production fit intentionally
+keeps the wreath/footer visible and clips the portrait as approved.
 
 The deterministic Promising route is pinned by
 `test_representative_reinvestment_route_reaches_promising()`:

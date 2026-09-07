@@ -7,11 +7,28 @@ const CONTRACT_MISMATCH_RATIO_CEILING := 0.002
 const VALIDATION_SCOPE := "macos-local"
 const HUD_RECTS := [Rect2i(0, 0, 640, 36), Rect2i(0, 294, 640, 66)]
 const FULL_FRAME_RECTS := [Rect2i(0, 0, 640, 360)]
+const VISUAL_STATES := [
+    "01-hud",
+    "02-seed-shop",
+    "03-shipping-day14",
+    "04-bag",
+    "05-almanac",
+    "06-calendar",
+    "07-dialogue",
+    "08-morning-summary",
+    "09-sleep",
+    "10-pause",
+    "11-settings",
+    "12-intro",
+    "13-title",
+    "14-result-heart-of-harvest",
+]
 
 func _initialize() -> void:
     var state_name := "01-hud"
     var capture_path := ""
     var golden_path := ""
+    var diff_path := ""
     var report_only := false
     for argument in OS.get_cmdline_user_args():
         if argument == "--report-only":
@@ -22,23 +39,10 @@ func _initialize() -> void:
             capture_path = argument.trim_prefix("--capture=")
         elif argument.begins_with("--golden="):
             golden_path = argument.trim_prefix("--golden=")
+        elif argument.begins_with("--diff="):
+            diff_path = argument.trim_prefix("--diff=")
 
-    if not [
-        "01-hud",
-        "02-seed-shop",
-        "03-shipping-day14",
-        "04-bag",
-        "05-almanac",
-        "06-calendar",
-        "07-dialogue",
-        "08-morning-summary",
-        "09-sleep",
-        "10-pause",
-        "11-settings",
-        "12-intro",
-        "13-title",
-        "14-result-heart-of-harvest",
-    ].has(state_name):
+    if not VISUAL_STATES.has(state_name):
         push_error("unsupported visual state: %s" % state_name)
         quit(2)
         return
@@ -71,8 +75,15 @@ func _initialize() -> void:
         push_error("golden must be a non-empty 640x360 image: %s" % golden_path)
         quit(2)
         return
-    var metrics := compare_images(capture, golden, state_name)
+    if diff_path == "":
+        diff_path = "res://test_output/ui-visual/diff/%s.png" % state_name
+    var metrics := compare_images(capture, golden, state_name, diff_path)
+    if int(metrics["diff_error"]) != OK:
+        push_error("could not write diff %s: %s" % [diff_path, error_string(int(metrics["diff_error"]))])
+        quit(2)
+        return
     print("golden_missing=false")
+    print("diff=%s" % diff_path)
     print("validation_scope=%s" % VALIDATION_SCOPE)
     print("max_channel_delta=%d" % int(metrics["max_channel_delta"]))
     print("differing_pixels=%d" % int(metrics["differing_pixels"]))
@@ -94,17 +105,25 @@ func _initialize() -> void:
         return
     quit(0)
 
-func compare_images(capture: Image, golden: Image, state_name: String = "01-hud") -> Dictionary:
+func compare_images(
+    capture: Image,
+    golden: Image,
+    state_name: String = "01-hud",
+    diff_path: String = "",
+) -> Dictionary:
     var max_channel_delta := 0
     var differing_pixels := 0
     var pixels_over_tolerance := 0
     var pixels_over_contract_channel_ceiling := 0
     var compared_pixels := 0
     var rects := FULL_FRAME_RECTS if state_name != "01-hud" else HUD_RECTS
+    var diff := Image.create(capture.get_width(), capture.get_height(), false, Image.FORMAT_RGBA8)
+    diff.fill(Color(0.0, 0.0, 0.0, 0.0))
     for rect in rects:
         for y in range(rect.position.y, rect.end.y):
             for x in range(rect.position.x, rect.end.x):
                 var delta := _pixel_delta(capture.get_pixel(x, y), golden.get_pixel(x, y))
+                diff.set_pixel(x, y, Color(delta / 255.0, delta / 255.0, delta / 255.0, 1.0))
                 max_channel_delta = maxi(max_channel_delta, int(delta))
                 if delta > 0.0:
                     differing_pixels += 1
@@ -113,6 +132,11 @@ func compare_images(capture: Image, golden: Image, state_name: String = "01-hud"
                 if delta > float(CONTRACT_CHANNEL_CEILING):
                     pixels_over_contract_channel_ceiling += 1
                 compared_pixels += 1
+    var diff_error := OK
+    if diff_path != "":
+        var output_path := ProjectSettings.globalize_path(diff_path)
+        DirAccess.make_dir_recursive_absolute(output_path.get_base_dir())
+        diff_error = diff.save_png(output_path)
     return {
         "max_channel_delta": max_channel_delta,
         "differing_pixels": differing_pixels,
@@ -120,6 +144,7 @@ func compare_images(capture: Image, golden: Image, state_name: String = "01-hud"
         "pixels_over_contract_channel_ceiling": pixels_over_contract_channel_ceiling,
         "compared_pixels": compared_pixels,
         "mismatch_ratio": float(pixels_over_tolerance) / float(maxi(compared_pixels, 1)),
+        "diff_error": diff_error,
     }
 
 func _pixel_delta(left: Color, right: Color) -> float:

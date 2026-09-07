@@ -6,6 +6,7 @@ godot_bin=${GODOT_BIN:-godot}
 report_only=0
 update_goldens=0
 states=""
+all_states="01-hud 02-seed-shop 03-shipping-day14 04-bag 05-almanac 06-calendar 07-dialogue 08-morning-summary 09-sleep 10-pause 11-settings 12-intro 13-title 14-result-heart-of-harvest"
 
 for argument in "$@"; do
     case "$argument" in
@@ -34,7 +35,7 @@ if [ "$update_goldens" -eq 1 ] && [ "$report_only" -eq 1 ]; then
     exit 2
 fi
 if [ -z "$states" ]; then
-    states=" 01-hud"
+    states="$all_states"
 fi
 
 artifact_dir="$root_dir/test_output/ui-visual"
@@ -51,8 +52,14 @@ for state in $states; do
     esac
     capture_path="$artifact_dir/$state.png"
     evidence_path="$artifact_dir/$state-2x.png"
-    "$godot_bin" --path "$root_dir" --script "$root_dir/tests/visual/capture_ui_states.gd" -- \
+    diff_path="$artifact_dir/diff/$state.png"
+    rm -f "$capture_path" "$evidence_path" "$diff_path"
+    "$godot_bin" --path "$root_dir" --quit-after 120 --script "$root_dir/tests/visual/capture_ui_states.gd" -- \
         --state="$state" --output="$capture_path" --evidence="$evidence_path"
+    if [ ! -s "$capture_path" ] || [ ! -s "$evidence_path" ]; then
+        echo "capture did not produce fresh output for $state" >&2
+        exit 1
+    fi
     echo "candidate_capture=$capture_path"
     echo "candidate_evidence=$evidence_path"
     echo "persistent_capture=$artifact_dir/$state.png"
@@ -68,9 +75,9 @@ for state in $states; do
 
     if [ "$report_only" -eq 1 ]; then
         "$godot_bin" --headless --path "$root_dir" --script "$root_dir/tests/visual/compare_ui_states.gd" -- \
-            "--state=$state" "--capture=$capture_path" "--golden=$golden_path" --report-only
+            "--state=$state" "--capture=$capture_path" "--golden=$golden_path" "--diff=$diff_path" --report-only
     else
         "$godot_bin" --headless --path "$root_dir" --script "$root_dir/tests/visual/compare_ui_states.gd" -- \
-            "--state=$state" "--capture=$capture_path" "--golden=$golden_path"
+            "--state=$state" "--capture=$capture_path" "--golden=$golden_path" "--diff=$diff_path"
     fi
 done
