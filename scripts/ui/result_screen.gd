@@ -13,6 +13,16 @@ func _ready() -> void:
     _apply_style()
     visible = false
 
+func _unhandled_input(event: InputEvent) -> void:
+    if not visible or not event.is_pressed() or event.is_echo():
+        return
+    if event.is_action_pressed(&"ui_accept"):
+        new_game_requested.emit()
+        get_viewport().set_input_as_handled()
+    elif event.is_action_pressed(&"ui_cancel"):
+        return_to_title_requested.emit()
+        get_viewport().set_input_as_handled()
+
 func present(result: Dictionary, save_error: int = OK) -> void:
     _featured_villager = String(result["villager"])
     ($Panel/Title as Label).text = String(result["title"])

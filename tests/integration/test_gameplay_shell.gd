@@ -90,14 +90,45 @@ func test_start_releases_gate_and_tutorial_card_guides_first_actions() -> void:
 
 func test_repeated_seed_slot_cycles_selected_seed() -> void:
     var world := _world()
+    var badge := world.hud.get_node("HudRoot/Action_1/Badge") as Label
+    # Starting seeds are [3, 0, 0]; the badge must track the selected seed, not
+    # always Turnip, or cycling `2` shows the wrong quantity.
     world.select_action_slot(2)
     assert_eq(world._session.snapshot()["selected_seed"], &"turnip")
+    assert_eq(badge.text, "×3")
     world.select_action_slot(2)
     assert_eq(world._session.snapshot()["selected_seed"], &"potato")
+    assert_eq(badge.text, "×0")
     world.select_action_slot(2)
     assert_eq(world._session.snapshot()["selected_seed"], &"pumpkin")
+    assert_eq(badge.text, "×0")
     world.select_action_slot(2)
     assert_eq(world._session.snapshot()["selected_seed"], &"turnip")
+    assert_eq(badge.text, "×3")
+
+func test_settings_change_keeps_tutorial_card_hidden_under_open_modal() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var overlay := world.hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
+    var card := overlay.get_node("TutorialCard") as Control
+    assert_true(card.visible, "tutorial card visible before opening modal")
+    world.hud.open_pause()
+    world.hud.open_settings()
+    var settings := world.hud._settings_panel
+    assert_true(settings.visible)
+    assert_false(card.visible, "modal hides tutorial card")
+    # Adjusting a setting re-runs apply_settings -> set_tutorial_cards_enabled,
+    # which would re-show the card over the open settings panel unless the
+    # settings-change path re-reconciles modal presentation.
+    settings._adjust(1)
+    assert_true(settings.visible)
+    assert_false(card.visible, "tutorial card must stay hidden under open settings")
+    # Closing the modal restores normal tutorial visibility.
+    world.hud.close_settings()
+    world.hud.close_pause()
+    assert_false(world.hud.has_blocking_modal())
+    assert_true(card.visible, "tutorial card restored after modal closes")
 
 func test_objective_label_counts_down_to_market_day() -> void:
     var world := _world()

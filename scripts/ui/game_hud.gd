@@ -162,7 +162,7 @@ func render(snapshot: Dictionary) -> void:
         harvested_total += int(harvested.get(key, 0))
     _bag_value_label.text = "%d" % harvested_total
     _pending_value_label.text = "%d" % pending_total
-    _seed_action_badge.text = "×%d" % int(seeds.get(GameRules.crop_key(GameRules.CropKind.TURNIP), 0))
+    _seed_action_badge.text = "×%d" % int(seeds.get(_selected_seed, 0))
 
     var day := int(snapshot["day"])
     if day >= GameRules.MAX_DAY:
@@ -604,6 +604,9 @@ func _build_modals() -> void:
 
 func _on_settings_changed(_error: int) -> void:
     apply_settings()
+    # Applying settings can re-show the tutorial card while a blocking modal
+    # (e.g. Settings) is open; re-reconcile so the card stays hidden under it.
+    _reconcile_modal_presentation()
 
 func _on_action_button_pressed(action: int) -> void:
     select_action_requested.emit(action)
