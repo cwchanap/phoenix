@@ -36,16 +36,8 @@ const SETTINGS_SCENE := preload("res://scenes/ui/settings_panel.tscn")
 
 var _root: Control
 var _weather_tint: ColorRect
-var _day_label: Label
-var _time_label: Label
-var _weather_label: Label
-var _stamina_label: Label
-var _money_label: Label
-var _selected_seed_label: Label
-var _pending_shipment_label: Label
 var _interaction_hint: Label
 var _feedback: Label
-var _save_status_label: Label
 var _day_value_label: Label
 var _day_max_label: Label
 var _time_value_label: Label
@@ -73,7 +65,6 @@ var _objective_label: Label
 var _action_buttons: Array[Button] = []
 var _seed_buttons: Array[Button] = []
 var _seed_count_labels: Array[Label] = []
-var _harvested_count_labels: Array[Label] = []
 var _sfx_player: AudioStreamPlayer
 var _music_player: AudioStreamPlayer
 var _settings: UiSettings
@@ -141,12 +132,7 @@ func render(snapshot: Dictionary) -> void:
         if snapshot["weather"] == GameRules.weather_key(GameRules.Weather.RAINY)
         else SUNNY_TINT
     )
-    _day_label.text = "Day %d" % int(snapshot["day"])
-    _time_label.text = GameRules.format_time(int(snapshot["time_minutes"]))
-    _time_value_label.text = _time_label.text
-    _weather_label.text = "Weather: %s" % _display_weather(snapshot["weather"])
-    _stamina_label.text = "Stamina: %d/%d" % [int(snapshot["stamina"]), int(snapshot["max_stamina"])]
-    _money_label.text = "Money: %dG" % int(snapshot["money"])
+    _time_value_label.text = GameRules.format_time(int(snapshot["time_minutes"]))
     _day_value_label.text = "%d" % int(snapshot["day"])
     _day_max_label.text = "/%d" % GameRules.MAX_DAY
     _weather_value_label.text = _display_weather(snapshot["weather"]).to_upper()
@@ -172,10 +158,8 @@ func render(snapshot: Dictionary) -> void:
     for kind in range(GameRules.CropKind.size()):
         var key := GameRules.crop_key(kind)
         _seed_count_labels[kind].text = "%d" % int(seeds.get(key, 0))
-        _harvested_count_labels[kind].text = "%d" % int(harvested.get(key, 0))
         pending_total += int(pending.get(key, 0))
         harvested_total += int(harvested.get(key, 0))
-    _pending_shipment_label.text = "Pending shipment: %d" % pending_total
     _bag_value_label.text = "%d" % harvested_total
     _pending_value_label.text = "%d" % pending_total
     _seed_action_badge.text = "×%d" % int(seeds.get(GameRules.crop_key(GameRules.CropKind.TURNIP), 0))
@@ -467,13 +451,6 @@ func _build_always_visible_hud() -> void:
     for index in 20:
         _stamina_pips.append($HudRoot/TopBar.get_node("StaminaPip_%02d" % index) as ColorRect)
 
-    _day_label = $HudRoot/Day as Label
-    _time_label = $HudRoot/Time as Label
-    _weather_label = $HudRoot/Weather as Label
-    _stamina_label = $HudRoot/Stamina as Label
-    _money_label = $HudRoot/Money as Label
-    _selected_seed_label = $HudRoot/SelectedSeed as Label
-    _pending_shipment_label = $HudRoot/PendingShipment as Label
     _interaction_hint = $HudRoot/InteractionHint as Label
     _feedback = $HudRoot/Feedback as Label
     _feedback_panel = $HudRoot/FeedbackPanel as Panel
@@ -481,11 +458,6 @@ func _build_always_visible_hud() -> void:
     _pending_value_label = $HudRoot/ResourceStrip/PendingPanel/PendingValue as Label
     _seed_action_badge = $HudRoot/Action_1/Badge as Label
     _objective_label = $HudRoot/Objective as Label
-    _harvested_count_labels = [
-        $HudRoot/HarvestedCount_0 as Label,
-        $HudRoot/HarvestedCount_1 as Label,
-        $HudRoot/HarvestedCount_2 as Label,
-    ]
     _seed_count_labels.clear()
     _action_buttons.clear()
     _seed_buttons.clear()
@@ -606,7 +578,6 @@ func _build_modals() -> void:
     _morning_summary_panel.acknowledged.connect(func() -> void:
         morning_summary_acknowledged.emit()
     )
-    _save_status_label = _morning_summary_panel.get_node("SaveStatus") as Label
     _dialogue_panel = DIALOGUE_SCENE.instantiate() as DialoguePanel
     _root.add_child(_dialogue_panel)
     _dialogue_panel.gift_requested.connect(func(villager_id: int, crop_kind: int) -> void:
@@ -650,7 +621,6 @@ func _refresh_action_selection() -> void:
         name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 func _refresh_seed_selection() -> void:
-    _selected_seed_label.text = "Selected: %s" % _display_crop(_selected_seed)
     for kind in _seed_buttons.size():
         var selected: bool = GameRules.crop_key(kind) == _selected_seed
         _seed_buttons[kind].button_pressed = selected
@@ -673,9 +643,19 @@ func _set_morning_summary_visible(is_visible: bool) -> void:
         _morning_summary_panel.visible = false
     if not is_visible:
         _morning_summary_panel.set_save_status(&"idle")
-    _set_hud_chrome_visible(not is_visible)
+    _reconcile_modal_presentation()
     if was_visible != is_visible:
         modal_state_changed.emit()
+
+func _reconcile_modal_presentation() -> void:
+    for panel in _primary_modals:
+        if not panel.visible:
+            continue
+        if not _onboarding_overlay.is_opening_visible():
+            (_onboarding_overlay.get_node("TutorialCard") as Control).visible = false
+        _set_hud_chrome_visible(false)
+        return
+    _set_hud_chrome_visible(true)
 
 func _open_modal(panel: Control) -> bool:
     if _morning_summary_panel.visible and panel != _morning_summary_panel:
@@ -719,12 +699,6 @@ func _set_hud_chrome_visible(is_visible: bool) -> void:
         "SeedCycleHint",
     ]:
         ($HudRoot.get_node(node_path) as Control).visible = is_visible
-
-func _display_crop(key: Variant) -> String:
-    for kind in range(GameRules.CropKind.size()):
-        if GameRules.crop_key(kind) == key:
-            return GameRules.crop_display_name(kind)
-    return String(key).capitalize()
 
 func _display_weather(key: Variant) -> String:
     return "Rainy" if key == GameRules.weather_key(GameRules.Weather.RAINY) else "Sunny"

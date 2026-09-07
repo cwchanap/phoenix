@@ -885,6 +885,44 @@ func test_closing_shop_restores_input_without_session_refresh() -> void:
     assert_true(world._world_input_enabled)
     assert_eq(world._session.snapshot(), before)
 
+func test_successful_shop_refresh_preserves_modal_mask_until_close() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var tutorial := hud.get_node("HudRoot/OnboardingOverlay/TutorialCard") as Control
+    var topbar := hud.get_node("HudRoot/TopBar") as Control
+    var resource_strip := hud.get_node("HudRoot/ResourceStrip") as Control
+    var hotbar := hud.get_node("HudRoot/Hotbar") as Control
+
+    await _place_target(world, WorldContract.SHOP_CELL)
+    world.interact()
+    var shop := _panel(hud, "ShopPanel") as ShopPanel
+    assert_true(shop.visible)
+    assert_eq(shop.selected_quantity(), 1)
+    assert_false(topbar.visible)
+    assert_false(tutorial.visible)
+
+    shop.buy_requested.emit(GameRules.CropKind.TURNIP, 1)
+
+    assert_eq(
+        int(world._session.snapshot()["money"]),
+        150 - GameRules.seed_price(GameRules.CropKind.TURNIP),
+    )
+    assert_true(shop.visible)
+    assert_false(topbar.visible)
+    assert_false(resource_strip.visible)
+    assert_false(hotbar.visible)
+    assert_false(tutorial.visible)
+
+    hud.close_shop()
+    assert_true(topbar.visible)
+    assert_true(resource_strip.visible)
+    assert_true(hotbar.visible)
+    assert_true(tutorial.visible)
+
 func test_opening_shipping_immediately_gates_world_input() -> void:
     var world := _world()
     if world == null:
