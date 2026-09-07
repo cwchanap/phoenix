@@ -3,10 +3,15 @@ extends Control
 
 signal acknowledged
 
-var _summary: Dictionary = {}
+var _shipment_rows: Array[Panel] = []
 
 func _ready() -> void:
     mouse_filter = Control.MOUSE_FILTER_STOP
+    _shipment_rows = [
+        $Frame/ShipmentRow as Panel,
+        $Frame/ShipmentRow_1 as Panel,
+        $Frame/ShipmentRow_2 as Panel,
+    ]
     ($Acknowledge as Button).pressed.connect(_on_acknowledge_pressed)
     _style_authored_tree(self)
     _apply_authored_style()
@@ -14,7 +19,6 @@ func _ready() -> void:
     visible = false
 
 func present(summary: Dictionary) -> void:
-    _summary = summary.duplicate(true)
     var completed_day := int(summary.get("completed_day", 0))
     var next_day := int(summary.get("next_day", 0))
     ($Frame/Header/CompletedDay as Label).text = "%d" % completed_day
@@ -40,25 +44,64 @@ func present(summary: Dictionary) -> void:
     ($Frame/Card_3/Caption as Label).text = "SHIPPED"
 
     var shipments: Array = summary.get("shipments", [])
-    var row_visible := not shipments.is_empty()
-    ($Frame/ShipmentRow as Panel).visible = row_visible
-    ($Frame/EmptyShipment as Label).visible = not row_visible
-    if row_visible:
-        var shipment: Dictionary = shipments[0]
-        var crop_key := StringName(shipment.get("crop", &"turnip"))
-        var kind := GameRules.CROP_KEYS.find(crop_key)
-        ($Frame/ShipmentRow/Name as Label).text = "%s ×%d" % [
-            GameRules.crop_display_name(kind),
-            int(shipment.get("quantity", 0)),
-        ]
-        ($Frame/ShipmentRow/Amount as Label).text = "%dG" % int(shipment.get("amount", 0))
-        ($Frame/ShipmentRow/Icon as TextureRect).texture = load(
-            "res://assets/ui/crops/%s.png" % crop_key
-        ) as Texture2D
+    assert(shipments.size() <= _shipment_rows.size(), "morning summary has too many shipment lines")
+    _set_shipment_layout(shipments.size() > 1)
+    for index in _shipment_rows.size():
+        var row := _shipment_rows[index]
+        row.visible = index < shipments.size()
+        if row.visible:
+            _render_shipment_row(row, shipments[index])
+    ($Frame/EmptyShipment as Label).visible = shipments.is_empty()
 
     ($Frame/MoneyRow/Amount as Label).text = "%dG" % int(summary.get("money_after_shipping", 0))
     ($Frame/Footer/ActionText as Label).text = "START DAY %d" % next_day
     visible = true
+
+func _render_shipment_row(row: Panel, shipment: Dictionary) -> void:
+    var crop_key := StringName(shipment.get("crop", &"turnip"))
+    var kind := GameRules.CROP_KEYS.find(crop_key)
+    (row.get_node("Name") as Label).text = "%s ×%d" % [
+        GameRules.crop_display_name(kind),
+        int(shipment.get("quantity", 0)),
+    ]
+    (row.get_node("Amount") as Label).text = "%dG" % int(shipment.get("amount", 0))
+    (row.get_node("Icon") as TextureRect).texture = load(
+        "res://assets/ui/crops/%s.png" % crop_key
+    ) as Texture2D
+
+func _set_shipment_layout(compact: bool) -> void:
+    var first_row := _shipment_rows[0]
+    var money_row := $Frame/MoneyRow as Panel
+    var footer := $Frame/Footer as Panel
+    if not compact:
+        first_row.position = Vector2(14, 190)
+        first_row.size = Vector2(400, 34)
+        (first_row.get_node("Icon") as TextureRect).position = Vector2(13, 4)
+        (first_row.get_node("Icon") as TextureRect).size = Vector2(22, 24)
+        (first_row.get_node("Name") as Label).position = Vector2(43, 9)
+        (first_row.get_node("Name") as Label).size = Vector2(207, 18)
+        (first_row.get_node("Amount") as Label).position = Vector2(340, 7)
+        (first_row.get_node("Amount") as Label).size = Vector2(52, 21)
+        money_row.position = Vector2(14, 228)
+        money_row.size = Vector2(400, 34)
+        footer.position = Vector2(2, 270)
+        footer.size = Vector2(424, 45)
+        return
+
+    for index in _shipment_rows.size():
+        var row := _shipment_rows[index]
+        row.position = Vector2(14, 190 + index * 20)
+        row.size = Vector2(400, 18)
+        (row.get_node("Icon") as TextureRect).position = Vector2(13, 1)
+        (row.get_node("Icon") as TextureRect).size = Vector2(18, 18)
+        (row.get_node("Name") as Label).position = Vector2(39, 2)
+        (row.get_node("Name") as Label).size = Vector2(211, 15)
+        (row.get_node("Amount") as Label).position = Vector2(340, 1)
+        (row.get_node("Amount") as Label).size = Vector2(52, 17)
+    money_row.position = Vector2(14, 252)
+    money_row.size = Vector2(400, 34)
+    footer.position = Vector2(2, 290)
+    footer.size = Vector2(424, 45)
 
 func set_save_status(status: StringName, message: String = "") -> void:
     match status:
@@ -103,10 +146,11 @@ func _apply_authored_style() -> void:
         "panel",
         UiStyle.panel(UiStyle.HEADER, UiStyle.BORDER, 0),
     )
-    ($Frame/ShipmentRow as Panel).add_theme_stylebox_override(
-        "panel",
-        UiStyle.panel(UiStyle.INSET, UiStyle.BORDER, 1),
-    )
+    for row in _shipment_rows:
+        row.add_theme_stylebox_override(
+            "panel",
+            UiStyle.panel(UiStyle.INSET, UiStyle.BORDER, 1),
+        )
     ($Frame/MoneyRow as Panel).add_theme_stylebox_override(
         "panel",
         UiStyle.panel(UiStyle.HEADER, UiStyle.BORDER, 1),
@@ -150,8 +194,9 @@ func _apply_authored_style() -> void:
         )
         UiStyle.text(caption, 8, UiStyle.MUTED, 700)
     UiStyle.text($Frame/SectionTitle as Label, 8, UiStyle.MUTED, 700, true)
-    UiStyle.text($Frame/ShipmentRow/Name as Label, 10, UiStyle.CREAM, 800)
-    UiStyle.text($Frame/ShipmentRow/Amount as Label, 12, UiStyle.GREEN, 800)
+    for row in _shipment_rows:
+        UiStyle.text(row.get_node("Name") as Label, 10, UiStyle.CREAM, 800)
+        UiStyle.text(row.get_node("Amount") as Label, 12, UiStyle.GREEN, 800)
     UiStyle.text($Frame/EmptyShipment as Label, 9, UiStyle.MUTED, 400)
     UiStyle.text($Frame/MoneyRow/Caption as Label, 9, UiStyle.TEXT, 700)
     UiStyle.text($Frame/MoneyRow/Amount as Label, 13, UiStyle.GOLD, 800)

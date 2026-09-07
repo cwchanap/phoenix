@@ -14,6 +14,7 @@ func _ready() -> void:
 func present(snapshot: Dictionary) -> void:
     var day := int(snapshot.get("day", 1))
     var terminal := day == GameRules.MAX_DAY
+    ($Frame/WarningBox as Panel).visible = terminal
     ($Boundary as Label).visible = terminal
     ($Boundary as Label).text = (
         "Day 14 — this ends the season and settles the bin."

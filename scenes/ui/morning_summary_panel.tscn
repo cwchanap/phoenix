@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=4]
+[gd_scene load_steps=11 format=4]
 
 [ext_resource type="Script" path="res://scripts/ui/morning_summary_panel.gd" id="1_summary"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/sun.png" id="2_sun"]
@@ -8,6 +8,8 @@
 [ext_resource type="Texture2D" path="res://assets/ui/icons/save.png" id="6_save"]
 [ext_resource type="Texture2D" path="res://assets/ui/crops/turnip.png" id="7_turnip"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/growth.png" id="8_growth"]
+[ext_resource type="Texture2D" path="res://assets/ui/crops/potato.png" id="9_potato"]
+[ext_resource type="Texture2D" path="res://assets/ui/crops/pumpkin.png" id="10_pumpkin"]
 
 [node name="MorningSummaryPanel" type="Control"]
 layout_mode = 3
@@ -313,6 +315,80 @@ offset_top = 202.0
 offset_right = 400.0
 offset_bottom = 219.0
 text = "No crops shipped."
+
+[node name="ShipmentRow_1" type="Panel" parent="Frame"]
+visible = false
+layout_mode = 0
+offset_left = 14.0
+offset_top = 212.0
+offset_right = 414.0
+offset_bottom = 232.0
+mouse_filter = 2
+
+[node name="Icon" type="TextureRect" parent="Frame/ShipmentRow_1"]
+layout_mode = 0
+offset_left = 13.0
+offset_top = 2.0
+offset_right = 31.0
+offset_bottom = 20.0
+mouse_filter = 2
+texture = ExtResource("9_potato")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Name" type="Label" parent="Frame/ShipmentRow_1"]
+layout_mode = 0
+offset_left = 39.0
+offset_top = 3.0
+offset_right = 250.0
+offset_bottom = 18.0
+text = "Potato ×1"
+
+[node name="Amount" type="Label" parent="Frame/ShipmentRow_1"]
+layout_mode = 0
+offset_left = 340.0
+offset_top = 2.0
+offset_right = 392.0
+offset_bottom = 19.0
+text = "80G"
+horizontal_alignment = 2
+
+[node name="ShipmentRow_2" type="Panel" parent="Frame"]
+visible = false
+layout_mode = 0
+offset_left = 14.0
+offset_top = 234.0
+offset_right = 414.0
+offset_bottom = 254.0
+mouse_filter = 2
+
+[node name="Icon" type="TextureRect" parent="Frame/ShipmentRow_2"]
+layout_mode = 0
+offset_left = 13.0
+offset_top = 2.0
+offset_right = 31.0
+offset_bottom = 20.0
+mouse_filter = 2
+texture = ExtResource("10_pumpkin")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Name" type="Label" parent="Frame/ShipmentRow_2"]
+layout_mode = 0
+offset_left = 39.0
+offset_top = 3.0
+offset_right = 250.0
+offset_bottom = 18.0
+text = "Pumpkin ×3"
+
+[node name="Amount" type="Label" parent="Frame/ShipmentRow_2"]
+layout_mode = 0
+offset_left = 340.0
+offset_top = 2.0
+offset_right = 392.0
+offset_bottom = 19.0
+text = "300G"
+horizontal_alignment = 2
 
 [node name="MoneyRow" type="Panel" parent="Frame"]
 layout_mode = 0

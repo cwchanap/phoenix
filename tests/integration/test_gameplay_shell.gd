@@ -987,7 +987,24 @@ func test_task8_fixture_values_render_in_authored_social_and_morning_nodes() -> 
     assert_eq((summary.get_node("Frame/Card_3/Value") as Label).text, "+70")
     assert_eq((summary.get_node("Frame/ShipmentRow/Name") as Label).text, "Turnip ×2")
     assert_eq((summary.get_node("Frame/ShipmentRow/Amount") as Label).text, "70G")
+    assert_false((summary.get_node("Frame/ShipmentRow_1") as Panel).visible)
+    assert_false((summary.get_node("Frame/ShipmentRow_2") as Panel).visible)
     assert_eq((summary.get_node("Frame/MoneyRow/Amount") as Label).text, "220G")
+
+    summary_snapshot["pending_morning_summary"]["shipments"] = [
+        {"crop": &"turnip", "quantity": 2, "amount": 70},
+        {"crop": &"potato", "quantity": 1, "amount": 80},
+        {"crop": &"pumpkin", "quantity": 3, "amount": 300},
+    ]
+    hud.render(summary_snapshot)
+    assert_eq((summary.get_node("Frame/ShipmentRow/Name") as Label).text, "Turnip ×2")
+    assert_eq((summary.get_node("Frame/ShipmentRow/Amount") as Label).text, "70G")
+    assert_true((summary.get_node("Frame/ShipmentRow_1") as Panel).visible)
+    assert_eq((summary.get_node("Frame/ShipmentRow_1/Name") as Label).text, "Potato ×1")
+    assert_eq((summary.get_node("Frame/ShipmentRow_1/Amount") as Label).text, "80G")
+    assert_true((summary.get_node("Frame/ShipmentRow_2") as Panel).visible)
+    assert_eq((summary.get_node("Frame/ShipmentRow_2/Name") as Label).text, "Pumpkin ×3")
+    assert_eq((summary.get_node("Frame/ShipmentRow_2/Amount") as Label).text, "300G")
 
 func test_public_primary_opens_are_denied_while_morning_summary_is_visible() -> void:
     var world := _world()
@@ -1377,6 +1394,52 @@ func test_all_villagers_route_through_same_direct_interaction_path() -> void:
         hud.close_dialogue()
         assert_true(world._world_input_enabled)
         assert_null(get_viewport().gui_get_focus_owner())
+
+func test_dialogue_portrait_matches_each_villager() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var expected_paths := [
+        "res://assets/ui/portraits/mira-full.png",
+        "res://assets/ui/portraits/rowan.png",
+        "res://assets/ui/portraits/june.png",
+    ]
+    var result := {
+        "code": GameRules.CommandCode.VILLAGER_TALKED,
+        "lines": ["A line for the portrait regression."],
+        "points_gained": 0,
+        "gift_reaction": &"",
+        "close_friend_sequence": false,
+    }
+    for id in range(VillagerRules.VillagerId.size()):
+        hud.open_dialogue(id, result, world._session.snapshot())
+        var panel := _panel(hud, "DialoguePanel") as DialoguePanel
+        assert_eq(
+            (panel.get_node("Portrait") as TextureRect).texture.resource_path,
+            expected_paths[id],
+        )
+        hud.close_dialogue()
+
+func test_sleep_warning_box_only_shows_on_day14() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var sleep := _panel(hud, "SleepPanel") as SleepPanel
+    var snapshot := world._session.snapshot()
+    snapshot["day"] = 1
+    hud.render(snapshot)
+    assert_false((sleep.get_node("Frame/WarningBox") as Panel).visible)
+    assert_false((sleep.get_node("Boundary") as Label).visible)
+    snapshot["day"] = GameRules.MAX_DAY
+    hud.render(snapshot)
+    assert_true((sleep.get_node("Frame/WarningBox") as Panel).visible)
+    assert_true((sleep.get_node("Boundary") as Label).visible)
 
 func _press_escape() -> void:
     var pressed := InputEventAction.new()
