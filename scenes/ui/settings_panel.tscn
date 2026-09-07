@@ -73,10 +73,18 @@ mouse_filter = 2
 [node name="MusicRow" type="Panel" parent="Frame/Body"]
 layout_mode = 0
 offset_left = 12.0
-offset_top = 7.0
+offset_top = 12.0
 offset_right = 352.0
-offset_bottom = 43.0
+offset_bottom = 48.0
 mouse_filter = 2
+
+[node name="SelectionStripe" type="ColorRect" parent="Frame/Body/MusicRow"]
+layout_mode = 0
+offset_right = 2.0
+offset_bottom = 36.0
+mouse_filter = 2
+color = Color(1, 0.901961, 0.45098, 1)
+visible = false
 
 [node name="Icon" type="TextureRect" parent="Frame/Body/MusicRow"]
 layout_mode = 0
@@ -91,7 +99,7 @@ stretch_mode = 5
 
 [node name="Name" type="Label" parent="Frame/Body/MusicRow"]
 layout_mode = 0
-offset_left = 47.0
+offset_left = 37.0
 offset_top = 8.0
 offset_right = 116.0
 offset_bottom = 29.0
@@ -99,86 +107,86 @@ text = "Music"
 
 [node name="Pips" type="Control" parent="Frame/Body/MusicRow"]
 layout_mode = 0
-offset_left = 120.0
+offset_left = 122.0
 offset_top = 10.0
-offset_right = 287.0
+offset_right = 282.0
 offset_bottom = 29.0
 mouse_filter = 2
 
 [node name="Pip_0" type="ColorRect" parent="Frame/Body/MusicRow/Pips"]
 layout_mode = 0
-offset_right = 15.0
+offset_right = 14.0
 offset_bottom = 15.0
 mouse_filter = 2
 
 [node name="Pip_1" type="ColorRect" parent="Frame/Body/MusicRow/Pips"]
 layout_mode = 0
-offset_left = 17.0
-offset_right = 32.0
+offset_left = 16.5
+offset_right = 30.5
 offset_bottom = 15.0
 mouse_filter = 2
 
 [node name="Pip_2" type="ColorRect" parent="Frame/Body/MusicRow/Pips"]
 layout_mode = 0
-offset_left = 34.0
-offset_right = 49.0
+offset_left = 32.5
+offset_right = 46.5
 offset_bottom = 15.0
 mouse_filter = 2
 
 [node name="Pip_3" type="ColorRect" parent="Frame/Body/MusicRow/Pips"]
 layout_mode = 0
-offset_left = 51.0
-offset_right = 66.0
+offset_left = 48.5
+offset_right = 62.5
 offset_bottom = 15.0
 mouse_filter = 2
 
 [node name="Pip_4" type="ColorRect" parent="Frame/Body/MusicRow/Pips"]
 layout_mode = 0
-offset_left = 68.0
-offset_right = 83.0
+offset_left = 65.0
+offset_right = 79.0
 offset_bottom = 15.0
 mouse_filter = 2
 
 [node name="Pip_5" type="ColorRect" parent="Frame/Body/MusicRow/Pips"]
 layout_mode = 0
-offset_left = 85.0
-offset_right = 100.0
+offset_left = 81.0
+offset_right = 95.0
 offset_bottom = 15.0
 mouse_filter = 2
 
 [node name="Pip_6" type="ColorRect" parent="Frame/Body/MusicRow/Pips"]
 layout_mode = 0
-offset_left = 102.0
-offset_right = 117.0
+offset_left = 97.5
+offset_right = 111.5
 offset_bottom = 15.0
 mouse_filter = 2
 
 [node name="Pip_7" type="ColorRect" parent="Frame/Body/MusicRow/Pips"]
 layout_mode = 0
-offset_left = 119.0
-offset_right = 134.0
+offset_left = 113.5
+offset_right = 127.5
 offset_bottom = 15.0
 mouse_filter = 2
 
 [node name="Pip_8" type="ColorRect" parent="Frame/Body/MusicRow/Pips"]
 layout_mode = 0
-offset_left = 136.0
-offset_right = 151.0
+offset_left = 129.5
+offset_right = 143.5
 offset_bottom = 15.0
 mouse_filter = 2
 
 [node name="Pip_9" type="ColorRect" parent="Frame/Body/MusicRow/Pips"]
 layout_mode = 0
-offset_left = 153.0
-offset_right = 168.0
+offset_left = 146.0
+offset_right = 160.0
 offset_bottom = 15.0
 mouse_filter = 2
 
 [node name="Adjust" type="Control" parent="Frame/Body/MusicRow"]
 layout_mode = 0
-offset_left = 288.0
+offset_left = 290.0
 offset_top = 5.0
-offset_right = 334.0
+offset_right = 336.0
 offset_bottom = 27.0
 mouse_filter = 2
 
@@ -222,10 +230,18 @@ vertical_alignment = 1
 [node name="SoundRow" type="Panel" parent="Frame/Body"]
 layout_mode = 0
 offset_left = 12.0
-offset_top = 51.0
+offset_top = 56.0
 offset_right = 352.0
-offset_bottom = 87.0
+offset_bottom = 92.0
 mouse_filter = 2
+
+[node name="SelectionStripe" type="ColorRect" parent="Frame/Body/SoundRow"]
+layout_mode = 0
+offset_right = 2.0
+offset_bottom = 36.0
+mouse_filter = 2
+color = Color(1, 0.901961, 0.45098, 1)
+visible = false
 
 [node name="Icon" type="TextureRect" parent="Frame/Body/SoundRow"]
 layout_mode = 0
@@ -240,7 +256,7 @@ stretch_mode = 5
 
 [node name="Name" type="Label" parent="Frame/Body/SoundRow"]
 layout_mode = 0
-offset_left = 47.0
+offset_left = 37.0
 offset_top = 8.0
 offset_right = 116.0
 offset_bottom = 29.0
@@ -371,10 +387,18 @@ vertical_alignment = 1
 [node name="WindowRow" type="Panel" parent="Frame/Body"]
 layout_mode = 0
 offset_left = 12.0
-offset_top = 95.0
+offset_top = 100.0
 offset_right = 352.0
-offset_bottom = 133.0
+offset_bottom = 138.0
 mouse_filter = 2
+
+[node name="SelectionStripe" type="ColorRect" parent="Frame/Body/WindowRow"]
+layout_mode = 0
+offset_right = 2.0
+offset_bottom = 38.0
+mouse_filter = 2
+color = Color(1, 0.901961, 0.45098, 1)
+visible = false
 
 [node name="Icon" type="TextureRect" parent="Frame/Body/WindowRow"]
 layout_mode = 0
@@ -389,7 +413,7 @@ stretch_mode = 5
 
 [node name="Name" type="Label" parent="Frame/Body/WindowRow"]
 layout_mode = 0
-offset_left = 47.0
+offset_left = 37.0
 offset_top = 9.0
 offset_right = 116.0
 offset_bottom = 30.0
@@ -545,10 +569,18 @@ vertical_alignment = 1
 [node name="TutorialRow" type="Panel" parent="Frame/Body"]
 layout_mode = 0
 offset_left = 12.0
-offset_top = 141.0
+offset_top = 146.0
 offset_right = 352.0
-offset_bottom = 179.0
+offset_bottom = 184.0
 mouse_filter = 2
+
+[node name="SelectionStripe" type="ColorRect" parent="Frame/Body/TutorialRow"]
+layout_mode = 0
+offset_right = 2.0
+offset_bottom = 38.0
+mouse_filter = 2
+color = Color(1, 0.901961, 0.45098, 1)
+visible = false
 
 [node name="Icon" type="TextureRect" parent="Frame/Body/TutorialRow"]
 layout_mode = 0
@@ -563,7 +595,7 @@ stretch_mode = 5
 
 [node name="Name" type="Label" parent="Frame/Body/TutorialRow"]
 layout_mode = 0
-offset_left = 47.0
+offset_left = 37.0
 offset_top = 9.0
 offset_right = 116.0
 offset_bottom = 30.0

@@ -16,7 +16,8 @@ Branch: `docs/ui-redesign-visual-parity`
 - Applied audio, tutorial presentation, and window choices through the existing `GameHud.apply_settings()` helpers.
 - Rendered the Settings save label from `SaveRepository.DEFAULT_PATH`, independent of environment overrides.
 - Added isolated preference mutation/nesting/canonical-label integration tests and a physical-key GdUnit E2E test.
-- Registered visual fixture/capture support for states 10–11 without creating or updating goldens.
+- Registered visual fixture/capture support for states 10–11 and updated only their approved goldens after native review.
+- The E2E navigation helper drives `O`/`D` through physical key events and sends Escape with its logical keycode so Godot's built-in `ui_cancel` action receives it.
 
 ## Verification
 
@@ -27,6 +28,10 @@ Branch: `docs/ui-redesign-visual-parity`
 - `rtk godot --headless --rendering-method gl_compatibility --path . -s addons/gut/gut_cmdln.gd -gtest=res://tests/integration/test_persistence_flow.gd -gexit` — 9/9 passing, 133 assertions.
 - `rtk godot --headless --rendering-method gl_compatibility --path . --check-only --script res://tests/e2e/ui_navigation_test.gd` — PASS.
 - `rtk ./tools/verify-clean.sh` at committed source HEAD `e411adf` — PASS: 178/178 GUT tests, 2,304 assertions, world math smoke passed, and world shell smoke passed. The verifier reported only its existing ObjectDB/resource leak warning at process exit.
+- `rtk ./tools/verify-visual.sh --update-goldens 10-pause 11-settings` — PASS under native Metal; updated only `tests/visual/goldens/10-pause.png` and `tests/visual/goldens/11-settings.png` after manual approval.
+- `rtk ./tools/verify-visual.sh 01-hud 02-seed-shop 03-shipping-day14 04-bag 05-almanac 06-calendar 07-dialogue 08-morning-summary 09-sleep 10-pause 11-settings` — PASS for all 11 states; every comparison reported `max_channel_delta=0`, `differing_pixels=0`, and `mismatch_ratio=0.00000000`.
+- `rtk env GODOT_BIN=/Users/chanwaichan/.local/bin/godot ./addons/gdUnit4/runtest.sh -a tests/e2e/ui_navigation_test.gd -c` — 1/1 native UI-navigation test passed.
+- `rtk env GODOT_BIN=/Users/chanwaichan/.local/bin/godot ./addons/gdUnit4/runtest.sh -a tests/e2e -c` — 5/5 native E2E tests passed across 3 suites.
 
 ## TDD evidence
 
@@ -51,6 +56,8 @@ The task brief required focused nesting/canonical-label tests but did not requir
 - `tests/visual/ui_capture_host.gd`
 - `tests/visual/ui_fixture_factory.gd`
 - `tools/verify-visual.sh`
+- `tests/visual/goldens/10-pause.png`
+- `tests/visual/goldens/11-settings.png`
 - `.superpowers/sdd/2026-09-04-phoenix-ui-redesign-plan/task-9-report.md`
 
 ## Self-review and concerns
@@ -58,5 +65,6 @@ The task brief required focused nesting/canonical-label tests but did not requir
 - Existing `PauseHelp` assertions were updated to the authored `PausePanel` node; no gameplay state or second settings authority was introduced.
 - The focused follow-up removed the unintended `ui_accept` resume path from `PausePanel`; only the authored Resume button and Esc close Pause.
 - Settings tests use a dedicated `user://phoenix-task9-gameplay-settings.cfg` and clean it before/after each test. The AppRoot canonical-label test uses isolated environment paths.
-- The real-key E2E test and native visual captures/golden approval were not executed because the coordinator marked the Mac unlock/native gates pending. No fake/headless capture or unapproved golden was created.
-- The committed source HEAD `e411adf` passed `./tools/verify-clean.sh`; the follow-up report-only commit does not change source or tests.
+- Native 10/11 review approved the bounded geometry and style corrections; no other goldens were changed.
+- Normal visual verification and the combined native E2E lane passed after the approved capture review.
+- The committed source checkpoint `e411adf` passed `./tools/verify-clean.sh`; the later Task9 visual and E2E follow-ups were verified with the focused commands above, without rerunning the broad full-clean gate.
