@@ -1,6 +1,16 @@
-[gd_scene load_steps=2 format=4]
+[gd_scene load_steps=14 format=4]
 
 [ext_resource type="Script" path="res://scripts/ui/result_screen.gd" id="1_result"]
+[ext_resource type="Texture2D" path="res://assets/ui/backgrounds/result.png" id="2_background"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/harvest-wreath.png" id="3_wreath"]
+[ext_resource type="Texture2D" path="res://assets/ui/crops/turnip.png" id="4_turnip"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/coin-stack.png" id="5_coin"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/money-bag.png" id="6_money"]
+[ext_resource type="Texture2D" path="res://assets/ui/portraits/mira.png" id="7_mira"]
+[ext_resource type="Texture2D" path="res://assets/ui/portraits/rowan.png" id="8_rowan"]
+[ext_resource type="Texture2D" path="res://assets/ui/portraits/june.png" id="9_june"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/heart-filled.png" id="10_heart"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/heart-outline.png" id="11_heart_outline"]
 
 [node name="ResultScreen" type="Control"]
 layout_mode = 3
@@ -11,89 +21,672 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_result")
 
-[node name="Panel" type="Panel" parent="."]
-offset_left = 140.0
-offset_top = 40.0
-offset_right = 500.0
-offset_bottom = 356.0
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_background")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Dim" type="ColorRect" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.027451, 0.035294, 0.047059, 0.52)
+
+[node name="Panel" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+
+[node name="Wreath" type="TextureRect" parent="Panel"]
+layout_mode = 0
+offset_left = 304.0
+offset_top = 1.0
+offset_right = 336.0
+offset_bottom = 33.0
+mouse_filter = 2
+texture = ExtResource("3_wreath")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Kicker" type="Label" parent="Panel"]
+layout_mode = 0
+offset_top = 38.0
+offset_right = 640.0
+offset_bottom = 50.0
+mouse_filter = 2
+text = "SEASON COMPLETE"
+horizontal_alignment = 1
 
 [node name="Title" type="Label" parent="Panel"]
-offset_left = 20.0
-offset_top = 16.0
-offset_right = 340.0
-offset_bottom = 44.0
-text = "Harvest Result"
+layout_mode = 0
+offset_top = 50.0
+offset_right = 640.0
+offset_bottom = 86.0
+mouse_filter = 2
+text = "Heart of the Harvest"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Stats" type="Control" parent="Panel"]
+layout_mode = 0
+offset_top = 94.0
+offset_right = 640.0
+offset_bottom = 178.0
+mouse_filter = 2
+
+[node name="Card_0" type="Panel" parent="Panel/Stats"]
+layout_mode = 0
+offset_left = 114.0
+offset_right = 246.0
+offset_bottom = 84.0
+mouse_filter = 2
+clip_contents = true
+
+[node name="Icon" type="TextureRect" parent="Panel/Stats/Card_0"]
+layout_mode = 0
+offset_left = 54.0
+offset_top = 8.0
+offset_right = 78.0
+offset_bottom = 32.0
+mouse_filter = 2
+texture = ExtResource("4_turnip")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Value" type="Label" parent="Panel/Stats/Card_0"]
+layout_mode = 0
+offset_top = 38.0
+offset_right = 132.0
+offset_bottom = 62.0
+mouse_filter = 2
+text = "9"
 horizontal_alignment = 1
 
-[node name="Shipped" type="Label" parent="Panel"]
-offset_left = 20.0
-offset_top = 54.0
-offset_right = 340.0
-offset_bottom = 74.0
-text = "Shipped"
+[node name="Caption" type="Label" parent="Panel/Stats/Card_0"]
+layout_mode = 0
+offset_top = 65.0
+offset_right = 132.0
+offset_bottom = 79.0
+mouse_filter = 2
+text = "CROPS SHIPPED"
 horizontal_alignment = 1
 
-[node name="Money" type="Label" parent="Panel"]
-offset_left = 20.0
-offset_top = 78.0
-offset_right = 340.0
-offset_bottom = 98.0
-text = "Final money"
+[node name="Card_1" type="Panel" parent="Panel/Stats"]
+layout_mode = 0
+offset_left = 254.0
+offset_right = 386.0
+offset_bottom = 84.0
+mouse_filter = 2
+clip_contents = true
+
+[node name="Icon" type="TextureRect" parent="Panel/Stats/Card_1"]
+layout_mode = 0
+offset_left = 54.0
+offset_top = 8.0
+offset_right = 78.0
+offset_bottom = 32.0
+mouse_filter = 2
+texture = ExtResource("5_coin")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Value" type="Label" parent="Panel/Stats/Card_1"]
+layout_mode = 0
+offset_top = 38.0
+offset_right = 132.0
+offset_bottom = 62.0
+mouse_filter = 2
+text = "645G"
 horizontal_alignment = 1
 
-[node name="Relationship" type="Label" parent="Panel"]
-offset_left = 20.0
-offset_top = 102.0
-offset_right = 340.0
-offset_bottom = 122.0
-text = "Closest villager"
+[node name="Caption" type="Label" parent="Panel/Stats/Card_1"]
+layout_mode = 0
+offset_top = 65.0
+offset_right = 132.0
+offset_bottom = 79.0
+mouse_filter = 2
+text = "SHIPPED VALUE"
 horizontal_alignment = 1
+
+[node name="Card_2" type="Panel" parent="Panel/Stats"]
+layout_mode = 0
+offset_left = 394.0
+offset_right = 526.0
+offset_bottom = 84.0
+mouse_filter = 2
+clip_contents = true
+
+[node name="Icon" type="TextureRect" parent="Panel/Stats/Card_2"]
+layout_mode = 0
+offset_left = 54.0
+offset_top = 8.0
+offset_right = 78.0
+offset_bottom = 32.0
+mouse_filter = 2
+texture = ExtResource("6_money")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Value" type="Label" parent="Panel/Stats/Card_2"]
+layout_mode = 0
+offset_top = 38.0
+offset_right = 132.0
+offset_bottom = 62.0
+mouse_filter = 2
+text = "505G"
+horizontal_alignment = 1
+
+[node name="Caption" type="Label" parent="Panel/Stats/Card_2"]
+layout_mode = 0
+offset_top = 65.0
+offset_right = 132.0
+offset_bottom = 79.0
+mouse_filter = 2
+text = "FINAL MONEY"
+horizontal_alignment = 1
+
+[node name="Card_Mira" type="Panel" parent="Panel"]
+layout_mode = 0
+offset_left = 51.0
+offset_top = 194.0
+offset_right = 226.0
+offset_bottom = 329.0
+mouse_filter = 2
+clip_contents = true
+
+[node name="PortraitClip" type="Control" parent="Panel/Card_Mira"]
+layout_mode = 0
+offset_left = 2.0
+offset_right = 173.0
+offset_bottom = 65.0
+mouse_filter = 2
+clip_contents = true
+
+[node name="Portrait" type="TextureRect" parent="Panel/Card_Mira/PortraitClip"]
+layout_mode = 0
+offset_right = 171.0
+offset_top = -60.0
+offset_bottom = 159.0
+mouse_filter = 2
+texture = ExtResource("7_mira")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="PortraitShade" type="ColorRect" parent="Panel/Card_Mira"]
+layout_mode = 0
+offset_left = 2.0
+offset_top = 65.0
+offset_right = 173.0
+offset_bottom = 133.0
+mouse_filter = 2
+color = Color(0.0784314, 0.101961, 0.141176, 1)
+
+[node name="Name" type="Label" parent="Panel/Card_Mira"]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 72.0
+offset_right = 100.0
+offset_bottom = 91.0
+mouse_filter = 2
+text = "Mira"
+
+[node name="Quote" type="Label" parent="Panel/Card_Mira"]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 88.0
+offset_right = 166.0
+offset_bottom = 130.0
+mouse_filter = 2
+text = ""
+autowrap_mode = 3
+
+[node name="Heart_0" type="TextureRect" parent="Panel/Card_Mira"]
+layout_mode = 0
+offset_left = 129.0
+offset_top = 73.0
+offset_right = 141.0
+offset_bottom = 85.0
+mouse_filter = 2
+texture = ExtResource("10_heart")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HeartOutline_0" type="TextureRect" parent="Panel/Card_Mira"]
+layout_mode = 0
+offset_left = 129.0
+offset_top = 73.0
+offset_right = 141.0
+offset_bottom = 85.0
+mouse_filter = 2
+texture = ExtResource("11_heart_outline")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Heart_1" type="TextureRect" parent="Panel/Card_Mira"]
+layout_mode = 0
+offset_left = 143.0
+offset_top = 73.0
+offset_right = 155.0
+offset_bottom = 85.0
+mouse_filter = 2
+texture = ExtResource("10_heart")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HeartOutline_1" type="TextureRect" parent="Panel/Card_Mira"]
+layout_mode = 0
+offset_left = 143.0
+offset_top = 73.0
+offset_right = 155.0
+offset_bottom = 85.0
+mouse_filter = 2
+texture = ExtResource("11_heart_outline")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Heart_2" type="TextureRect" parent="Panel/Card_Mira"]
+layout_mode = 0
+offset_left = 157.0
+offset_top = 73.0
+offset_right = 169.0
+offset_bottom = 85.0
+mouse_filter = 2
+texture = ExtResource("10_heart")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HeartOutline_2" type="TextureRect" parent="Panel/Card_Mira"]
+layout_mode = 0
+offset_left = 157.0
+offset_top = 73.0
+offset_right = 169.0
+offset_bottom = 85.0
+mouse_filter = 2
+texture = ExtResource("11_heart_outline")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Card_Rowan" type="Panel" parent="Panel"]
+layout_mode = 0
+offset_left = 232.0
+offset_top = 194.0
+offset_right = 407.0
+offset_bottom = 329.0
+mouse_filter = 2
+clip_contents = true
+
+[node name="PortraitClip" type="Control" parent="Panel/Card_Rowan"]
+layout_mode = 0
+offset_left = 2.0
+offset_right = 173.0
+offset_bottom = 65.0
+mouse_filter = 2
+clip_contents = true
+
+[node name="Portrait" type="TextureRect" parent="Panel/Card_Rowan/PortraitClip"]
+layout_mode = 0
+offset_right = 171.0
+offset_top = -55.0
+offset_bottom = 159.0
+mouse_filter = 2
+texture = ExtResource("8_rowan")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="PortraitShade" type="ColorRect" parent="Panel/Card_Rowan"]
+layout_mode = 0
+offset_left = 2.0
+offset_top = 65.0
+offset_right = 173.0
+offset_bottom = 133.0
+mouse_filter = 2
+color = Color(0.0784314, 0.101961, 0.141176, 1)
+
+[node name="Name" type="Label" parent="Panel/Card_Rowan"]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 72.0
+offset_right = 100.0
+offset_bottom = 91.0
+mouse_filter = 2
+text = "Rowan"
+
+[node name="Quote" type="Label" parent="Panel/Card_Rowan"]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 88.0
+offset_right = 166.0
+offset_bottom = 130.0
+mouse_filter = 2
+text = ""
+autowrap_mode = 3
+
+[node name="Heart_0" type="TextureRect" parent="Panel/Card_Rowan"]
+layout_mode = 0
+offset_left = 129.0
+offset_top = 73.0
+offset_right = 141.0
+offset_bottom = 85.0
+mouse_filter = 2
+texture = ExtResource("10_heart")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HeartOutline_0" type="TextureRect" parent="Panel/Card_Rowan"]
+layout_mode = 0
+offset_left = 129.0
+offset_top = 73.0
+offset_right = 141.0
+offset_bottom = 85.0
+mouse_filter = 2
+texture = ExtResource("11_heart_outline")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Heart_1" type="TextureRect" parent="Panel/Card_Rowan"]
+layout_mode = 0
+offset_left = 143.0
+offset_top = 73.0
+offset_right = 155.0
+offset_bottom = 85.0
+mouse_filter = 2
+texture = ExtResource("10_heart")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HeartOutline_1" type="TextureRect" parent="Panel/Card_Rowan"]
+layout_mode = 0
+offset_left = 143.0
+offset_top = 73.0
+offset_right = 155.0
+offset_bottom = 85.0
+mouse_filter = 2
+texture = ExtResource("11_heart_outline")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Heart_2" type="TextureRect" parent="Panel/Card_Rowan"]
+layout_mode = 0
+offset_left = 157.0
+offset_top = 73.0
+offset_right = 169.0
+offset_bottom = 85.0
+mouse_filter = 2
+texture = ExtResource("10_heart")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HeartOutline_2" type="TextureRect" parent="Panel/Card_Rowan"]
+layout_mode = 0
+offset_left = 157.0
+offset_top = 73.0
+offset_right = 169.0
+offset_bottom = 85.0
+mouse_filter = 2
+texture = ExtResource("11_heart_outline")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Card_June" type="Panel" parent="Panel"]
+layout_mode = 0
+offset_left = 413.0
+offset_top = 194.0
+offset_right = 589.0
+offset_bottom = 329.0
+mouse_filter = 2
+clip_contents = true
+
+[node name="PortraitClip" type="Control" parent="Panel/Card_June"]
+layout_mode = 0
+offset_left = 2.0
+offset_right = 174.0
+offset_bottom = 65.0
+mouse_filter = 2
+clip_contents = true
+
+[node name="Portrait" type="TextureRect" parent="Panel/Card_June/PortraitClip"]
+layout_mode = 0
+offset_right = 172.0
+offset_top = -59.0
+offset_bottom = 159.0
+mouse_filter = 2
+texture = ExtResource("9_june")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="PortraitShade" type="ColorRect" parent="Panel/Card_June"]
+layout_mode = 0
+offset_left = 2.0
+offset_top = 65.0
+offset_right = 174.0
+offset_bottom = 133.0
+mouse_filter = 2
+color = Color(0.0784314, 0.101961, 0.141176, 1)
+
+[node name="Name" type="Label" parent="Panel/Card_June"]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 72.0
+offset_right = 100.0
+offset_bottom = 91.0
+mouse_filter = 2
+text = "June"
+
+[node name="Quote" type="Label" parent="Panel/Card_June"]
+layout_mode = 0
+offset_left = 9.0
+offset_top = 88.0
+offset_right = 167.0
+offset_bottom = 130.0
+mouse_filter = 2
+text = ""
+autowrap_mode = 3
+
+[node name="Heart_0" type="TextureRect" parent="Panel/Card_June"]
+layout_mode = 0
+offset_left = 130.0
+offset_top = 73.0
+offset_right = 142.0
+offset_bottom = 85.0
+mouse_filter = 2
+texture = ExtResource("10_heart")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HeartOutline_0" type="TextureRect" parent="Panel/Card_June"]
+layout_mode = 0
+offset_left = 130.0
+offset_top = 73.0
+offset_right = 142.0
+offset_bottom = 85.0
+mouse_filter = 2
+texture = ExtResource("11_heart_outline")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Heart_1" type="TextureRect" parent="Panel/Card_June"]
+layout_mode = 0
+offset_left = 144.0
+offset_top = 73.0
+offset_right = 156.0
+offset_bottom = 85.0
+mouse_filter = 2
+texture = ExtResource("10_heart")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HeartOutline_1" type="TextureRect" parent="Panel/Card_June"]
+layout_mode = 0
+offset_left = 144.0
+offset_top = 73.0
+offset_right = 156.0
+offset_bottom = 85.0
+mouse_filter = 2
+texture = ExtResource("11_heart_outline")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Heart_2" type="TextureRect" parent="Panel/Card_June"]
+layout_mode = 0
+offset_left = 158.0
+offset_top = 73.0
+offset_right = 170.0
+offset_bottom = 85.0
+mouse_filter = 2
+texture = ExtResource("10_heart")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HeartOutline_2" type="TextureRect" parent="Panel/Card_June"]
+layout_mode = 0
+offset_left = 158.0
+offset_top = 73.0
+offset_right = 170.0
+offset_bottom = 85.0
+mouse_filter = 2
+texture = ExtResource("11_heart_outline")
+expand_mode = 1
+stretch_mode = 5
 
 [node name="MiraLine" type="Label" parent="Panel"]
-offset_left = 20.0
-offset_top = 128.0
-offset_right = 340.0
-offset_bottom = 172.0
-text = ""
-horizontal_alignment = 1
+layout_mode = 0
+offset_left = 60.0
+offset_top = 282.0
+offset_right = 217.0
+offset_bottom = 316.0
+mouse_filter = 2
+text = "Mira (Stranger):"
 autowrap_mode = 3
 
 [node name="RowanLine" type="Label" parent="Panel"]
-offset_left = 20.0
-offset_top = 176.0
-offset_right = 340.0
-offset_bottom = 220.0
-text = ""
-horizontal_alignment = 1
+layout_mode = 0
+offset_left = 241.0
+offset_top = 282.0
+offset_right = 398.0
+offset_bottom = 316.0
+mouse_filter = 2
+text = "Rowan (Stranger):"
 autowrap_mode = 3
 
 [node name="JuneLine" type="Label" parent="Panel"]
-offset_left = 20.0
-offset_top = 224.0
-offset_right = 340.0
-offset_bottom = 268.0
-text = ""
-horizontal_alignment = 1
+layout_mode = 0
+offset_left = 422.0
+offset_top = 282.0
+offset_right = 580.0
+offset_bottom = 316.0
+mouse_filter = 2
+text = "June (Stranger):"
 autowrap_mode = 3
 
-[node name="SaveStatus" type="Label" parent="Panel"]
-offset_left = 20.0
-offset_top = 276.0
-offset_right = 340.0
-offset_bottom = 298.0
+[node name="Shipped" type="Label" parent="Panel"]
+visible = false
 text = ""
-horizontal_alignment = 1
+
+[node name="Money" type="Label" parent="Panel"]
+visible = false
+text = ""
+
+[node name="Relationship" type="Label" parent="Panel"]
+visible = false
+text = ""
+
+[node name="SaveStatus" type="Label" parent="Panel"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 328.0
+offset_right = 300.0
+offset_bottom = 342.0
+text = ""
 
 [node name="NewGame" type="Button" parent="Panel"]
-offset_left = 30.0
-offset_top = 312.0
-offset_right = 170.0
-offset_bottom = 342.0
-text = "New Game"
+layout_mode = 0
+offset_left = 210.0
+offset_top = 331.0
+offset_right = 337.0
+offset_bottom = 357.0
+mouse_default_cursor_shape = 2
+text = ""
+
+[node name="Keycap" type="Panel" parent="Panel/NewGame"]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 2.0
+offset_right = 38.0
+offset_bottom = 24.0
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="Panel/NewGame/Keycap"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+text = "ENTER"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label" type="Label" parent="Panel/NewGame"]
+layout_mode = 0
+offset_left = 44.0
+offset_top = 4.0
+offset_right = 127.0
+offset_bottom = 23.0
+mouse_filter = 2
+text = "NEW GAME"
+vertical_alignment = 1
 
 [node name="ReturnToTitle" type="Button" parent="Panel"]
-offset_left = 190.0
-offset_top = 312.0
-offset_right = 330.0
-offset_bottom = 342.0
-text = "Return to Title"
+layout_mode = 0
+offset_left = 345.0
+offset_top = 331.0
+offset_right = 430.0
+offset_bottom = 357.0
+mouse_default_cursor_shape = 2
+text = ""
+
+[node name="Keycap" type="Panel" parent="Panel/ReturnToTitle"]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 2.0
+offset_right = 27.0
+offset_bottom = 24.0
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="Panel/ReturnToTitle/Keycap"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+text = "ESC"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label" type="Label" parent="Panel/ReturnToTitle"]
+layout_mode = 0
+offset_left = 33.0
+offset_top = 4.0
+offset_right = 85.0
+offset_bottom = 23.0
+mouse_filter = 2
+text = "TITLE"
+vertical_alignment = 1

@@ -1,6 +1,22 @@
-[gd_scene load_steps=2 format=4]
+[gd_scene load_steps=9 format=4]
 
 [ext_resource type="Script" path="res://scripts/ui/title_screen.gd" id="1_title"]
+[ext_resource type="Texture2D" path="res://assets/ui/backgrounds/title.png" id="2_background"]
+[ext_resource type="Texture2D" path="res://assets/ui/logo/phoenix.png" id="3_logo"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/growth.png" id="4_growth"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/save.png" id="5_save"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/warning.png" id="6_warning"]
+
+[sub_resource type="Gradient" id="Gradient_title_shade"]
+offsets = PackedFloat32Array(0, 0.45, 1)
+colors = PackedColorArray(0.015, 0.02, 0.025, 0.78, 0.015, 0.02, 0.025, 0.28, 0.015, 0.02, 0.025, 0.08)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_title_shade"]
+gradient = SubResource("Gradient_title_shade")
+width = 640
+height = 360
+fill_from = Vector2(0, 0.5)
+fill_to = Vector2(1, 0.5)
 
 [node name="TitleScreen" type="Control"]
 layout_mode = 3
@@ -11,37 +27,212 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_title")
 
-[node name="Panel" type="Panel" parent="."]
-offset_left = 170.0
-offset_top = 54.0
-offset_right = 470.0
-offset_bottom = 306.0
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_background")
+expand_mode = 1
+stretch_mode = 5
 
-[node name="Title" type="Label" parent="Panel"]
-offset_left = 20.0
-offset_top = 20.0
-offset_right = 280.0
-offset_bottom = 58.0
-text = "Phoenix"
-horizontal_alignment = 1
+[node name="Shade" type="TextureRect" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = SubResource("GradientTexture2D_title_shade")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Logo" type="TextureRect" parent="."]
+layout_mode = 0
+offset_left = 45.0
+offset_top = 60.0
+offset_right = 255.0
+offset_bottom = 150.0
+mouse_filter = 2
+texture = ExtResource("3_logo")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Panel" type="Control" parent="."]
+layout_mode = 0
+offset_left = 43.0
+offset_top = 172.0
+offset_right = 263.0
+offset_bottom = 340.0
 
 [node name="NewGame" type="Button" parent="Panel"]
-offset_left = 50.0
-offset_top = 86.0
-offset_right = 250.0
-offset_bottom = 126.0
-text = "New Game"
+layout_mode = 0
+offset_right = 220.0
+offset_bottom = 43.0
+mouse_default_cursor_shape = 2
+text = ""
+
+[node name="Icon" type="TextureRect" parent="Panel/NewGame"]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 10.0
+offset_right = 36.0
+offset_bottom = 30.0
+mouse_filter = 2
+texture = ExtResource("4_growth")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="Panel/NewGame"]
+layout_mode = 0
+offset_left = 42.0
+offset_top = 10.0
+offset_right = 145.0
+offset_bottom = 33.0
+mouse_filter = 2
+text = "NEW GAME"
+vertical_alignment = 1
+
+[node name="Enter" type="Panel" parent="Panel/NewGame"]
+layout_mode = 0
+offset_left = 170.0
+offset_top = 10.0
+offset_right = 210.0
+offset_bottom = 33.0
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="Panel/NewGame/Enter"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+text = "ENTER"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="Continue" type="Button" parent="Panel"]
-offset_left = 50.0
-offset_top = 136.0
-offset_right = 250.0
-offset_bottom = 176.0
-text = "Continue"
+layout_mode = 0
+offset_top = 48.0
+offset_right = 220.0
+offset_bottom = 91.0
+mouse_default_cursor_shape = 2
+text = ""
 
-[node name="Status" type="Label" parent="Panel"]
-offset_left = 20.0
-offset_top = 194.0
-offset_right = 280.0
-offset_bottom = 234.0
+[node name="Icon" type="TextureRect" parent="Panel/Continue"]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 10.0
+offset_right = 36.0
+offset_bottom = 30.0
+mouse_filter = 2
+texture = ExtResource("5_save")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="Panel/Continue"]
+layout_mode = 0
+offset_left = 42.0
+offset_top = 10.0
+offset_right = 180.0
+offset_bottom = 33.0
+mouse_filter = 2
+text = "CONTINUE"
+vertical_alignment = 1
+
+[node name="Status" type="Panel" parent="Panel"]
+layout_mode = 0
+offset_top = 95.0
+offset_right = 220.0
+offset_bottom = 121.0
+mouse_filter = 2
+
+[node name="Icon" type="TextureRect" parent="Panel/Status"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 6.0
+offset_right = 22.0
+offset_bottom = 18.0
+mouse_filter = 2
+texture = ExtResource("6_warning")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="Panel/Status"]
+layout_mode = 0
+offset_left = 28.0
+offset_top = 5.0
+offset_right = 215.0
+offset_bottom = 21.0
+mouse_filter = 2
+text = ""
+vertical_alignment = 1
+
+[node name="Footer" type="Control" parent="Panel"]
+layout_mode = 0
+offset_top = 140.0
+offset_right = 220.0
+offset_bottom = 168.0
+mouse_filter = 2
+
+[node name="W" type="Panel" parent="Panel/Footer"]
+layout_mode = 0
+offset_left = 2.0
+offset_top = 2.0
+offset_right = 22.0
+offset_bottom = 22.0
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="Panel/Footer/W"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+text = "W"
 horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="S" type="Panel" parent="Panel/Footer"]
+layout_mode = 0
+offset_left = 26.0
+offset_top = 2.0
+offset_right = 46.0
+offset_bottom = 22.0
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="Panel/Footer/S"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+text = "S"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Choose" type="Label" parent="Panel/Footer"]
+layout_mode = 0
+offset_left = 51.0
+offset_top = 5.0
+offset_right = 103.0
+offset_bottom = 20.0
+text = "choose"
+
+[node name="Version" type="Label" parent="Panel/Footer"]
+layout_mode = 0
+offset_left = 106.0
+offset_top = 5.0
+offset_right = 220.0
+offset_bottom = 20.0
+text = "Godot 4.7.1 · 640×360"

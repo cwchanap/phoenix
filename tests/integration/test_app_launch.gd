@@ -19,6 +19,16 @@ func after_each() -> void:
     OS.unset_environment("PHOENIX_SAVE_PATH")
     _clean()
 
+func _push_action(node: Node, action: StringName) -> void:
+    var pressed := InputEventAction.new()
+    pressed.action = action
+    pressed.pressed = true
+    node.get_viewport().push_input(pressed)
+    var released := InputEventAction.new()
+    released.action = action
+    released.pressed = false
+    node.get_viewport().push_input(released)
+
 func test_settings_panel_shows_canonical_save_path_under_save_override() -> void:
     OS.set_environment("PHOENIX_SAVE_PATH", SAVE_OVERRIDE_PATH)
     OS.set_environment("PHOENIX_SETTINGS_PATH", SETTINGS_PATH)
@@ -156,16 +166,21 @@ func test_continue_with_completed_finale_shows_result_screen() -> void:
     seeded["weather_history"] = []
     for _day in GameRules.MAX_DAY:
         seeded["weather_history"].append(&"sunny")
-    seeded["shipped"] = {&"turnip": 4, &"potato": 0, &"pumpkin": 0}
-    seeded["relationships"][&"shopkeeper"]["points"] = VillagerRules.CLOSE_FRIEND_POINTS
-    seeded["relationships"][&"farmer"]["points"] = VillagerRules.FRIEND_POINTS
+    seeded["shipped"] = {&"turnip": 4, &"potato": 3, &"pumpkin": 2}
+    seeded["pending_shipment"] = {&"turnip": 0, &"potato": 0, &"pumpkin": 0}
+    seeded["pending_morning_summary"] = null
+    seeded["money"] = 505
+    seeded["relationships"][&"shopkeeper"]["points"] = VillagerRules.FRIEND_POINTS
+    seeded["relationships"][&"resident"]["points"] = VillagerRules.CLOSE_FRIEND_POINTS
+    seeded["finale_triggered"] = true
     assert_true(session.restore_state(seeded))
-    assert_eq(
-        session.trigger_harvest_finale(WorldContract.MARKET_CELL),
-        GameRules.CommandCode.FINALE_TRIGGERED,
-    )
     var completed := session.state()
     assert_eq(GameSession.state_error(completed), "")
+    var expected := ContentRules.build_harvest_result(completed)
+    assert_eq(expected["shipped_count"], 9)
+    assert_eq(expected["shipped_value"], 645)
+    assert_eq(expected["tier"], &"heart_of_harvest")
+    assert_eq(expected["villager"], "June")
     assert_eq(repository.save(completed), OK)
 
     var app := _spawn_app(repository)
@@ -178,7 +193,12 @@ func test_continue_with_completed_finale_shows_result_screen() -> void:
     assert_null(app.get_node_or_null("World"))
     var result := app.get_node("ResultScreen") as ResultScreen
     assert_true(result.visible)
-    var expected := ContentRules.build_harvest_result(completed)
+    assert_eq(result.featured_villager_name(), expected["villager"])
+    assert_true((result.get_node("Panel/Card_Mira/Heart_0") as TextureRect).visible)
+    assert_true((result.get_node("Panel/Card_Mira/Heart_1") as TextureRect).visible)
+    assert_false((result.get_node("Panel/Card_Mira/Heart_2") as TextureRect).visible)
+    assert_false((result.get_node("Panel/Card_Rowan/Heart_0") as TextureRect).visible)
+    assert_true((result.get_node("Panel/Card_June/Heart_2") as TextureRect).visible)
     assert_eq((result.get_node("Panel/Title") as Label).text, expected["title"])
     assert_eq(
         (result.get_node("Panel/Shipped") as Label).text,
@@ -207,6 +227,27 @@ func test_continue_with_completed_finale_shows_result_screen() -> void:
         )
     assert_eq((result.get_node("Panel/SaveStatus") as Label).text, "")
 
+func test_title_keyboard_skips_disabled_continue_and_enter_starts_new_game() -> void:
+    var repository := SaveRepository.new(TEST_PATH)
+    var incompatible := GameSession.new(func() -> float: return 0.9).state()
+    incompatible["day"] = GameRules.MAX_DAY + 1
+    assert_eq(repository.save(incompatible), OK)
+
+    var app := _spawn_app(repository)
+    if app == null:
+        return
+    var title := app.get_node("TitleScreen") as TitleScreen
+    assert_eq(title.selected_action(), &"new_game")
+    assert_eq(
+        (title.get_node("Panel/Status/Label") as Label).text,
+        "Save is incompatible; start a New Game.",
+    )
+    _push_action(title, &"move_down")
+    assert_eq(title.selected_action(), &"new_game")
+    _push_action(title, &"ui_accept")
+    await get_tree().process_frame
+    assert_eq((app.get_node("World") as WorldShell)._session.state()["day"], 1)
+
 func test_incompatible_slot_refuses_continue_but_new_game_still_launches() -> void:
     var repository := SaveRepository.new(TEST_PATH)
     var incompatible := GameSession.new(func() -> float: return 0.9).state()
@@ -218,7 +259,7 @@ func test_incompatible_slot_refuses_continue_but_new_game_still_launches() -> vo
         return
     var title := app.get_node("TitleScreen") as TitleScreen
     var continue_button := title.get_node("Panel/Continue") as Button
-    var status := title.get_node("Panel/Status") as Label
+    var status := title.get_node("Panel/Status/Label") as Label
     assert_true(continue_button.disabled)
     assert_ne(status.text, "")
 
@@ -263,7 +304,7 @@ func test_malformed_file_disables_continue_and_refuses_launch() -> void:
         return
     var title := app.get_node("TitleScreen") as TitleScreen
     var continue_button := title.get_node("Panel/Continue") as Button
-    var status := title.get_node("Panel/Status") as Label
+    var status := title.get_node("Panel/Status/Label") as Label
     assert_true(continue_button.disabled)
     assert_ne(status.text, "")
 
