@@ -48,7 +48,7 @@ func _apply_authored_style() -> void:
     )
     ($Frame/WarningBox as Panel).add_theme_stylebox_override(
         "panel",
-        UiStyle.panel(UiStyle.WARNING_FILL, UiStyle.GOLD, 1),
+        UiStyle.panel(Color("2c2f2c"), UiStyle.GOLD, 1),
     )
     ($Frame/Footer as Panel).add_theme_stylebox_override(
         "panel",
@@ -62,8 +62,8 @@ func _apply_authored_style() -> void:
         "panel",
         UiStyle.panel(UiStyle.KEYCAP_FILL, UiStyle.GOLD, 1),
     )
-    UiStyle.text($Frame/Title as Label, 15, UiStyle.CREAM, 800)
-    UiStyle.text($Boundary as Label, 9, UiStyle.GOLD, 600)
+    UiStyle.text($Frame/Title as Label, 14, UiStyle.CREAM, 800)
+    UiStyle.text($Boundary as Label, 8, UiStyle.GOLD, 600)
     UiStyle.text($Frame/Footer/EscKey as Label, 8, UiStyle.TEXT, 800, true)
     UiStyle.text($Frame/Footer/EscText as Label, 9, UiStyle.MUTED, 600)
     UiStyle.text($Frame/Footer/EnterKey as Label, 8, UiStyle.GOLD, 800, true)
