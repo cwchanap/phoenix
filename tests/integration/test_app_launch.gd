@@ -2,6 +2,7 @@ extends GutTest
 
 const TEST_PATH := "user://phoenix-hpa-598-app-launch-test.json"
 const SETTINGS_PATH := "user://phoenix-ui-settings-app-launch-test.cfg"
+const SAVE_OVERRIDE_PATH := "user://phoenix-task9-save-override.json"
 
 func _clean() -> void:
     for path in [TEST_PATH, SETTINGS_PATH]:
@@ -10,11 +11,37 @@ func _clean() -> void:
 
 func before_each() -> void:
     OS.unset_environment("PHOENIX_SETTINGS_PATH")
+    OS.unset_environment("PHOENIX_SAVE_PATH")
     _clean()
 
 func after_each() -> void:
     OS.unset_environment("PHOENIX_SETTINGS_PATH")
+    OS.unset_environment("PHOENIX_SAVE_PATH")
     _clean()
+
+func test_settings_panel_shows_canonical_save_path_under_save_override() -> void:
+    OS.set_environment("PHOENIX_SAVE_PATH", SAVE_OVERRIDE_PATH)
+    OS.set_environment("PHOENIX_SETTINGS_PATH", SETTINGS_PATH)
+    var packed := load("res://scenes/app/app.tscn") as PackedScene
+    assert_not_null(packed)
+    if packed == null:
+        return
+    var app := packed.instantiate() as AppRoot
+    assert_not_null(app)
+    if app == null:
+        return
+    add_child_autoqfree(app)
+    await get_tree().process_frame
+    (app.get_node("TitleScreen") as TitleScreen).new_game_requested.emit()
+    await get_tree().process_frame
+
+    var world := app.get_node("World") as WorldShell
+    world.hud.open_pause()
+    world.hud.open_settings()
+    assert_eq(
+        (world.hud.get_node("HudRoot/SettingsPanel/Frame/Footer/SavePath") as Label).text,
+        "Save file: %s" % SaveRepository.DEFAULT_PATH,
+    )
 
 func _spawn_app(
     repository: SaveRepository,

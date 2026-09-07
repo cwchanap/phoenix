@@ -162,6 +162,8 @@ static func state_for(name: String) -> Dictionary:
             return morning_summary_state()
         "09-sleep":
             return sleep_state()
+        "10-pause", "11-settings":
+            return hud_state()
         _:
             assert(false, "unsupported fixture state: %s" % name)
             return {}

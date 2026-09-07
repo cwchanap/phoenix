@@ -1,6 +1,18 @@
 extends GutTest
 
-func _spawn_world(acknowledge_intro: bool) -> WorldShell:
+const SETTINGS_PATH := "user://phoenix-task9-gameplay-settings.cfg"
+
+func before_each() -> void:
+    _clean_settings()
+
+func after_each() -> void:
+    _clean_settings()
+
+func _clean_settings() -> void:
+    if FileAccess.file_exists(SETTINGS_PATH):
+        DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS_PATH))
+
+func _spawn_world(acknowledge_intro: bool, settings: UiSettings = null) -> WorldShell:
     var packed := load("res://scenes/world/world.tscn") as PackedScene
     assert_not_null(packed)
     if packed == null:
@@ -9,6 +21,8 @@ func _spawn_world(acknowledge_intro: bool) -> WorldShell:
     assert_not_null(world)
     if world == null:
         return null
+    if settings != null:
+        world.configure(null, null, settings)
     add_child_autoqfree(world)
     if acknowledge_intro:
         var accepted := InputEventAction.new()
@@ -23,6 +37,9 @@ func _spawn_world(acknowledge_intro: bool) -> WorldShell:
 
 func _world() -> WorldShell:
     return _spawn_world(true)
+
+func _settings_world() -> WorldShell:
+    return _spawn_world(true, UiSettings.load(SETTINGS_PATH))
 
 func _locked_world() -> WorldShell:
     return _spawn_world(false)
@@ -398,7 +415,7 @@ func test_inventory_modal_keys_are_exclusive_same_key_closes_and_gate_input() ->
     var hud := _hud(world)
     if hud == null:
         return
-    assert_eq(hud._primary_modals.size(), 9)
+    assert_eq(hud._primary_modals.size(), 10)
     for entry in [
         {"action": &"toggle_bag", "panel": "BagPanel"},
         {"action": &"toggle_almanac", "panel": "AlmanacPanel"},
@@ -429,7 +446,7 @@ func test_inventory_escape_closes_one_surface_and_morning_summary_guard_wins() -
     assert_true(_panel(hud, "BagPanel").visible)
     await _press_escape()
     assert_false(_panel(hud, "BagPanel").visible)
-    assert_false(_panel(hud, "PauseHelp").visible)
+    assert_false(_panel(hud, "PausePanel").visible)
     assert_true(world._world_input_enabled)
 
     var snapshot := world._session.snapshot()
@@ -763,7 +780,7 @@ func test_primary_modal_registry_keeps_surfaces_exclusive() -> void:
     var hud := _hud(world)
     if hud == null:
         return
-    assert_eq(hud._primary_modals.size(), 9)
+    assert_eq(hud._primary_modals.size(), 10)
     for entry in [
         {"name": "ShopPanel", "open": Callable(hud, "open_shop"), "close": Callable(hud, "close_shop")},
         {"name": "ShippingPanel", "open": Callable(hud, "open_shipping"), "close": Callable(hud, "close_shipping")},
@@ -1475,14 +1492,14 @@ func test_escape_does_not_open_help_over_blocking_intro() -> void:
     await _press_escape()
 
     assert_true(overlay.is_opening_visible())
-    assert_false(_panel(hud, "PauseHelp").visible)
+    assert_false(_panel(hud, "PausePanel").visible)
     assert_false(world._world_input_enabled)
 
 
 func test_escape_toggles_code_built_help_and_world_gate() -> void:
     var world := _world()
     var hud := _hud(world)
-    var help := _panel(hud, "PauseHelp")
+    var help := _panel(hud, "PausePanel")
 
     await _press_escape()
     assert_true(help.visible)
@@ -1497,6 +1514,71 @@ func test_escape_toggles_code_built_help_and_world_gate() -> void:
     assert_false(help.visible)
     assert_true(world._world_input_enabled)
 
+func test_pause_settings_nesting_keeps_world_gated_until_pause_closes() -> void:
+    var world := _settings_world()
+    var hud := _hud(world)
+    var pause := _panel(hud, "PausePanel")
+    var settings := _panel(hud, "SettingsPanel")
+    var gate_samples: Array[bool] = []
+    hud.modal_state_changed.connect(func() -> void:
+        gate_samples.append(world._world_input_enabled)
+    )
+
+    await _press_escape()
+    assert_true(pause.visible)
+    assert_false(settings.visible)
+    assert_false(world._world_input_enabled)
+
+    gate_samples.clear()
+    await _press_panel_action(&"open_settings")
+    assert_false(pause.visible)
+    assert_true(settings.visible)
+    assert_false(world._world_input_enabled)
+    assert_eq(gate_samples, [false])
+
+    gate_samples.clear()
+    await _press_escape()
+    assert_true(pause.visible)
+    assert_false(settings.visible)
+    assert_false(world._world_input_enabled)
+    assert_eq(gate_samples, [false])
+
+    await _press_escape()
+    assert_false(pause.visible)
+    assert_false(settings.visible)
+    assert_true(world._world_input_enabled)
+
+func test_open_settings_is_only_available_from_pause() -> void:
+    var world := _settings_world()
+    var hud := _hud(world)
+    var settings := _panel(hud, "SettingsPanel")
+    hud.open_shop()
+    await _press_panel_action(&"open_settings")
+    assert_false(settings.visible)
+    hud.close_shop()
+    await _press_escape()
+    await _press_panel_action(&"open_settings")
+    assert_true(settings.visible)
+
+func test_settings_adjustment_persists_in_isolated_path_and_applies_audio() -> void:
+    var world := _settings_world()
+    var hud := _hud(world)
+    hud.open_pause()
+    await _press_panel_action(&"open_settings")
+    var settings := _panel(hud, "SettingsPanel") as SettingsPanel
+    assert_eq(settings.selected_setting_name(), &"music")
+
+    await _press_panel_action(&"move_right")
+
+    assert_eq(hud._settings.music, UiSettings.DEFAULT_MUSIC + 1)
+    assert_eq(
+        (hud.get_node("MusicPlayer") as AudioStreamPlayer).volume_db,
+        hud._settings.db_for_level(UiSettings.DEFAULT_MUSIC + 1),
+    )
+    var config := ConfigFile.new()
+    assert_eq(config.load(SETTINGS_PATH), OK)
+    assert_eq(int(config.get_value("ui", "music")), UiSettings.DEFAULT_MUSIC + 1)
+
 
 func test_escape_closes_shop_before_help() -> void:
     var world := _world()
@@ -1506,7 +1588,7 @@ func test_escape_closes_shop_before_help() -> void:
     await _press_escape()
 
     assert_false(_panel(hud, "ShopPanel").visible)
-    assert_false(_panel(hud, "PauseHelp").visible)
+    assert_false(_panel(hud, "PausePanel").visible)
 
 
 func test_escape_closes_shipping_before_help() -> void:
@@ -1517,7 +1599,7 @@ func test_escape_closes_shipping_before_help() -> void:
     await _press_escape()
 
     assert_false(_panel(hud, "ShippingPanel").visible)
-    assert_false(_panel(hud, "PauseHelp").visible)
+    assert_false(_panel(hud, "PausePanel").visible)
 
 
 func test_escape_closes_sleep_before_help() -> void:
@@ -1528,7 +1610,7 @@ func test_escape_closes_sleep_before_help() -> void:
     await _press_escape()
 
     assert_false(_panel(hud, "SleepPanel").visible)
-    assert_false(_panel(hud, "PauseHelp").visible)
+    assert_false(_panel(hud, "PausePanel").visible)
 
 
 func test_dialogue_consumes_escape_before_help() -> void:
@@ -1544,7 +1626,7 @@ func test_dialogue_consumes_escape_before_help() -> void:
     await _press_escape()
 
     assert_false(_panel(hud, "DialoguePanel").visible)
-    assert_false(_panel(hud, "PauseHelp").visible)
+    assert_false(_panel(hud, "PausePanel").visible)
 
 
 func test_weather_tint_matches_rainy_and_sunny_snapshots() -> void:
@@ -1594,5 +1676,5 @@ func test_escape_over_morning_summary_keeps_lock_and_help_hidden() -> void:
     await _press_escape()
 
     assert_true(_panel(hud, "MorningSummaryPanel").visible)
-    assert_false(_panel(hud, "PauseHelp").visible)
+    assert_false(_panel(hud, "PausePanel").visible)
     assert_false(world._world_input_enabled)

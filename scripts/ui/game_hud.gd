@@ -31,6 +31,8 @@ const CALENDAR_SCENE := preload("res://scenes/ui/calendar_panel.tscn")
 const DIALOGUE_SCENE := preload("res://scenes/ui/dialogue_panel.tscn")
 const MORNING_SUMMARY_SCENE := preload("res://scenes/ui/morning_summary_panel.tscn")
 const SLEEP_SCENE := preload("res://scenes/ui/sleep_panel.tscn")
+const PAUSE_SCENE := preload("res://scenes/ui/pause_panel.tscn")
+const SETTINGS_SCENE := preload("res://scenes/ui/settings_panel.tscn")
 
 var _root: Control
 var _weather_tint: ColorRect
@@ -64,7 +66,8 @@ var _sleep_panel: SleepPanel
 var _dialogue_panel: DialoguePanel
 var _onboarding_overlay: OnboardingOverlay
 var _morning_summary_panel: MorningSummaryPanel
-var _pause_help_panel: Control
+var _pause_panel: PausePanel
+var _settings_panel: SettingsPanel
 var _day14_sleep_boundary: Label
 var _objective_label: Label
 var _action_buttons: Array[Button] = []
@@ -94,7 +97,8 @@ func _ready() -> void:
         _sleep_panel,
         _dialogue_panel,
         _morning_summary_panel,
-        _pause_help_panel,
+        _settings_panel,
+        _pause_panel,
     ]
     _esc_close_order = [
         {"control": _dialogue_panel, "close": close_dialogue},
@@ -104,7 +108,8 @@ func _ready() -> void:
         {"control": _almanac_panel, "close": close_almanac},
         {"control": _calendar_panel, "close": close_calendar},
         {"control": _sleep_panel, "close": close_sleep_confirmation},
-        {"control": _pause_help_panel, "close": _close_pause_from_escape},
+        {"control": _settings_panel, "close": close_settings},
+        {"control": _pause_panel, "close": close_pause},
     ]
     _build_audio()
     apply_settings()
@@ -121,6 +126,7 @@ func apply_settings() -> void:
     _music_player.volume_db = _settings.db_for_level(_settings.music)
     _sfx_player.volume_db = _settings.db_for_level(_settings.sound)
     _onboarding_overlay.set_tutorial_cards_enabled(_settings.tutorial_cards)
+    _settings.apply_window(get_window())
 
 func render(snapshot: Dictionary) -> void:
     _last_snapshot = snapshot.duplicate(true)
@@ -269,6 +275,26 @@ func close_dialogue() -> void:
     _onboarding_overlay.render(_last_snapshot)
     _set_hud_chrome_visible(true)
     modal_state_changed.emit()
+
+func open_pause() -> void:
+    if _open_modal(_pause_panel):
+        _pause_panel.visible = true
+
+func close_pause() -> void:
+    _close_modal(_pause_panel)
+
+func open_settings() -> void:
+    if not _pause_panel.visible or _settings == null:
+        return
+    if _open_modal(_settings_panel):
+        _settings_panel.open_panel(_settings)
+
+func close_settings() -> void:
+    if not _settings_panel.visible:
+        return
+    # Reopen Pause in one modal transaction so the world gate never briefly
+    # sees an unblocked state between the nested surfaces.
+    open_pause()
 
 func feedback_text(code: GameRules.CommandCode) -> String:
     match code:
@@ -587,7 +613,13 @@ func _build_modals() -> void:
         gift_requested.emit(villager_id, crop_kind)
     )
     _dialogue_panel.close_requested.connect(close_dialogue)
-    _pause_help_panel = _build_pause_help()
+    _pause_panel = PAUSE_SCENE.instantiate() as PausePanel
+    _root.add_child(_pause_panel)
+    _pause_panel.settings_requested.connect(open_settings)
+    _pause_panel.resume_requested.connect(close_pause)
+    _settings_panel = SETTINGS_SCENE.instantiate() as SettingsPanel
+    _root.add_child(_settings_panel)
+    _settings_panel.settings_changed.connect(_on_settings_changed)
     _shop_panel.visible = false
     _shipping_panel.visible = false
     _bag_panel.visible = false
@@ -596,97 +628,11 @@ func _build_modals() -> void:
     _sleep_panel.visible = false
     _dialogue_panel.visible = false
     _morning_summary_panel.visible = false
-    _pause_help_panel.visible = false
+    _pause_panel.visible = false
+    _settings_panel.visible = false
 
-func _build_pause_help() -> Control:
-    var panel := _add_panel(
-        _root,
-        "PauseHelp",
-        "Phoenix — Controls",
-        Vector2(300, 62),
-        Vector2(332, 220),
-    )
-    var body := _add_label(
-        panel,
-        "Body",
-        "WASD — Move\n1 / 2 / 3 / 4 — Hoe / Seeds / Water / Hands\nSpace — Use selected action\nE — Interact\nEsc — Close / controls",
-        Vector2(12, 34),
-        Vector2(308, 132),
-    )
-    body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    var resume := _add_button(panel, "Resume", "Resume", Vector2(236, 178), Vector2(78, 28))
-    resume.pressed.connect(func() -> void: _set_pause_help_visible(false))
-    return panel
-
-
-func _set_pause_help_visible(is_visible: bool) -> void:
-    if _pause_help_panel.visible == is_visible:
-        return
-    _pause_help_panel.visible = is_visible
-    if not is_visible and not _finale_in_progress:
-        _play_sfx(CONFIRM_SFX)
-    modal_state_changed.emit()
-
-func _close_pause_from_escape() -> void:
-    _set_pause_help_visible(false)
-
-func _add_panel(parent: Control, node_name: String, title: String, position: Vector2, size: Vector2) -> Control:
-    var panel := _add_surface(parent, node_name, position, size, UiStyle.PRIMARY, UiStyle.BORDER_LIGHT)
-    _add_label(panel, "Title", title, Vector2(10, 6), Vector2(size.x - 20, 22), 12, UiStyle.CREAM, 700)
-    return panel
-
-func _add_surface(parent: Control, node_name: String, position: Vector2, size: Vector2, fill: Color, border: Color) -> Panel:
-    var panel := Panel.new()
-    panel.name = node_name
-    panel.position = position
-    panel.size = size
-    panel.add_theme_stylebox_override("panel", UiStyle.panel(fill, border, 1))
-    panel.mouse_filter = Control.MOUSE_FILTER_STOP
-    parent.add_child(panel)
-    return panel
-
-func _add_label(parent: Node, node_name: String, text: String, position: Vector2, size: Vector2, font_size: int = 10, color: Color = UiStyle.TEXT, weight: int = 400, mono: bool = false) -> Label:
-    var label := Label.new()
-    label.name = node_name
-    label.text = text
-    label.position = position
-    label.size = size
-    label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    UiStyle.text(label, font_size, color, weight, mono)
-    parent.add_child(label)
-    return label
-
-func _add_button(parent: Node, node_name: String, text: String, position: Vector2, size: Vector2) -> Button:
-    var button := Button.new()
-    button.name = node_name
-    button.text = text
-    button.position = position
-    button.size = size
-    UiStyle.button(button)
-    parent.add_child(button)
-    return button
-
-func _add_texture(parent: Control, path: String, position: Vector2, size: Vector2) -> TextureRect:
-    var texture := TextureRect.new()
-    texture.name = path.get_file().get_basename().capitalize()
-    texture.position = position
-    texture.size = size
-    texture.texture = load(path) as Texture2D
-    texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-    texture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-    texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    parent.add_child(texture)
-    return texture
-
-func _add_separator(parent: Control, node_name: String, position: Vector2, size: Vector2) -> ColorRect:
-    var separator := ColorRect.new()
-    separator.name = node_name
-    separator.position = position
-    separator.size = size
-    separator.color = UiStyle.BORDER
-    separator.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    parent.add_child(separator)
-    return separator
+func _on_settings_changed(_error: int) -> void:
+    apply_settings()
 
 func _on_action_button_pressed(action: int) -> void:
     select_action_requested.emit(action)
@@ -817,6 +763,6 @@ func _unhandled_input(event: InputEvent) -> void:
         (entry["close"] as Callable).call()
         get_viewport().set_input_as_handled()
         return
-    if not _pause_help_panel.visible:
-        _set_pause_help_visible(true)
+    if not _pause_panel.visible:
+        open_pause()
     get_viewport().set_input_as_handled()
