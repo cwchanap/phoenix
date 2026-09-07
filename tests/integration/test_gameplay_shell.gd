@@ -987,8 +987,7 @@ func test_task8_fixture_values_render_in_authored_social_and_morning_nodes() -> 
     assert_eq((summary.get_node("Frame/Card_3/Value") as Label).text, "+70")
     assert_eq((summary.get_node("Frame/ShipmentRow/Name") as Label).text, "Turnip ×2")
     assert_eq((summary.get_node("Frame/ShipmentRow/Amount") as Label).text, "70G")
-    assert_false((summary.get_node("Frame/ShipmentRow_1") as Panel).visible)
-    assert_false((summary.get_node("Frame/ShipmentRow_2") as Panel).visible)
+    assert_false((summary.get_node("Frame/CompactShipmentRows") as Control).visible)
     assert_eq((summary.get_node("Frame/MoneyRow/Amount") as Label).text, "220G")
 
     summary_snapshot["pending_morning_summary"]["shipments"] = [
@@ -997,14 +996,27 @@ func test_task8_fixture_values_render_in_authored_social_and_morning_nodes() -> 
         {"crop": &"pumpkin", "quantity": 3, "amount": 300},
     ]
     hud.render(summary_snapshot)
-    assert_eq((summary.get_node("Frame/ShipmentRow/Name") as Label).text, "Turnip ×2")
-    assert_eq((summary.get_node("Frame/ShipmentRow/Amount") as Label).text, "70G")
-    assert_true((summary.get_node("Frame/ShipmentRow_1") as Panel).visible)
-    assert_eq((summary.get_node("Frame/ShipmentRow_1/Name") as Label).text, "Potato ×1")
-    assert_eq((summary.get_node("Frame/ShipmentRow_1/Amount") as Label).text, "80G")
-    assert_true((summary.get_node("Frame/ShipmentRow_2") as Panel).visible)
-    assert_eq((summary.get_node("Frame/ShipmentRow_2/Name") as Label).text, "Pumpkin ×3")
-    assert_eq((summary.get_node("Frame/ShipmentRow_2/Amount") as Label).text, "300G")
+    var compact := summary.get_node("Frame/CompactShipmentRows") as Control
+    assert_false((summary.get_node("Frame/ShipmentRow") as Panel).visible)
+    assert_true(compact.visible)
+    assert_eq((compact.get_node("Row_0/Name") as Label).text, "Turnip ×2")
+    assert_eq((compact.get_node("Row_0/Amount") as Label).text, "70G")
+    assert_true((compact.get_node("Row_1") as Panel).visible)
+    assert_eq((compact.get_node("Row_1/Name") as Label).text, "Potato ×1")
+    assert_eq((compact.get_node("Row_1/Amount") as Label).text, "80G")
+    assert_true((compact.get_node("Row_2") as Panel).visible)
+    assert_eq((compact.get_node("Row_2/Name") as Label).text, "Pumpkin ×3")
+    assert_eq((compact.get_node("Row_2/Amount") as Label).text, "300G")
+    var frame := summary.get_node("Frame") as Panel
+    var money := summary.get_node("Frame/MoneyRow") as Panel
+    var footer := summary.get_node("Frame/Footer") as Panel
+    assert_true(
+        compact.position.y + compact.size.y <= frame.size.y
+        and footer.position.y + footer.size.y <= frame.size.y
+        and money.position == Vector2(14, 228)
+        and footer.position == Vector2(2, 270),
+        "compact payout rows and footer must stay inside the authored frame",
+    )
 
 func test_public_primary_opens_are_denied_while_morning_summary_is_visible() -> void:
     var world := _world()

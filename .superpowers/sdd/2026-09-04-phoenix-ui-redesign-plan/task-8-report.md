@@ -19,15 +19,18 @@ created before native review approval.
 
 Fix round 1 keeps the single-crop morning layout and adds two authored compact
 shipment rows for mixed payouts, binds dialogue portraits to Mira, Rowan, and
-June, and hides the complete sleep warning box until Day 14. Existing E2E node
-paths remain valid; the Day 1 flow does not reach mixed payouts or villager
-portraits.
+June, and hides the complete sleep warning box until Day 14. Fix round 2
+replaces the mixed-payout runtime geometry rewrite with three authored compact
+rows, preserving the original single-crop, money, and footer coordinates while
+keeping the compact rows and footer inside the frame. Existing E2E node paths
+remain valid; the Day 1 flow does not reach mixed payouts or villager portraits.
 
 ## Verification
 
 - Focused command `godot --headless --path . -s addons/gut/gut_cmdln.gd
-  -gtest=res://tests/integration/test_gameplay_shell.gd -gexit`: 57/57 tests,
-  751 assertions.
+  -gtest=res://tests/integration/test_gameplay_shell.gd -gexit` after fix round
+  2: 57/57 tests, 753 assertions. Coverage includes all three mixed shipment
+  lines and an authored frame-containment/coordinate assertion.
 - Committed-HEAD `./tools/verify-clean.sh` before this fix round: GUT 172/172,
   2,246 assertions, editor/import probe, and all three headless smokes passed.
 - The existing gdUnit4 addon was present; no bootstrap was needed for this fix.
@@ -58,4 +61,4 @@ the three production goldens are created. No existing golden changed.
 
 ## Status
 
-`FIX_ROUND_1_IMPLEMENTED_WITH_NATIVE_REVIEW_AND_E2E_PENDING`
+`FIX_ROUND_2_IMPLEMENTED_WITH_NATIVE_REVIEW_AND_E2E_PENDING`
