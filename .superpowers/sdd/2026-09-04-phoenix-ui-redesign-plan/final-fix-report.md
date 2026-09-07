@@ -94,6 +94,44 @@ ERROR: Condition "ret != noErr" is true. Returning: ""
 ERROR: Cannot save file '/Users/chanwaichan/Library/Application Support/Godot/editor_settings-4.7.tres'.
 ```
 
+## Final unsigned artifact
+
+Source provenance: `845d1f62ef21a732911e80529faf7a4aeaf1c715`.
+
+Wrapper provenance from Task 11:
+
+```text
+#!/bin/sh
+exec /Users/chanwaichan/.local/bin/godot --headless --rendering-method gl_compatibility --log-file /private/tmp/phoenix-godot-task11-headless.log "$@"
+```
+
+Export command:
+
+```text
+rtk /private/tmp/phoenix-task11-headless-wrapper.sh --path . --export-release macOS build/Phoenix-gl.zip
+```
+
+Result: exit 0. The host emitted its existing certificate and editor-settings
+warnings, but the export completed with `[ DONE ] export`. The verified local
+artifact is:
+
+```text
+/Users/chanwaichan/workspace/phoenix/.worktrees/ui-redesign-visual-parity/build/Phoenix-gl.zip
+size: 68.6M
+sha256: 038fdd40c59eef225d970c36df61d8b081a27ac072733568e0a92f95e4b22cbd
+```
+
+`rtk unzip -l build/Phoenix-gl.zip` reported:
+
+```text
+169470512  Phoenix.app/Contents/MacOS/Phoenix
+13332412   Phoenix.app/Contents/Resources/Phoenix.pck
+182875343  7 files
+```
+
+The ZIP remains as an uncommitted local release artifact; only this report
+update is committed.
+
 ## External gates
 
 - Native macOS all-14 visual verification remains pending because current and
@@ -108,3 +146,4 @@ ERROR: Cannot save file '/Users/chanwaichan/Library/Application Support/Godot/ed
 - `scenes/ui/game_hud.tscn`
 - `tests/integration/test_gameplay_shell.gd`
 - `.superpowers/sdd/2026-09-04-phoenix-ui-redesign-plan/final-fix-report.md`
+- `build/Phoenix-gl.zip` (uncommitted local artifact)
