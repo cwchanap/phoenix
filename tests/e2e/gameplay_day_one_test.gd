@@ -9,6 +9,11 @@ const PLAYER := WORLD + "/Entities/Player"
 const UP := WorldMath.Facing.UP
 const RIGHT := WorldMath.Facing.RIGHT
 
+# The redesigned HUD renders stamina as 20 pips under TopBar: a pip is lit
+# (green, g≈0.75) when its index < stamina and dark (g≈0.19) otherwise.
+# 0.5 cleanly separates the two states.
+const STAMINA_LIT_THRESHOLD := 0.5
+
 # Save path the child is told to write via PHOENIX_SAVE_PATH. Kept so the
 # sleep test can assert the file actually exists, pinning the isolation
 # seam in CI rather than relying on a one-off mtime check.
@@ -41,8 +46,23 @@ func _start_new_game() -> Variant:
 	).is_true()
 	assert_bool(await game.input_action("ui_accept", true)).is_true()
 	assert_bool(await game.input_action("ui_accept", false)).is_true()
-	assert_bool(await game.wait_for_property(HUD + "/Day", "text", "Day 1", 10.0)).is_true()
+	assert_bool(await game.wait_for_property(HUD + "/TopBar/DayValue", "text", "1", 10.0)).is_true()
 	return game
+
+
+# The redesigned HUD shows stamina as 20 lit/dark pips rather than a text
+# label. Verify the pip at index (expected-1) is lit and, when expected < 20,
+# the pip at index expected is dark.
+func _assert_stamina(game, expected: int) -> void:
+	var lit: Color = await game.get_property(
+		HUD + "/TopBar/StaminaPip_%02d" % (expected - 1), "color"
+	)
+	assert_float(lit.g).is_greater(STAMINA_LIT_THRESHOLD)
+	if expected < 20:
+		var dark: Color = await game.get_property(
+			HUD + "/TopBar/StaminaPip_%02d" % expected, "color"
+		)
+		assert_float(dark.g).is_less(STAMINA_LIT_THRESHOLD)
 
 
 # Stand at a grid position with a facing so current_target_cell() resolves
@@ -90,7 +110,7 @@ func test_day_one_farming_loop_and_sleep() -> void:
 	await _use_action(game, "Action_2", "Crop watered.")
 	if is_failure():
 		return
-	assert_str(await game.get_property(HUD + "/Stamina", "text")).is_equal("Stamina: 14/20")
+	await _assert_stamina(game, 14)
 
 	# Walk-free trip to the bed: interact, confirm, acknowledge Day 2.
 	await _stand(game, Vector2(7.5, 9.5), UP)
@@ -101,7 +121,7 @@ func test_day_one_farming_loop_and_sleep() -> void:
 		await game.wait_for_property(HUD + "/SleepPanel", "visible", true, 5.0)
 	).is_true()
 	assert_bool(await game.click_node(HUD + "/SleepPanel/Confirm")).is_true()
-	assert_bool(await game.wait_for_property(HUD + "/Day", "text", "Day 2", 10.0)).is_true()
+	assert_bool(await game.wait_for_property(HUD + "/TopBar/DayValue", "text", "2", 10.0)).is_true()
 	assert_bool(
 		await game.wait_for_property(HUD + "/MorningSummaryPanel", "visible", true, 5.0)
 	).is_true()
@@ -120,7 +140,7 @@ func test_day_one_farming_loop_and_sleep() -> void:
 	assert_bool(
 		await game.wait_for_property(HUD + "/MorningSummaryPanel", "visible", false, 5.0)
 	).is_true()
-	assert_str(await game.get_property(HUD + "/Stamina", "text")).is_equal("Stamina: 20/20")
+	await _assert_stamina(game, 20)
 
 
 func test_player_moves_with_real_input() -> void:
@@ -155,7 +175,7 @@ func test_shop_purchase_updates_money() -> void:
 	assert_bool(await game.input_action("ui_accept", true)).is_true()
 	assert_bool(await game.input_action("ui_accept", false)).is_true()
 	assert_bool(
-		await game.wait_for_property(HUD + "/Money", "text", "Money: 130G", 5.0)
+		await game.wait_for_property(HUD + "/TopBar/MoneyValue", "text", "130", 5.0)
 	).is_true()
 	assert_bool(await game.input_action("ui_cancel", true)).is_true()
 	assert_bool(await game.input_action("ui_cancel", false)).is_true()
