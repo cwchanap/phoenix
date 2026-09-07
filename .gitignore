@@ -4,4 +4,5 @@
 reports/
 test_output/
 build/
+.superpowers/
 
