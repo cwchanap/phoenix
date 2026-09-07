@@ -60,11 +60,13 @@ func _render() -> void:
         if _villager_id == VillagerRules.VillagerId.SHOPKEEPER
         else VillagerRules.display_name(_villager_id).to_lower()
     )
-    ($Portrait as TextureRect).texture = load(
+    var portrait := $Portrait as TextureRect
+    portrait.texture = load(
         "res://assets/ui/portraits/%s.png" % portrait_name
     ) as Texture2D
+    portrait.scale = Vector2(1.1, 1.0) if _villager_id == VillagerRules.VillagerId.SHOPKEEPER else Vector2.ONE
     name_label.text = VillagerRules.display_name(_villager_id)
-    role_label.text = VillagerRules.role_label(_villager_id)
+    role_label.text = VillagerRules.role_label(_villager_id).to_upper()
 
     var relationship := _relationship_snapshot()
     relationship_label.text = "%s  ·  %d/%d" % [
@@ -72,7 +74,11 @@ func _render() -> void:
         int(relationship.get("points", 0)),
         VillagerRules.CLOSE_FRIEND_POINTS,
     ]
-    ($Panel/Line as Label).text = _lines[_line_index] if _line_index < _lines.size() else ""
+    ($Panel/Line as Label).text = (
+        "“%s”" % _lines[_line_index]
+        if _line_index < _lines.size()
+        else ""
+    )
 
     var feedback_lines: Array[String] = []
     if _points_gained > 0:
@@ -146,24 +152,57 @@ func _render_gift_buttons(suppressed: bool) -> void:
         var button := _gift_buttons[kind]
         var quantity := int(harvested.get(GameRules.crop_key(kind), 0))
         var favourite := VillagerRules.is_favourite_crop(_villager_id, kind)
+        var is_selected := kind == _selected_gift_kind
         button.visible = true
         button.disabled = quantity < 1
         button.focus_mode = Control.FOCUS_ALL
         button.modulate = Color.WHITE if quantity > 0 else Color(0.5, 0.54, 0.62, 1.0)
-        button.add_theme_stylebox_override(
-            "normal",
+        var card_style := UiStyle.panel(
+            UiStyle.KEYCAP_FILL if is_selected else UiStyle.INSET,
+            UiStyle.GOLD if is_selected else UiStyle.BORDER,
+            2 if is_selected else 1,
+        )
+        for state in ["normal", "focus", "hover", "pressed"]:
+            button.add_theme_stylebox_override(state, card_style)
+        (button.get_node("Keycap") as Panel).visible = quantity > 0
+        var keycap := button.get_node("Keycap") as Panel
+        keycap.add_theme_stylebox_override(
+            "panel",
             UiStyle.panel(
-                UiStyle.KEYCAP_FILL if kind == _selected_gift_kind else UiStyle.INSET,
-                UiStyle.GOLD if kind == _selected_gift_kind else UiStyle.BORDER,
-                2 if kind == _selected_gift_kind else 1,
+                UiStyle.KEYCAP_FILL if is_selected else UiStyle.INSET,
+                UiStyle.GOLD if is_selected else UiStyle.BORDER_LIGHT,
+                2 if is_selected else 1,
             ),
         )
-        (button.get_node("Keycap") as Panel).visible = quantity > 0
+        UiStyle.text(
+            keycap.get_node("Key") as Label,
+            8,
+            UiStyle.GOLD if is_selected else UiStyle.TEXT,
+            800,
+            true,
+        )
+        var count_badge := button.get_node("CountBadge") as Panel
+        count_badge.visible = quantity > 0
+        count_badge.add_theme_stylebox_override(
+            "panel",
+            UiStyle.panel(
+                UiStyle.KEYCAP_FILL if is_selected else UiStyle.INSET,
+                UiStyle.GOLD if is_selected else UiStyle.BORDER_LIGHT,
+                2 if is_selected else 1,
+            ),
+        )
         (button.get_node("Icon") as TextureRect).texture = load(
             "res://assets/ui/crops/%s.png" % GameRules.crop_key(kind)
         ) as Texture2D
         (button.get_node("Count") as Label).text = "%d" % quantity
         (button.get_node("Count") as Label).visible = quantity > 0
+        UiStyle.text(
+            button.get_node("Count") as Label,
+            8,
+            UiStyle.GOLD if is_selected else UiStyle.CREAM,
+            800,
+            true,
+        )
         (button.get_node("Value") as Label).text = (
             "+%d ♥" % VillagerRules.gift_points(_villager_id, kind)
             if quantity > 0 and favourite
@@ -317,7 +356,7 @@ func _apply_authored_style() -> void:
     )
     UiStyle.text($Panel/FeedbackBadge/Value as Label, 10, UiStyle.GREEN, 800)
     UiStyle.text($Panel/GiftStatus as Label, 8, UiStyle.MUTED, 700, true)
-    UiStyle.text($Panel/GiftHint as Label, 8, UiStyle.GOLD, 700)
+    UiStyle.text($Panel/GiftHint as Label, 9, UiStyle.GOLD, 700)
     UiStyle.text($Panel/Footer/EscKey as Label, 8, UiStyle.TEXT, 800, true)
     UiStyle.text($Panel/Footer/EscText as Label, 9, UiStyle.MUTED, 600)
     UiStyle.text($Panel/Footer/EnterKey as Label, 8, UiStyle.GOLD, 800, true)

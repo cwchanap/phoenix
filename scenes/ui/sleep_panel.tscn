@@ -31,10 +31,10 @@ mouse_filter = 1
 
 [node name="Bed" type="TextureRect" parent="Frame"]
 layout_mode = 0
-offset_left = 84.0
-offset_top = 18.0
-offset_right = 160.0
-offset_bottom = 68.0
+offset_left = 78.0
+offset_top = 16.0
+offset_right = 166.0
+offset_bottom = 75.0
 mouse_filter = 2
 texture = ExtResource("2_bed")
 expand_mode = 1
@@ -43,9 +43,9 @@ stretch_mode = 5
 [node name="Title" type="Label" parent="Frame"]
 layout_mode = 0
 offset_left = 25.0
-offset_top = 87.0
+offset_top = 84.0
 offset_right = 219.0
-offset_bottom = 111.0
+offset_bottom = 108.0
 text = "Sleep until morning?"
 horizontal_alignment = 1
 
@@ -72,10 +72,19 @@ stretch_mode = 5
 layout_mode = 0
 offset_left = 240.0
 offset_top = 195.0
-offset_right = 418.0
+offset_right = 416.0
 offset_bottom = 228.0
 text = "Day 14 — this ends the season and settles\nthe bin."
 autowrap_mode = 2
+
+[node name="BodyFooterDivider" type="ColorRect" parent="Frame"]
+layout_mode = 0
+offset_left = 2.0
+offset_top = 157.0
+offset_right = 242.0
+offset_bottom = 159.0
+mouse_filter = 2
+color = Color(0.219608, 0.27451, 0.368627, 1)
 
 [node name="Footer" type="Panel" parent="Frame"]
 layout_mode = 0

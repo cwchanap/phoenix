@@ -14,8 +14,8 @@ The presentation pass uses the semantic growth and money-bag icons, a compact
 relationship badge, bordered gift/key controls, selected-gift tinting, authored
 footer keycaps, the approved Day 14 warning copy, and the reference spacing.
 Existing states 01–06 and their goldens were left untouched. States 07–09 are
-registered in the visual fixture/capture/comparer scripts but no new golden was
-created before native review approval.
+registered in the visual fixture/capture/comparer scripts, manually approved on
+native macOS, and now have production goldens.
 
 Fix round 1 keeps the single-crop morning layout and adds two authored compact
 shipment rows for mixed payouts, binds dialogue portraits to Mira, Rowan, and
@@ -37,14 +37,24 @@ remain valid; the Day 1 flow does not reach mixed payouts or villager portraits.
 - E2E selectors were audited and require no changes. A bounded native E2E run
   produced only macOS LaunchServices/XPC errors while the Mac was locked and
   was stopped after 60 seconds; no E2E pass is claimed.
+- Normal native visual verification was completed in bounded groups:
+  `./tools/verify-visual.sh 01-hud 02-seed-shop 03-shipping-day14`,
+  `./tools/verify-visual.sh 04-bag 05-almanac 06-calendar`, and
+  `./tools/verify-visual.sh 07-dialogue 08-morning-summary 09-sleep`.
+  All nine states exited 0 with `golden_missing=false`,
+  `max_channel_delta=0`, `differing_pixels=0`, and
+  `mismatch_ratio=0.00000000` (01 compared 65,280 pixels; 02–09 each
+  compared 230,400 pixels). State 05 emitted the existing ObjectDB/resource
+  cleanup warning but still completed with an exact comparison pass.
 
 ## Candidate evidence and gates
 
-The pre-existing candidate paths are `test_output/ui-visual/07-dialogue.png`,
+The approved native candidate paths are `test_output/ui-visual/07-dialogue.png`,
 `08-morning-summary.png`, and `09-sleep.png`, with corresponding `-2x.png`
-evidence files. They predate the final authored-spacing corrections and must
-be recaptured and manually approved on an unlocked native macOS session before
-the three production goldens are created. No existing golden changed.
+evidence files. Manual review approved all three after the final authored
+spacing correction (including the 07 relationship and quantity bounds). The
+approved captures were promoted only to `tests/visual/goldens/07-dialogue.png`,
+`08-morning-summary.png`, and `09-sleep.png`; states 01–06 were unchanged.
 
 ## Files changed
 
@@ -61,4 +71,4 @@ the three production goldens are created. No existing golden changed.
 
 ## Status
 
-`FIX_ROUND_2_IMPLEMENTED_WITH_NATIVE_REVIEW_AND_E2E_PENDING`
+`GOLDENS_07_09_APPROVED_AND_NORMAL_01_09_PASS; NATIVE_E2E_DEFERRED_TO_COMBINED_TASK8_TASK9_RUN`

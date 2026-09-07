@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=4]
+[gd_scene load_steps=12 format=4]
 
 [ext_resource type="Script" path="res://scripts/ui/morning_summary_panel.gd" id="1_summary"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/sun.png" id="2_sun"]
@@ -10,6 +10,7 @@
 [ext_resource type="Texture2D" path="res://assets/ui/icons/growth.png" id="8_growth"]
 [ext_resource type="Texture2D" path="res://assets/ui/crops/potato.png" id="9_potato"]
 [ext_resource type="Texture2D" path="res://assets/ui/crops/pumpkin.png" id="10_pumpkin"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/coin-stack.png" id="11_coin_stack"]
 
 [node name="MorningSummaryPanel" type="Control"]
 layout_mode = 3
@@ -46,10 +47,10 @@ mouse_filter = 2
 
 [node name="Sun" type="TextureRect" parent="Frame/Header"]
 layout_mode = 0
-offset_left = 17.0
-offset_top = 16.0
-offset_right = 37.0
-offset_bottom = 36.0
+offset_left = 15.0
+offset_top = 14.0
+offset_right = 39.0
+offset_bottom = 38.0
 mouse_filter = 2
 texture = ExtResource("2_sun")
 expand_mode = 1
@@ -58,33 +59,33 @@ stretch_mode = 5
 [node name="DayCaption" type="Label" parent="Frame/Header"]
 layout_mode = 0
 offset_left = 48.0
-offset_top = 18.0
+offset_top = 22.0
 offset_right = 94.0
-offset_bottom = 34.0
+offset_bottom = 38.0
 text = "DAY"
 
 [node name="CompletedDay" type="Label" parent="Frame/Header"]
 layout_mode = 0
-offset_left = 96.0
-offset_top = 14.0
-offset_right = 120.0
-offset_bottom = 38.0
+offset_left = 76.0
+offset_top = 16.0
+offset_right = 108.0
+offset_bottom = 40.0
 text = "3"
 
 [node name="Arrow" type="Label" parent="Frame/Header"]
 layout_mode = 0
-offset_left = 128.0
-offset_top = 14.0
-offset_right = 150.0
-offset_bottom = 38.0
+offset_left = 94.0
+offset_top = 20.0
+offset_right = 122.0
+offset_bottom = 40.0
 text = "→"
 
 [node name="NextDay" type="Label" parent="Frame/Header"]
 layout_mode = 0
-offset_left = 156.0
+offset_left = 112.0
 offset_top = 10.0
-offset_right = 182.0
-offset_bottom = 40.0
+offset_right = 150.0
+offset_bottom = 38.0
 text = "4"
 
 [node name="SaveBadge" type="Panel" parent="Frame"]
@@ -241,7 +242,7 @@ offset_top = 14.0
 offset_right = 58.0
 offset_bottom = 38.0
 mouse_filter = 2
-texture = ExtResource("5_coin")
+texture = ExtResource("11_coin_stack")
 expand_mode = 1
 stretch_mode = 5
 

@@ -144,7 +144,7 @@ func _apply_authored_style() -> void:
             "panel",
             UiStyle.panel(
                 UiStyle.WARNING_FILL if index == 3 else UiStyle.INSET,
-                UiStyle.GOLD if index == 3 else UiStyle.BORDER,
+                UiStyle.GOLD if index == 3 else Color("6b8bc4") if index == 1 else UiStyle.BORDER,
                 1,
             ),
         )
@@ -152,10 +152,10 @@ func _apply_authored_style() -> void:
         "panel",
         UiStyle.panel(UiStyle.KEYCAP_FILL, UiStyle.GOLD, 1),
     )
-    UiStyle.text($Frame/Header/DayCaption as Label, 9, UiStyle.MUTED, 700)
-    UiStyle.text($Frame/Header/CompletedDay as Label, 12, UiStyle.MUTED, 800, true)
-    UiStyle.text($Frame/Header/Arrow as Label, 12, UiStyle.MUTED, 800)
-    UiStyle.text($Frame/Header/NextDay as Label, 16, UiStyle.GOLD, 800, true)
+    UiStyle.text($Frame/Header/DayCaption as Label, 10, UiStyle.MUTED, 700)
+    UiStyle.text($Frame/Header/CompletedDay as Label, 16, UiStyle.MUTED, 800, true)
+    UiStyle.text($Frame/Header/Arrow as Label, 14, UiStyle.MUTED, 800)
+    UiStyle.text($Frame/Header/NextDay as Label, 24, UiStyle.GOLD, 800, true)
     UiStyle.text($Frame/SaveBadge/Caption as Label, 8, UiStyle.GREEN, 800)
     for index in 4:
         var card := $Frame.get_node("Card_%d" % index) as Panel
@@ -163,7 +163,7 @@ func _apply_authored_style() -> void:
         var caption := card.get_node("Caption") as Label
         UiStyle.text(
             value,
-            15,
+            17,
             Color("6b8bc4") if index == 1 else UiStyle.GOLD if index == 3 else UiStyle.GREEN,
             800,
         )
