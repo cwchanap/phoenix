@@ -84,8 +84,9 @@ func _refresh() -> void:
 	for index in _rows.size():
 		var selected := index == _selected_index
 		_rows[index].add_theme_stylebox_override(
-			"panel", UiStyle.panel(UiStyle.INSET, UiStyle.GOLD if selected else UiStyle.BORDER, 2 if selected else 1)
+			"panel", UiStyle.panel(UiStyle.INSET, UiStyle.BORDER, 1)
 		)
+		(_rows[index].get_node("SelectionStripe") as ColorRect).visible = selected
 	UiStyle.text($Frame/Body/MusicRow/Name as Label, 11, UiStyle.CREAM if _selected_index == 0 else UiStyle.TEXT, 800)
 	UiStyle.text($Frame/Body/SoundRow/Name as Label, 11, UiStyle.CREAM if _selected_index == 1 else UiStyle.TEXT, 800)
 	UiStyle.text($Frame/Body/WindowRow/Name as Label, 11, UiStyle.CREAM if _selected_index == 2 else UiStyle.TEXT, 800)

@@ -4,9 +4,9 @@ extends GdUnitE2ETestSuite
 const WORLD := "/root/AppRoot/World"
 const HUD := WORLD + "/GameHud/HudRoot"
 
-func _tap_key(game: Variant, keycode: Key) -> void:
-	assert_bool(await game.input_key(keycode, true, true)).is_true()
-	assert_bool(await game.input_key(keycode, false, true)).is_true()
+func _tap_key(game: Variant, keycode: Key, physical := true) -> void:
+	assert_bool(await game.input_key(keycode, true, physical)).is_true()
+	assert_bool(await game.input_key(keycode, false, physical)).is_true()
 
 func test_real_keys_navigate_pause_and_settings() -> void:
 	var options := E2ELaunchOptions.new()
@@ -29,7 +29,7 @@ func test_real_keys_navigate_pause_and_settings() -> void:
 	assert_bool(await game.input_action("ui_accept", false)).is_true()
 	assert_bool(await game.wait_for_node(WORLD, 10.0)).is_true()
 
-	await _tap_key(game, KEY_ESCAPE)
+	await _tap_key(game, KEY_ESCAPE, false)
 	assert_bool(await game.wait_for_property(HUD + "/PausePanel", "visible", true, 5.0)).is_true()
 
 	await _tap_key(game, KEY_O)
@@ -41,9 +41,9 @@ func test_real_keys_navigate_pause_and_settings() -> void:
 	assert_int(saved_settings.load(settings_path)).is_equal(OK)
 	assert_int(int(saved_settings.get_value("ui", "music"))).is_equal(UiSettings.DEFAULT_MUSIC + 1)
 
-	await _tap_key(game, KEY_ESCAPE)
+	await _tap_key(game, KEY_ESCAPE, false)
 	assert_bool(await game.wait_for_property(HUD + "/SettingsPanel", "visible", false, 5.0)).is_true()
 	assert_bool(await game.get_property(HUD + "/PausePanel", "visible")).is_true()
 
-	await _tap_key(game, KEY_ESCAPE)
+	await _tap_key(game, KEY_ESCAPE, false)
 	assert_bool(await game.wait_for_property(HUD + "/PausePanel", "visible", false, 5.0)).is_true()

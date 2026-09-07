@@ -148,9 +148,9 @@ vertical_alignment = 1
 [node name="MoveIcon" type="TextureRect" parent="Frame"]
 layout_mode = 0
 offset_left = 106.0
-offset_top = 49.0
+offset_top = 48.0
 offset_right = 122.0
-offset_bottom = 65.0
+offset_bottom = 64.0
 mouse_filter = 2
 texture = ExtResource("3_movement")
 expand_mode = 1
@@ -159,9 +159,9 @@ stretch_mode = 5
 [node name="MoveText" type="Label" parent="Frame"]
 layout_mode = 0
 offset_left = 128.0
-offset_top = 44.0
+offset_top = 42.0
 offset_right = 256.0
-offset_bottom = 67.0
+offset_bottom = 65.0
 text = "Move · facing picks the target cell"
 autowrap_mode = 2
 
@@ -270,9 +270,9 @@ text = "Hoe · Seeds · Water · Hands"
 [node name="SpaceKey" type="Panel" parent="Frame"]
 layout_mode = 0
 offset_left = 12.0
-offset_top = 100.0
+offset_top = 96.0
 offset_right = 51.0
-offset_bottom = 119.0
+offset_bottom = 115.0
 mouse_filter = 2
 
 [node name="Label" type="Label" parent="Frame/SpaceKey"]
@@ -290,9 +290,9 @@ vertical_alignment = 1
 [node name="UseIcon" type="TextureRect" parent="Frame"]
 layout_mode = 0
 offset_left = 106.0
-offset_top = 102.0
+offset_top = 98.0
 offset_right = 122.0
-offset_bottom = 118.0
+offset_bottom = 114.0
 mouse_filter = 2
 texture = ExtResource("4_hoe")
 expand_mode = 1
@@ -301,17 +301,17 @@ stretch_mode = 5
 [node name="UseText" type="Label" parent="Frame"]
 layout_mode = 0
 offset_left = 128.0
-offset_top = 98.0
+offset_top = 97.0
 offset_right = 256.0
-offset_bottom = 121.0
+offset_bottom = 120.0
 text = "Use the selected action"
 
 [node name="InteractKey" type="Panel" parent="Frame"]
 layout_mode = 0
 offset_left = 12.0
-offset_top = 128.0
+offset_top = 120.0
 offset_right = 31.0
-offset_bottom = 147.0
+offset_bottom = 139.0
 mouse_filter = 2
 
 [node name="Label" type="Label" parent="Frame/InteractKey"]
@@ -329,9 +329,9 @@ vertical_alignment = 1
 [node name="InteractIcon" type="TextureRect" parent="Frame"]
 layout_mode = 0
 offset_left = 106.0
-offset_top = 130.0
+offset_top = 122.0
 offset_right = 122.0
-offset_bottom = 146.0
+offset_bottom = 138.0
 mouse_filter = 2
 texture = ExtResource("5_dialogue")
 expand_mode = 1
@@ -340,25 +340,26 @@ stretch_mode = 5
 [node name="InteractText" type="Label" parent="Frame"]
 layout_mode = 0
 offset_left = 128.0
-offset_top = 126.0
+offset_top = 123.0
 offset_right = 256.0
-offset_bottom = 149.0
+offset_bottom = 146.0
 text = "Shop · bed · bin · villagers"
 
 [node name="Divider" type="ColorRect" parent="Frame"]
 layout_mode = 0
 offset_left = 12.0
-offset_top = 157.0
+offset_top = 146.0
 offset_right = 256.0
-offset_bottom = 158.0
+offset_bottom = 147.0
+color = Color(0.164706, 0.207843, 0.278431, 1)
 mouse_filter = 2
 
 [node name="ShortcutKeys" type="Control" parent="Frame"]
 layout_mode = 0
 offset_left = 12.0
-offset_top = 167.0
+offset_top = 154.0
 offset_right = 81.0
-offset_bottom = 187.0
+offset_bottom = 174.0
 mouse_filter = 2
 
 [node name="I" type="Panel" parent="Frame/ShortcutKeys"]
@@ -420,9 +421,9 @@ vertical_alignment = 1
 [node name="ShortcutIcon" type="TextureRect" parent="Frame"]
 layout_mode = 0
 offset_left = 106.0
-offset_top = 170.0
+offset_top = 156.0
 offset_right = 122.0
-offset_bottom = 186.0
+offset_bottom = 172.0
 mouse_filter = 2
 texture = ExtResource("6_bag")
 expand_mode = 1
@@ -431,15 +432,15 @@ stretch_mode = 5
 [node name="ShortcutText" type="Label" parent="Frame"]
 layout_mode = 0
 offset_left = 128.0
-offset_top = 166.0
+offset_top = 157.0
 offset_right = 256.0
-offset_bottom = 189.0
+offset_bottom = 180.0
 text = "Bag · Almanac · Season"
 
 [node name="Footer" type="Panel" parent="Frame"]
 layout_mode = 0
 offset_left = 2.0
-offset_top = 190.0
+offset_top = 182.0
 offset_right = 266.0
 offset_bottom = 220.0
 mouse_filter = 2
@@ -447,9 +448,9 @@ mouse_filter = 2
 [node name="SettingsKey" type="Panel" parent="Frame/Footer"]
 layout_mode = 0
 offset_left = 12.0
-offset_top = 7.0
+offset_top = 9.0
 offset_right = 31.0
-offset_bottom = 26.0
+offset_bottom = 28.0
 mouse_filter = 2
 
 [node name="Label" type="Label" parent="Frame/Footer/SettingsKey"]
@@ -467,9 +468,9 @@ vertical_alignment = 1
 [node name="SettingsText" type="Label" parent="Frame/Footer"]
 layout_mode = 0
 offset_left = 37.0
-offset_top = 8.0
+offset_top = 10.0
 offset_right = 88.0
-offset_bottom = 23.0
+offset_bottom = 25.0
 text = "settings"
 
 [node name="SettingsButton" type="Button" parent="Frame/Footer"]
@@ -484,9 +485,9 @@ text = ""
 [node name="ResumeKey" type="Panel" parent="Frame/Footer"]
 layout_mode = 0
 offset_left = 184.0
-offset_top = 7.0
+offset_top = 9.0
 offset_right = 212.0
-offset_bottom = 26.0
+offset_bottom = 28.0
 mouse_filter = 2
 
 [node name="Label" type="Label" parent="Frame/Footer/ResumeKey"]
@@ -504,9 +505,9 @@ vertical_alignment = 1
 [node name="ResumeText" type="Label" parent="Frame/Footer"]
 layout_mode = 0
 offset_left = 218.0
-offset_top = 7.0
+offset_top = 9.0
 offset_right = 258.0
-offset_bottom = 24.0
+offset_bottom = 26.0
 text = "RESUME"
 
 [node name="ResumeButton" type="Button" parent="Frame/Footer"]
