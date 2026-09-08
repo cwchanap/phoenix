@@ -702,7 +702,7 @@ Only add `world_contract.gd` / `world.tscn` to this commit if reachability requi
 - Modify: `scripts/player/player_controller.gd` or `scenes/player/player.tscn` only if the tests expose a real camera defect
 
 **Interfaces:**
-- Consumes: `WorldContract.CAMERA_BOUNDS`, existing `PlayerController.camera`, existing smoothing.
+- Consumes: `WorldContract.CAMERA_BOUNDS`, existing `PlayerController` child `Camera2D`, existing smoothing.
 - Produces: deterministic bounds/follow evidence and a layout-source-of-truth E2E route.
 
 ### 4.1 RED — assert the camera copies the authored contract
@@ -723,16 +723,20 @@ func test_camera_limits_match_world_contract() -> void:
     assert_true(camera.position_smoothing_enabled)
 ```
 
-- [ ] Add a deterministic extreme-position helper that teleports the player, zeros velocity, calls `camera.reset_smoothing()`, waits one process frame, and checks the visible rectangle remains inside `CAMERA_BOUNDS`:
+- [ ] Add a deterministic helper that receives the camera explicitly, teleports the player, zeros velocity, calls `camera.reset_smoothing()`, waits one process frame, and checks the visible rectangle remains inside `CAMERA_BOUNDS`:
 
 ```gdscript
-func _assert_camera_inside_bounds(player: PlayerController, logical: Vector2) -> void:
+func _assert_camera_inside_bounds(
+    player: PlayerController,
+    camera: Camera2D,
+    logical: Vector2,
+) -> void:
     player.global_position = WorldMath.grid_to_world(logical)
     player.velocity = Vector2.ZERO
-    player.camera.reset_smoothing()
+    camera.reset_smoothing()
     await get_tree().process_frame
 
-    var center := player.camera.get_screen_center_position()
+    var center := camera.get_screen_center_position()
     var half_view := Vector2(320.0, 180.0)
     var bounds := WorldContract.CAMERA_BOUNDS
     assert_gte(center.x - half_view.x, bounds.position.x - 0.001)
