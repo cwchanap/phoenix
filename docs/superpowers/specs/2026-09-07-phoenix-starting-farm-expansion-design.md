@@ -84,7 +84,7 @@ const SHIPPING_CELL := Vector2i(10, 13)
 const SHIPPING_FOOTPRINT := Rect2(10.2, 13.2, 0.6, 0.6)
 
 const SHOP_CELL := Vector2i(17, 9)
-const SHOP_STALL_FOOTPRINT := Rect2(15.0, 9.0, 2.0, 2.0)
+const SHOP_STALL_FOOTPRINT := Rect2(15.0, 7.0, 1.0, 2.0)
 
 const MARKET_CELL := Vector2i(19, 10)
 const MARKET_FOOTPRINT := Rect2(19.2, 10.2, 0.6, 0.6)
@@ -106,7 +106,7 @@ const VILLAGER_FOOTPRINTS: Array[Rect2] = [
 Do **not** add hand-maintained `HOUSE_ANCHOR`, `SHOP_STALL_ANCHOR`, or `MARKET_ANCHOR` constants. Scene roots are checked from geometry instead:
 
 - `House.position` must equal `WorldMath.footprint_ground_anchor(HOUSE_FOOTPRINT)`, which is `(976, 336)` for the locked footprint.
-- `ShopStall.position` must equal `WorldMath.footprint_ground_anchor(SHOP_STALL_FOOTPRINT)`, which is `(960, 448)`.
+- `ShopStall.position` must equal `WorldMath.footprint_ground_anchor(SHOP_STALL_FOOTPRINT)`, which is `(1008, 400)`.
 - `HarvestMarket.position` remains the projected center of `MARKET_CELL`.
 
 `TREE_FOOTPRINT`, `TREE_ANCHOR`, `BUILDING_FOOTPRINT`, `BUILDING_ANCHOR`, and `MARKET_ANCHOR` are retired in the same cutover.
@@ -229,7 +229,7 @@ One direct Y-sorted `Workbench` visual plus the closed workbench footprint reser
 
 **East-central — roadside social/market cluster**
 
-`ShopStall` gives `SHOP_CELL` an actual visual location. The existing villagers and Harvest Market remain in this scene and move along the future-village road. Their command/hint semantics do not change.
+`ShopStall` gives `SHOP_CELL` an actual visual location without occupying the main road. The existing villagers and Harvest Market remain in this scene and move along the future-village road. Their command/hint semantics do not change.
 
 **East edge — future village road**
 
