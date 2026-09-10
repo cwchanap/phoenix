@@ -171,6 +171,110 @@ hframes = 4
 vframes = 2
 frame = 3
 
+[node name="TreeNorth2" type="Node2D" parent="Entities"]
+position = Vector2(992, 128)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/TreeNorth2"]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/TreeNorth2"]
+texture = ExtResource("3_props")
+offset = Vector2(0, -48)
+hframes = 4
+vframes = 2
+frame = 2
+
+[node name="TreeNorth3" type="Node2D" parent="Entities"]
+position = Vector2(1024, 176)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/TreeNorth3"]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/TreeNorth3"]
+texture = ExtResource("3_props")
+offset = Vector2(0, -48)
+hframes = 4
+vframes = 2
+frame = 2
+
+[node name="TreeNorth4" type="Node2D" parent="Entities"]
+position = Vector2(1152, 208)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/TreeNorth4"]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/TreeNorth4"]
+texture = ExtResource("3_props")
+offset = Vector2(0, -48)
+hframes = 4
+vframes = 2
+frame = 2
+
+[node name="RockNorth1" type="Node2D" parent="Entities"]
+position = Vector2(1184, 256)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/RockNorth1"]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/RockNorth1"]
+texture = ExtResource("3_props")
+offset = Vector2(0, -48)
+hframes = 4
+vframes = 2
+frame = 3
+
+[node name="TreeNorth5" type="Node2D" parent="Entities"]
+position = Vector2(1280, 272)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/TreeNorth5"]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/TreeNorth5"]
+texture = ExtResource("3_props")
+offset = Vector2(0, -48)
+hframes = 4
+vframes = 2
+frame = 2
+
+[node name="TreeNorth6" type="Node2D" parent="Entities"]
+position = Vector2(1312, 320)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/TreeNorth6"]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/TreeNorth6"]
+texture = ExtResource("3_props")
+offset = Vector2(0, -48)
+hframes = 4
+vframes = 2
+frame = 2
+
+[node name="RockNorth2" type="Node2D" parent="Entities"]
+position = Vector2(1408, 336)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/RockNorth2"]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/RockNorth2"]
+texture = ExtResource("3_props")
+offset = Vector2(0, -48)
+hframes = 4
+vframes = 2
+frame = 3
+
+[node name="TreeNorth7" type="Node2D" parent="Entities"]
+position = Vector2(1440, 384)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/TreeNorth7"]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/TreeNorth7"]
+texture = ExtResource("3_props")
+offset = Vector2(0, -48)
+hframes = 4
+vframes = 2
+frame = 2
+
 [node name="FarmFence_1" type="Node2D" parent="Entities"]
 position = Vector2(384, 336)
 
