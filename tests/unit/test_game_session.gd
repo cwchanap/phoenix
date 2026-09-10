@@ -1,7 +1,7 @@
 extends GutTest
 
-const FARM_CELL := Vector2i(2, 7)
-const SECOND_FARM_CELL := Vector2i(3, 7)
+const FARM_CELL := WorldContract.FARM_PATCH.position
+const SECOND_FARM_CELL := WorldContract.FARM_PATCH.position + Vector2i.RIGHT
 
 func _assert_unchanged(session: GameSession, before: Dictionary) -> void:
     assert_eq(session.snapshot(), before)
@@ -10,7 +10,7 @@ func _plant_turnip(session: GameSession, cell: Vector2i = FARM_CELL) -> void:
     assert_eq(session.hoe(cell), GameRules.CommandCode.SOIL_TILLED)
     assert_eq(session.plant(cell), GameRules.CommandCode.CROP_PLANTED)
 
-func _grow_and_harvest_turnip(session: GameSession, cell := Vector2i(2, 7)) -> void:
+func _grow_and_harvest_turnip(session: GameSession, cell := FARM_CELL) -> void:
     assert_eq(session.hoe(cell), GameRules.CommandCode.SOIL_TILLED)
     assert_eq(session.plant(cell), GameRules.CommandCode.CROP_PLANTED)
     for _night in 3:
@@ -83,7 +83,7 @@ func test_new_session_has_exact_starter_state() -> void:
     assert_eq(snapshot["pending_shipment"], {&"turnip": 0, &"potato": 0, &"pumpkin": 0})
     assert_eq(snapshot["selected_action"], &"hoe")
     assert_eq(snapshot["selected_seed"], &"turnip")
-    assert_eq(snapshot["farm"].size(), 9)
+    assert_eq(snapshot["farm"].size(), WorldContract.farm_cells().size())
     assert_null(snapshot["pending_morning_summary"])
     assert_eq(snapshot["relationships"], {
         &"shopkeeper": {
@@ -223,7 +223,7 @@ func test_weather_history_requires_final_entry_to_match_current_weather() -> voi
 
 func test_command_driven_state_restores_farm_and_does_not_alias_candidate() -> void:
     var original := GameSession.new(func() -> float: return 0.9)
-    var cell := Vector2i(2, 7)
+    var cell := FARM_CELL
     assert_eq(original.hoe(cell), GameRules.CommandCode.SOIL_TILLED)
     assert_eq(original.plant(cell), GameRules.CommandCode.CROP_PLANTED)
     assert_eq(original.water(cell), GameRules.CommandCode.CROP_WATERED)
@@ -757,7 +757,7 @@ func test_june_reaches_close_friend_and_special_sequence_once() -> void:
 
 func test_turnip_actions_commit_atomically() -> void:
     var session := GameSession.new()
-    var cell := Vector2i(2, 7)
+    var cell := FARM_CELL
     assert_eq(session.hoe(cell), GameRules.CommandCode.SOIL_TILLED)
     assert_eq(session.plant(cell), GameRules.CommandCode.CROP_PLANTED)
     assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)

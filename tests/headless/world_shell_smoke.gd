@@ -59,15 +59,6 @@ func _expect_child_order(node: Node, expected: Array, label: String) -> bool:
             return false
     return true
 
-func _outside_footprint(position: Vector2, footprint: Rect2) -> bool:
-    var half_extent := WorldContract.PLAYER_HALF_EXTENT
-    return (
-        position.x + half_extent <= footprint.position.x
-        or position.x - half_extent >= footprint.end.x
-        or position.y + half_extent <= footprint.position.y
-        or position.y - half_extent >= footprint.end.y
-    )
-
 func _within_player_bounds(position: Vector2) -> bool:
     var minimum := WorldContract.PLAYER_HALF_EXTENT
     var maximum := Vector2(WorldContract.MAP_SIZE) - Vector2.ONE * minimum
@@ -109,12 +100,64 @@ func _place_player(player: CharacterBody2D, logical_position: Vector2) -> void:
 func _cell_center(cell: Vector2i) -> Vector2:
     return WorldMath.grid_to_world(Vector2(cell) + Vector2(0.5, 0.5))
 
-func _expected_tile(cell: Vector2i) -> Vector2i:
-    if WorldContract.PATH_ROW.has_point(cell):
-        return PATH_TILE
-    if WorldContract.FARM_PATCH.has_point(cell):
-        return FARM_TILE
-    return DEFAULT_TILE
+func _rect_cells(rect: Rect2) -> Array[Vector2i]:
+    var cells: Array[Vector2i] = []
+    for y in range(int(rect.position.y), int(rect.end.y)):
+        for x in range(int(rect.position.x), int(rect.end.x)):
+            cells.append(Vector2i(x, y))
+    return cells
+
+func _expected_path_cells() -> Array[Vector2i]:
+    # Main east-west road to the future village, the farm-side path that starts
+    # at x=10 beside the farm, and the workbench spur reaching x=12.
+    var cells: Array[Vector2i] = []
+    for x in range(10, WorldContract.MAP_SIZE.x):
+        cells.append(Vector2i(x, 9))
+    for y in range(10, 17):
+        cells.append(Vector2i(10, y))
+    cells.append(Vector2i(11, 16))
+    cells.append(Vector2i(12, 16))
+    return cells
+
+func _static_entity_names() -> Array:
+    return [
+        "Player",
+        "House",
+        "ShopStall",
+        "TreeForest",
+        "TreeBank",
+        "TreeNorth",
+        "RockYard",
+        "RockMeadow",
+        "FarmFence_1",
+        "FarmFence_2",
+        "FarmFence_3",
+        "Workbench",
+        "VillageSign",
+        "Shipping",
+        "HarvestMarket",
+        "VillagerShopkeeper",
+        "VillagerFarmer",
+        "VillagerResident",
+    ]
+
+func _scenery_entities() -> Array:
+    return [
+        {"node": "House", "frame": 1, "label": "house"},
+        {"node": "ShopStall", "frame": 3, "label": "shop stall"},
+        {"node": "TreeForest", "frame": 0, "label": "forest tree"},
+        {"node": "TreeBank", "frame": 0, "label": "bank tree"},
+        {"node": "TreeNorth", "frame": 0, "label": "north tree"},
+        {"node": "RockYard", "frame": 2, "label": "yard rock"},
+        {"node": "RockMeadow", "frame": 2, "label": "meadow rock"},
+        {"node": "FarmFence_1", "frame": 2, "label": "farm fence 1"},
+        {"node": "FarmFence_2", "frame": 2, "label": "farm fence 2"},
+        {"node": "FarmFence_3", "frame": 2, "label": "farm fence 3"},
+        {"node": "Workbench", "frame": 2, "label": "workbench"},
+        {"node": "VillageSign", "frame": 3, "label": "village sign"},
+        {"node": "Shipping", "frame": 2, "label": "shipping"},
+        {"node": "HarvestMarket", "frame": 3, "label": "market"},
+    ]
 
 func _run() -> void:
     var packed := load("res://scenes/world/world.tscn") as PackedScene
@@ -131,12 +174,10 @@ func _run() -> void:
             return
     if not _expect(WorldContract.villager_at(Vector2i(0, 0)) == -1, "unknown villager cell"):
         return
-    if not _expect(WorldContract.villager_at(Vector2i(6, 5)) == 0, "shopkeeper villager cell"):
-        return
-    if not _expect(WorldContract.MARKET_CELL == Vector2i(8, 6), "market cell contract"):
+    if not _expect(WorldContract.MARKET_CELL == Vector2i(19, 10), "market cell contract"):
         return
     if not _expect(
-        WorldContract.MARKET_FOOTPRINT == Rect2(8.2, 6.2, 0.6, 0.6), "market footprint contract"
+        WorldContract.MARKET_FOOTPRINT == Rect2(19.2, 10.2, 0.6, 0.6), "market footprint contract"
     ):
         return
     if not _expect_vec2(
@@ -146,13 +187,24 @@ func _run() -> void:
     ):
         return
 
-    var world_names := ["Ground", "FarmSoil", "StaticCollision", "Entities", "TargetHighlight", "GameHud"]
+    var world_names := [
+        "Ground",
+        "Water",
+        "Paths",
+        "GroundDecoration",
+        "FarmSoil",
+        "StaticCollision",
+        "Entities",
+        "TargetHighlight",
+        "GameHud",
+    ]
     if not _expect_names(world, world_names, "World"):
         return
     if not _expect_child_order(world, world_names, "World scene-tree order"):
         return
+
     var ground := world.get_node("Ground") as TileMapLayer
-    if not _expect(ground.position == Vector2(352.0, 0.0), "Ground alignment transform"):
+    if not _expect(ground.position == Vector2(736.0, 0.0), "Ground alignment transform"):
         return
     if not _expect(ground.tile_set != null, "Ground must have a TileSet"):
         return
@@ -178,7 +230,7 @@ func _run() -> void:
         return
 
     var used_cells := ground.get_used_cells()
-    if not _expect(used_cells.size() == 144, "Ground must contain exactly 144 cells"):
+    if not _expect(used_cells.size() == 480, "Ground must contain exactly 480 cells"):
         return
     for y in WorldContract.MAP_SIZE.y:
         for x in WorldContract.MAP_SIZE.x:
@@ -199,10 +251,79 @@ func _run() -> void:
                 return
             if not _expect(ground.get_cell_source_id(cell) == 0, "cell %s source" % cell):
                 return
+            var expected_tile := FARM_TILE if WorldContract.FARM_PATCH.has_point(cell) else DEFAULT_TILE
             if not _expect_vec2i(
-                ground.get_cell_atlas_coords(cell), _expected_tile(cell), "cell %s tile" % cell
+                ground.get_cell_atlas_coords(cell), expected_tile, "ground cell %s tile" % cell
             ):
                 return
+
+    var water := world.get_node("Water") as TileMapLayer
+    if not _expect(water != null, "Water must exist"):
+        return
+    if not _expect(water.position == Vector2(736.0, 0.0), "Water alignment transform"):
+        return
+    if not _expect(water.tile_set != null, "Water must have a TileSet"):
+        return
+    var water_tile_set := water.tile_set
+    if not _expect(water_tile_set.tile_size == Vector2i(64, 32), "water tile size"):
+        return
+    if not _expect(
+        water_tile_set.tile_shape == TileSet.TILE_SHAPE_ISOMETRIC, "water tile shape"
+    ):
+        return
+    if not _expect(
+        water_tile_set.tile_layout == TileSet.TILE_LAYOUT_DIAMOND_DOWN, "water tile layout"
+    ):
+        return
+    var water_used := water.get_used_cells()
+    var expected_water := _rect_cells(WorldContract.RIVER_WEST_FOOTPRINT)
+    for river_cell in _rect_cells(WorldContract.RIVER_SOUTH_FOOTPRINT):
+        if not expected_water.has(river_cell):
+            expected_water.append(river_cell)
+    if not _expect(
+        water_used.size() == expected_water.size(), "Water must paint exactly the river cells"
+    ):
+        return
+    for river_cell in expected_water:
+        if not _expect(water_used.has(river_cell), "Water missing river cell %s" % river_cell):
+            return
+        if not _expect(water.get_cell_source_id(river_cell) == 0, "water %s source" % river_cell):
+            return
+        if not _expect_vec2i(
+            water.get_cell_atlas_coords(river_cell), Vector2i(0, 0), "water %s tile" % river_cell
+        ):
+            return
+
+    var paths := world.get_node("Paths") as TileMapLayer
+    if not _expect(paths != null, "Paths must exist"):
+        return
+    if not _expect(paths.position == Vector2(736.0, 0.0), "Paths alignment transform"):
+        return
+    if not _expect(paths.tile_set == ground.tile_set, "Paths must share the ground TileSet"):
+        return
+    var path_used := paths.get_used_cells()
+    var expected_paths := _expected_path_cells()
+    if not _expect(
+        path_used.size() == expected_paths.size(), "Paths must paint exactly the path cells"
+    ):
+        return
+    for path_cell in expected_paths:
+        if not _expect(path_used.has(path_cell), "Paths missing path cell %s" % path_cell):
+            return
+        if not _expect_vec2i(
+            paths.get_cell_atlas_coords(path_cell), PATH_TILE, "path %s tile" % path_cell
+        ):
+            return
+
+    var decoration := world.get_node("GroundDecoration") as TileMapLayer
+    if not _expect(decoration != null, "GroundDecoration must exist"):
+        return
+    if not _expect(decoration.position == Vector2(736.0, 0.0), "GroundDecoration alignment"):
+        return
+    if not _expect(
+        decoration.tile_set == ground.tile_set, "GroundDecoration must share the ground TileSet"
+    ):
+        return
 
     var farm_soil := world.get_node("FarmSoil") as Node2D
     if not _expect(farm_soil != null, "FarmSoil must exist"):
@@ -212,7 +333,9 @@ func _run() -> void:
     if not _expect(farm_soil.z_index == 5, "FarmSoil z-index"):
         return
     var farm_cells := WorldContract.farm_cells()
-    if not _expect(farm_soil.get_child_count() == farm_cells.size(), "FarmSoil child count"):
+    if not _expect(farm_cells.size() == 30, "farm cell count"):
+        return
+    if not _expect(farm_soil.get_child_count() == farm_cells.size(), "FarmSoil soil sprite count"):
         return
     for index in farm_cells.size():
         var soil := farm_soil.get_child(index) as Sprite2D
@@ -232,8 +355,14 @@ func _run() -> void:
 
     var static_collision := world.get_node("StaticCollision") as StaticBody2D
     var collision_names := [
-        "TreeCollision",
-        "BuildingCollision",
+        "HouseCollision",
+        "ShopStallCollision",
+        "ForestCollision",
+        "RiverWestCollision",
+        "RiverSouthCollision",
+        "WorkbenchCollision",
+        "HouseYardWestCollision",
+        "HouseYardEastCollision",
         "ShippingCollision",
         "HarvestMarketCollision",
     ] + WorldContract.VILLAGER_COLLISION_NAMES + [
@@ -250,40 +379,22 @@ func _run() -> void:
         static_collision.position == Vector2.ZERO, "StaticCollision must be at world origin"
     ):
         return
-    if not _expect_polygon(
-        (static_collision.get_node("TreeCollision") as CollisionPolygon2D).polygon,
-        WorldMath.footprint_to_polygon(WorldContract.TREE_FOOTPRINT),
-        "tree collision",
-    ):
-        return
-    if not _expect_polygon(
-        (static_collision.get_node("BuildingCollision") as CollisionPolygon2D).polygon,
-        WorldMath.footprint_to_polygon(WorldContract.BUILDING_FOOTPRINT),
-        "building collision",
-    ):
-        return
-    if not _expect_polygon(
-        (static_collision.get_node("ShippingCollision") as CollisionPolygon2D).polygon,
-        WorldMath.footprint_to_polygon(WorldContract.SHIPPING_FOOTPRINT),
-        "shipping collision",
-    ):
-        return
-    if not _expect_polygon(
-        (static_collision.get_node("HarvestMarketCollision") as CollisionPolygon2D).polygon,
-        WorldMath.footprint_to_polygon(WorldContract.MARKET_FOOTPRINT),
-        "market collision",
-    ):
-        return
+    var collider_footprints := {
+        "HouseCollision": WorldContract.HOUSE_FOOTPRINT,
+        "ShopStallCollision": WorldContract.SHOP_STALL_FOOTPRINT,
+        "ForestCollision": WorldContract.FOREST_FOOTPRINT,
+        "RiverWestCollision": WorldContract.RIVER_WEST_FOOTPRINT,
+        "RiverSouthCollision": WorldContract.RIVER_SOUTH_FOOTPRINT,
+        "WorkbenchCollision": WorldContract.WORKBENCH_FOOTPRINT,
+        "HouseYardWestCollision": WorldContract.HOUSE_YARD_WEST_FOOTPRINT,
+        "HouseYardEastCollision": WorldContract.HOUSE_YARD_EAST_FOOTPRINT,
+        "ShippingCollision": WorldContract.SHIPPING_FOOTPRINT,
+        "HarvestMarketCollision": WorldContract.MARKET_FOOTPRINT,
+    }
     for id in range(VillagerRules.VillagerId.size()):
-        var villager_collision := static_collision.get_node(
-            WorldContract.VILLAGER_COLLISION_NAMES[id]
-        ) as CollisionPolygon2D
-        if not _expect_polygon(
-            villager_collision.polygon,
-            WorldMath.footprint_to_polygon(WorldContract.villager_footprint(id)),
-            "%s collision" % villager_collision.name,
-        ):
-            return
+        collider_footprints[WorldContract.VILLAGER_COLLISION_NAMES[id]] = (
+            WorldContract.villager_footprint(id)
+        )
     var map_size := Vector2(WorldContract.MAP_SIZE)
     var perimeter_rects := [
         Rect2(0.0, -1.0, map_size.x, 1.0),
@@ -291,12 +402,15 @@ func _run() -> void:
         Rect2(0.0, map_size.y, map_size.x, 1.0),
         Rect2(-1.0, 0.0, 1.0, map_size.y),
     ]
+    var perimeter_names := ["PerimeterTop", "PerimeterRight", "PerimeterBottom", "PerimeterLeft"]
     for index in perimeter_rects.size():
-        var collision := static_collision.get_node(collision_names[index + 7]) as CollisionPolygon2D
+        collider_footprints[perimeter_names[index]] = perimeter_rects[index]
+    for collider_name in collision_names:
+        var collision := static_collision.get_node(collider_name) as CollisionPolygon2D
         if not _expect_polygon(
             collision.polygon,
-            WorldMath.footprint_to_polygon(perimeter_rects[index]),
-            "%s collision" % collision.name,
+            WorldMath.footprint_to_polygon(collider_footprints[collider_name]),
+            "%s polygon" % collider_name,
         ):
             return
 
@@ -320,47 +434,64 @@ func _run() -> void:
         "Entities must be the only enabled y-sort CanvasItem",
     ):
         return
-    var entity_names := [
-        "Player",
-        "Tree",
-        "Building",
-        "Shipping",
-        "HarvestMarket",
-        "VillagerShopkeeper",
-        "VillagerFarmer",
-        "VillagerResident",
-    ]
-    for cell in WorldContract.farm_cells():
-        entity_names.append("FarmCrop_%d_%d" % [cell.x, cell.y])
+    var entity_names := _static_entity_names()
+    for farm_cell in farm_cells:
+        entity_names.append("FarmCrop_%d_%d" % [farm_cell.x, farm_cell.y])
     if not _expect_names(entities, entity_names, "Entities"):
         return
     if not _expect_child_order(entities, entity_names, "Entities scene-tree order"):
         return
-    var scenery_texture_path := "res://assets/sprites/proof-scenery.png"
-    var tree := entities.get_node("Tree") as Node2D
-    var building := entities.get_node("Building") as Node2D
+
+    var house := entities.get_node("House") as Node2D
+    var shop_stall := entities.get_node("ShopStall") as Node2D
     var shipping := entities.get_node("Shipping") as Node2D
     var market := entities.get_node("HarvestMarket") as Node2D
+    var workbench := entities.get_node("Workbench") as Node2D
+    var village_sign := entities.get_node("VillageSign") as Node2D
     var villagers := [
         entities.get_node("VillagerShopkeeper") as Node2D,
         entities.get_node("VillagerFarmer") as Node2D,
         entities.get_node("VillagerResident") as Node2D,
     ]
-    if not _expect_vec2(tree.position, WorldContract.TREE_ANCHOR, "tree anchor"):
+    if not _expect_vec2(
+        house.position,
+        WorldMath.footprint_ground_anchor(WorldContract.HOUSE_FOOTPRINT),
+        "house anchor",
+    ):
         return
-    if not _expect_vec2(building.position, WorldContract.BUILDING_ANCHOR, "building anchor"):
+    if not _expect_vec2(
+        shop_stall.position,
+        WorldMath.footprint_ground_anchor(WorldContract.SHOP_STALL_FOOTPRINT),
+        "shop stall anchor",
+    ):
         return
-    if not _expect_vec2(shipping.position, _cell_center(WorldContract.SHIPPING_CELL), "shipping anchor"):
+    if not _expect_vec2(
+        shipping.position, _cell_center(WorldContract.SHIPPING_CELL), "shipping anchor"
+    ):
         return
     if not _expect_vec2(market.position, WorldContract.MARKET_ANCHOR, "market anchor"):
         return
-    for entry in [
-        {"node": tree, "frame": 0, "label": "tree"},
-        {"node": building, "frame": 1, "label": "building"},
-        {"node": shipping, "frame": 2, "label": "shipping"},
-        {"node": market, "frame": 3, "label": "market"},
-    ]:
-        var entity: Node2D = entry.node
+    if not _expect_vec2(
+        workbench.position, _cell_center(WorldContract.WORKBENCH_CELL), "workbench anchor"
+    ):
+        return
+    if not _expect_vec2(
+        village_sign.position, _cell_center(WorldContract.VILLAGE_SIGN_CELL), "village sign anchor"
+    ):
+        return
+    for id in range(VillagerRules.VillagerId.size()):
+        if not _expect_vec2(
+            villagers[id].position,
+            WorldMath.grid_to_world(Vector2(WorldContract.villager_cell(id)) + Vector2(0.5, 0.5)),
+            "villager %d anchor" % id,
+        ):
+            return
+
+    var scenery_texture_path := "res://assets/sprites/proof-scenery.png"
+    for entry in _scenery_entities():
+        var entity := entities.get_node(entry.node) as Node2D
+        if not _expect(entity != null, "%s entity" % entry.label):
+            return
         if not _expect_names(entity, ["Shadow", "Sprite2D"], "%s entity" % entry.label):
             return
         var entity_shadow := entity.get_node("Shadow") as Sprite2D
@@ -385,12 +516,6 @@ func _run() -> void:
 
     for id in range(VillagerRules.VillagerId.size()):
         var villager: Node2D = villagers[id]
-        if not _expect_vec2(
-            villager.position,
-            WorldMath.grid_to_world(Vector2(WorldContract.villager_cell(id)) + Vector2(0.5, 0.5)),
-            "villager %d anchor" % id,
-        ):
-            return
         if not _expect_names(villager, ["Shadow", "Sprite2D"], "villager %d entity" % id):
             return
         var villager_shadow := villager.get_node("Shadow") as Sprite2D
@@ -451,98 +576,83 @@ func _run() -> void:
     if not _expect_polygon(player_collision.polygon, expected_player_polygon, "player collision"):
         return
 
-    var shared_entity_z_index := tree.z_index
-    if not _expect(building.z_index == shared_entity_z_index, "building shared entity z-index"):
-        return
-    if not _expect(shipping.z_index == shared_entity_z_index, "shipping shared entity z-index"):
-        return
-    if not _expect(market.z_index == shared_entity_z_index, "market shared entity z-index"):
-        return
-    if not _expect(player.z_index == shared_entity_z_index, "player shared entity z-index"):
-        return
+    var shared_entity_z_index := house.z_index
+    for prop in [shop_stall, shipping, market, workbench, village_sign, player]:
+        if not _expect(
+            prop.z_index == shared_entity_z_index, "%s shared entity z-index" % prop.name
+        ):
+            return
     for id in range(VillagerRules.VillagerId.size()):
         if not _expect(
             villagers[id].z_index == shared_entity_z_index,
             "villager %d shared entity z-index" % id,
         ):
             return
-    for cell in WorldContract.farm_cells():
-        var crop_root := entities.get_node("FarmCrop_%d_%d" % [cell.x, cell.y]) as Node2D
-        if not _expect_vec2(crop_root.position, _cell_center(cell), "crop %s center" % cell):
+    for farm_cell in farm_cells:
+        var crop_root := entities.get_node("FarmCrop_%d_%d" % [farm_cell.x, farm_cell.y]) as Node2D
+        if not _expect_vec2(crop_root.position, _cell_center(farm_cell), "crop %s center" % farm_cell):
             return
-        if not _expect(crop_root.z_index == shared_entity_z_index, "crop %s z-index" % cell):
+        if not _expect(crop_root.z_index == shared_entity_z_index, "crop %s z-index" % farm_cell):
             return
-        if not _expect_names(crop_root, ["Shadow", "Sprite2D"], "crop %s" % cell):
+        if not _expect_names(crop_root, ["Shadow", "Sprite2D"], "crop %s" % farm_cell):
             return
         var crop_shadow := crop_root.get_node("Shadow") as Sprite2D
         if not _expect(
             crop_shadow.texture.resource_path == "res://assets/sprites/proof-shadow.png",
-            "crop %s shadow texture" % cell,
+            "crop %s shadow texture" % farm_cell,
         ):
             return
-        if not _expect(not crop_shadow.visible, "crop %s shadow initially hidden" % cell):
+        if not _expect(not crop_shadow.visible, "crop %s shadow initially hidden" % farm_cell):
             return
         var crop_sprite := crop_root.get_node("Sprite2D") as Sprite2D
         if not _expect(
             crop_sprite.texture.resource_path == "res://assets/sprites/proof-crops.png",
-            "crop %s texture" % cell,
+            "crop %s texture" % farm_cell,
         ):
             return
-        if not _expect(crop_sprite.hframes == 4, "crop %s frame columns" % cell):
+        if not _expect(crop_sprite.hframes == 4, "crop %s frame columns" % farm_cell):
             return
-        if not _expect(crop_sprite.vframes == 3, "crop %s frame rows" % cell):
+        if not _expect(crop_sprite.vframes == 3, "crop %s frame rows" % farm_cell):
             return
-        if not _expect_vec2(crop_sprite.offset, Vector2(0.0, -24.0), "crop %s offset" % cell):
+        if not _expect_vec2(crop_sprite.offset, Vector2(0.0, -24.0), "crop %s offset" % farm_cell):
             return
-        if not _expect(not crop_sprite.visible, "crop %s initially hidden" % cell):
+        if not _expect(not crop_sprite.visible, "crop %s initially hidden" % farm_cell):
             return
 
-    _place_player(player, Vector2(7.0, 5.0))
+    _place_player(player, Vector2(12.0, 9.0))
     await physics_frame
     if not _expect(
-        is_equal_approx(player.global_position.y, tree.global_position.y),
-        "tree exact-Y checkpoint",
+        is_equal_approx(player.global_position.y, house.global_position.y),
+        "house exact-Y checkpoint",
     ):
         return
-    if not _expect(player.get_index() < tree.get_index(), "tree exact-Y scene-tree order"):
+    if not _expect(player.get_index() < house.get_index(), "house exact-Y scene-tree order"):
         return
 
-    _place_player(player, Vector2(6.5, 11.5))
+    _place_player(player, Vector2(12.0, 8.8))
+    await physics_frame
+    if not _expect(is_equal_approx(player.global_position.y, 332.8), "house behind ground Y"):
+        return
+    if not _expect(player.global_position.y < house.global_position.y, "player ground Y < house.y"):
+        return
+
+    _place_player(player, Vector2(12.0, 9.2))
+    await physics_frame
+    if not _expect(is_equal_approx(player.global_position.y, 339.2), "house in-front ground Y"):
+        return
+    if not _expect(player.global_position.y > house.global_position.y, "player ground Y > house.y"):
+        return
+
+    _place_player(player, Vector2(12.0, 13.0))
     await physics_frame
     if not _expect(
-        is_equal_approx(player.global_position.y, building.global_position.y),
-        "building exact-Y checkpoint",
+        is_equal_approx(player.global_position.y, shop_stall.global_position.y),
+        "shop stall exact-Y checkpoint",
     ):
         return
-    if not _expect(player.get_index() < building.get_index(), "building exact-Y scene-tree order"):
-        return
-
-    _place_player(player, Vector2(7.0, 4.8))
-    await physics_frame
-    if not _expect(is_equal_approx(player.global_position.y, 188.8), "tree behind ground Y"):
-        return
-    if not _expect(player.global_position.y < tree.global_position.y, "player ground Y < tree.y"):
-        return
-
-    _place_player(player, Vector2(7.0, 5.2))
-    await physics_frame
-    if not _expect(is_equal_approx(player.global_position.y, 195.2), "tree in-front ground Y"):
-        return
-    if not _expect(player.global_position.y > tree.global_position.y, "player ground Y > tree.y"):
-        return
-
-    _place_player(player, Vector2(6.5, 11.3))
-    await physics_frame
-    if not _expect(is_equal_approx(player.global_position.y, 284.8), "building behind ground Y"):
-        return
-    if not _expect(player.global_position.y < building.global_position.y, "player ground Y < building.y"):
-        return
-
-    _place_player(player, Vector2(6.5, 11.7))
-    await physics_frame
-    if not _expect(is_equal_approx(player.global_position.y, 291.2), "building in-front ground Y"):
-        return
-    if not _expect(player.global_position.y > building.global_position.y, "player ground Y > building.y"):
+    if not _expect(
+        player.get_index() < shop_stall.get_index(), "shop stall exact-Y scene-tree order"
+    ):
         return
 
     var target_highlight := world.get_node_or_null("TargetHighlight") as Line2D
@@ -633,10 +743,10 @@ func _run() -> void:
         return
 
     var target_cases := [
-        {"action": "move_up", "facing": WorldMath.Facing.UP, "cell": Vector2i(1, 8)},
-        {"action": "move_right", "facing": WorldMath.Facing.RIGHT, "cell": Vector2i(3, 8)},
-        {"action": "move_down", "facing": WorldMath.Facing.DOWN, "cell": Vector2i(3, 10)},
-        {"action": "move_left", "facing": WorldMath.Facing.LEFT, "cell": Vector2i(1, 10)},
+        {"action": "move_up", "facing": WorldMath.Facing.UP, "cell": Vector2i(10, 7)},
+        {"action": "move_right", "facing": WorldMath.Facing.RIGHT, "cell": Vector2i(12, 7)},
+        {"action": "move_down", "facing": WorldMath.Facing.DOWN, "cell": Vector2i(12, 9)},
+        {"action": "move_left", "facing": WorldMath.Facing.LEFT, "cell": Vector2i(10, 9)},
     ]
     for entry in target_cases:
         _place_player(player, WorldContract.PLAYER_SPAWN)
@@ -656,106 +766,67 @@ func _run() -> void:
         ):
             return
 
-    _place_player(player, Vector2(0.25, 0.25))
+    _place_player(player, Vector2(23.5, 10.5))
     await physics_frame
-    Input.action_press("move_up")
+    Input.action_press("move_right")
     await physics_frame
-    Input.action_release("move_up")
+    Input.action_release("move_right")
     await physics_frame
-    if not _expect(player.get("facing") == WorldMath.Facing.UP, "off-map player facing"):
+    if not _expect(player.get("facing") == WorldMath.Facing.RIGHT, "off-map player facing"):
         return
     if not _expect(not target_highlight.visible, "off-map target hidden"):
         return
     if not _expect(target_highlight.points.is_empty(), "off-map target points cleared"):
         return
 
-    _place_player(player, Vector2(6.6, 5.0))
-    await physics_frame
-    await _hold_actions(["move_right"], 30)
-    var tree_blocked := WorldMath.world_to_grid(player.global_position)
-    if not _expect(
-        _outside_footprint(tree_blocked, WorldContract.TREE_FOOTPRINT),
-        "tree approach remains outside footprint",
-    ):
-        return
-    if not _expect(tree_blocked.x <= 7.021, "tree approach stops"):
-        return
-    await _hold_actions(["move_right", "move_down"], 180)
-    var tree_detour := WorldMath.world_to_grid(player.global_position)
-    if not _expect(tree_detour.x >= 7.45, "tree detour passes"):
-        return
-    if not _expect(_outside_footprint(tree_detour, WorldContract.TREE_FOOTPRINT), "tree detour clear"):
-        return
-
-    _place_player(player, Vector2(6.5, 7.5))
-    await physics_frame
-    await _hold_actions(["move_down"], 60)
-    var building_edge := WorldMath.world_to_grid(player.global_position)
-    if not _expect(
-        _outside_footprint(building_edge, WorldContract.BUILDING_FOOTPRINT),
-        "building approach remains outside footprint",
-    ):
-        return
-    if not _expect(building_edge.x <= 6.821, "building approach stops"):
-        return
-    if not _expect(building_edge.y > 7.4, "building approach slides"):
-        return
-    # The harvest market seals the top corridor beside the building, so the
-    # corner detour runs along the building's open bottom side.
-    _place_player(player, Vector2(6.5, 9.5))
-    await physics_frame
-    await _hold_actions(["move_right", "move_down"], 180)
-    var building_corner := WorldMath.world_to_grid(player.global_position)
-    if not _expect(building_corner.x >= 9.18, "building corner detour passes"):
-        return
-    if not _expect(
-        _outside_footprint(building_corner, WorldContract.BUILDING_FOOTPRINT),
-        "building corner detour clear",
-    ):
-        return
-
-    _place_player(player, Vector2(0.5, 6.0))
-    await physics_frame
-    await _hold_actions(["move_left"], 120)
-    if not _expect(_within_player_bounds(WorldMath.world_to_grid(player.global_position)), "left perimeter"):
-        return
-    _place_player(player, Vector2(11.5, 6.0))
-    await physics_frame
-    await _hold_actions(["move_right"], 120)
-    if not _expect(_within_player_bounds(WorldMath.world_to_grid(player.global_position)), "right perimeter"):
-        return
-    _place_player(player, Vector2(6.0, 0.5))
-    await physics_frame
-    await _hold_actions(["move_up"], 120)
-    if not _expect(_within_player_bounds(WorldMath.world_to_grid(player.global_position)), "top perimeter"):
-        return
-    _place_player(player, Vector2(6.0, 11.5))
-    await physics_frame
-    await _hold_actions(["move_down"], 120)
-    if not _expect(_within_player_bounds(WorldMath.world_to_grid(player.global_position)), "bottom perimeter"):
-        return
-
-    _place_player(player, Vector2(2.5, 7.5))
-    await physics_frame
-    await _hold_actions(["move_down"], 100)
-    var farm_exit := WorldMath.world_to_grid(player.global_position)
-    if not _expect(farm_exit.x > 4.0 and farm_exit.y > 9.0, "farm traversal"):
-        return
-
-    _place_player(player, Vector2(8.5, 3.5))
+    # The bin shares the old small-prop collider size class: approach along the
+    # east vertex world-Y so the extreme-velocity stop is a symmetric vertex
+    # hit instead of an edge slide.
+    var bin_vertex := WorldMath.grid_to_world(WorldContract.SHIPPING_FOOTPRINT.end)
+    _place_player(
+        player,
+        WorldMath.world_to_grid(bin_vertex + Vector2(3.0 * WorldContract.TILE_SIZE.x, 0.0)),
+    )
     await physics_frame
     player.velocity = Vector2(-12000.0, 0.0)
     player.move_and_slide()
     var high_motion_stop := WorldMath.world_to_grid(player.global_position)
     if not _expect(
-        high_motion_stop.x >= 7.97
-        and high_motion_stop.x <= 8.02
-        and player.get_slide_collision_count() > 0
-        and _outside_footprint(high_motion_stop, WorldContract.TREE_FOOTPRINT),
-        "high-motion tree collision",
+        high_motion_stop.x >= 10.97
+        and high_motion_stop.x <= 11.02
+        and player.get_slide_collision_count() > 0,
+        "high-motion shipping bin collision",
     ):
         return
     player.velocity = Vector2.ZERO
+
+    _place_player(player, Vector2(2.5, 10.0))
+    await physics_frame
+    await _hold_actions(["move_left"], 120)
+    if not _expect(_within_player_bounds(WorldMath.world_to_grid(player.global_position)), "west river boundary"):
+        return
+    _place_player(player, Vector2(23.5, 10.0))
+    await physics_frame
+    await _hold_actions(["move_right"], 120)
+    if not _expect(_within_player_bounds(WorldMath.world_to_grid(player.global_position)), "right perimeter"):
+        return
+    _place_player(player, Vector2(12.0, 2.5))
+    await physics_frame
+    await _hold_actions(["move_up"], 120)
+    if not _expect(_within_player_bounds(WorldMath.world_to_grid(player.global_position)), "north forest boundary"):
+        return
+    _place_player(player, Vector2(12.5, 19.0))
+    await physics_frame
+    await _hold_actions(["move_down"], 120)
+    if not _expect(_within_player_bounds(WorldMath.world_to_grid(player.global_position)), "bottom perimeter"):
+        return
+
+    _place_player(player, Vector2(5.5, 11.5))
+    await physics_frame
+    await _hold_actions(["move_down"], 100)
+    var farm_exit := WorldMath.world_to_grid(player.global_position)
+    if not _expect(farm_exit.y > 14.0, "expanded farm traversal"):
+        return
 
     for asset in EXPECTED_ASSETS:
         var texture := load("res://assets/sprites/%s.png" % asset) as Texture2D
@@ -767,7 +838,7 @@ func _run() -> void:
         ):
             return
 
-    print("world shell smoke passed: 144 cells, alignment, player, camera, collisions, reachability, assets")
+    print("world shell smoke passed: 480 cells, alignment, water/paths, player, camera, collisions, assets")
     quit(0)
 
 func _init() -> void:

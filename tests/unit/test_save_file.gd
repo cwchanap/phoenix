@@ -2,7 +2,7 @@ extends GutTest
 
 func _state_with_pending_summary() -> Dictionary:
     var session := GameSession.new(func() -> float: return 0.9)
-    var cell := Vector2i(2, 7)
+    var cell := WorldContract.farm_cells()[0]
     assert_eq(session.hoe(cell), GameRules.CommandCode.SOIL_TILLED)
     assert_eq(session.plant(cell), GameRules.CommandCode.CROP_PLANTED)
     assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)

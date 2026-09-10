@@ -68,6 +68,25 @@ static func footprint_to_polygon(footprint: Rect2) -> PackedVector2Array:
         grid_to_world(Vector2(top_left.x, bottom_right.y)),
     ])
 
+static func footprint_ground_anchor(footprint: Rect2) -> Vector2:
+    return Vector2(
+        grid_to_world(footprint.position + footprint.size * 0.5).x,
+        grid_to_world(footprint.position + footprint.size).y,
+    )
+
+static func map_camera_bounds() -> Rect2:
+    var map_size := Vector2(WorldContract.MAP_SIZE)
+    var west := grid_to_world(Vector2(0.0, map_size.y))
+    var east := grid_to_world(Vector2(map_size.x, 0.0))
+    var top := grid_to_world(Vector2.ZERO).y
+    var bottom := grid_to_world(map_size).y
+    return Rect2(
+        west.x,
+        top - WorldContract.CAMERA_TOP_PADDING,
+        east.x - west.x,
+        bottom - top + WorldContract.CAMERA_TOP_PADDING,
+    )
+
 static func centered_player_footprint_polygon(center: Vector2) -> PackedVector2Array:
     var half_extent := Vector2(
         WorldContract.PLAYER_HALF_EXTENT,

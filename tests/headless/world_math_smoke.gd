@@ -27,61 +27,67 @@ func _expect_polygon(
     return true
 
 func _init() -> void:
-    if not _expect(WorldContract.MAP_SIZE == Vector2i(12, 12), "map size contract"):
+    if not _expect(WorldContract.MAP_SIZE == Vector2i(24, 20), "map size contract"):
         return
     if not _expect(WorldContract.TILE_SIZE == Vector2(64.0, 32.0), "tile size contract"):
         return
-    if not _expect(WorldContract.PROJECTION_ORIGIN == Vector2(384.0, 0.0), "origin contract"):
+    if not _expect(WorldContract.PROJECTION_ORIGIN == Vector2(768.0, 0.0), "origin contract"):
         return
-    if not _expect(WorldContract.PLAYER_SPAWN == Vector2(2.5, 9.5), "spawn contract"):
+    if not _expect(WorldContract.PLAYER_SPAWN == Vector2(11.5, 8.5), "spawn contract"):
         return
     if not _expect(is_equal_approx(WorldContract.PLAYER_HALF_EXTENT, 0.18), "player extent contract"):
         return
     if not _expect(is_equal_approx(WorldContract.MOVE_SPEED, 96.0), "move speed contract"):
         return
-    if not _expect(
-        WorldContract.TREE_FOOTPRINT == Rect2(7.2, 4.2, 0.6, 0.6), "tree footprint contract"
-    ):
-        return
-    if not _expect(WorldContract.TREE_ANCHOR == Vector2(480.0, 192.0), "tree anchor contract"):
-        return
-    if not _expect(
-        WorldContract.BUILDING_FOOTPRINT == Rect2(7.0, 7.0, 2.0, 2.0), "building footprint contract"
-    ):
-        return
-    if not _expect(
-        WorldContract.BUILDING_ANCHOR == Vector2(384.0, 288.0), "building anchor contract"
-    ):
-        return
     if not _expect(is_equal_approx(WorldContract.CAMERA_TOP_PADDING, 96.0), "camera padding contract"):
         return
     if not _expect(
-        WorldContract.CAMERA_BOUNDS == Rect2(0.0, -96.0, 768.0, 480.0), "camera bounds contract"
+        WorldContract.CAMERA_BOUNDS == Rect2(128.0, -96.0, 1408.0, 800.0), "camera bounds contract"
     ):
         return
+    if not _expect(WorldContract.FARM_PATCH == Rect2i(4, 10, 6, 5), "farm patch contract"):
+        return
     if not _expect(
-        WorldContract.FARM_PATCH == Rect2i(2, 7, 3, 3), "farm patch contract"
+        WorldContract.HOUSE_FOOTPRINT == Rect2(10.0, 4.0, 4.0, 3.0), "house footprint contract"
     ):
         return
-    if not _expect(WorldContract.PATH_ROW == Rect2i(3, 6, 7, 1), "path row contract"):
+    if not _expect(WorldContract.BED_CELL == Vector2i(12, 7), "bed cell contract"):
         return
-    if not _expect(WorldContract.SHOP_CELL == Vector2i(6, 7), "shop cell contract"):
-        return
-    if not _expect(WorldContract.BED_CELL == Vector2i(6, 8), "bed cell contract"):
-        return
-    if not _expect(WorldContract.SHIPPING_CELL == Vector2i(6, 10), "shipping cell contract"):
+    if not _expect(WorldContract.SHOP_CELL == Vector2i(17, 9), "shop cell contract"):
         return
     if not _expect(
-        WorldContract.SHIPPING_FOOTPRINT == Rect2(6.2, 10.2, 0.6, 0.6),
+        WorldContract.SHOP_STALL_FOOTPRINT == Rect2(15.0, 7.0, 1.0, 2.0),
+        "shop stall footprint contract",
+    ):
+        return
+    if not _expect(WorldContract.SHIPPING_CELL == Vector2i(10, 13), "shipping cell contract"):
+        return
+    if not _expect(
+        WorldContract.SHIPPING_FOOTPRINT == Rect2(10.2, 13.2, 0.6, 0.6),
         "shipping footprint contract",
     ):
         return
-    if not _expect(WorldContract.farm_cells().size() == 9, "farm cell count"):
+    if not _expect(WorldContract.MARKET_CELL == Vector2i(19, 10), "market cell contract"):
         return
-    if not _expect(WorldContract.path_cells().size() == 7, "path cell count"):
+    if not _expect(
+        WorldContract.MARKET_FOOTPRINT == Rect2(19.2, 10.2, 0.6, 0.6), "market footprint contract"
+    ):
+        return
+    if not _expect(
+        WorldContract.VILLAGER_CELLS
+        == [Vector2i(16, 8), Vector2i(18, 8), Vector2i(17, 11)],
+        "villager cells contract",
+    ):
+        return
+    var farm_cells := WorldContract.farm_cells()
+    if not _expect(farm_cells.size() == 30, "farm cell count"):
+        return
+    if not _expect_vec2i(farm_cells[0], Vector2i(4, 10), "first farm cell"):
+        return
+    if not _expect_vec2i(farm_cells[29], Vector2i(9, 14), "last farm cell"):
         return
 
-    for point in [Vector2(0.0, 0.0), Vector2(2.5, 9.5), Vector2(12.0, 12.0)]:
+    for point in [Vector2(0.0, 0.0), Vector2(11.5, 8.5), Vector2(24.0, 20.0)]:
         var projected := WorldMath.grid_to_world(point)
         var round_trip := WorldMath.world_to_grid(projected)
         if not _expect_vec2(round_trip, point, "fractional round trip %s" % point):
@@ -89,11 +95,11 @@ func _init() -> void:
 
     var edge_cases := [
         [Vector2(0.5, 0.5), Vector2i(0, 0)],
-        [Vector2(11.999999, 11.999999), Vector2i(11, 11)],
-        [Vector2(0.5, 6.5), Vector2i(0, 6)],
-        [Vector2(11.5, 6.5), Vector2i(11, 6)],
-        [Vector2(6.5, 0.5), Vector2i(6, 0)],
-        [Vector2(6.5, 11.5), Vector2i(6, 11)],
+        [Vector2(23.999999, 19.999999), Vector2i(23, 19)],
+        [Vector2(0.5, 10.5), Vector2i(0, 10)],
+        [Vector2(23.5, 10.5), Vector2i(23, 10)],
+        [Vector2(12.5, 0.5), Vector2i(12, 0)],
+        [Vector2(12.5, 19.5), Vector2i(12, 19)],
     ]
     for edge_case in edge_cases:
         var cell := WorldMath.grid_cell_at_world(WorldMath.grid_to_world(edge_case[0]))
@@ -115,10 +121,10 @@ func _init() -> void:
     if not _expect_polygon(
         diamond,
         PackedVector2Array([
-            Vector2(384.0, 0.0),
-            Vector2(416.0, 16.0),
-            Vector2(384.0, 32.0),
-            Vector2(352.0, 16.0),
+            Vector2(768.0, 0.0),
+            Vector2(800.0, 16.0),
+            Vector2(768.0, 32.0),
+            Vector2(736.0, 16.0),
         ]),
         "cell diamond",
     ):
@@ -182,38 +188,72 @@ func _init() -> void:
         "off-map target",
     ):
         return
+    if not _expect(
+        WorldMath.target_cell(Vector2(23.75, 19.75), WorldMath.Facing.DOWN) == null,
+        "expanded off-map corner target",
+    ):
+        return
+    if not _expect(
+        WorldMath.target_cell(Vector2(22.5, 17.5), WorldMath.Facing.DOWN) == Vector2i(23, 18),
+        "expanded in-bounds south-east target",
+    ):
+        return
 
     if not _expect_polygon(
-        WorldMath.footprint_to_polygon(WorldContract.TREE_FOOTPRINT),
+        WorldMath.footprint_to_polygon(WorldContract.HOUSE_FOOTPRINT),
         PackedVector2Array([
-            Vector2(480.0, 182.4),
-            Vector2(499.2, 192.0),
-            Vector2(480.0, 201.6),
-            Vector2(460.8, 192.0),
+            Vector2(960.0, 224.0),
+            Vector2(1088.0, 288.0),
+            Vector2(992.0, 336.0),
+            Vector2(864.0, 272.0),
         ]),
-        "tree footprint polygon",
+        "house footprint polygon",
     ):
         return
     if not _expect_polygon(
-        WorldMath.footprint_to_polygon(WorldContract.BUILDING_FOOTPRINT),
+        WorldMath.footprint_to_polygon(WorldContract.SHOP_STALL_FOOTPRINT),
         PackedVector2Array([
-            Vector2(384.0, 224.0),
-            Vector2(448.0, 256.0),
-            Vector2(384.0, 288.0),
-            Vector2(320.0, 256.0),
+            Vector2(1024.0, 352.0),
+            Vector2(1056.0, 368.0),
+            Vector2(992.0, 400.0),
+            Vector2(960.0, 384.0),
         ]),
-        "building footprint polygon",
+        "shop stall footprint polygon",
     ):
         return
     if not _expect_polygon(
         WorldMath.centered_player_footprint_polygon(WorldContract.PLAYER_SPAWN),
         PackedVector2Array([
-            Vector2(160.0, 186.24),
-            Vector2(171.52, 192.0),
-            Vector2(160.0, 197.76),
-            Vector2(148.48, 192.0),
+            Vector2(864.0, 314.24),
+            Vector2(875.52, 320.0),
+            Vector2(864.0, 325.76),
+            Vector2(852.48, 320.0),
         ]),
         "centered player footprint polygon",
+    ):
+        return
+
+    if not _expect(
+        WorldContract.CAMERA_BOUNDS == WorldMath.map_camera_bounds(),
+        "frozen camera bounds must equal derived map camera bounds",
+    ):
+        return
+    if not _expect_vec2(
+        WorldMath.footprint_ground_anchor(WorldContract.HOUSE_FOOTPRINT),
+        Vector2(976.0, 336.0),
+        "derived house ground anchor",
+    ):
+        return
+    if not _expect_vec2(
+        WorldMath.footprint_ground_anchor(WorldContract.SHOP_STALL_FOOTPRINT),
+        Vector2(1008.0, 400.0),
+        "derived shop stall ground anchor",
+    ):
+        return
+    if not _expect_vec2(
+        WorldContract.MARKET_ANCHOR,
+        WorldMath.grid_to_world(Vector2(WorldContract.MARKET_CELL) + Vector2(0.5, 0.5)),
+        "market anchor projection",
     ):
         return
 

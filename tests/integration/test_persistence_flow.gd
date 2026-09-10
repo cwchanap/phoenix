@@ -72,16 +72,24 @@ func _command_driven_pre_save_state() -> Dictionary:
     return session.state()
 
 func _target_bed(world: WorldShell) -> void:
-    world.player.global_position = WorldMath.grid_to_world(Vector2(5.5, 7.5))
-    world.player.facing = WorldMath.Facing.DOWN
-    assert_eq(world.player.current_target_cell(), WorldContract.BED_CELL)
+	# Face UP from the cell diagonally south-east of the bed so the target
+	# resolves to the authored bed cell and the stand stays clear of the house.
+	var offset: Vector2i = WorldMath.TARGET_OFFSETS[WorldMath.Facing.UP]
+	world.player.global_position = WorldMath.grid_to_world(
+		Vector2(WorldContract.BED_CELL - offset) + Vector2(0.5, 0.5)
+	)
+	world.player.facing = WorldMath.Facing.UP
+	assert_eq(world.player.current_target_cell(), WorldContract.BED_CELL)
 
 func _target_market(world: WorldShell) -> void:
-    # Facing DOWN offsets the target by (+1, +1): standing at (7.5, 5.5)
-    # targets the authored market cell (8, 6).
-    world.player.global_position = WorldMath.grid_to_world(Vector2(7.5, 5.5))
-    world.player.facing = WorldMath.Facing.DOWN
-    assert_eq(world.player.current_target_cell(), WorldContract.MARKET_CELL)
+	# Facing DOWN offsets the target by (+1, +1): stand one cell north-west of
+	# the authored market cell.
+	var offset: Vector2i = WorldMath.TARGET_OFFSETS[WorldMath.Facing.DOWN]
+	world.player.global_position = WorldMath.grid_to_world(
+		Vector2(WorldContract.MARKET_CELL - offset) + Vector2(0.5, 0.5)
+	)
+	world.player.facing = WorldMath.Facing.DOWN
+	assert_eq(world.player.current_target_cell(), WorldContract.MARKET_CELL)
 
 func _day14_pre_final_state() -> Dictionary:
     var session := GameSession.new(func() -> float: return 0.9)
