@@ -31,6 +31,14 @@ static func perimeter_footprints() -> Array[Rect2]:
         Rect2(-PERIMETER_BAND_WIDTH, 0.0, PERIMETER_BAND_WIDTH, map_size.y),
     ]
 
+func _fill_collision(
+    static_collision: StaticBody2D,
+    node_name: String,
+    footprint: Rect2,
+) -> void:
+    var collision := static_collision.get_node(node_name) as CollisionPolygon2D
+    collision.polygon = WorldMath.footprint_to_polygon(footprint)
+
 func configure(
     initial_state: Variant,
     repository: SaveRepository,
@@ -53,26 +61,32 @@ func _ready() -> void:
     hud.configure(_settings)
 
     var static_collision := get_node("StaticCollision") as StaticBody2D
-    var tree_collision := static_collision.get_node("TreeCollision") as CollisionPolygon2D
-    var building_collision := static_collision.get_node("BuildingCollision") as CollisionPolygon2D
-    var shipping_collision := static_collision.get_node("ShippingCollision") as CollisionPolygon2D
-    var market_collision := static_collision.get_node("HarvestMarketCollision") as CollisionPolygon2D
-    tree_collision.polygon = WorldMath.footprint_to_polygon(WorldContract.TREE_FOOTPRINT)
-    building_collision.polygon = WorldMath.footprint_to_polygon(WorldContract.BUILDING_FOOTPRINT)
-    shipping_collision.polygon = WorldMath.footprint_to_polygon(WorldContract.SHIPPING_FOOTPRINT)
-    market_collision.polygon = WorldMath.footprint_to_polygon(WorldContract.MARKET_FOOTPRINT)
+    _fill_collision(static_collision, "HouseCollision", WorldContract.HOUSE_FOOTPRINT)
+    _fill_collision(static_collision, "ShopStallCollision", WorldContract.SHOP_STALL_FOOTPRINT)
+    _fill_collision(static_collision, "ForestCollision", WorldContract.FOREST_FOOTPRINT)
+    _fill_collision(static_collision, "RiverWestCollision", WorldContract.RIVER_WEST_FOOTPRINT)
+    _fill_collision(static_collision, "RiverSouthCollision", WorldContract.RIVER_SOUTH_FOOTPRINT)
+    _fill_collision(static_collision, "WorkbenchCollision", WorldContract.WORKBENCH_FOOTPRINT)
+    _fill_collision(
+        static_collision, "HouseYardWestCollision", WorldContract.HOUSE_YARD_WEST_FOOTPRINT
+    )
+    _fill_collision(
+        static_collision, "HouseYardEastCollision", WorldContract.HOUSE_YARD_EAST_FOOTPRINT
+    )
+    _fill_collision(static_collision, "ShippingCollision", WorldContract.SHIPPING_FOOTPRINT)
+    _fill_collision(static_collision, "HarvestMarketCollision", WorldContract.MARKET_FOOTPRINT)
 
     for id in range(VillagerRules.VillagerId.size()):
-        var collision := static_collision.get_node(
-            WorldContract.VILLAGER_COLLISION_NAMES[id]
-        ) as CollisionPolygon2D
-        collision.polygon = WorldMath.footprint_to_polygon(WorldContract.villager_footprint(id))
+        _fill_collision(
+            static_collision,
+            WorldContract.VILLAGER_COLLISION_NAMES[id],
+            WorldContract.villager_footprint(id),
+        )
 
     var perimeter_names := ["PerimeterTop", "PerimeterRight", "PerimeterBottom", "PerimeterLeft"]
     var perimeter_rects := perimeter_footprints()
     for index in perimeter_rects.size():
-        var perimeter := static_collision.get_node(perimeter_names[index]) as CollisionPolygon2D
-        perimeter.polygon = WorldMath.footprint_to_polygon(perimeter_rects[index])
+        _fill_collision(static_collision, perimeter_names[index], perimeter_rects[index])
 
     hud.select_action_requested.connect(_on_select_action_requested)
     hud.select_seed_requested.connect(_on_select_seed_requested)

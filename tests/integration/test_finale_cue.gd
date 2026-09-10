@@ -26,11 +26,14 @@ func _day14_pre_final_state() -> Dictionary:
     return session.state()
 
 func _target_market(world: WorldShell) -> void:
-    # Facing DOWN offsets the target by (+1, +1): standing at (7.5, 5.5)
-    # targets the authored market cell (8, 6).
-    world.player.global_position = WorldMath.grid_to_world(Vector2(7.5, 5.5))
-    world.player.facing = WorldMath.Facing.DOWN
-    assert_eq(world.player.current_target_cell(), WorldContract.MARKET_CELL)
+	# Facing DOWN offsets the target by (+1, +1): stand one cell north-west of
+	# the authored market cell.
+	var offset: Vector2i = WorldMath.TARGET_OFFSETS[WorldMath.Facing.DOWN]
+	world.player.global_position = WorldMath.grid_to_world(
+		Vector2(WorldContract.MARKET_CELL - offset) + Vector2(0.5, 0.5)
+	)
+	world.player.facing = WorldMath.Facing.DOWN
+	assert_eq(world.player.current_target_cell(), WorldContract.MARKET_CELL)
 
 func test_market_interact_keeps_world_audible_until_cue_finishes() -> void:
     assert_eq(SaveRepository.new(TEST_PATH).save(_day14_pre_final_state()), OK)

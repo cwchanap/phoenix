@@ -3,6 +3,7 @@ extends Node2D
 
 const CROP_TEXTURE: Texture2D = preload("res://assets/sprites/proof-crops.png")
 const SHADOW_TEXTURE: Texture2D = preload("res://assets/sprites/proof-shadow.png")
+const SOIL_TEXTURE: Texture2D = preload("res://assets/sprites/proof-soil.png")
 
 var _farm_soil: Node2D
 var _soil_sprites: Dictionary = {}
@@ -15,7 +16,13 @@ func _crop_name(cell: Vector2i) -> StringName:
 func _ready() -> void:
     _farm_soil = get_node("../FarmSoil") as Node2D
     for cell in WorldContract.farm_cells():
-        var soil := _farm_soil.get_node("Soil_%d_%d" % [cell.x, cell.y]) as Sprite2D
+        var soil := Sprite2D.new()
+        soil.name = StringName("Soil_%d_%d" % [cell.x, cell.y])
+        soil.texture = SOIL_TEXTURE
+        soil.hframes = 2
+        soil.position = WorldMath.grid_to_world(Vector2(cell) + Vector2(0.5, 0.5))
+        soil.visible = false
+        _farm_soil.add_child(soil)
         _soil_sprites[cell] = soil
 
         var crop_root := Node2D.new()
@@ -39,7 +46,6 @@ func _ready() -> void:
         add_child(crop_root)
         _crop_sprites[cell] = crop_sprite
         _crop_shadows[cell] = crop_shadow
-        soil.visible = false
 
 func refresh(snapshot: Dictionary) -> void:
     var rainy: bool = snapshot.get(

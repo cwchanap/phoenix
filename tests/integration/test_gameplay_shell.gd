@@ -167,7 +167,7 @@ func test_farm_soil_is_non_y_sorted_layer() -> void:
     assert_false(farm_soil.y_sort_enabled)
     assert_eq(farm_soil.z_index, 5)
 
-func test_nine_soil_sprites_use_farm_cell_centers() -> void:
+func test_thirty_soil_sprites_use_farm_cell_centers() -> void:
     var world := _world()
     if world == null:
         return
@@ -214,7 +214,28 @@ func test_entities_is_farm_view_and_only_y_sort_node() -> void:
     if enabled_y_sort_nodes.size() == 1:
         assert_eq(enabled_y_sort_nodes[0], entities)
 
-func test_nine_crop_roots_are_direct_entities_children_at_cell_centers() -> void:
+const ENTITY_STATIC_NAMES := [
+    "Player",
+    "House",
+    "ShopStall",
+    "TreeForest",
+    "TreeBank",
+    "TreeNorth",
+    "RockYard",
+    "RockMeadow",
+    "FarmFence_1",
+    "FarmFence_2",
+    "FarmFence_3",
+    "Workbench",
+    "VillageSign",
+    "Shipping",
+    "HarvestMarket",
+    "VillagerShopkeeper",
+    "VillagerFarmer",
+    "VillagerResident",
+]
+
+func test_crop_roots_are_direct_entities_children_at_cell_centers() -> void:
     var world := _world()
     if world == null:
         return
@@ -223,12 +244,15 @@ func test_nine_crop_roots_are_direct_entities_children_at_cell_centers() -> void
     if entities == null:
         return
     var cells := WorldContract.farm_cells()
-    assert_eq(entities.get_child_count(), 8 + cells.size())
-    if entities.get_child_count() < 8 + cells.size():
+    var static_count := ENTITY_STATIC_NAMES.size()
+    assert_eq(entities.get_child_count(), static_count + cells.size())
+    if entities.get_child_count() < static_count + cells.size():
         return
+    for index in static_count:
+        assert_eq(String(entities.get_child(index).name), ENTITY_STATIC_NAMES[index])
     for index in cells.size():
         var cell: Vector2i = cells[index]
-        var crop_root := entities.get_child(8 + index) as Node2D
+        var crop_root := entities.get_child(static_count + index) as Node2D
         assert_not_null(crop_root)
         if crop_root == null:
             continue
@@ -341,15 +365,19 @@ func _hud(world: WorldShell) -> GameHud:
     assert_not_null(hud)
     return hud
 
-func _place_target(world: WorldShell, target: Vector2i) -> void:
+func _place_target(
+    world: WorldShell,
+    target: Vector2i,
+    facing := WorldMath.Facing.DOWN,
+) -> void:
     var player := world.get_node_or_null("Entities/Player") as PlayerController
     assert_not_null(player)
     if player == null:
         return
-    var target_offset: Vector2i = WorldMath.TARGET_OFFSETS[WorldMath.Facing.DOWN]
+    var target_offset: Vector2i = WorldMath.TARGET_OFFSETS[facing]
     var logical_position := Vector2(target - target_offset) + Vector2.ONE * 0.5
     player.global_position = WorldMath.grid_to_world(logical_position)
-    player.facing = WorldMath.Facing.DOWN
+    player.facing = facing
     player.velocity = Vector2.ZERO
     await get_tree().physics_frame
 
@@ -365,11 +393,11 @@ func test_interaction_targets_open_only_their_modal() -> void:
         return
 
     for entry in [
-        {"cell": WorldContract.SHOP_CELL, "panel": "ShopPanel", "close": "close_shop"},
-        {"cell": WorldContract.SHIPPING_CELL, "panel": "ShippingPanel", "close": "close_shipping"},
-        {"cell": WorldContract.BED_CELL, "panel": "SleepPanel", "close": "close_sleep_confirmation"},
+        {"cell": WorldContract.SHOP_CELL, "facing": WorldMath.Facing.UP, "panel": "ShopPanel", "close": "close_shop"},
+        {"cell": WorldContract.SHIPPING_CELL, "facing": WorldMath.Facing.DOWN, "panel": "ShippingPanel", "close": "close_shipping"},
+        {"cell": WorldContract.BED_CELL, "facing": WorldMath.Facing.UP, "panel": "SleepPanel", "close": "close_sleep_confirmation"},
     ]:
-        await _place_target(world, entry["cell"])
+        await _place_target(world, entry["cell"], entry["facing"])
         world.interact()
         assert_true(_panel(hud, entry["panel"]).visible)
         for panel_name in ["ShopPanel", "ShippingPanel", "SleepPanel", "MorningSummaryPanel"]:
@@ -869,7 +897,7 @@ func test_opening_shop_immediately_blocks_movement_and_world_commands() -> void:
     assert_not_null(player)
     if player == null or hud == null:
         return
-    await _place_target(world, WorldContract.SHOP_CELL)
+    await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
     world.interact()
     assert_false(world._world_input_enabled)
     assert_eq(player.velocity, Vector2.ZERO)
@@ -909,7 +937,7 @@ func test_closing_shop_restores_input_without_session_refresh() -> void:
     var hud := _hud(world)
     if hud == null:
         return
-    await _place_target(world, WorldContract.SHOP_CELL)
+    await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
     world.interact()
     var before := world._session.snapshot()
     hud.close_shop()
@@ -928,7 +956,7 @@ func test_successful_shop_refresh_preserves_modal_mask_until_close() -> void:
     var resource_strip := hud.get_node("HudRoot/ResourceStrip") as Control
     var hotbar := hud.get_node("HudRoot/Hotbar") as Control
 
-    await _place_target(world, WorldContract.SHOP_CELL)
+    await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
     world.interact()
     var shop := _panel(hud, "ShopPanel") as ShopPanel
     assert_true(shop.visible)
@@ -974,7 +1002,7 @@ func test_opening_sleep_immediately_gates_world_input() -> void:
     var hud := _hud(world)
     if hud == null:
         return
-    await _place_target(world, WorldContract.BED_CELL)
+    await _place_target(world, WorldContract.BED_CELL, WorldMath.Facing.UP)
     world.interact()
     assert_false(world._world_input_enabled)
     hud.close_sleep_confirmation()
@@ -1169,7 +1197,7 @@ func test_blocked_routing_leaves_session_snapshot_unchanged() -> void:
     var world := _world()
     if world == null:
         return
-    await _place_target(world, WorldContract.SHOP_CELL)
+    await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
     world.interact()
     var before := world._session.snapshot()
     world.select_action_slot(2)
@@ -1275,7 +1303,7 @@ func test_farm_preview_uses_green_red_reason_and_non_farm_gold() -> void:
     world._process(0.0)
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_VALID)
 
-    await _place_target(world, WorldContract.SHOP_CELL)
+    await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
     world._process(0.0)
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_NEUTRAL)
     assert_eq(hint.text, "Shop — E")
