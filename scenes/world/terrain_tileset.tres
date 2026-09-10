@@ -1,0 +1,21 @@
+[gd_resource type="TileSet" format=3]
+
+[ext_resource type="Texture2D" path="res://assets/sprites/starting-farm-terrain.png" id="1_terrain"]
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_terrain"]
+texture = ExtResource("1_terrain")
+texture_region_size = Vector2i(64, 32)
+0:0/0 = 0
+1:0/0 = 0
+2:0/0 = 0
+3:0/0 = 0
+4:0/0 = 0
+5:0/0 = 0
+6:0/0 = 0
+7:0/0 = 0
+
+[resource]
+tile_shape = 1
+tile_layout = 5
+tile_size = Vector2i(64, 32)
+sources/0 = SubResource("TileSetAtlasSource_terrain")

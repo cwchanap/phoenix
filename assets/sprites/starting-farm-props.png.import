@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d37xwxq1alfe6"
-path="res://.godot/imported/proof-tiles.png-9bc11ac4ef52adc8544f3c445e503997.ctex"
+uid="uid://cknyuq1c1qq8f"
+path="res://.godot/imported/starting-farm-props.png-059d0feefed9c804f8d40d5c968f9c6d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/sprites/proof-tiles.png"
-dest_files=["res://.godot/imported/proof-tiles.png-9bc11ac4ef52adc8544f3c445e503997.ctex"]
+source_file="res://assets/sprites/starting-farm-props.png"
+dest_files=["res://.godot/imported/starting-farm-props.png-059d0feefed9c804f8d40d5c968f9c6d.ctex"]
 
 [params]
 
