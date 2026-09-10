@@ -376,7 +376,7 @@ offset = Vector2(0, -24)
 hframes = 3
 
 [node name="VillagerFarmer" type="Node2D" parent="Entities"]
-position = Vector2(1088, 432)
+position = Vector2(1120, 416)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/VillagerFarmer"]
 texture = ExtResource("9_shadow")

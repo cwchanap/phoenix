@@ -75,7 +75,7 @@ func _init() -> void:
         return
     if not _expect(
         WorldContract.VILLAGER_CELLS
-        == [Vector2i(16, 8), Vector2i(18, 8), Vector2i(17, 11)],
+        == [Vector2i(16, 8), Vector2i(18, 7), Vector2i(17, 11)],
         "villager cells contract",
     ):
         return

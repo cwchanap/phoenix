@@ -103,7 +103,7 @@ const MARKET_CELL := Vector2i(19, 10)
 const MARKET_FOOTPRINT := Rect2(19.2, 10.2, 0.6, 0.6)
 const VILLAGER_CELLS: Array[Vector2i] = [
     Vector2i(16, 8),
-    Vector2i(18, 8),
+    Vector2i(18, 7),
     Vector2i(17, 11),
 ]
 ```
