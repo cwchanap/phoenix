@@ -58,7 +58,7 @@ Settings edits Music and Sound from `0..10`, Window at `1x`, `2x`, `3x`, `4x`,
 or `FULL`, and Tutorial Cards `ON` or `OFF`; `O` is handled only by Pause.
 
 The target diamond is hidden when the faced cell is outside the map. Facing
-the shop cell `(6,7)`, bed cell `(6,8)`, or shipping cell `(6,10)` from an
+the shop cell `(17,9)`, bed cell `(12,7)`, or shipping cell `(10,13)` from an
 adjacent tile shows a contextual interaction hint (for example `Shop — E`).
 
 - Green farm target = selected action can run.
@@ -81,7 +81,7 @@ The social commands `talk_to` and `gift_crop` instead return a narrow result
 dictionary (lines, points gained, gift reaction) that the dialogue panel
 renders.
 
-1. **Farm.** Face a cell in the `3x3` farm patch and press `1`–`4` to select
+1. **Farm.** Face a cell in the `6x5` farm patch and press `1`–`4` to select
    an action, then Space to use it: till soil with the hoe, plant the
    selected seed, water the crop, and harvest once it is mature.
 2. **Budget the day.** Each action costs clock minutes and stamina; the day
@@ -115,31 +115,31 @@ aspect, integer scale, a minimum `640x360` desktop window, and nearest texture
 filtering. The presentation is pixel art and must remain crisp at every integer
 window scale.
 
-## HPA-590 world contract
+## World contract
 
 | Contract | Value |
 | --- | --- |
-| Map | `12x12` logical cells |
+| Map | `24x20` logical cells |
 | Ground diamond | `64x32` |
-| Projection origin | `(384, 0)` |
-| Player spawn | `(2.5, 9.5)` logical |
+| Projection origin | `(768, 0)` |
+| Player spawn | `(11.5, 8.5)` logical |
 | Player half extent | `0.18` logical cells |
 | Player speed | `96` projected pixels/second |
-| Player center limits | `x,y in [0.18, 11.82]` |
-| Farm patch | `x=2..4`, `y=7..9` |
-| Path row | `x=3..9`, `y=6` |
-| Tree footprint | `x=7.2`, `y=4.2`, `w=0.6`, `h=0.6` logical |
-| Tree bottom-center anchor | `(480, 192)` projected world |
-| Building footprint | `x=7`, `y=7`, `w=2`, `h=2` logical |
-| Building bottom-center anchor | `(384, 288)` projected world |
+| Player center limits | `x in [0.18, 23.82]`, `y in [0.18, 19.82]` |
+| Farm patch | `x=4..9`, `y=10..14` |
+| House footprint | `x=10`, `y=4`, `w=4`, `h=3` logical |
+| House bottom-center anchor | `(976, 336)` projected world |
+| Shop stall footprint | `x=15`, `y=7`, `w=1`, `h=2` logical |
+| Shop stall bottom-center anchor | `(1008, 400)` projected world |
 | Camera padding | `96` projected pixels above the map |
-| Camera bounds | `Rect2(0, -96, 768, 480)` |
+| Camera bounds | `Rect2(128, -96, 1408, 800)` |
 
 The ground is an authored `TileMapLayer`. Scenery and player roots use
 bottom-center ground-contact positions. Collision polygons are projected from
-the logical tree, building, player, and perimeter geometry; Godot's
-`CharacterBody2D` supplies the collision response. `Entities` is the single
-Y-sorted container, with shared entity z-order and stable scene-tree tie order.
+the logical house, shop-stall, forest/river/workbench, villager, interactable,
+player, and perimeter geometry; Godot's `CharacterBody2D` supplies the
+collision response. `Entities` is the single Y-sorted container, with shared
+entity z-order and stable scene-tree tie order.
 
 ## Current feature boundary
 
@@ -149,7 +149,10 @@ collision, bounded camera follow, and front/behind depth ordering. HPA-589
 added the complete single-player farming/economy loop on that shell: tilling,
 planting, watering, harvesting, seed shopping, shipping, sleeping, weather,
 and the morning summary, with `GameRules`/`GameSession` as the gameplay
-authority.
+authority. The starting-farm expansion then replaced the `12x12` proof ground
+with the locked `24x20` homestead — house, `6x5` farm, river/forest
+boundaries, workbench yard, and an eastbound village road — using the approved
+committed art.
 
 Day 14 is the terminal day of the season. HPA-594 added the villagers and
 social systems: Mira, Rowan, and June stand at fixed cells, talking and

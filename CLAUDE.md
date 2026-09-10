@@ -53,9 +53,10 @@ There is no JavaScript or Tauri runtime in the current checkout.
 - `FarmSoil` in `scenes/world/world.tscn` holds the non-Y-sorted farm ground
   decals. `Entities` (scripted as `scripts/world/farm_view.gd`, `FarmView`)
   remains the one Y-sort owner and renders crop sprites from session
-  snapshots; it owns no gameplay state. Tree, building, and player roots are
-  bottom-center ground-contact positions with child sprites offset upward;
-  they share a z-index and retain scene-tree order for exact-Y ties.
+  snapshots; it owns no gameplay state. House, shop-stall, villager, and
+  player roots are bottom-center ground-contact positions with child sprites
+  offset upward; they share a z-index and retain scene-tree order for exact-Y
+  ties.
 - `scripts/ui/game_hud.gd` and `scenes/ui/game_hud.tscn` own presentation and
   modal state only. The HUD emits request signals and renders snapshots; it
   never touches `GameSession`.
@@ -95,21 +96,31 @@ There is no JavaScript or Tauri runtime in the current checkout.
   `./tools/verify-visual.sh` captures all 14 approved states, nearest 2x
   evidence, and masked diffs; Linux CI remains behavior/E2E-only.
 
-## Closed shell contract
+## Locked world contract
 
-The logical map is `12x12` with `64x32` ground diamonds and projection origin
-`(384, 0)`. Player spawn is `(2.5, 9.5)`, half extent is `0.18`, speed is `96`
-projected pixels/second, and player centers stay in `[0.18, 11.82]` on both
-axes. The farm patch is `x=2..4,y=7..9`; the path row is `x=3..9,y=6`.
+The logical map is `24x20` with `64x32` ground diamonds and projection origin
+`(768, 0)`. Player spawn is `(11.5, 8.5)`, half extent is `0.18`, speed is `96`
+projected pixels/second, and player centers stay in `[0.18, 23.82]` on x and
+`[0.18, 19.82]` on y. The farm patch is `FARM_PATCH Rect2i(4, 10, 6, 5)`
+(`x=4..9,y=10..14`, 30 cells); the farm-side path starts at `x=10` and the
+workbench spur joins the main path at `x=12`.
 
-The tree footprint is `(7.2,4.2,0.6,0.6)` with projected anchor `(480,192)`;
-the building footprint is `(7,7,2,2)` with projected anchor `(384,288)`.
-The harvest market cell is `(8,6)` with footprint `(8.2,6.2,0.6,0.6)` and
-projected cell-center anchor `(448,240)`; the world-shell smoke pins the
-cell, footprint, anchor, collision, sprite frame, and detour offsets.
-Camera bounds are `Rect2(0,-96,768,480)` with `96` pixels of top padding. The
-project uses a `640x360` viewport, `viewport`/`keep` stretching, integer scale,
-nearest filtering, and a minimum `640x360` window.
+The house footprint is `(10,4,4,3)` with derived bottom-center ground anchor
+`(976,336)`; the shop-stall footprint is `(15,7,1,2)` with anchor `(1008,400)`.
+Interactable cells are shop `(17,9)`, bed `(12,7)`, shipping `(10,13)` with
+footprint `(10.2,13.2,0.6,0.6)`, and the harvest market cell `(19,10)` with
+footprint `(19.2,10.2,0.6,0.6)` and projected cell-center anchor `(1056,480)`;
+the world-shell smoke pins the cells, footprints, anchors, collisions, sprite
+frames, and detour coverage. Villagers stand at `(16,8)`, `(18,8)`, and
+`(17,11)`. Blockers are the forest band `(0,0,24,2)`, the west river
+`(0,0,2,20)`, the south river `(0,18,12,2)`, and the workbench footprint
+`(13.25,16.25,0.5,0.5)` at cell `(13,16)`; the village sign stands at `(21,8)`.
+The retired `TREE_*`, `BUILDING_*`, `PATH_ROW`, and `path_cells()` constants
+must not return as stale parallel representations.
+
+Camera bounds are `Rect2(128,-96,1408,800)` with `96` pixels of top padding.
+The project uses a `640x360` viewport, `viewport`/`keep` stretching, integer
+scale, nearest filtering, and a minimum `640x360` window.
 
 ## Current boundary
 
@@ -118,13 +129,19 @@ target highlight, camera follow, collision, perimeter clamping, reachability,
 and front/behind depth ordering. HPA-589 is done: farming, the crop economy,
 the daily clock/stamina rhythm, weather, shipping, and the morning-summary
 gate all exist as Godot gameplay, with `GameRules`/`GameSession` as the
-authority and shop `(6,7)` / bed `(6,8)` / shipping `(6,10)` cells wired into
-the shell. Day 14 is the terminal day of the season — no settlement or
+authority and shop `(17,9)` / bed `(12,7)` / shipping `(10,13)` cells wired
+into the shell. Day 14 is the terminal day of the season — no settlement or
 advance happens past it. HPA-594 now provides villagers and social behavior.
 HPA-597 is done: the blocking introduction with contextual dismissible help,
 the Day 14 harvest market, and the terminal result flow all shipped.
 - HPA-598 owns serialization; HPA-594 defines no save schema.
 - HPA-599 owns balance/polish/export.
+- The starting-farm expansion replaced the HPA-590 `12x12` proof ground with
+  the locked `24x20` homestead — house, `6x5` farm, river/forest, workbench
+  yard, and eastbound village road — rendered from the approved committed art;
+  the locked contract above and
+  `docs/superpowers/specs/2026-09-07-phoenix-starting-farm-expansion-design.md`
+  are the reference.
 
 ## Headless workflow
 
@@ -192,3 +209,9 @@ Sprite-isometric art contract
 - Shadows are child sprites on the ground plane, never Y-sort roots.
 - Entities remains the sole Y-sort owner for foreground/occluding world objects.
 - Nearest filtering and integer scaling remain mandatory.
+- World terrain and props derive from the two committed
+  `starting-farm-*-source.webp` sheets; the sheets stay tracked as source
+  provenance and approved art is never regenerated.
+- The proof player/crops/villagers/soil/shadow/scenery sprites remain live
+  entity textures; only provably unreferenced proof ground resources were
+  deleted.
