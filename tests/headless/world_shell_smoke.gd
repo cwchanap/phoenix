@@ -1,16 +1,35 @@
 extends SceneTree
 
 const DEFAULT_TILE := Vector2i(0, 0)
-const FARM_TILE := Vector2i(1, 0)
-const PATH_TILE := Vector2i(2, 0)
-const EXPECTED_ASSETS := {
-    "proof-tiles": Vector2i(192, 32),
-    "proof-player": Vector2i(128, 48),
-    "proof-scenery": Vector2i(384, 96),
-    "proof-soil": Vector2i(128, 32),
-    "proof-crops": Vector2i(128, 144),
-    "proof-villagers": Vector2i(96, 48),
-}
+const GRASS_DETAIL_TILE := Vector2i(1, 0)
+const FARM_TILE := Vector2i(2, 0)
+const PATH_TILE := Vector2i(3, 0)
+const WATER_TILE := Vector2i(4, 0)
+const BANK_SOUTH_TILE := Vector2i(6, 0)
+const TERRAIN_TEXTURE_PATH := "res://assets/sprites/starting-farm-terrain.png"
+const PROPS_TEXTURE_PATH := "res://assets/sprites/starting-farm-props.png"
+const EXPECTED_ASSETS := [
+    {"path": "res://assets/sprites/proof-player.png", "size": Vector2i(128, 48)},
+    {"path": "res://assets/sprites/proof-scenery.png", "size": Vector2i(384, 96)},
+    {"path": "res://assets/sprites/proof-soil.png", "size": Vector2i(128, 32)},
+    {"path": "res://assets/sprites/proof-crops.png", "size": Vector2i(128, 144)},
+    {"path": "res://assets/sprites/proof-villagers.png", "size": Vector2i(96, 48)},
+    {"path": "res://assets/sprites/proof-shadow.png", "size": Vector2i(16, 8)},
+    {"path": "res://assets/sprites/starting-farm-tiles-source.webp", "size": Vector2i(384, 192)},
+    {"path": "res://assets/sprites/starting-farm-props-source.webp", "size": Vector2i(384, 192)},
+    {"path": "res://assets/sprites/starting-farm-terrain.png", "size": Vector2i(512, 32)},
+    {"path": "res://assets/sprites/starting-farm-props.png", "size": Vector2i(384, 192)},
+]
+const DECORATION_CELLS: Array[Vector2i] = [
+    Vector2i(4, 3),
+    Vector2i(8, 6),
+    Vector2i(12, 2),
+    Vector2i(15, 3),
+    Vector2i(19, 3),
+    Vector2i(21, 12),
+    Vector2i(4, 7),
+    Vector2i(14, 15),
+]
 
 func _fail(message: String) -> void:
     push_error(message)
@@ -141,20 +160,32 @@ func _static_entity_names() -> Array:
         "VillagerResident",
     ]
 
-func _scenery_entities() -> Array:
+func _expected_water_tile(cell: Vector2i) -> Vector2i:
+    # The south river's north shore faces up-right, matching the bank-B sheet
+    # cell; the west river's shore faces down-right, which no sheet cell
+    # provides, so those cells stay plain water.
+    if cell.y == 18 and cell.x >= 2 and cell.x <= 11:
+        return BANK_SOUTH_TILE
+    return WATER_TILE
+
+func _prop_entities() -> Array:
     return [
-        {"node": "House", "frame": 1, "label": "house"},
-        {"node": "ShopStall", "frame": 3, "label": "shop stall"},
-        {"node": "TreeForest", "frame": 0, "label": "forest tree"},
-        {"node": "TreeBank", "frame": 0, "label": "bank tree"},
-        {"node": "TreeNorth", "frame": 0, "label": "north tree"},
-        {"node": "RockYard", "frame": 2, "label": "yard rock"},
-        {"node": "RockMeadow", "frame": 2, "label": "meadow rock"},
-        {"node": "FarmFence_1", "frame": 2, "label": "farm fence 1"},
-        {"node": "FarmFence_2", "frame": 2, "label": "farm fence 2"},
-        {"node": "FarmFence_3", "frame": 2, "label": "farm fence 3"},
-        {"node": "Workbench", "frame": 2, "label": "workbench"},
-        {"node": "VillageSign", "frame": 3, "label": "village sign"},
+        {"node": "House", "frame": 0, "label": "house"},
+        {"node": "ShopStall", "frame": 1, "label": "shop stall"},
+        {"node": "TreeForest", "frame": 2, "label": "forest tree"},
+        {"node": "TreeBank", "frame": 2, "label": "bank tree"},
+        {"node": "TreeNorth", "frame": 2, "label": "north tree"},
+        {"node": "RockYard", "frame": 3, "label": "yard rock"},
+        {"node": "RockMeadow", "frame": 3, "label": "meadow rock"},
+        {"node": "FarmFence_1", "frame": 4, "label": "farm fence 1"},
+        {"node": "FarmFence_2", "frame": 4, "label": "farm fence 2"},
+        {"node": "FarmFence_3", "frame": 4, "label": "farm fence 3"},
+        {"node": "Workbench", "frame": 5, "label": "workbench"},
+        {"node": "VillageSign", "frame": 6, "label": "village sign"},
+    ]
+
+func _proof_entities() -> Array:
+    return [
         {"node": "Shipping", "frame": 2, "label": "shipping"},
         {"node": "HarvestMarket", "frame": 3, "label": "market"},
     ]
@@ -220,13 +251,11 @@ func _run() -> void:
     var source := tile_set.get_source(0) as TileSetAtlasSource
     if not _expect(source != null, "Ground source must be an atlas"):
         return
-    if not _expect(
-        source.texture.resource_path == "res://assets/sprites/proof-tiles.png", "ground atlas texture"
-    ):
+    if not _expect(source.texture.resource_path == TERRAIN_TEXTURE_PATH, "ground atlas texture"):
         return
     if not _expect(source.texture_region_size == Vector2i(64, 32), "ground atlas tile size"):
         return
-    if not _expect(source.get_tiles_count() == 3, "ground atlas tile count"):
+    if not _expect(source.get_tiles_count() == 8, "ground atlas tile count"):
         return
 
     var used_cells := ground.get_used_cells()
@@ -262,18 +291,7 @@ func _run() -> void:
         return
     if not _expect(water.position == Vector2(736.0, 0.0), "Water alignment transform"):
         return
-    if not _expect(water.tile_set != null, "Water must have a TileSet"):
-        return
-    var water_tile_set := water.tile_set
-    if not _expect(water_tile_set.tile_size == Vector2i(64, 32), "water tile size"):
-        return
-    if not _expect(
-        water_tile_set.tile_shape == TileSet.TILE_SHAPE_ISOMETRIC, "water tile shape"
-    ):
-        return
-    if not _expect(
-        water_tile_set.tile_layout == TileSet.TILE_LAYOUT_DIAMOND_DOWN, "water tile layout"
-    ):
+    if not _expect(water.tile_set == ground.tile_set, "Water must share the terrain TileSet"):
         return
     var water_used := water.get_used_cells()
     var expected_water := _rect_cells(WorldContract.RIVER_WEST_FOOTPRINT)
@@ -290,7 +308,9 @@ func _run() -> void:
         if not _expect(water.get_cell_source_id(river_cell) == 0, "water %s source" % river_cell):
             return
         if not _expect_vec2i(
-            water.get_cell_atlas_coords(river_cell), Vector2i(0, 0), "water %s tile" % river_cell
+            water.get_cell_atlas_coords(river_cell),
+            _expected_water_tile(river_cell),
+            "water %s tile" % river_cell,
         ):
             return
 
@@ -324,6 +344,22 @@ func _run() -> void:
         decoration.tile_set == ground.tile_set, "GroundDecoration must share the ground TileSet"
     ):
         return
+    var decoration_used := decoration.get_used_cells()
+    if not _expect(
+        decoration_used.size() == DECORATION_CELLS.size(), "GroundDecoration cell count"
+    ):
+        return
+    for decoration_cell in DECORATION_CELLS:
+        if not _expect(
+            decoration_used.has(decoration_cell), "GroundDecoration missing cell %s" % decoration_cell
+        ):
+            return
+        if not _expect_vec2i(
+            decoration.get_cell_atlas_coords(decoration_cell),
+            GRASS_DETAIL_TILE,
+            "GroundDecoration %s tile" % decoration_cell,
+        ):
+            return
 
     var farm_soil := world.get_node("FarmSoil") as Node2D
     if not _expect(farm_soil != null, "FarmSoil must exist"):
@@ -487,8 +523,7 @@ func _run() -> void:
         ):
             return
 
-    var scenery_texture_path := "res://assets/sprites/proof-scenery.png"
-    for entry in _scenery_entities():
+    for entry in _prop_entities():
         var entity := entities.get_node(entry.node) as Node2D
         if not _expect(entity != null, "%s entity" % entry.label):
             return
@@ -502,7 +537,36 @@ func _run() -> void:
             return
         var sprite := entity.get_node("Sprite2D") as Sprite2D
         if not _expect(
-            sprite.texture.resource_path == scenery_texture_path, "%s texture" % entry.label
+            sprite.texture.resource_path == PROPS_TEXTURE_PATH, "%s texture" % entry.label
+        ):
+            return
+        if not _expect(sprite.hframes == 4, "%s prop frame columns" % entry.label):
+            return
+        if not _expect(sprite.vframes == 2, "%s prop frame rows" % entry.label):
+            return
+        if not _expect(sprite.frame == entry.frame, "%s prop frame" % entry.label):
+            return
+        if not _expect_vec2(
+            sprite.offset, Vector2(0.0, -48.0), "%s bottom-center offset" % entry.label
+        ):
+            return
+
+    for entry in _proof_entities():
+        var entity := entities.get_node(entry.node) as Node2D
+        if not _expect(entity != null, "%s entity" % entry.label):
+            return
+        if not _expect_names(entity, ["Shadow", "Sprite2D"], "%s entity" % entry.label):
+            return
+        var entity_shadow := entity.get_node("Shadow") as Sprite2D
+        if not _expect(
+            entity_shadow.texture.resource_path == "res://assets/sprites/proof-shadow.png",
+            "%s shadow texture" % entry.label,
+        ):
+            return
+        var sprite := entity.get_node("Sprite2D") as Sprite2D
+        if not _expect(
+            sprite.texture.resource_path == "res://assets/sprites/proof-scenery.png",
+            "%s texture" % entry.label,
         ):
             return
         if not _expect(sprite.hframes == 4, "%s scenery frame columns" % entry.label):
@@ -828,13 +892,13 @@ func _run() -> void:
     if not _expect(farm_exit.y > 14.0, "expanded farm traversal"):
         return
 
-    for asset in EXPECTED_ASSETS:
-        var texture := load("res://assets/sprites/%s.png" % asset) as Texture2D
-        if not _expect(texture != null, "%s must import" % asset):
+    for entry in EXPECTED_ASSETS:
+        var texture := load(entry.path) as Texture2D
+        if not _expect(texture != null, "%s must import" % entry.path):
             return
         if not _expect(
-            Vector2i(texture.get_width(), texture.get_height()) == EXPECTED_ASSETS[asset],
-            "%s dimensions" % asset,
+            Vector2i(texture.get_width(), texture.get_height()) == entry.size,
+            "%s dimensions" % entry.path,
         ):
             return
 
