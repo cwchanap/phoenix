@@ -1,0 +1,33 @@
+name: Materialize starting farm art
+
+on:
+  push:
+    branches: [docs/starting-farm-2-5d-expansion]
+    paths:
+      - ".asset-staging/**"
+      - ".github/workflows/materialize-starting-farm-art.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: true
+      - name: Materialize approved sprite sheets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assets/sprites
+          cat .asset-staging/starting-farm-tiles.webp.b64.* | base64 -d > assets/sprites/starting-farm-tiles-source.webp
+          cat .asset-staging/starting-farm-props.webp.b64.* | base64 -d > assets/sprites/starting-farm-props-source.webp
+          echo "77b376661ff42440dc653a3cedb0791f902f3b9bbef651c35f109ea08c05c498  assets/sprites/starting-farm-tiles-source.webp" | sha256sum -c -
+          echo "4d8851a19e7aaa22bfe9e75e0ae9d0a765d4e47f191890abdce61ab85cf8ed45  assets/sprites/starting-farm-props-source.webp" | sha256sum -c -
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/sprites/starting-farm-tiles-source.webp assets/sprites/starting-farm-props-source.webp
+          git commit -m "art: add approved starting farm sprite sheets"
+          git push
