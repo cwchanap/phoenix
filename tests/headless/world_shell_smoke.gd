@@ -88,6 +88,15 @@ func _within_player_bounds(position: Vector2) -> bool:
         and position.y <= maximum.y
     )
 
+func _outside_footprint(position: Vector2, footprint: Rect2) -> bool:
+    var half_extent := WorldContract.PLAYER_HALF_EXTENT
+    return (
+        position.x + half_extent <= footprint.position.x
+        or position.x - half_extent >= footprint.end.x
+        or position.y + half_extent <= footprint.position.y
+        or position.y - half_extent >= footprint.end.y
+    )
+
 func _release_movement_actions() -> void:
     for action in ["move_up", "move_right", "move_down", "move_left"]:
         Input.action_release(action)
@@ -864,6 +873,62 @@ func _run() -> void:
         return
     player.velocity = Vector2.ZERO
 
+    # The house is approached from the south: an up-walk stops at its south
+    # face, and a wide north-west detour clears the house and its west yard
+    # flank, so the homestead never seals the map.
+    _place_player(player, Vector2(12.5, 7.5))
+    await physics_frame
+    await _hold_actions(["move_up"], 60)
+    var house_approach := WorldMath.world_to_grid(player.global_position)
+    if not _expect(
+        _outside_footprint(house_approach, WorldContract.HOUSE_FOOTPRINT),
+        "house approach remains outside footprint",
+    ):
+        return
+    if not _expect(
+        house_approach.y >= 7.17 and house_approach.y <= 7.39,
+        "house approach stops at the south face",
+    ):
+        return
+    await _hold_actions(["move_left", "move_up"], 180)
+    var house_detour := WorldMath.world_to_grid(player.global_position)
+    if not _expect(
+        _outside_footprint(house_detour, WorldContract.HOUSE_FOOTPRINT),
+        "house detour remains outside footprint",
+    ):
+        return
+    if not _expect(
+        house_detour.x <= 9.4 and house_detour.y <= 6.8,
+        "house west detour passes the yard flank",
+    ):
+        return
+
+    # The west river is solid: an east-bank approach stops at the water line,
+    # and a walk pressed along the bank stays ashore instead of wading.
+    _place_player(player, Vector2(3.5, 10.0))
+    await physics_frame
+    await _hold_actions(["move_left"], 60)
+    var river_approach := WorldMath.world_to_grid(player.global_position)
+    if not _expect(
+        _outside_footprint(river_approach, WorldContract.RIVER_WEST_FOOTPRINT),
+        "river west approach remains outside water",
+    ):
+        return
+    if not _expect(
+        river_approach.x >= 2.18 and river_approach.x <= 2.39,
+        "river west approach stops at the bank",
+    ):
+        return
+    await _hold_actions(["move_left", "move_down"], 120)
+    var bank_walk := WorldMath.world_to_grid(player.global_position)
+    if not _expect(
+        _outside_footprint(bank_walk, WorldContract.RIVER_WEST_FOOTPRINT)
+        and _outside_footprint(bank_walk, WorldContract.RIVER_SOUTH_FOOTPRINT)
+        and _within_player_bounds(bank_walk),
+        "river west bank walk stays ashore",
+    ):
+        return
+
     _place_player(player, Vector2(2.5, 10.0))
     await physics_frame
     await _hold_actions(["move_left"], 120)
@@ -885,11 +950,13 @@ func _run() -> void:
     if not _expect(_within_player_bounds(WorldMath.world_to_grid(player.global_position)), "bottom perimeter"):
         return
 
-    _place_player(player, Vector2(5.5, 11.5))
+    # Farm-edge reachability: a diagonal walk from the expanded patch's
+    # north-west corner crosses every row and exits past its south-east edge.
+    _place_player(player, Vector2(4.5, 10.5))
     await physics_frame
-    await _hold_actions(["move_down"], 100)
+    await _hold_actions(["move_down"], 130)
     var farm_exit := WorldMath.world_to_grid(player.global_position)
-    if not _expect(farm_exit.y > 14.0, "expanded farm traversal"):
+    if not _expect(farm_exit.x > 9.0 and farm_exit.y > 14.0, "farm edge traversal exits south-east"):
         return
 
     for entry in EXPECTED_ASSETS:

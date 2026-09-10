@@ -2,6 +2,8 @@ extends GutTest
 
 const FARM_CELL := WorldContract.FARM_PATCH.position
 const SECOND_FARM_CELL := WorldContract.FARM_PATCH.position + Vector2i.RIGHT
+# Deep inside the expanded patch: well outside the old 3x3 footprint.
+const DEEP_FARM_CELL := WorldContract.FARM_PATCH.position + Vector2i(4, 3)
 
 func _assert_unchanged(session: GameSession, before: Dictionary) -> void:
     assert_eq(session.snapshot(), before)
@@ -438,6 +440,32 @@ func test_acknowledge_intro_mutates_once_and_duplicate_is_noop() -> void:
         GameRules.CommandCode.INTRO_ALREADY_ACKNOWLEDGED,
     )
     assert_eq(session.state(), after_first)
+
+func test_farm_cell_outside_the_old_footprint_commits_and_restores() -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    assert_true(WorldContract.FARM_PATCH.has_point(DEEP_FARM_CELL))
+    assert_eq(session.hoe(DEEP_FARM_CELL), GameRules.CommandCode.SOIL_TILLED)
+    assert_eq(session.plant(DEEP_FARM_CELL), GameRules.CommandCode.CROP_PLANTED)
+    assert_eq(session.water(DEEP_FARM_CELL), GameRules.CommandCode.CROP_WATERED)
+
+    # Mutate+restore round-trip: the deep cell's watered crop survives state
+    # export and restore, and keeps growing on the restored session.
+    var restored := GameSession.new(func() -> float: return 0.9)
+    assert_true(restored.restore_state(session.state()))
+    assert_eq(restored.water(DEEP_FARM_CELL), GameRules.CommandCode.ALREADY_WATERED)
+    assert_eq(restored.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+    assert_eq(
+        restored.acknowledge_morning_summary(),
+        GameRules.CommandCode.DAY_STARTED,
+    )
+    for _night in GameRules.growth_nights(GameRules.CropKind.TURNIP) - 1:
+        assert_eq(restored.water(DEEP_FARM_CELL), GameRules.CommandCode.CROP_WATERED)
+        assert_eq(restored.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+        assert_eq(
+            restored.acknowledge_morning_summary(),
+            GameRules.CommandCode.DAY_STARTED,
+        )
+    assert_eq(restored.harvest(DEEP_FARM_CELL), GameRules.CommandCode.CROP_HARVESTED)
 
 func test_tutorials_complete_only_on_authoritative_successes() -> void:
     var session := GameSession.new(func() -> float: return 0.9)

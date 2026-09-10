@@ -30,6 +30,21 @@ func test_codec_round_trip_restores_canonical_state() -> void:
     assert_true(restored.state()["weather_history"][0] is StringName)
     assert_true(restored.state()["seeds"].keys()[0] is StringName)
 
+func test_round_trip_preserves_a_change_outside_the_old_farm_footprint() -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    # Deep inside the expanded patch: well outside the old 3x3 footprint.
+    var cell := WorldContract.FARM_PATCH.position + Vector2i(4, 3)
+    assert_eq(session.hoe(cell), GameRules.CommandCode.SOIL_TILLED)
+    assert_eq(session.plant(cell), GameRules.CommandCode.CROP_PLANTED)
+
+    var decoded := SaveFileCodec.decode(SaveFileCodec.encode(session.state()))
+    assert_true(decoded["ok"])
+    assert_eq(GameSession.state_error(decoded["state"]), "")
+    var restored := GameSession.new(func() -> float: return 0.9)
+    assert_true(restored.restore_state(decoded["state"]))
+    # CROP_PRESENT proves the decoded save carried the tilled, planted cell.
+    assert_eq(restored.plant(cell), GameRules.CommandCode.CROP_PRESENT)
+
 func test_decode_rejects_malformed_json_wrong_schema_and_bad_vector_marker() -> void:
     assert_false(SaveFileCodec.decode("{broken")["ok"])
     assert_false(SaveFileCodec.decode('{"state":{}}')["ok"])
