@@ -74,6 +74,15 @@ func _stand(game, grid: Vector2, facing: int) -> void:
 	assert_bool(await game.set_property(PLAYER, "facing", facing)).is_true()
 
 
+# Stand one cell off a WorldContract target opposite its facing offset (the
+# same derivation as the integration suite's _place_target) so the target
+# resolves to the contract cell. No literal stand positions.
+func _stand_at_target(game, target: Vector2i, facing: int) -> void:
+	var offset: Vector2i = WorldMath.TARGET_OFFSETS[facing]
+	await _stand(game, Vector2(target - offset) + Vector2(0.5, 0.5), facing)
+	assert_that(await game.call_method(PLAYER, "current_target_cell")).is_equal(target)
+
+
 func _use_action(game, button: String, feedback: String) -> void:
 	assert_bool(await game.click_node(HUD + "/" + button)).is_true()
 	# use_selected_action returns void; transport errors surface via is_failure().
@@ -90,30 +99,30 @@ func test_day_one_farming_loop_and_sleep() -> void:
 	if game == null or is_failure():
 		return
 
-	# Hoe, plant, and water farm cell (3, 8) from below. The farm view
-	# pre-creates all crop sprites hidden, so visibility is the observable.
-	await _stand(game, Vector2(4.5, 9.5), UP)
-	assert_bool(
-		await game.get_property(WORLD + "/FarmSoil/Soil_3_8", "visible")
-	).is_false()
+	# Hoe, plant, and water a farm cell well outside the old 3x3 patch, from
+	# its south-east. The farm view pre-creates all crop sprites hidden, so
+	# visibility is the observable.
+	var farm_cell: Vector2i = WorldContract.FARM_PATCH.position + Vector2i(4, 3)
+	var soil_path := WORLD + "/FarmSoil/Soil_%d_%d" % [farm_cell.x, farm_cell.y]
+	var crop_path := WORLD + "/Entities/FarmCrop_%d_%d" % [farm_cell.x, farm_cell.y]
+	await _stand_at_target(game, farm_cell, UP)
+	assert_bool(await game.get_property(soil_path, "visible")).is_false()
 	await _use_action(game, "Action_0", "Soil tilled.")
+	assert_bool(await game.get_property(soil_path, "visible")).is_true()
 	assert_bool(
-		await game.get_property(WORLD + "/FarmSoil/Soil_3_8", "visible")
-	).is_true()
-	assert_bool(
-		await game.get_property(WORLD + "/Entities/FarmCrop_3_8/Sprite2D", "visible")
+		await game.get_property(crop_path + "/Sprite2D", "visible")
 	).is_false()
 	await _use_action(game, "Action_1", "Crop planted.")
 	assert_bool(
-		await game.get_property(WORLD + "/Entities/FarmCrop_3_8/Sprite2D", "visible")
+		await game.get_property(crop_path + "/Sprite2D", "visible")
 	).is_true()
 	await _use_action(game, "Action_2", "Crop watered.")
 	if is_failure():
 		return
 	await _assert_stamina(game, 14)
 
-	# Walk-free trip to the bed: interact, confirm, acknowledge Day 2.
-	await _stand(game, Vector2(7.5, 9.5), UP)
+	# Walk-free trip to the contract bed cell: interact, confirm, acknowledge.
+	await _stand_at_target(game, WorldContract.BED_CELL, UP)
 	await game.call_method(WORLD, "interact")
 	if is_failure():
 		return
@@ -161,8 +170,8 @@ func test_shop_purchase_updates_money() -> void:
 	if game == null or is_failure():
 		return
 
-	# Target the shop cell (6, 7) from the left with facing RIGHT.
-	await _stand(game, Vector2(5.5, 8.5), RIGHT)
+	# Target the contract shop cell from its south-west with facing RIGHT.
+	await _stand_at_target(game, WorldContract.SHOP_CELL, RIGHT)
 	await game.call_method(WORLD, "interact")
 	if is_failure():
 		return
