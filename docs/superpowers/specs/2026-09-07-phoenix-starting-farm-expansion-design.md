@@ -45,21 +45,6 @@ This slice does **not** add:
 - Godot 3D, `NavigationServer`, or a rendering-engine migration;
 - additional image generation for this task.
 
-## Current ownership to preserve
-
-The current implementation already has the required owners:
-
-- `WorldContract` is the fixed authored map/interaction/collision contract.
-- `WorldMath` owns pure isometric projection and projected footprint math.
-- `WorldShell` is the only live gameplay coordinator and fills named world collision polygons from `WorldContract`.
-- `Entities` / `FarmView` is the one enabled Y-sort root.
-- tall entities are direct `Entities` children with bottom-center roots, child shadows, and upward sprite offsets.
-- `FarmView` already creates crop roots dynamically from `WorldContract.farm_cells()`.
-- `GameSession` is the only mutable gameplay authority and validates persisted farm state against the exact authored farm-cell sequence.
-- `PlayerController` owns the only `Camera2D` and copies `WorldContract.CAMERA_BOUNDS` into its limits.
-
-The expansion extends these owners. It must not introduce alternate scene-authored collision logic or nested scenery ordering.
-
 ## Approved source art
 
 Two generated regular-cut source sheets are committed directly on this PR and are the visual source of truth for the new homestead art:
@@ -84,9 +69,20 @@ These are source-art sheets, not a change to Phoenix's runtime tile geometry. Ru
 
 Keep the current player, crop, villager, shipping, Harvest Market, soil, and shadow art unless a concrete runtime need requires otherwise.
 
-## Locked world contract
+## Architecture and ownership
 
-The implementation locks these values together in one contract change:
+The existing owners stay in place:
+
+- `WorldContract` owns fixed map, interaction, and collision geometry.
+- `WorldMath` owns isometric projection and the two small derived helpers `footprint_ground_anchor()` and `map_camera_bounds()`.
+- `WorldShell` remains the only live coordinator and the only code that fills world collision polygons.
+- `Entities` / `FarmView` remains the sole enabled Y-sort root; every occluding prop is a direct child.
+- `FarmView` creates both soil and crop presentation from `WorldContract.farm_cells()`.
+- `GameSession` remains the only mutable gameplay authority.
+- `PlayerController` retains the one player-owned `Camera2D`.
+- `Ground`, `Water`, `Paths`, and `GroundDecoration` remain direct `World` children; do not extract a map scene until a second map exists.
+
+## Locked world contract
 
 ```gdscript
 const MAP_SIZE := Vector2i(24, 20)
@@ -99,16 +95,12 @@ const CAMERA_BOUNDS := Rect2(128.0, -96.0, 1408.0, 800.0)
 const FARM_PATCH := Rect2i(4, 10, 6, 5)
 const HOUSE_FOOTPRINT := Rect2(10.0, 4.0, 4.0, 3.0)
 const BED_CELL := Vector2i(12, 7)
-
 const SHIPPING_CELL := Vector2i(10, 13)
 const SHIPPING_FOOTPRINT := Rect2(10.2, 13.2, 0.6, 0.6)
-
 const SHOP_CELL := Vector2i(17, 9)
 const SHOP_STALL_FOOTPRINT := Rect2(15.0, 7.0, 1.0, 2.0)
-
 const MARKET_CELL := Vector2i(19, 10)
 const MARKET_FOOTPRINT := Rect2(19.2, 10.2, 0.6, 0.6)
-
 const VILLAGER_CELLS: Array[Vector2i] = [
     Vector2i(16, 8),
     Vector2i(18, 8),
@@ -116,62 +108,40 @@ const VILLAGER_CELLS: Array[Vector2i] = [
 ]
 ```
 
-`WorldMath.footprint_ground_anchor()` derives large-prop ground anchors from footprints instead of maintaining hand-computed anchor constants. With the locked values it yields:
+`WorldMath.footprint_ground_anchor()` derives large-prop ground anchors. It yields House `(976,336)` and ShopStall `(1008,400)` with the locked footprints. `WorldMath.map_camera_bounds()` derives the map AABB and must equal the frozen `CAMERA_BOUNDS` in smoke coverage.
 
-- House -> `Vector2(976, 336)`;
-- ShopStall -> `Vector2(1008, 400)`.
+`TREE_*`, `BUILDING_*`, `PATH_ROW`, and `path_cells()` are retired rather than kept as stale parallel representations.
 
-`WorldMath.map_camera_bounds()` derives the map AABB from `MAP_SIZE`, `PROJECTION_ORIGIN`, and `CAMERA_TOP_PADDING`; smoke tests assert that it equals the frozen `CAMERA_BOUNDS` constant.
-
-`TREE_*`, `BUILDING_*`, `PATH_ROW`, and `path_cells()` are retired as the new authored scene takes over their presentation role without creating a second gameplay contract.
-
-## Collision ownership
-
-There is exactly one collision-authoring path:
-
-1. `WorldContract` owns fixed logical footprints.
-2. `world.tscn` owns empty named `CollisionPolygon2D` children under `World/StaticCollision`.
-3. `WorldShell._ready()` fills every polygon using `WorldMath.footprint_to_polygon()`.
-4. `world_shell_smoke.gd` asserts the resulting polygons match the contract.
-
-This applies equally to House, ShopStall, coarse forest/river/workbench blockers, small house-yard side blockers, shipping, market, villagers, and perimeter.
-
-No collision lives in a second map scene or tile metadata.
-
-## Scene ownership
-
-Do not extract `starting_farm_map.tscn` in this slice. There is only one map today, so the extra PackedScene boundary is deferred until a second map makes it useful.
-
-`world.tscn` keeps this direct shape:
+## Scene and collision shape
 
 ```text
 World / WorldShell
-├── Ground                  # TileMapLayer
-├── Water                   # TileMapLayer
-├── Paths                   # TileMapLayer
-├── GroundDecoration        # non-occluding decals only
-├── FarmSoil                # empty authored Node2D, runtime-filled by FarmView
-├── StaticCollision         # one collision owner, runtime-filled by WorldShell
-├── Entities / FarmView     # only enabled Y-sort root
+├── Ground
+├── Water
+├── Paths
+├── GroundDecoration
+├── FarmSoil
+├── StaticCollision
+├── Entities / FarmView
 │   ├── Player
 │   ├── House
 │   ├── ShopStall
-│   ├── reused tree/rock/fence instances
+│   ├── reused tree / rock / fence instances
 │   ├── Workbench
 │   ├── VillageSign
 │   ├── Shipping
 │   ├── HarvestMarket
 │   ├── Villagers
-│   └── FarmCrop_*          # runtime-created direct children
+│   └── FarmCrop_*
 ├── TargetHighlight
 └── GameHud
 ```
 
-Every tall prop that may overlap the player is a **direct** `Entities` child. `GroundDecoration` is limited to decals that cannot participate in player occlusion.
+Collision has one path only: `WorldContract` footprints -> empty named polygons in `world.tscn` -> `WorldShell._ready()` -> `WorldMath.footprint_to_polygon()`. This includes House, ShopStall, coarse forest/river/workbench blockers, small house-yard flank blockers, interactables, villagers, and perimeter.
+
+Tall props remain direct `Entities` children. Small house-yard blockers make the intended House approach from the south, avoiding ambiguous Y-sort behavior from its flanks without splitting the House into multiple roots.
 
 ## Map composition
-
-Use this topology:
 
 ```text
         FOREST / ROCKS
@@ -187,182 +157,47 @@ Use this topology:
    `-------- meadow ------ [workbench yard]
 ```
 
-Path authorship is visual only. The farm-side path begins at `x=10` so it does not paint over farm column `x=9`, and the workbench spur reaches `x=12` so it connects to the main network.
+The farm-side path begins at `x=10`, outside the farm's final `x=9` column. The workbench spur reaches `x=12` so it joins the main path. Ground paints a farm-base tile over all 30 `FARM_PATCH` cells even before dynamic tilled soil is visible.
 
-Ground keeps a farm-base tile across all 30 `FARM_PATCH` cells even before dynamic tilled soil is visible. This keeps visual farm identity linked to the gameplay farm contract without resurrecting a path gameplay contract.
+## Farming and persistence
 
-## House sorting boundary
+`GameSession` continues deriving initialization and persisted-state validation from `WorldContract.farm_cells()`. `FarmView` creates soil and crop presentation from that same list. No plot IDs or second farm representation are introduced.
 
-A single large House root is kept because splitting one building into multiple Y-sort pieces is unnecessary for this map. Small authored west/east yard blockers prevent the player from walking into ambiguous flank positions; the intended house approach is from the south/doorstep.
+The 30 cells are scale/headroom, not a requirement to work all 30 in one day.
 
-## Farming presentation
+Changing the authored farm from 9 to 30 entries intentionally makes old development saves incompatible through existing exact-size/exact-order farm validation. No schema bump or migration is added. Acceptance must mutate and restore at least one cell outside the old 3x3 footprint.
 
-`GameSession` continues deriving initialization and persisted-state validation from `WorldContract.farm_cells()`.
+## Camera
 
-`FarmView` removes the hand-authored soil asymmetry:
+Reuse the current `Camera2D`. Existing smoke already verifies limits and smoothing; add only the meaningful invariant that frozen `CAMERA_BOUNDS` equals `WorldMath.map_camera_bounds()`. Do not add a second clamp implementation or timing-sensitive camera test.
 
-- `FarmSoil` stays an empty non-Y-sorted `Node2D` with `z_index = 5`;
-- `FarmView._ready()` creates one `Soil_x_y` sprite for every authored farm cell;
-- it continues creating one direct `FarmCrop_x_y` root for every authored farm cell;
-- soil/crop dictionaries stay keyed by `Vector2i`;
-- `refresh(snapshot)` stays presentation-only;
-- farm legality stays exclusively in `GameSession`.
+Because a projected diamond is contained by a rectangular camera AABB, the acceptance target is not literal zero blank canvas at every corner. Intended traversal should not expose materially worse blank canvas than the current authored-camera behavior.
 
-The 30 cells are capacity/headroom, not a requirement that one day cycle can work all 30.
+## Testing and visual verification
 
-## Camera behavior
+The atomic cutover updates the real existing oracles together: `world_math_smoke.gd`, `world_shell_smoke.gd`, `test_game_session.gd`, `test_save_file.gd`, `test_gameplay_shell.gd`, and focused GdUnit edge cases.
 
-Reuse the existing player-owned `Camera2D` without a new controller.
+Reachability coverage replaces the old Tree/Building checks with House, river-west, and farm-edge cases. Day-1 E2E derives **farm, bed, and shop** stand positions from `WorldContract` + `WorldMath.TARGET_OFFSETS`; no literal fallback is allowed.
 
-Required behavior:
-
-- `position_smoothing_enabled` stays true;
-- existing smoothing speed remains unless actual playtesting exposes a readability defect;
-- `PlayerController._ready()` copies all four `CAMERA_BOUNDS` edges;
-- `world_math_smoke.gd` asserts the frozen bounds equal `WorldMath.map_camera_bounds()`;
-- no camera state enters saves;
-- no manual pan, zoom, edge scroll, or camera manager is added.
-
-Do not add a tautological test that merely re-proves Godot clamps a camera after the four limits were copied. Existing smoke already pins those limits and smoothing.
-
-Because the logical map is a projected diamond inside a rectangular camera AABB, the acceptance target is not literal zero blank canvas at every AABB corner. The expanded map must not expose materially worse blank canvas than the existing authored-camera behavior during intended traversal.
-
-## Interaction relocation
-
-Only authored cells/scene positions change.
-
-- `BED_CELL` is the house doorstep.
-- `SHIPPING_CELL` is beside the farm.
-- `SHOP_CELL` stays on the roadside cluster, with `ShopStall` visually representing it just north of the road.
-- `MARKET_CELL` is farther east along the village road.
-- `VILLAGER_CELLS` are the three roadside positions.
-
-`WorldShell.interact()` and the existing hint order remain unchanged.
-
-## Persistence contract
-
-Changing `farm_cells()` from 9 to 30 entries intentionally invalidates old development saves through existing exact-size/exact-order farm validation.
-
-Required behavior:
-
-- New Game creates exactly 30 farm entries in authored order;
-- a save contains all 30 entries;
-- Continue restores all 30 entries;
-- acceptance mutates/restores at least one farm cell outside the old `3x3` footprint;
-- old 9-cell saves may be rejected;
-- New Game remains available;
-- no schema bump, migration, remapping, or compatibility adapter is added.
-
-## Testing contract
-
-### Atomic contract oracles
-
-The contract change updates these existing oracles in the same checkpoint:
-
-- `tests/headless/world_math_smoke.gd` — map size, origin, spawn, derived camera equality, farm patch/count, house/shop/environment footprints, projected geometry, 24x20 edge cases;
-- `tests/headless/world_shell_smoke.gd` — direct world-layer ownership, 480 ground cells, farm tile identity, direct entity order, collision, anchors, dynamic soil/crops;
-- `tests/unit/test_game_session.gd` — farm test constants move to `WorldContract.FARM_PATCH.position` / `+ Vector2i.RIGHT`;
-- `tests/unit/test_save_file.gd` — fixture derives its cell from `WorldContract.farm_cells()`;
-- `tests/gdunit/test_world_math.gd` — expanded edge targeting.
-
-### Reachability
-
-Replace old Tree/Building detour checks with:
-
-- House lower-edge collision + side slide;
-- river-west collision stop;
-- representative first/last-row farm targetability;
-- interaction reachability at House sleep, Shipping, Shop, villagers, and Harvest Market.
-
-### E2E
-
-The existing Day-1 E2E hard-codes farm, bed, and shop stand positions. Retarget **all three** through `WorldContract` and `WorldMath.TARGET_OFFSETS`. Do not introduce literal fallbacks.
-
-### Visual regression
-
-The existing `tests/visual/ui_capture_host.gd` renders static PNG plates behind states 01–12 rather than `world.tscn`. Therefore this map change should **not** recapture those goldens. Run `./tools/verify-visual.sh` unchanged as a UI regression gate.
-
-The real homestead visuals are accepted in the actual game/export against the approved concept and the committed source sheets.
-
-## Verification commands
-
-`./tools/verify-clean.sh` is a post-commit clean-tree gate because it archives committed `HEAD`.
-
-Use direct worktree checks during RED/GREEN, then `verify-clean.sh` after checkpoints:
-
-```bash
-godot --headless --path . -s addons/gut/gut_cmdln.gd \
-  -gdir=res://tests/unit,res://tests/integration -gexit
-godot --headless --path . --script res://tests/headless/world_math_smoke.gd
-godot --headless --path . --script res://tests/headless/world_shell_smoke.gd
-./tools/bootstrap-gdunit.sh
-GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/gdunit -c
-```
-
-Final gates:
-
-```bash
-./tools/verify-clean.sh
-GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/e2e -c
-godot --headless --path . --import
-mkdir -p build
-godot --headless --path . --export-release "macOS" build/Phoenix.zip
-unzip -l build/Phoenix.zip | grep -F "Phoenix.app/Contents/MacOS/Phoenix"
-./tools/verify-visual.sh
-```
-
-## File-level design
-
-### Already committed
-
-- `assets/sprites/starting-farm-tiles-source.webp` — approved regular-cut terrain source art.
-- `assets/sprites/starting-farm-props-source.webp` — approved regular-cut prop source art.
-
-### Create only as integration output requires
-
-- `scenes/world/starting_farm_tileset.tres` — runtime `64x32` atlas mapping.
-- derived cropped/repacked runtime textures if using the source WebP sheets directly is less convenient in Godot.
-
-### Modify
-
-- `scripts/world/world_contract.gd`
-- `scripts/world/world_math.gd`
-- `scenes/world/world.tscn`
-- `scripts/world/world_shell.gd`
-- `scripts/world/farm_view.gd`
-- relevant unit/integration/headless/GdUnit/E2E tests
-- `CLAUDE.md`; README only if it contains stale geometry.
-
-### Retire when unreferenced
-
-- `scenes/world/proof_ground_tileset.tres`
-- `assets/sprites/proof-tiles.png`
-- `proof-scenery.png` if no longer used
-- `PATH_ROW/path_cells()`
-- old Tree/Building-specific contract constants.
-
-Keep shared proof player/crop/villager/soil/shadow assets while still used.
+The current visual harness uses static PNG plates for UI states 01–12 rather than instantiating `world.tscn`. Do not recapture those goldens for this map work. Run `./tools/verify-visual.sh` unchanged as a UI regression check; visually accept the real homestead in the actual game/export against the approved concept and these committed source sheets.
 
 ## Acceptance criteria
 
 The slice is complete when:
 
-1. `WorldContract` exposes the locked `24x20`, `6x5`, origin, spawn, interaction, environment, and camera constants with no stale Tree/Building/path-row representation.
-2. The two committed regular-cut source sheets are used for the new homestead terrain/props; no additional image generation is required.
-3. New Game starts outside the authored player house.
-4. The starting viewport does not show the entire homestead, and walking naturally pans the existing camera.
-5. Direct `World` layers own Ground/Water/Paths/GroundDecoration; no premature map abstraction exists.
-6. `WorldContract -> WorldShell` remains the sole collision path.
-7. `Entities` remains the sole Y-sort root and every occluding prop is a direct child.
-8. The map clearly reads as house + farm + river/forest + workbench yard + eastbound village road.
-9. All 30 farm cells remain valid capacity for existing farming rules without retuning the loop around working all 30 simultaneously.
-10. House sleep, shipping, visible shop stall/shop interaction, all villagers, and Harvest Market remain reachable and preserve behavior.
-11. House/river/farm-edge reachability is covered by automated smoke/integration tests.
-12. Save/Continue restores a changed farm cell outside the old `3x3` footprint.
-13. Old 9-cell development saves may be rejected without migration.
-14. The future-village road is visible but has no transition behavior.
-15. GUT/headless, GdUnit4, godot-e2e, import, unsigned macOS ZIP export, and unchanged UI visual verification pass.
+1. The `24x20` / `6x5` world contract lands atomically with its existing test oracles.
+2. The two committed regular-cut source sheets are used for the new terrain/props; no additional image generation is required.
+3. New Game starts outside the House and camera travel is visible across the larger homestead.
+4. Ground/Water/Paths/GroundDecoration stay direct World layers; no premature map framework is added.
+5. `WorldContract -> WorldShell` remains the single collision path.
+6. `Entities` remains the single Y-sort root and all occluding props are direct children.
+7. The map clearly reads as house + farm + river/forest + workbench yard + eastbound village road.
+8. All 30 farm cells remain legal farming capacity without retuning the loop around using all 30 simultaneously.
+9. House sleep, shipping, visible ShopStall/shop interaction, villagers, and Harvest Market remain reachable.
+10. Save/Continue restores a changed cell outside the old 3x3 footprint; old 9-cell development saves may be rejected without migration.
+11. The future-village road has no transition behavior.
+12. GUT/headless, GdUnit4, godot-e2e, import, unsigned `build/Phoenix.zip`, and unchanged UI visual regression all pass.
 
 ## Delivery rule
 
-This remains one task / one PR. Implementation continues on `docs/starting-farm-2-5d-expansion` / PR #14 after plan approval; do not open another implementation PR.
+This remains one task / one PR. Implementation continues on `docs/starting-farm-2-5d-expansion` / PR #14; do not open a second implementation PR.
