@@ -20,12 +20,12 @@ const MARKET_FOOTPRINT := Rect2(19.2, 10.2, 0.6, 0.6)
 const MARKET_ANCHOR := Vector2(1056.0, 480.0)
 const VILLAGER_CELLS: Array[Vector2i] = [
     Vector2i(16, 8),
-    Vector2i(18, 8),
+    Vector2i(18, 7),
     Vector2i(17, 11),
 ]
 const VILLAGER_FOOTPRINTS: Array[Rect2] = [
     Rect2(16.2, 8.2, 0.6, 0.6),
-    Rect2(18.2, 8.2, 0.6, 0.6),
+    Rect2(18.2, 7.2, 0.6, 0.6),
     Rect2(17.2, 11.2, 0.6, 0.6),
 ]
 const VILLAGER_COLLISION_NAMES: Array[String] = [

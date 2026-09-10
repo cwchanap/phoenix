@@ -111,7 +111,7 @@ Interactable cells are shop `(17,9)`, bed `(12,7)`, shipping `(10,13)` with
 footprint `(10.2,13.2,0.6,0.6)`, and the harvest market cell `(19,10)` with
 footprint `(19.2,10.2,0.6,0.6)` and projected cell-center anchor `(1056,480)`;
 the world-shell smoke pins the cells, footprints, anchors, collisions, sprite
-frames, and detour coverage. Villagers stand at `(16,8)`, `(18,8)`, and
+frames, and detour coverage. Villagers stand at `(16,8)`, `(18,7)`, and
 `(17,11)`. Blockers are the forest band `(0,0,24,2)`, the west river
 `(0,0,2,20)`, the south river `(0,18,12,2)`, and the workbench footprint
 `(13.25,16.25,0.5,0.5)` at cell `(13,16)`; the village sign stands at `(21,8)`.
