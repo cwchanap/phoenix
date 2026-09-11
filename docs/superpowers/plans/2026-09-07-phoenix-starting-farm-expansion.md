@@ -31,11 +31,11 @@
 Use these committed source sheets as the only new art input for this slice:
 
 - `assets/sprites/starting-farm-tiles-source.webp` — transparent regular `4x2` source sheet, `96x96` cells.
-  - row 1: grass, grass detail, farm-base tile, dirt/path
-  - row 2: water, river-bank A, river-bank B, river-bank C
+  - row 0: grass, grass detail, farm-base tile, dirt/path
+  - row 1: water, river-bank A, river-bank B, river-bank C
 - `assets/sprites/starting-farm-props-source.webp` — transparent regular `4x2` source sheet, `96x96` cells.
-  - row 1: house, shop stall, reusable tree cluster, reusable rock cluster
-  - row 2: reusable fence, workbench, village sign, spare cell
+  - row 0: house, shop stall, reusable tree cluster, reusable rock cluster
+  - row 1: reusable fence, workbench, village sign, spare cell
 
 These are approved generated source assets. Crop/repack them into the final Godot textures only where needed. Reuse the same tree/rock/fence cells for repeated scene instances. Do not call an image generator, create alternate art, add an asset registry, or introduce per-instance sprite files without a concrete reason.
 

@@ -110,6 +110,8 @@ const VILLAGER_CELLS: Array[Vector2i] = [
 
 `WorldMath.footprint_ground_anchor()` derives large-prop ground anchors. It yields House `(976,336)` and ShopStall `(1008,400)` with the locked footprints. `WorldMath.map_camera_bounds()` derives the map AABB and must equal the frozen `CAMERA_BOUNDS` in smoke coverage.
 
+The House node displays its `96x96` prop frame at `2.5x` so the drawn yard ellipse (~`220x115` px) covers the locked `4x3` footprint's `224x112` projected diamond; the world-shell smoke pins that display scale.
+
 `TREE_*`, `BUILDING_*`, `PATH_ROW`, and `path_cells()` are retired rather than kept as stale parallel representations.
 
 ## Scene and collision shape
