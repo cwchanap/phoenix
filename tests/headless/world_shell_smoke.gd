@@ -520,6 +520,12 @@ func _run() -> void:
         "house anchor",
     ):
         return
+    # The 96x96 house frame displays at 2.5x so its drawn yard ellipse
+    # (~220x115 px) covers the locked 4x3 footprint's 224x112 projected
+    # diamond; the player stops at the visible yard edge instead of ~64 px
+    # of invisible collision per side. The root scale also enlarges Shadow.
+    if not _expect_vec2(house.scale, Vector2(2.5, 2.5), "house display scale"):
+        return
     if not _expect_vec2(
         shop_stall.position,
         WorldMath.footprint_ground_anchor(WorldContract.SHOP_STALL_FOOTPRINT),

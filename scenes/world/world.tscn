@@ -82,6 +82,7 @@ z_index = 20
 
 [node name="House" type="Node2D" parent="Entities" unique_id=634663332]
 position = Vector2(976, 336)
+scale = Vector2(2.5, 2.5)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/House"]
 texture = ExtResource("9_shadow")
