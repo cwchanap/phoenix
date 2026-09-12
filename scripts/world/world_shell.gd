@@ -67,12 +67,6 @@ func _ready() -> void:
     _fill_collision(static_collision, "RiverWestCollision", WorldContract.RIVER_WEST_FOOTPRINT)
     _fill_collision(static_collision, "RiverSouthCollision", WorldContract.RIVER_SOUTH_FOOTPRINT)
     _fill_collision(static_collision, "WorkbenchCollision", WorldContract.WORKBENCH_FOOTPRINT)
-    _fill_collision(
-        static_collision, "HouseYardWestCollision", WorldContract.HOUSE_YARD_WEST_FOOTPRINT
-    )
-    _fill_collision(
-        static_collision, "HouseYardEastCollision", WorldContract.HOUSE_YARD_EAST_FOOTPRINT
-    )
     _fill_collision(static_collision, "ShippingCollision", WorldContract.SHIPPING_FOOTPRINT)
     _fill_collision(static_collision, "HarvestMarketCollision", WorldContract.MARKET_FOOTPRINT)
 

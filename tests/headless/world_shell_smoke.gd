@@ -422,8 +422,6 @@ func _run() -> void:
         "RiverWestCollision",
         "RiverSouthCollision",
         "WorkbenchCollision",
-        "HouseYardWestCollision",
-        "HouseYardEastCollision",
         "ShippingCollision",
         "HarvestMarketCollision",
     ] + WorldContract.VILLAGER_COLLISION_NAMES + [
@@ -447,8 +445,6 @@ func _run() -> void:
         "RiverWestCollision": WorldContract.RIVER_WEST_FOOTPRINT,
         "RiverSouthCollision": WorldContract.RIVER_SOUTH_FOOTPRINT,
         "WorkbenchCollision": WorldContract.WORKBENCH_FOOTPRINT,
-        "HouseYardWestCollision": WorldContract.HOUSE_YARD_WEST_FOOTPRINT,
-        "HouseYardEastCollision": WorldContract.HOUSE_YARD_EAST_FOOTPRINT,
         "ShippingCollision": WorldContract.SHIPPING_FOOTPRINT,
         "HarvestMarketCollision": WorldContract.MARKET_FOOTPRINT,
     }
@@ -520,11 +516,12 @@ func _run() -> void:
         "house anchor",
     ):
         return
-    # The 96x96 house frame displays at 2.5x so its drawn yard ellipse
-    # (~220x115 px) covers the locked 4x3 footprint's 224x112 projected
-    # diamond; the player stops at the visible yard edge instead of ~64 px
-    # of invisible collision per side. The root scale also enlarges Shadow.
-    if not _expect_vec2(house.scale, Vector2(2.5, 2.5), "house display scale"):
+    # The 96x96 house frame displays at integer 2x (nearest filtering makes
+    # fractional scales resolve to uneven texel widths). The locked
+    # footprint's 176x88 projected diamond is inscribed in the drawn yard
+    # ellipse (~178x92 px), so the player stops at the visible yard edge with
+    # no band of invisible collision. The root scale also enlarges Shadow.
+    if not _expect_vec2(house.scale, Vector2(2.0, 2.0), "house display scale"):
         return
     if not _expect_vec2(
         shop_stall.position,
@@ -896,8 +893,8 @@ func _run() -> void:
     player.velocity = Vector2.ZERO
 
     # The house is approached from the south: an up-walk stops at its south
-    # face, and a wide north-west detour clears the house and its west yard
-    # flank, so the homestead never seals the map.
+    # face, and a held north-west detour clears the house's west side, so the
+    # homestead never seals the map.
     _place_player(player, Vector2(12.5, 7.5))
     await physics_frame
     await _hold_actions(["move_up"], 60)
@@ -908,7 +905,7 @@ func _run() -> void:
     ):
         return
     if not _expect(
-        house_approach.y >= 7.17 and house_approach.y <= 7.39,
+        house_approach.y >= 7.41 and house_approach.y <= 7.63,
         "house approach stops at the south face",
     ):
         return
@@ -921,7 +918,7 @@ func _run() -> void:
         return
     if not _expect(
         house_detour.x <= 9.4 and house_detour.y <= 6.8,
-        "house west detour passes the yard flank",
+        "house west detour clears the yard",
     ):
         return
 

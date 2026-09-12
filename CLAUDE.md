@@ -105,10 +105,10 @@ projected pixels/second, and player centers stay in `[0.18, 23.82]` on x and
 (`x=4..9,y=10..14`, 30 cells); the farm-side path starts at `x=10` and the
 workbench spur joins the main path at `x=12`.
 
-The house footprint is `(10,4,4,3)` with derived bottom-center ground anchor
-`(976,336)`, and the House node displays its `96x96` prop frame at `2.5x` so
-the drawn yard ellipse covers the footprint's projected diamond; the
-shop-stall footprint is `(15,7,1,2)` with anchor `(1008,400)`.
+The house footprint is `(11,4.5,2.75,2.75)` with derived bottom-center ground
+anchor `(976,336)`, and the House node displays its `96x96` prop frame at
+integer `2x` so the footprint's projected diamond is inscribed in the drawn
+yard ellipse; the shop-stall footprint is `(15,7,1,2)` with anchor `(1008,400)`.
 Interactable cells are shop `(17,9)`, bed `(12,7)`, shipping `(10,13)` with
 footprint `(10.2,13.2,0.6,0.6)`, and the harvest market cell `(19,10)` with
 footprint `(19.2,10.2,0.6,0.6)` and projected cell-center anchor `(1056,480)`;

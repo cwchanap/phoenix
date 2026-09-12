@@ -48,7 +48,7 @@ func _init() -> void:
     if not _expect(WorldContract.FARM_PATCH == Rect2i(4, 10, 6, 5), "farm patch contract"):
         return
     if not _expect(
-        WorldContract.HOUSE_FOOTPRINT == Rect2(10.0, 4.0, 4.0, 3.0), "house footprint contract"
+        WorldContract.HOUSE_FOOTPRINT == Rect2(11.0, 4.5, 2.75, 2.75), "house footprint contract"
     ):
         return
     if not _expect(WorldContract.BED_CELL == Vector2i(12, 7), "bed cell contract"):
@@ -202,10 +202,10 @@ func _init() -> void:
     if not _expect_polygon(
         WorldMath.footprint_to_polygon(WorldContract.HOUSE_FOOTPRINT),
         PackedVector2Array([
-            Vector2(960.0, 224.0),
-            Vector2(1088.0, 288.0),
-            Vector2(992.0, 336.0),
-            Vector2(864.0, 272.0),
+            Vector2(976.0, 248.0),
+            Vector2(1064.0, 292.0),
+            Vector2(976.0, 336.0),
+            Vector2(888.0, 292.0),
         ]),
         "house footprint polygon",
     ):

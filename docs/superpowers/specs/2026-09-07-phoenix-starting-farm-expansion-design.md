@@ -93,7 +93,7 @@ const CAMERA_TOP_PADDING := 96.0
 const CAMERA_BOUNDS := Rect2(128.0, -96.0, 1408.0, 800.0)
 
 const FARM_PATCH := Rect2i(4, 10, 6, 5)
-const HOUSE_FOOTPRINT := Rect2(10.0, 4.0, 4.0, 3.0)
+const HOUSE_FOOTPRINT := Rect2(11.0, 4.5, 2.75, 2.75)
 const BED_CELL := Vector2i(12, 7)
 const SHIPPING_CELL := Vector2i(10, 13)
 const SHIPPING_FOOTPRINT := Rect2(10.2, 13.2, 0.6, 0.6)
@@ -110,7 +110,7 @@ const VILLAGER_CELLS: Array[Vector2i] = [
 
 `WorldMath.footprint_ground_anchor()` derives large-prop ground anchors. It yields House `(976,336)` and ShopStall `(1008,400)` with the locked footprints. `WorldMath.map_camera_bounds()` derives the map AABB and must equal the frozen `CAMERA_BOUNDS` in smoke coverage.
 
-The House node displays its `96x96` prop frame at `2.5x` so the drawn yard ellipse (~`220x115` px) covers the locked `4x3` footprint's `224x112` projected diamond; the world-shell smoke pins that display scale.
+The House node displays its `96x96` prop frame at integer `2x` (the art contract's nearest filtering forbids fractional scales); the footprint's `176x88` projected diamond is inscribed in the drawn yard ellipse (~`178x92` px) so collision stops at the visible yard edge. The world-shell smoke pins that display scale.
 
 `TREE_*`, `BUILDING_*`, `PATH_ROW`, and `path_cells()` are retired rather than kept as stale parallel representations.
 
@@ -139,9 +139,9 @@ World / WorldShell
 └── GameHud
 ```
 
-Collision has one path only: `WorldContract` footprints -> empty named polygons in `world.tscn` -> `WorldShell._ready()` -> `WorldMath.footprint_to_polygon()`. This includes House, ShopStall, coarse forest/river/workbench blockers, small house-yard flank blockers, interactables, villagers, and perimeter.
+Collision has one path only: `WorldContract` footprints -> empty named polygons in `world.tscn` -> `WorldShell._ready()` -> `WorldMath.footprint_to_polygon()`. This includes House, ShopStall, coarse forest/river/workbench blockers, interactables, villagers, and perimeter.
 
-Tall props remain direct `Entities` children. Small house-yard blockers make the intended House approach from the south, avoiding ambiguous Y-sort behavior from its flanks without splitting the House into multiple roots.
+Tall props remain direct `Entities` children. The single-root House footprint is inscribed in its drawn fenced yard so no collision floats off the art; the footprint's south vertex lands on the yard gate, keeping the intended approach from the south without side blockers.
 
 ## Map composition
 

@@ -51,10 +51,6 @@ z_index = 5
 
 [node name="WorkbenchCollision" type="CollisionPolygon2D" parent="StaticCollision"]
 
-[node name="HouseYardWestCollision" type="CollisionPolygon2D" parent="StaticCollision"]
-
-[node name="HouseYardEastCollision" type="CollisionPolygon2D" parent="StaticCollision"]
-
 [node name="ShippingCollision" type="CollisionPolygon2D" parent="StaticCollision"]
 
 [node name="HarvestMarketCollision" type="CollisionPolygon2D" parent="StaticCollision"]
@@ -82,7 +78,7 @@ z_index = 20
 
 [node name="House" type="Node2D" parent="Entities" unique_id=634663332]
 position = Vector2(976, 336)
-scale = Vector2(2.5, 2.5)
+scale = Vector2(2, 2)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/House"]
 texture = ExtResource("9_shadow")
