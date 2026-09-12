@@ -152,7 +152,7 @@ Also change helper defaults such as `_grow_and_harvest_turnip()` to `FARM_CELL`.
 - [ ] Corrected paths start at `x=10` by the farm and connect the workbench spur at `x=12`.
 - [ ] Replace `Building` with direct `House`; add direct `ShopStall`, reused tree/rock/fence instances, `Workbench`, and `VillageSign`.
 - [ ] `WorldShell._ready()` continues filling all collision polygons from `WorldContract` only.
-- [ ] Add small house-yard side blockers so the single-root house is approached from the south.
+- [ ] Size the single-root house footprint to the drawn yard so collision stops at the visible art and the approach stays from the south without side blockers.
 
 ### 1.5 GREEN — finish the real smoke cutover
 

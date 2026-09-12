@@ -127,7 +127,7 @@ window scale.
 | Player speed | `96` projected pixels/second |
 | Player center limits | `x in [0.18, 23.82]`, `y in [0.18, 19.82]` |
 | Farm patch | `x=4..9`, `y=10..14` |
-| House footprint | `x=10`, `y=4`, `w=4`, `h=3` logical |
+| House footprint | `x=11`, `y=4.5`, `w=2.75`, `h=2.75` logical |
 | House bottom-center anchor | `(976, 336)` projected world |
 | Shop stall footprint | `x=15`, `y=7`, `w=1`, `h=2` logical |
 | Shop stall bottom-center anchor | `(1008, 400)` projected world |
