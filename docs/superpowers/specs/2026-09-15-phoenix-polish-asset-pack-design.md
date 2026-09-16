@@ -2,188 +2,138 @@
 
 ## Summary
 
-Produce the small runtime-ready image pack that unlocks the next Phoenix polish slices without changing gameplay, replacing existing art, or creating an art pipeline.
+HPA-458 produces the nine small runtime image paths needed by HPA-459, HPA-460, and HPA-462. It is an asset-focused slice: no gameplay integration, no reusable art pipeline, and no new rendering/animation framework.
 
-This is HPA-458 and remains an asset-focused delivery. HPA-459 consumes farming feedback, HPA-460 consumes one watering-can upgrade icon, and HPA-462 consumes river/evening overlays. Those consumer tickets own runtime integration, timing, audio, and gameplay behavior.
-
-The important output is not merely nine filenames. Each accepted file must have a locked canvas, origin convention, frame contract, style lane, and allowed transforms so consumer tickets do not rediscover those decisions while wiring the assets.
-
-## Goals
-
-1. Deliver exactly the small image set required by HPA-459, HPA-460, and HPA-462.
-2. Preserve Phoenix's 640x360 logical viewport, 64x32 isometric ground geometry, nearest filtering, integer scaling, and current sprite origins.
-3. Keep action feedback short, local, and readable without a full player animation sheet.
-4. Keep ambience additive: ripple/window art overlays existing terrain/house art rather than replacing it.
-5. Lock geometry and facing contracts before handoff, including an in-PR fallback when one canonical tool pose is insufficient.
-6. Keep one HPA-458 PR. Planning, generation/editing, cleanup, visual review, provenance, verification, and final handoff stay together.
+The design goal is to finish every asset decision that would otherwise become expensive during consumer integration: exact geometry, origin, style lane, tool-facing fallback, provenance, and a small mechanical verification contract.
 
 ## Non-goals
 
-No gameplay implementation, new maps/buildings, player/NPC animation sets, replacement crops/soil/terrain, portraits, UI skins, weather textures, foliage/wildlife, audio, shaders, generation pipeline, asset registry, runtime manifest, or custom importer.
+No gameplay implementation, new map/building/crop/player/NPC art, UI redesign, weather texture, audio, shader system, generator, custom importer, registry, runtime manifest, SpriteFrames abstraction, migration/versioned asset format, or four-direction player/tool sheet.
 
-A narrow verification edit to the existing `tests/headless/world_shell_smoke.gd::EXPECTED_ASSETS` table is allowed and expected. It is not a new asset/test framework.
+A narrow extension of the existing `tests/headless/world_shell_smoke.gd::EXPECTED_ASSETS` validation is part of this ticket. It reuses the existing smoke rather than creating an asset-test framework.
 
-Rain streaks and tinting remain runtime presentation in HPA-462. Target diamonds/text remain runtime presentation in HPA-459. Crop pickup reuses current crop imagery.
+## Existing conventions to reuse
 
-## Existing repo conventions to reuse
+- Phoenix renders at a logical `640x360`, integer-scaled with nearest filtering.
+- `FarmView` places soil at cell center and uses horizontal frames; crops use bottom-center presentation with local `y=-24`.
+- `player.tscn` has four authored horizontal frames. `WorldMath.Facing` is `UP, RIGHT, DOWN, LEFT`, and `PlayerController` assigns the sprite frame directly.
+- The House uses native 96x96 frame 0, parent scale `2`, and sprite offset `(0, -48)`.
+- The watering-can icon is native 32x32 and the HUD action-slot draw rect is 22x22.
+- Existing texture imports use `compress/mode=0`, no mipmaps, `fix_alpha_border=true`, and the project-wide nearest filter.
+- `EXPECTED_ASSETS` already dimension-pins image resources that are not instantiated by the world scene.
+- Review/reference rasters already live behind `.gdignore` under `tests/visual/`.
 
-Phoenix already has the contracts this pack should fit:
+Do not create a second convention where one of these fits.
 
-- `FarmView` places soil at the world cell center, uses horizontal sprite frames, and places crop sprites at bottom-center with `offset = Vector2(0, -24)`.
-- `player.tscn` uses four horizontal facing frames and `offset = Vector2(0, -24)`.
-- `WorldMath.Facing` is ordered `UP, RIGHT, DOWN, LEFT`; `PlayerController` maps the facing directly to the player sprite frame.
-- `world.tscn` places the House at scale `2`, with its sprite at `offset = Vector2(0, -48)` and frame 0 of the approved props sheet.
-- `game_hud.tscn` draws the current watering-can icon in a real 22x22 action-slot rect.
-- `world_shell_smoke.gd::EXPECTED_ASSETS` already loads image resources and asserts exact dimensions, including source art not wired as scene nodes.
-- `tests/visual/design-reference/` already uses `.gdignore` so review/reference PNGs do not become imported production resources.
-- Existing texture imports use nearest/default filter behavior, `compress/mode=0`, no mipmaps, and `process/fix_alpha_border=true`.
+## Visual style lanes
 
-Do not introduce a second convention when one of these fits.
+Use actual committed Phoenix pixels as references:
 
-## Visual reference and style lanes
+- `proof-soil.png`, `proof-crops.png` -> soil impact, seed, splash, sparkle: compact/geometric, not painterly.
+- `proof-player.png` + existing hoe/can icons -> tool overlays: simple silhouettes on the real player poses; icons define tool identity, not rendering style.
+- `assets/ui/icons/watering-can.png` -> efficient can: edit the existing icon, do not regenerate it.
+- `starting-farm-terrain.png` -> ripple: extra-subtle overlay on current water.
+- `starting-farm-props.png` frame 0 -> window light: native house-window mask only, never a new cottage.
 
-Use the actual committed production art before producing anything:
+## Locked runtime contract
 
-- `assets/sprites/starting-farm-tiles-source.webp`
-- `assets/sprites/starting-farm-props-source.webp`
-- `assets/sprites/starting-farm-terrain.png`
-- `assets/sprites/starting-farm-props.png`
-- `assets/sprites/proof-player.png`
-- `assets/sprites/proof-crops.png`
-- `assets/sprites/proof-soil.png`
-- `assets/ui/icons/hoe.png`
-- `assets/ui/icons/watering-can.png`
+This table is the design source of truth. The implementation plan references it instead of duplicating it; the final `tests/visual/hpa-458/README.md` becomes the shipped consumer handoff.
 
-The references intentionally have different roles; do not average them into one vague style prompt:
-
-- **Soil impact / planting seed / water splash / harvest sparkle:** geometric, compact, and keyed to the proof soil/crop palette. They live directly on the farming scene and must not introduce painterly FX.
-- **Tool overlays:** simple small silhouettes that read on the four proof-player poses. Use the UI icons only to identify the hoe blade/can silhouette; do not render UI-icon art on the character.
-- **Efficient watering can:** edit the existing `assets/ui/icons/watering-can.png`; add one small non-text efficiency accent. Do not regenerate the can from scratch.
-- **River ripple:** an extra-subtle overlay on the existing water diamond, which already has visual texture/sparkle. Do not replace or repaint water.
-- **House-window light:** derive a pixel mask from house frame 0 on the native 96x96 cell. The current windows already contain yellow pixels; this file is only the evening light mask, never a new cottage.
-
-Generated output is source material, not production-ready output. Cleanup/normalization is required before acceptance.
-
-## Locked runtime deliverables
-
-| Consumer | Final path | Canvas / frames | Origin and transform contract |
+| Consumer | Final path | Canvas / frames | Origin / transform |
 | --- | --- | --- | --- |
-| HPA-459 | `assets/sprites/polish/hoe-overlay.png` | Preferred `24x24`, 1 frame. Allowed fallback `48x24`, `hframes=2`, order `DOWN, UP` only if the real UP-facing composite fails. | Child of player `Sprite2D`. README records numeric handle attachment from the native canvas origin. Horizontal mirroring is allowed for side facings; rotation is not a legal facing transform. |
-| HPA-459 | `assets/sprites/polish/watering-can-overlay.png` | Same contract as hoe. | Same player-child/attachment contract. `flip_h` allowed where reviewed; rotate disallowed. |
-| HPA-459 | `assets/sprites/polish/soil-impact.png` | `96x32`, `hframes=3`, three `32x32` frames. | Cell-center, same world placement convention as soil; no extra world offset. |
-| HPA-459 | `assets/sprites/polish/planting-seed.png` | Exact `8x8`, 1 frame. | Cell-center, no extra world offset. Reused for all crops. |
-| HPA-459 | `assets/sprites/polish/water-splash.png` | `192x32`, `hframes=3`, three `64x32` frames. | Cell-center, one ground diamond, no extra world offset. |
-| HPA-459 | `assets/sprites/polish/harvest-sparkle.png` | `48x16`, `hframes=3`, three `16x16` frames. | Crop-sprite space, bottom-center with one numeric upward local offset recorded in the handoff. Not a ground-diamond effect. |
-| HPA-460 | `assets/ui/icons/watering-can-efficient.png` | Exact `32x32`, 1 frame. | Edited from existing icon and reviewed at the real `22x22` HUD draw size. |
-| HPA-462 | `assets/sprites/polish/river-ripple.png` | `192x32`, `hframes=3`, three `64x32` frames. | Cell-center, no extra world offset; all visible pixels remain inside water. |
-| HPA-462 | `assets/sprites/polish/house-window-light.png` | Exact `96x96`, 1 frame. | Sibling/child presentation aligned with `Entities/House/Sprite2D`: same native frame, parent scale `2`, local offset `(0, -48)`. |
+| HPA-459 | `assets/sprites/polish/hoe-overlay.png` | Prefer `24x24`, 1 frame. Allowed fallbacks: `48x24`, `hframes=2`, `DOWN,UP`; then `72x24`, `hframes=3`, `DOWN,UP,SIDE` if side-specific art is required. | Child of player sprite. No facing rotation. README records selected frame mapping and numeric per-facing attachment offsets. `SIDE` may mirror for the opposite side only if both real side composites pass. |
+| HPA-459 | `assets/sprites/polish/watering-can-overlay.png` | Same bounded contract as hoe. | Same rules as hoe. |
+| HPA-459 | `assets/sprites/polish/soil-impact.png` | `96x32`, `hframes=3`, three 32x32 frames. | Cell-center; no extra world offset. |
+| HPA-459 | `assets/sprites/polish/planting-seed.png` | `8x8`, 1 frame. | Cell-center; no extra world offset. |
+| HPA-459 | `assets/sprites/polish/water-splash.png` | `192x32`, `hframes=3`, three 64x32 frames. | Cell-center; one ground diamond. |
+| HPA-459 | `assets/sprites/polish/harvest-sparkle.png` | `48x16`, `hframes=3`, three 16x16 frames. | Crop-sprite space; README records one numeric upward local offset. |
+| HPA-460 | `assets/ui/icons/watering-can-efficient.png` | `32x32`, 1 frame. | Edited from current icon; reviewed at 22x22. |
+| HPA-462 | `assets/sprites/polish/river-ripple.png` | `192x32`, `hframes=3`, three 64x32 frames. | Cell-center; all visible pixels remain inside water. |
+| HPA-462 | `assets/sprites/polish/house-window-light.png` | `96x96`, 1 frame. | Native house frame alignment; current parent scale 2 and local offset `(0, -48)`. |
 
-This is eight asset groups and nine runtime paths. The only permitted size branch is the tool-overlay facing fallback, and HPA-458 must resolve it before handoff. Consumer tickets never decide later whether an UP frame is needed.
+The tool paths keep one bounded filename each. HPA-458 resolves the smallest passing frame layout before handoff; HPA-459 never decides later that another facing asset is needed. If the three-frame `DOWN,UP,SIDE` form still cannot fit both side poses through reviewed mapping/mirroring and attachment offsets, redesign the silhouette inside HPA-458 rather than expanding to a four-direction sheet.
 
-## Tool-facing acceptance gate
-
-One arbitrary sprite plus runtime rotation is not acceptable for the four isometric player poses.
+## Tool-facing gate
 
 For each tool:
 
-1. Author/select a canonical DOWN-facing silhouette on the exact 24x24 canvas.
-2. Composite it on the actual `proof-player.png` frames for `UP, RIGHT, DOWN, LEFT` at native 1x and integer 2x.
-3. Side-facing use may mirror the reviewed silhouette horizontally. Do not rotate the texture to synthesize a facing.
-4. If the UP composite does not read correctly, the same final runtime path becomes a `48x24` two-frame strip with `hframes=2`, frame order `DOWN, UP`.
-5. Record the final frame count, frame 0 meaning, numeric handle attachment, and allowed mirroring in the handoff README.
+1. Start with one exact 24x24 DOWN-canonical silhouette.
+2. Composite against the actual `proof-player.png` `UP, RIGHT, DOWN, LEFT` frames; do not rotate/redraw the player.
+3. Per-facing attachment offsets are allowed. Texture rotation is not.
+4. If UP needs distinct art, use `48x24` / `DOWN,UP`.
+5. If side facings need a distinct silhouette, use `72x24` / `DOWN,UP,SIDE`; mirror SIDE only when both actual side composites pass.
+6. Record final dimensions, `hframes`, frame mapping, frame 0 meaning, attachment offsets, and transform permissions in the README.
 
-This keeps the pack small while preventing a second asset PR after HPA-459 has already integrated the wrong contract.
+This is the maximum facing complexity allowed by the slice.
 
-## Farming and ambience behavior locks
+## Review and provenance
 
-All three-frame strips use horizontal frames and fixed frame origins with no anchor jitter.
-
-- Soil impact expands/dissipates but never becomes a replacement tilled-soil tile.
-- Seed remains tiny and generic; crop identity remains game/UI state.
-- Water splash stays ground-hugging inside one 64x32 diamond and never obscures dry/wet soil state.
-- Harvest sparkle is brief and restrained enough for both mature-target readiness and harvest feedback.
-- Ripple remains wholly inside current water.
-- Window light leaves roof, walls, yard, and fence transparent.
-
-HPA-459 may tune roughly 150-250 ms presentation later. HPA-458 records recommended timing but does not implement animation.
-
-## Source, review, and provenance layout
-
-Use the existing ignored visual-reference tree instead of introducing an importable `docs/art/` raster tree:
+Only one review raster is committed:
 
 ```text
 tests/visual/hpa-458/
 ├── .gdignore
 ├── README.md
-├── source/
-│   └── selected accepted generator/source originals only
-└── review/
-    ├── contact-sheet.png
-    ├── farming-actions.png
-    └── homestead-ambience.png
+└── contact-sheet.png
 ```
 
-The README is the image-pack provenance and handoff table. Keep the existing font-specific `assets/ui/fonts/SOURCES.md` focused on fonts rather than turning it into a general asset manifest.
+Do not commit generated-source originals. The README retains the useful provenance: source/edit method, prompt where applicable, cleanup performed, final path, geometry, frame mapping, origin/attachment, transforms, timing recommendation, and consumer.
 
-One row per runtime file records:
+Working composites used while selecting/cleaning assets may exist locally but are not retained after the final contact sheet is produced.
 
-- source/edit prompt/provenance;
-- final path and exact native dimensions;
-- `hframes`, frame order, and frame 0 meaning;
-- recommended frame duration where relevant;
-- exact origin convention and numeric local attachment/offset where needed;
-- allowed transforms (`flip_h` only where reviewed; no facing rotation);
-- intended consumer ticket;
-- cleanup/editing performed.
+The final contact sheet must include:
 
-Only accepted source material is retained. Rejected generations stay out of git.
+- all tool-facing decisions on the real player frames;
+- soil/seed/splash/sparkle on actual farm/crop pixels;
+- base/upgraded watering cans at 22x22;
+- actual water + ripple;
+- native and current-placement house + window mask;
+- at least one true `640x360` farming-context frame with the current HUD visible, using the existing `tests/visual/plates/farm.png` / production-capture convention, so effect readability is judged at the real output size rather than only as isolated sprites.
 
-## Review composites
+It may also show enlarged 2x details, but 2x is not the sole acceptance view. This contact sheet is review evidence, not a UI visual golden, and CI never blesses it automatically.
 
-Review rasters use actual committed Phoenix pixels, not redrawn stand-ins.
+## Import guard
 
-At minimum:
+The implementation must create `assets/art/.gdignore` before any Godot import. That protects local/untracked source-art trees from producing unrelated `.import` sidecars during HPA-458 work while leaving Git ownership decisions for those source files unchanged.
 
-1. tool overlays composited on all four real `proof-player.png` frames at 1x and 2x;
-2. soil/seed/splash on actual proof soil/farm context;
-3. sparkle on an actual mature proof crop;
-4. base and efficient watering-can icons side by side at the real 22x22 HUD draw size;
-5. ripple on the actual current water tile;
-6. house frame 0 with the window mask at native 96x96 and current 2x world placement.
+`tests/visual/hpa-458/.gdignore` likewise keeps the handoff/contact raster out of the production resource import path.
 
-The pack is rejected if an asset only works after arbitrary enlargement, rotation, or placement against a mock player/house.
+## Mechanical verification
 
-## Import and verification contract
+Extend the existing `EXPECTED_ASSETS` validation; do not add a new test file.
 
-Final runtime PNGs follow the repository's current texture import behavior: nearest/default texture filter, `compress/mode=0`, no generated mipmaps, and `process/fix_alpha_border=true`. Let Godot produce correct per-file UID/path metadata; do not copy another file's UID or imported cache path.
+The nine HPA-458 rows carry `path`, exact accepted `size`, and `hframes`. The existing loop must verify:
 
-Extend `tests/headless/world_shell_smoke.gd::EXPECTED_ASSETS` with all nine final runtime paths and their accepted exact dimensions. For tool overlays, use the dimension selected by the facing gate above. `./tools/verify-clean.sh` then becomes the mechanical geometry/import gate without introducing a new test harness.
+1. the texture imports and has the exact size;
+2. width partitions evenly by `hframes`;
+3. every frame contains at least one non-transparent pixel;
+4. every frame also contains transparency, preventing a fully opaque baked background/checkerboard from passing as a sprite/effect.
 
-Review/source rasters stay under the `.gdignore` tree and must never become production scene dependencies or UI visual goldens. CI does not bless generated art.
+This intentionally does **not** try to build a general image-quality detector. Matte fringe, stray near-transparent noise, clipped effects, and frame-to-frame visual anchor jitter remain contact-sheet/manual inspection gates because automating those robustly would exceed this nine-file slice.
 
 ## Risks
 
-1. **Isometric tool-facing mismatch.** A rotated DOWN tool will not necessarily match the distinct UP/RIGHT/DOWN/LEFT player poses. Mitigate with actual four-frame composites, `flip_h` only, and the bounded two-frame DOWN/UP fallback inside HPA-458.
-2. **House mask pixel drift.** A one-pixel miss on the 96x96 source becomes two pixels at the current 2x House scale. Author/review on native house frame 0 first, then confirm the existing `(0, -48)` / 2x placement.
-3. **Style drift from generation.** Farming FX can look like a second game if they inherit the painterly homestead/UI style. Keep explicit style lanes and reject candidates against actual proof soil/crop/player composites before cleanup work continues.
+1. **Isometric tool mismatch** — close with the bounded 1/2/3-frame facing gate on actual player poses.
+2. **House-mask drift** — author/review on native 96x96 frame 0 before checking current 2x placement.
+3. **Style drift** — enforce the explicit style lanes against actual production pixels.
+4. **Import pollution** — add `assets/art/.gdignore` before running Godot import and inspect working-tree changes afterward.
 
-## Acceptance criteria
+## Acceptance
 
-The pack is complete when:
+HPA-458 is complete when:
 
-1. All nine runtime paths exist with the exact accepted canvas/frame geometry above.
-2. The tool-facing gate has resolved each overlay to either one `24x24` frame or the bounded `48x24` `DOWN,UP` strip; no consumer-side facing-art decision remains.
-3. Alpha is clean: no checkerboard background, matte fringe, large halos, clipped effects, or stray near-transparent pixels that read at 2x.
-4. Every three-frame strip partitions evenly and has stable visual anchoring.
-5. Origin conventions and numeric attachment/local offsets are recorded before handoff.
-6. Farming effects are readable but restrained at native 640x360.
-7. The efficient can is recognizably the existing icon plus one small accent at 22x22.
-8. Ripple stays inside current water and the 96x96 window mask aligns exactly to house frame 0/current placement.
-9. `tests/visual/hpa-458/.gdignore` prevents source/review rasters from entering the Godot resource import path.
-10. Review composites use actual player frames/house/water/farm art at 1x and integer 2x.
-11. `EXPECTED_ASSETS` pins the nine final paths and dimensions; clean Godot import and `./tools/verify-clean.sh` pass.
-12. No runtime/gameplay integration is added.
+1. All nine runtime paths exist and match the locked contract.
+2. Each tool resolves to the smallest passing 24x24 / 48x24 / 72x24 layout; no facing-art decision leaks to HPA-459.
+3. The existing smoke mechanically verifies size, hframe partition, per-frame non-empty alpha, and per-frame transparency.
+4. Visual inspection rejects matte/checkerboard residue, visible fringe/noise, clipped effects, and anchor jitter.
+5. Farming FX are readable but restrained in a real 640x360 HUD-visible context.
+6. The efficient can remains the existing icon plus one small accent at 22x22.
+7. Ripple stays within current water and the window mask aligns to native/current House placement.
+8. `tests/visual/hpa-458/README.md` contains complete provenance and consumer handoff; no source-generation raster archive is committed.
+9. `assets/art/.gdignore` and `tests/visual/hpa-458/.gdignore` prevent unrelated/review image imports.
+10. Clean Godot import, working-tree inspection, and `./tools/verify-clean.sh` pass without unrelated sidecars.
+11. No gameplay/runtime integration or new asset framework is added.
 
 ## Delivery rule
 
-One issue, one branch, one PR. Planning documents land first on PR #15; production art, verification smoke update, review evidence, and handoff continue on the same PR. Do not open a second implementation, generation, or approval PR.
+One issue, one branch, one PR. Planning lands first on PR #15; production assets, two `.gdignore` guards, the narrow existing-smoke edit, contact sheet, README, and verification continue on the same PR. No second generation/cleanup/approval PR.
