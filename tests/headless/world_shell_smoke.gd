@@ -19,6 +19,15 @@ const EXPECTED_ASSETS := [
     {"path": "res://assets/sprites/starting-farm-props-source.webp", "size": Vector2i(384, 192)},
     {"path": "res://assets/sprites/starting-farm-terrain.png", "size": Vector2i(512, 32)},
     {"path": "res://assets/sprites/starting-farm-props.png", "size": Vector2i(384, 192)},
+    {"path": "res://assets/sprites/polish/hoe-overlay.png", "size": Vector2i(72, 24), "hframes": 3},
+    {"path": "res://assets/sprites/polish/watering-can-overlay.png", "size": Vector2i(72, 24), "hframes": 3},
+    {"path": "res://assets/sprites/polish/soil-impact.png", "size": Vector2i(96, 32), "hframes": 3},
+    {"path": "res://assets/sprites/polish/planting-seed.png", "size": Vector2i(8, 8)},
+    {"path": "res://assets/sprites/polish/water-splash.png", "size": Vector2i(192, 32), "hframes": 3},
+    {"path": "res://assets/sprites/polish/harvest-sparkle.png", "size": Vector2i(48, 16), "hframes": 3},
+    {"path": "res://assets/ui/icons/watering-can-efficient.png", "size": Vector2i(32, 32)},
+    {"path": "res://assets/sprites/polish/river-ripple.png", "size": Vector2i(192, 32), "hframes": 3},
+    {"path": "res://assets/sprites/polish/house-window-light.png", "size": Vector2i(96, 96)},
 ]
 const DECORATION_CELLS: Array[Vector2i] = [
     Vector2i(4, 3),
@@ -987,6 +996,24 @@ func _run() -> void:
             "%s dimensions" % entry.path,
         ):
             return
+        var hframes: int = entry.get("hframes", 1)
+        if not _expect(texture.get_width() % hframes == 0, "%s width divides by hframes" % entry.path):
+            return
+        var image := texture.get_image()
+        var frame_width := texture.get_width() / hframes
+        for frame in hframes:
+            var has_opaque := false
+            var has_transparent := false
+            for y in image.get_height():
+                for x in range(frame * frame_width, (frame + 1) * frame_width):
+                    if image.get_pixel(x, y).a > 0.0:
+                        has_opaque = true
+                    else:
+                        has_transparent = true
+            if not _expect(has_opaque, "%s frame %d has non-transparent pixels" % [entry.path, frame]):
+                return
+            if not _expect(has_transparent, "%s frame %d has transparent pixels" % [entry.path, frame]):
+                return
 
     print("world shell smoke passed: 480 cells, alignment, water/paths, player, camera, collisions, assets")
     quit(0)
