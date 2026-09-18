@@ -39,6 +39,9 @@ There is no JavaScript or Tauri runtime in the current checkout.
 - `scripts/game/game_session.gd` is the only mutable gameplay authority. All
   commands go through it; existing farming/economy commands return `GameRules.CommandCode`;
   social commands `talk_to`/`gift_crop` return one narrow result Dictionary local to those methods; views read the immutable `snapshot()` dictionaries and never session internals.
+- Farming preview and every farming guard/budget check route through
+  `GameSession._cost_for()`; rules-owned effective cost changes (HPA-460) land
+  at that one seam, never at call sites.
 - GameSession owns relationship points, daily talk/gift flags, and close_friend_dialogue_seen.
 - GameSession derives tutorial completion only inside `_commit()` via
   `ContentRules.tutorial_for_code()`; guard failures never complete a tutorial.
@@ -57,6 +60,11 @@ There is no JavaScript or Tauri runtime in the current checkout.
   player roots are bottom-center ground-contact positions with child sprites
   offset upward; they share a z-index and retain scene-tree order for exact-Y
   ties.
+- `scripts/world/farm_action_effects.gd` (`FarmActionEffects`, a direct
+  non-Y-sorted World child at z=5) renders transient farming success FX —
+  tool overlays under the Player root, cell strips under itself, the harvest
+  pop under `Entities`. It owns no gameplay state; sprites/tweens free on
+  completion.
 - `scripts/ui/game_hud.gd` and `scenes/ui/game_hud.tscn` own presentation and
   modal state only. The HUD emits request signals and renders snapshots; it
   never touches `GameSession`.
@@ -69,6 +77,11 @@ There is no JavaScript or Tauri runtime in the current checkout.
   coordinator: it owns the `GameSession` instance, wires HUD signals to
   session commands, refreshes `FarmView`/`GameHud` from snapshots, and gates
   world input while a modal blocks. Do not create a second session holder.
+- Hold-to-work is transient `WorldShell` state (`ACTION_HOLD_DWELL_SECONDS`,
+  0.15s): a fresh press fires the target once and dwelling on an eligible
+  target works new cells one at a time; tool/seed/focus/modal/day changes
+  cancel the hold immediately, and the rules themselves prevent a second
+  success on the same cell within one hold.
 - `scripts/player/player_controller.gd` owns input sampling for
   movement/facing/targeting only and a `CharacterBody2D`. `move_and_slide()`
   supplies Godot-native response against projected logical collision
