@@ -98,17 +98,19 @@ func _process(_delta: float) -> void:
 
     if not _world_input_enabled:
         player.set_target_tint(PlayerController.TargetTint.NEUTRAL)
+        farm_view.set_target_cell(null)
         hud.set_interaction_hint("")
         return
 
-    var preview := _session.preview_selected_action(target)
-    if FARM_ACTION_SUCCESS_CODES.has(preview):
+    var preview: Dictionary = _session.preview_selected_action(target)
+    farm_view.set_target_cell(target)
+    if FARM_ACTION_SUCCESS_CODES.has(preview["code"]):
         player.set_target_tint(PlayerController.TargetTint.VALID)
-        hud.set_interaction_hint("Space — use selected action")
+        hud.set_interaction_hint(hud.farming_preview_text(preview))
         return
-    if preview != GameRules.CommandCode.NO_TARGET and preview != GameRules.CommandCode.NOT_FARM_CELL:
+    if preview["code"] != GameRules.CommandCode.NO_TARGET and preview["code"] != GameRules.CommandCode.NOT_FARM_CELL:
         player.set_target_tint(PlayerController.TargetTint.INVALID)
-        hud.set_interaction_hint(hud.feedback_text(preview))
+        hud.set_interaction_hint(hud.feedback_text(preview["code"]))
         return
 
     player.set_target_tint(PlayerController.TargetTint.NEUTRAL)

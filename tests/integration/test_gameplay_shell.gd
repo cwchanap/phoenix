@@ -1300,7 +1300,7 @@ func test_farm_preview_uses_green_red_reason_and_non_farm_gold() -> void:
     await _place_target(world, cell)
     world._process(0.0)
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_VALID)
-    assert_eq(hint.text, "Space — use selected action")
+    assert_eq(hint.text, "Space — Till soil · 3 stamina")
 
     world.use_selected_action()
     world._process(0.0)
@@ -1315,6 +1315,102 @@ func test_farm_preview_uses_green_red_reason_and_non_farm_gold() -> void:
     world._process(0.0)
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_NEUTRAL)
     assert_eq(hint.text, "Shop — E")
+
+func _grow_mature_turnip(world: WorldShell, cell: Vector2i) -> void:
+    var session := world._session
+    assert_eq(session.hoe(cell), GameRules.CommandCode.SOIL_TILLED)
+    assert_eq(session.plant(cell), GameRules.CommandCode.CROP_PLANTED)
+    var state := session.state()
+    var index := WorldContract.farm_cells().find(cell)
+    state["farm"][index]["crop"]["growth"] = GameRules.growth_nights(
+        GameRules.CropKind.TURNIP,
+    )
+    assert_true(session.restore_state(state))
+    world._refresh_from_session()
+
+func test_farming_hint_copy_is_action_specific_from_structured_preview() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var hint := hud.get_node("HudRoot/InteractionHint") as Label
+    var cells := WorldContract.farm_cells()
+
+    await _place_target(world, cells[0])
+    world._process(0.0)
+    assert_eq(hint.text, "Space — Till soil · 3 stamina")
+
+    world.use_selected_action()
+    world.select_action_slot(2)
+    world._process(0.0)
+    assert_eq(hint.text, "Space — Plant Turnip · 1 stamina")
+
+    world.use_selected_action()
+    world.select_action_slot(3)
+    world._process(0.0)
+    assert_eq(hint.text, "Space — Water Turnip · 2 stamina")
+
+    _grow_mature_turnip(world, cells[1])
+    world.select_action_slot(4)
+    await _place_target(world, cells[1])
+    world._process(0.0)
+    assert_eq(hint.text, "Space — Harvest Turnip · 1 stamina")
+
+func _readiness_sparkle(world: WorldShell, cell: Vector2i) -> Sprite2D:
+    var crop_root := world.farm_view.get_node(
+        "FarmCrop_%d_%d" % [cell.x, cell.y],
+    ) as Node2D
+    return crop_root.get_node("Sprite2D/ReadinessSparkle") as Sprite2D
+
+func _visible_readiness_cue_count(world: WorldShell) -> int:
+    var count := 0
+    for cell in WorldContract.farm_cells():
+        if _readiness_sparkle(world, cell).visible:
+            count += 1
+    return count
+
+func test_readiness_sparkle_contract_is_peak_frame_at_documented_offset() -> void:
+    var world := _world()
+    var sparkle := _readiness_sparkle(world, WorldContract.farm_cells()[0])
+    assert_eq(FarmView.SPARKLE_CROP_OFFSET, Vector2(0, -44))
+    assert_eq(sparkle.texture, preload("res://assets/sprites/polish/harvest-sparkle.png"))
+    assert_eq(sparkle.hframes, 3)
+    # tests/visual/hpa-458/README.md: frame 1 is the 4-point star peak.
+    assert_eq(sparkle.frame, 1)
+    assert_eq(sparkle.offset, FarmView.SPARKLE_CROP_OFFSET)
+    assert_false(sparkle.visible)
+
+func test_mature_crop_cue_shows_only_while_targeted_regardless_of_tool() -> void:
+    var world := _world()
+    var cells := WorldContract.farm_cells()
+    _grow_mature_turnip(world, cells[0])
+    var sparkle := _readiness_sparkle(world, cells[0])
+    assert_false(sparkle.visible)
+
+    # Non-Hands tool on a mature crop: the Hoe preview is invalid (CROP_PRESENT)
+    # yet readiness must still show.
+    world.select_action_slot(1)
+    await _place_target(world, cells[0])
+    world._process(0.0)
+    assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_INVALID)
+    assert_true(sparkle.visible)
+    assert_eq(_visible_readiness_cue_count(world), 1)
+
+    await _place_target(world, cells[1])
+    world._process(0.0)
+    assert_false(sparkle.visible)
+    assert_eq(_visible_readiness_cue_count(world), 0)
+
+func test_blocking_modal_clears_mature_readiness_cue() -> void:
+    var world := _world()
+    var cells := WorldContract.farm_cells()
+    _grow_mature_turnip(world, cells[0])
+    await _place_target(world, cells[0])
+    world._process(0.0)
+    assert_true(_readiness_sparkle(world, cells[0]).visible)
+
+    world.hud.open_bag()
+    world._process(0.0)
+    assert_eq(_visible_readiness_cue_count(world), 0)
+    assert_eq((world.hud.get_node("HudRoot/InteractionHint") as Label).text, "")
 
 func test_blocking_intro_never_advertises_farm_action() -> void:
     var world := _locked_world()

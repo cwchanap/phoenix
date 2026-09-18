@@ -4,11 +4,16 @@ extends Node2D
 const CROP_TEXTURE: Texture2D = preload("res://assets/sprites/proof-crops.png")
 const SHADOW_TEXTURE: Texture2D = preload("res://assets/sprites/proof-shadow.png")
 const SOIL_TEXTURE: Texture2D = preload("res://assets/sprites/proof-soil.png")
+const SPARKLE_TEXTURE: Texture2D = preload("res://assets/sprites/polish/harvest-sparkle.png")
+const SPARKLE_CROP_OFFSET := Vector2(0, -44)
 
 var _farm_soil: Node2D
 var _soil_sprites: Dictionary = {}
 var _crop_sprites: Dictionary = {}
 var _crop_shadows: Dictionary = {}
+var _crop_sparkles: Dictionary = {}
+var _crop_mature: Dictionary = {}
+var _target_cell: Variant = null
 
 func _crop_name(cell: Vector2i) -> StringName:
     return StringName("FarmCrop_%d_%d" % [cell.x, cell.y])
@@ -43,9 +48,21 @@ func _ready() -> void:
         crop_sprite.offset = Vector2(0, -24)
         crop_sprite.visible = false
         crop_root.add_child(crop_sprite)
+
+        var sparkle := Sprite2D.new()
+        sparkle.name = "ReadinessSparkle"
+        sparkle.texture = SPARKLE_TEXTURE
+        sparkle.hframes = 3
+        # tests/visual/hpa-458/README.md: frame 1 is the 4-point star peak.
+        sparkle.frame = 1
+        sparkle.offset = SPARKLE_CROP_OFFSET
+        sparkle.visible = false
+        crop_sprite.add_child(sparkle)
+
         add_child(crop_root)
         _crop_sprites[cell] = crop_sprite
         _crop_shadows[cell] = crop_shadow
+        _crop_sparkles[cell] = sparkle
 
 func refresh(snapshot: Dictionary) -> void:
     var rainy: bool = snapshot.get(
@@ -67,11 +84,25 @@ func refresh(snapshot: Dictionary) -> void:
             continue
 
         soil.frame = 1 if rainy or (crop_data != null and bool(crop_data["watered_today"])) else 0
-        if crop_data == null:
-            continue
+        var mature := false
+        if crop_data != null:
+            var kind: GameRules.CropKind = _crop_kind(crop_data["kind"])
+            mature = GameRules.is_mature(kind, int(crop_data["growth"]))
+            crop.frame = int(kind) * 4 + GameRules.visual_stage(kind, int(crop_data["growth"]))
+        _crop_mature[cell] = mature
+    _update_readiness_cue()
 
-        var kind: GameRules.CropKind = _crop_kind(crop_data["kind"])
-        crop.frame = int(kind) * 4 + GameRules.visual_stage(kind, int(crop_data["growth"]))
+func set_target_cell(target: Variant) -> void:
+    _target_cell = target
+    _update_readiness_cue()
+
+func _update_readiness_cue() -> void:
+    for cell in _crop_sparkles:
+        var sparkle: Sprite2D = _crop_sparkles[cell]
+        sparkle.visible = (
+            cell == _target_cell
+            and bool(_crop_mature.get(cell, false))
+        )
 
 func _crop_kind(value: Variant) -> GameRules.CropKind:
     if value is StringName:

@@ -351,21 +351,44 @@ func apply_selected_action(target_cell: Variant) -> GameRules.CommandCode:
     assert(false, "unsupported farming action")
     return GameRules.CommandCode.NO_TARGET
 
-func preview_selected_action(target_cell: Variant) -> GameRules.CommandCode:
+func preview_selected_action(target_cell: Variant) -> Dictionary:
     var failure := _selected_action_failure(target_cell)
+    var code := GameRules.CommandCode.NO_TARGET
     if failure != -1:
-        return failure
+        code = failure
+    else:
+        match _selected_action:
+            GameRules.FarmingAction.HOE:
+                code = GameRules.CommandCode.SOIL_TILLED
+            GameRules.FarmingAction.SEEDS:
+                code = GameRules.CommandCode.CROP_PLANTED
+            GameRules.FarmingAction.WATERING_CAN:
+                code = GameRules.CommandCode.CROP_WATERED
+            GameRules.FarmingAction.HANDS:
+                code = GameRules.CommandCode.CROP_HARVESTED
+    return {
+        "code": code,
+        "action": _selected_action,
+        "crop": _preview_crop(target_cell),
+        "cost": _cost_for(_selected_action),
+    }
+
+func _preview_crop(target_cell: Variant) -> Variant:
     match _selected_action:
-        GameRules.FarmingAction.HOE:
-            return GameRules.CommandCode.SOIL_TILLED
         GameRules.FarmingAction.SEEDS:
-            return GameRules.CommandCode.CROP_PLANTED
-        GameRules.FarmingAction.WATERING_CAN:
-            return GameRules.CommandCode.CROP_WATERED
+            return _selected_seed
+        GameRules.FarmingAction.WATERING_CAN, \
         GameRules.FarmingAction.HANDS:
-            return GameRules.CommandCode.CROP_HARVESTED
-    assert(false, "unsupported farming action")
-    return GameRules.CommandCode.NO_TARGET
+            var index := _farm_index(target_cell)
+            if index == -1:
+                return null
+            var crop: Variant = _farm[index]["crop"]
+            return null if crop == null else (crop as Dictionary)["kind"]
+        _:
+            return null
+
+func _cost_for(action: GameRules.FarmingAction) -> Dictionary:
+    return GameRules.action_cost(action)
 
 func _hoe_failure(target_cell: Variant) -> int:
     var active_failure := _active_day_failure()
@@ -382,7 +405,7 @@ func _hoe_failure(target_cell: Variant) -> int:
     var budget := GameRules.evaluate_action_budget(
         _time_minutes,
         _stamina,
-        GameRules.FarmingAction.HOE,
+        _cost_for(GameRules.FarmingAction.HOE),
     )
     return -1 if bool(budget["ok"]) else int(budget["code"])
 
@@ -403,7 +426,7 @@ func _plant_failure(target_cell: Variant) -> int:
     var budget := GameRules.evaluate_action_budget(
         _time_minutes,
         _stamina,
-        GameRules.FarmingAction.SEEDS,
+        _cost_for(GameRules.FarmingAction.SEEDS),
     )
     return -1 if bool(budget["ok"]) else int(budget["code"])
 
@@ -428,7 +451,7 @@ func _water_failure(target_cell: Variant) -> int:
     var budget := GameRules.evaluate_action_budget(
         _time_minutes,
         _stamina,
-        GameRules.FarmingAction.WATERING_CAN,
+        _cost_for(GameRules.FarmingAction.WATERING_CAN),
     )
     return -1 if bool(budget["ok"]) else int(budget["code"])
 
@@ -449,7 +472,7 @@ func _harvest_failure(target_cell: Variant) -> int:
     var budget := GameRules.evaluate_action_budget(
         _time_minutes,
         _stamina,
-        GameRules.FarmingAction.HANDS,
+        _cost_for(GameRules.FarmingAction.HANDS),
     )
     return -1 if bool(budget["ok"]) else int(budget["code"])
 
@@ -476,7 +499,7 @@ func hoe(target_cell: Variant) -> GameRules.CommandCode:
     var budget := GameRules.evaluate_action_budget(
         _time_minutes,
         _stamina,
-        GameRules.FarmingAction.HOE,
+        _cost_for(GameRules.FarmingAction.HOE),
     )
     if not bool(budget["ok"]):
         return budget["code"]
@@ -496,7 +519,7 @@ func plant(target_cell: Variant) -> GameRules.CommandCode:
     var budget := GameRules.evaluate_action_budget(
         _time_minutes,
         _stamina,
-        GameRules.FarmingAction.SEEDS,
+        _cost_for(GameRules.FarmingAction.SEEDS),
     )
     if not bool(budget["ok"]):
         return budget["code"]
@@ -521,7 +544,7 @@ func water(target_cell: Variant) -> GameRules.CommandCode:
     var budget := GameRules.evaluate_action_budget(
         _time_minutes,
         _stamina,
-        GameRules.FarmingAction.WATERING_CAN,
+        _cost_for(GameRules.FarmingAction.WATERING_CAN),
     )
     if not bool(budget["ok"]):
         return budget["code"]
@@ -543,7 +566,7 @@ func harvest(target_cell: Variant) -> GameRules.CommandCode:
     var budget := GameRules.evaluate_action_budget(
         _time_minutes,
         _stamina,
-        GameRules.FarmingAction.HANDS,
+        _cost_for(GameRules.FarmingAction.HANDS),
     )
     if not bool(budget["ok"]):
         return budget["code"]

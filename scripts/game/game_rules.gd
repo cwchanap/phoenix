@@ -112,9 +112,8 @@ static func earliest_ready_day(kind: CropKind, growth: int, current_day: int) ->
 static func evaluate_action_budget(
     time_minutes: int,
     stamina: int,
-    action: FarmingAction,
+    cost: Dictionary,
 ) -> Dictionary:
-    var cost := action_cost(action)
     var next_time := time_minutes + int(cost["minutes"])
     if next_time > ACTION_CUTOFF_MINUTES:
         return {"ok": false, "code": CommandCode.ACTION_TOO_LATE}

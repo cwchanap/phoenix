@@ -8,6 +8,26 @@ const DEEP_FARM_CELL := WorldContract.FARM_PATCH.position + Vector2i(4, 3)
 func _assert_unchanged(session: GameSession, before: Dictionary) -> void:
     assert_eq(session.snapshot(), before)
 
+func _assert_preview(
+    session: GameSession,
+    target: Variant,
+    expected_code: GameRules.CommandCode,
+    expected_action: GameRules.FarmingAction,
+    expected_crop: Variant,
+) -> Dictionary:
+    var before := session.snapshot()
+    var preview: Dictionary = session.preview_selected_action(target)
+    assert_eq(preview.size(), 4)
+    assert_eq(preview["code"], expected_code)
+    assert_eq(preview["action"], expected_action)
+    if expected_crop == null:
+        assert_null(preview["crop"])
+    else:
+        assert_eq(preview["crop"], expected_crop)
+    assert_eq(preview["cost"], session._cost_for(expected_action))
+    _assert_unchanged(session, before)
+    return preview
+
 func _plant_turnip(session: GameSession, cell: Vector2i = FARM_CELL) -> void:
     assert_eq(session.hoe(cell), GameRules.CommandCode.SOIL_TILLED)
     assert_eq(session.plant(cell), GameRules.CommandCode.CROP_PLANTED)
@@ -967,42 +987,46 @@ func test_failed_commands_preserve_complete_snapshot() -> void:
 func test_preview_selected_action_matches_hoe_and_plant_guards_without_mutation() -> void:
     var session := GameSession.new()
 
-    var before := session.snapshot()
-    assert_eq(
-        session.preview_selected_action(FARM_CELL),
+    _assert_preview(
+        session,
+        FARM_CELL,
         GameRules.CommandCode.SOIL_TILLED,
+        GameRules.FarmingAction.HOE,
+        null,
     )
-    _assert_unchanged(session, before)
 
     assert_eq(session.hoe(FARM_CELL), GameRules.CommandCode.SOIL_TILLED)
-    before = session.snapshot()
-    assert_eq(
-        session.preview_selected_action(FARM_CELL),
+    _assert_preview(
+        session,
+        FARM_CELL,
         GameRules.CommandCode.ALREADY_TILLED,
+        GameRules.FarmingAction.HOE,
+        null,
     )
-    _assert_unchanged(session, before)
 
     assert_eq(
         session.select_action(GameRules.FarmingAction.SEEDS),
         GameRules.CommandCode.ACTION_SELECTED,
     )
-    before = session.snapshot()
-    assert_eq(
-        session.preview_selected_action(FARM_CELL),
+    _assert_preview(
+        session,
+        FARM_CELL,
         GameRules.CommandCode.CROP_PLANTED,
+        GameRules.FarmingAction.SEEDS,
+        GameRules.CropKind.TURNIP,
     )
-    _assert_unchanged(session, before)
 
     assert_eq(
         session.select_seed(GameRules.CropKind.POTATO),
         GameRules.CommandCode.SEED_SELECTED,
     )
-    before = session.snapshot()
-    assert_eq(
-        session.preview_selected_action(FARM_CELL),
+    _assert_preview(
+        session,
+        FARM_CELL,
         GameRules.CommandCode.NO_SELECTED_SEEDS,
+        GameRules.FarmingAction.SEEDS,
+        GameRules.CropKind.POTATO,
     )
-    _assert_unchanged(session, before)
 
 func test_preview_selected_action_matches_water_guards_without_mutation() -> void:
     var session := GameSession.new()
@@ -1012,20 +1036,29 @@ func test_preview_selected_action_matches_water_guards_without_mutation() -> voi
         GameRules.CommandCode.ACTION_SELECTED,
     )
 
-    var before := session.snapshot()
-    assert_eq(
-        session.preview_selected_action(FARM_CELL),
-        GameRules.CommandCode.CROP_WATERED,
+    _assert_preview(
+        session,
+        SECOND_FARM_CELL,
+        GameRules.CommandCode.NO_CROP,
+        GameRules.FarmingAction.WATERING_CAN,
+        null,
     )
-    _assert_unchanged(session, before)
+    _assert_preview(
+        session,
+        FARM_CELL,
+        GameRules.CommandCode.CROP_WATERED,
+        GameRules.FarmingAction.WATERING_CAN,
+        GameRules.CropKind.TURNIP,
+    )
 
     assert_eq(session.water(FARM_CELL), GameRules.CommandCode.CROP_WATERED)
-    before = session.snapshot()
-    assert_eq(
-        session.preview_selected_action(FARM_CELL),
+    _assert_preview(
+        session,
+        FARM_CELL,
         GameRules.CommandCode.ALREADY_WATERED,
+        GameRules.FarmingAction.WATERING_CAN,
+        GameRules.CropKind.TURNIP,
     )
-    _assert_unchanged(session, before)
 
 func test_preview_selected_action_matches_harvest_guards_without_mutation() -> void:
     var immature := GameSession.new()
@@ -1034,12 +1067,13 @@ func test_preview_selected_action_matches_harvest_guards_without_mutation() -> v
         immature.select_action(GameRules.FarmingAction.HANDS),
         GameRules.CommandCode.ACTION_SELECTED,
     )
-    var before := immature.snapshot()
-    assert_eq(
-        immature.preview_selected_action(FARM_CELL),
+    _assert_preview(
+        immature,
+        FARM_CELL,
         GameRules.CommandCode.CROP_IMMATURE,
+        GameRules.FarmingAction.HANDS,
+        GameRules.CropKind.TURNIP,
     )
-    _assert_unchanged(immature, before)
 
     var mature := GameSession.new(func() -> float: return 0.9)
     _mature_turnip(mature)
@@ -1047,12 +1081,13 @@ func test_preview_selected_action_matches_harvest_guards_without_mutation() -> v
         mature.select_action(GameRules.FarmingAction.HANDS),
         GameRules.CommandCode.ACTION_SELECTED,
     )
-    before = mature.snapshot()
-    assert_eq(
-        mature.preview_selected_action(FARM_CELL),
+    _assert_preview(
+        mature,
+        FARM_CELL,
         GameRules.CommandCode.CROP_HARVESTED,
+        GameRules.FarmingAction.HANDS,
+        GameRules.CropKind.TURNIP,
     )
-    _assert_unchanged(mature, before)
 
 func test_preview_selected_action_matches_budget_failure_without_mutation() -> void:
     var session := GameSession.new()
@@ -1065,12 +1100,13 @@ func test_preview_selected_action_matches_budget_failure_without_mutation() -> v
         GameRules.CommandCode.ACTION_SELECTED,
     )
 
-    var before := session.snapshot()
-    assert_eq(
-        session.preview_selected_action(cells[6]),
+    _assert_preview(
+        session,
+        cells[6],
         GameRules.CommandCode.INSUFFICIENT_STAMINA,
+        GameRules.FarmingAction.HOE,
+        null,
     )
-    _assert_unchanged(session, before)
 
 func test_buy_seeds_validates_target_quantity_and_funds_atomically() -> void:
     var session := GameSession.new(func() -> float: return 0.9)
