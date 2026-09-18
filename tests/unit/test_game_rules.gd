@@ -97,17 +97,22 @@ func test_action_costs_are_exact() -> void:
 
 func test_action_budget_accepts_exact_2200_boundary() -> void:
     assert_eq(
-        GameRules.evaluate_action_budget(1290, 3, GameRules.FarmingAction.HOE),
+        GameRules.evaluate_action_budget(
+            1290,
+            3,
+            GameRules.action_cost(GameRules.FarmingAction.HOE),
+        ),
         {"ok": true, "time_minutes": 1320, "stamina": 0},
     )
 
 func test_action_budget_checks_time_before_stamina() -> void:
+    var hoe_cost: Dictionary = GameRules.action_cost(GameRules.FarmingAction.HOE)
     assert_eq(
-        GameRules.evaluate_action_budget(1310, 0, GameRules.FarmingAction.HOE),
+        GameRules.evaluate_action_budget(1310, 0, hoe_cost),
         {"ok": false, "code": GameRules.CommandCode.ACTION_TOO_LATE},
     )
     assert_eq(
-        GameRules.evaluate_action_budget(1290, 2, GameRules.FarmingAction.HOE),
+        GameRules.evaluate_action_budget(1290, 2, hoe_cost),
         {"ok": false, "code": GameRules.CommandCode.INSUFFICIENT_STAMINA},
     )
 

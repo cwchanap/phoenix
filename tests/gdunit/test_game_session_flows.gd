@@ -110,13 +110,14 @@ func test_stamina_exhaustion_and_overnight_recovery() -> void:
 
 func test_action_budget_cutoff_boundary() -> void:
 	# Hoe costs 30 minutes; the cutoff is 1320 and ending exactly there is legal.
-	var ok: Dictionary = GameRules.evaluate_action_budget(1290, 20, GameRules.FarmingAction.HOE)
+	var hoe_cost: Dictionary = GameRules.action_cost(GameRules.FarmingAction.HOE)
+	var ok: Dictionary = GameRules.evaluate_action_budget(1290, 20, hoe_cost)
 	assert_bool(bool(ok["ok"])).is_true()
 	assert_int(int(ok["time_minutes"])).is_equal(1320)
-	var late: Dictionary = GameRules.evaluate_action_budget(1291, 20, GameRules.FarmingAction.HOE)
+	var late: Dictionary = GameRules.evaluate_action_budget(1291, 20, hoe_cost)
 	assert_bool(bool(late["ok"])).is_false()
 	assert_int(int(late["code"])).is_equal(GameRules.CommandCode.ACTION_TOO_LATE)
-	var tired: Dictionary = GameRules.evaluate_action_budget(360, 2, GameRules.FarmingAction.HOE)
+	var tired: Dictionary = GameRules.evaluate_action_budget(360, 2, hoe_cost)
 	assert_bool(bool(tired["ok"])).is_false()
 	assert_int(int(tired["code"])).is_equal(GameRules.CommandCode.INSUFFICIENT_STAMINA)
 

@@ -14,6 +14,12 @@ signal modal_state_changed
 const SUNNY_TINT := Color(1.0, 0.96, 0.86, 0.03)
 const RAINY_TINT := Color(0.38, 0.52, 0.72, 0.12)
 
+const FARMING_PREVIEW_VERBS := {
+    GameRules.FarmingAction.HOE: "Till soil",
+    GameRules.FarmingAction.SEEDS: "Plant",
+    GameRules.FarmingAction.WATERING_CAN: "Water",
+    GameRules.FarmingAction.HANDS: "Harvest",
+}
 const ACTION_SFX := preload("res://assets/audio/action.wav")
 const COMMERCE_SFX := preload("res://assets/audio/commerce.wav")
 const SOCIAL_SFX := preload("res://assets/audio/social.wav")
@@ -279,6 +285,17 @@ func close_settings() -> void:
     # Reopen Pause in one modal transaction so the world gate never briefly
     # sees an unblocked state between the nested surfaces.
     open_pause()
+
+func farming_preview_text(preview: Dictionary) -> String:
+    var action: GameRules.FarmingAction = preview["action"]
+    var crop_suffix := ""
+    if preview["crop"] != null:
+        crop_suffix = " %s" % GameRules.crop_display_name(preview["crop"])
+    return "Space — %s%s · %d stamina" % [
+        FARMING_PREVIEW_VERBS[action],
+        crop_suffix,
+        int(preview["cost"]["stamina"]),
+    ]
 
 func feedback_text(code: GameRules.CommandCode) -> String:
     match code:
