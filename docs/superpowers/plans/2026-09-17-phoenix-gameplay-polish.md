@@ -222,7 +222,7 @@ Add a new held-row test in the existing Day-1 E2E file; do not modify the existi
 - [ ] Derive three adjacent cells from `WorldContract.FARM_PATCH`.
 - [ ] Select Hoe, then drive the real gesture with `game.input_action("use_action", true)`; verify the first target applies immediately.
 - [ ] Retarget with the existing `_stand_at_target()` helper and wait `WorldShell.ACTION_HOLD_DWELL_SECONDS * 4.0` after each next cell; do **not** call `use_selected_action()` remotely. The generous multiple is CI/xvfb jitter margin, not gameplay timing.
-- [ ] While Space is still down, select Seeds, retarget, and wait beyond dwell; verify no plant occurs, pinning that tool change canceled hold and requires a fresh press.
+- [ ] While Space is still down, select Seeds, retarget, and wait `WorldShell.ACTION_HOLD_DWELL_SECONDS * 4.0`; verify no plant occurs, pinning that tool change canceled hold and requires a fresh press.
 - [ ] Release with `game.input_action("use_action", false)`, then start a fresh held gesture and plant all three; release.
 - [ ] Select Water, start another fresh held gesture, water all three, release.
 - [ ] Verify three cells reached the expected state.
