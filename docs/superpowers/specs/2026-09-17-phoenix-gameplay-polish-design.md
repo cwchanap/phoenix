@@ -61,26 +61,26 @@ Evolve `GameSession.preview_selected_action(target_cell)` in place from returnin
 ```gdscript
 {
     "code": GameRules.CommandCode,
-    "action": StringName,
-    "crop": StringName | null,
+    "action": GameRules.FarmingAction,
+    "crop": GameRules.CropKind | null,
     "cost": {
         "minutes": int,
         "stamina": int,
     },
-    "available_seeds": int,
 }
 ```
 
 The preview is not persisted and is not a second state model.
 
 - `code` is produced by the existing `_selected_action_failure()` path, or the same success code used today when eligible.
-- `action` is the selected action key.
+- `action` is the selected `GameRules.FarmingAction` enum; transient in-process preview data does not use save/snapshot StringName encoding.
 - `crop` is:
   - selected seed kind for Plant;
   - target crop kind for Water/Harvest when present;
   - `null` for Hoe or where no crop can be truthfully named.
-- `cost` comes directly from `GameRules.action_cost(_selected_action)`.
-- `available_seeds` is the selected seed count; it is presentation context only.
+- Add one private `GameSession._cost_for(action)` seam. In HPA-459 it forwards to `GameRules.action_cost(action)`.
+- Change `GameRules.evaluate_action_budget()` to consume an explicit cost Dictionary; every farming guard and successful command supplies `_cost_for(action)`, and preview uses that same cost.
+- HPA-460 can then add its rules-owned effective watering cost and change only `_cost_for()` to include session upgrade state; preview and command budgets remain aligned.
 
 This intentionally changes the internal preview return shape rather than creating `preview_selected_action_v2()` or a second helper. Phoenix has no compatibility requirement for this private application seam.
 
@@ -92,10 +92,12 @@ The real command still performs its own validation and mutation. Preview never a
 
 Initial copy:
 
-- Hoe: `Till soil · 3 stamina`
-- Plant: `Plant Turnip · 3 seeds` (pluralized from the selected seed count)
-- Water: `Water Turnip · 2 stamina`
-- Harvest: `Harvest Turnip`
+- Hoe: `Space — Till soil · 3 stamina`
+- Plant: `Space — Plant Turnip · 1 stamina`
+- Water: `Space — Water Turnip · 2 stamina`
+- Harvest: `Space — Harvest Turnip · 1 stamina`
+
+Seed inventory remains visible in the existing HUD rather than appearing after `·` where it could be mistaken for action cost.
 
 The exact values are derived from the structured preview, never hardcoded beside the copy. HPA-460 can therefore change the watering cost in the rules/session policy and see the new value in the hint automatically.
 
@@ -105,13 +107,12 @@ Invalid farming targets keep the current red target tint and `feedback_text(code
 
 Keep the normal crop stage sprites and soil wet/dry presentation unchanged.
 
-`FarmView` gains one reusable mature-target cue using the approved `harvest-sparkle.png` peak frame:
+`FarmView` adds target-only mature readiness using the approved `harvest-sparkle.png` peak frame:
 
-- expose `set_target_cell(target_cell)`;
-- inspect the existing `_crop_sprites[cell]` presentation directly: the cue is eligible only when that sprite is visible and its existing crop frame is the mature visual stage; do not maintain a parallel mature-cell set;
-- define the crop-local `SPARKLE_CROP_OFFSET := Vector2(0, -44)` once on `FarmView`; the later harvest effect reads that same constant instead of copying the number;
-- when the targeted cell contains a mature crop, reparent/show one reusable sparkle under that crop sprite at `SPARKLE_CROP_OFFSET`;
-- hide it for non-mature/non-farm/no-target cells.
+- During the existing `refresh(snapshot)` crop loop, compute one derived maturity bool per cell with `GameRules.is_mature(kind, growth)`; do not infer readiness back from `Sprite2D.frame`.
+- Define `SPARKLE_CROP_OFFSET := Vector2(0, -44)` once on `FarmView`; Harvest FX reuse the same constant.
+- In `_ready()`, add one hidden peak-frame readiness sparkle as a child of each crop `Sprite2D`. The headless contract pins crop-root children, not children of the crop sprite, so this avoids runtime reparenting or allowlist churn.
+- `set_target_cell(target_cell)` hides the previous cue and shows only the targeted crop child when its rules-derived maturity bool is true.
 
 The cue is independent of selected tool so a mature crop is discoverable while Hoe/Seeds/Water is selected. It never changes the selected action or dispatches Harvest.
 
@@ -150,7 +151,7 @@ The helper receives the production references it needs from `WorldShell` (Player
 
 Use one helper-local tool-facing table for the HPA-458 frame/flip/Player-local anchor contract. Harvest sparkle placement reuses `FarmView.SPARKLE_CROP_OFFSET`; do not encode `(0, -44)` a second time.
 
-Target one fixed ~200 ms HPA-459 playback window. This deliberately overrides HPA-458's slower per-strip fps recommendations so overlapping FX remain readable during the 150 ms held-row cadence. Tweens never block movement or world input.
+Keep HPA-458's authored strip timing recommendations for `soil-impact`, `water-splash`, and `harvest-sparkle`; cell-local effects may overlap across different row cells. Cap only the shared Player-local tool-overlay motion at at most 150 ms so the next held action can replace/restart it cleanly. Plant's single seed drop stays in the ticket's short 150–250 ms range. Tweens never block movement or world input.
 
 #### Hoe
 
@@ -227,35 +228,32 @@ const ACTION_HOLD_DWELL_SECONDS := 0.15
 var _action_hold_active := false
 var _action_hold_target: Variant = null
 var _action_hold_dwell := 0.0
-var _action_hold_success_cells: Dictionary = {}
 ```
 
-No part of this is saved.
+No part of this is saved. No per-hold success-cell set is needed: with tool/seed fixed for the hold, each successful command makes that same cell rules-ineligible (`ALREADY_TILLED`, `CROP_PRESENT`, `ALREADY_WATERED`, or `NO_CROP`).
 
 #### Start
 
-A non-echo `use_action` press handled by `WorldShell._unhandled_input()` while world input is enabled:
+A `use_action` press handled by `WorldShell._unhandled_input()`:
 
-1. cancels/resets any previous hold;
-2. marks the gesture active;
-3. immediately calls `_attempt_selected_action(current_target)` exactly once;
-4. records the target in `_action_hold_success_cells` only if the operation succeeds.
+1. returns immediately if `_world_input_enabled` is false, before touching any hold field;
+2. cancels/resets any previous hold;
+3. marks the gesture active;
+4. immediately calls `_attempt_selected_action(current_target)` exactly once.
+
+The existing `InputEvent.is_action_pressed("use_action")` call already uses Godot's default `allow_echo = false`, so no separate `event.is_echo()` guard is needed.
 
 The initial press therefore keeps today's immediate Space behavior.
 
 #### Continue
 
-Each `_process(delta)` pass uses the current faced target:
+`_process(delta)` computes the target and structured preview once, then calls `_advance_action_hold(delta, target, preview)` before any success/invalid/neutral hint return. The updater:
 
-- when the target changes, reset dwell to zero;
-- after the target is stable for 150 ms:
-  - if the cell already succeeded during this continuous hold, do nothing;
-  - otherwise inspect the current authoritative preview;
-  - dispatch through `_attempt_selected_action()` only when the preview code is a farming success code;
-  - if blocked/non-farm, do not dispatch and do not emit failure feedback/SFX;
-  - when a later eligible target becomes stable, continuation can proceed.
-
-Only successful cells enter the per-hold set. Returning to a previously successful cell cannot charge resources again.
+- resets dwell when the target changes;
+- dispatches only after the target stays stable for 150 ms and `preview["code"]` is a farming success code;
+- skips blocked/non-farm targets without dispatch or error-SFX spam; moving later to another target resets dwell and can continue;
+- relies on the existing action rules to make a previously successful cell ineligible, rather than tracking a second success-cell set;
+- returns whether it dispatched; `_process()` returns immediately after a continuation dispatch so it never paints stale pre-mutation preview text.
 
 No neighbouring scan, route, queue, reach extension, or hidden tool switching is performed.
 
@@ -277,7 +275,7 @@ A new World created by New Game/Continue naturally starts with no gesture state.
 
 Closing a modal or regaining focus never reconstructs the hold from `Input.is_action_pressed()`. If Space is still physically down, the player must release and press it again, satisfying the fresh-press requirement.
 
-The existing `use_action` press branch itself filters key-repeat/echo events before the initial dispatch; echo is not merely ignored by continuation.
+No explicit echo branch is added: `InputEvent.is_action_pressed("use_action")` already defaults `allow_echo` to false for key events.
 
 ### 8. Testing strategy
 
@@ -321,7 +319,7 @@ Add a **new** critical held-row test in the same file; do not splice it into or 
 Use three adjacent starter Turnip cells and the real input seam:
 
 1. select Hoe, call `input_action("use_action", true)`, and verify the first target applies immediately;
-2. use the existing `_stand_at_target()` helper to retarget the next cells and wait just beyond the 150 ms dwell after each move; verify exactly three tills without calling `use_selected_action()` remotely;
+2. use the existing `_stand_at_target()` helper to retarget the next cells and wait `WorldShell.ACTION_HOLD_DWELL_SECONDS * 4.0` after each move; verify exactly three tills without calling `use_selected_action()` remotely;
 3. while Space is still down, change to Seeds and retarget/wait once to prove tool change canceled the gesture and no plant occurs until a fresh press;
 4. call `input_action("use_action", false)`, then start a fresh held press for Seeds and repeat across the row;
 5. release, select Water, start another fresh held press, and repeat;
@@ -392,8 +390,8 @@ Rejected. One target-local cue is enough and preserves visual restraint.
 
 ## Risks and closures
 
-1. **Initial press double-dispatches due to key repeat/hold processing**  
-   Ignore echo as a source and make held continuation wait for a target change/stable dwell after the immediate dispatch.
+1. **Space is pressed while the world-input gate is already closed**  
+   Return before arming any hold field. Integration proves press-while-blocked → unblock causes no dispatch and still requires a fresh press.
 
 2. **A harvest effect loses crop identity after mutation**  
    Capture structured preview/crop kind before calling the mutating command.
@@ -409,6 +407,9 @@ Rejected. One target-local cue is enough and preserves visual restraint.
 
 6. **Water tool art conflicts with ticket “tilt” wording**  
    The completed HPA-458 consumer contract is final: no texture rotation. Use a short positional dip around its approved facing anchor.
+
+7. **Held-row E2E is timing-sensitive under xvfb/CI**  
+   Integration drives `_advance_action_hold()` with explicit delta. The one real-input E2E waits `WorldShell.ACTION_HOLD_DWELL_SECONDS * 4.0` after retargeting so scheduler jitter does not sit on the 150 ms threshold.
 
 ## Acceptance
 
