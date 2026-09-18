@@ -1459,6 +1459,31 @@ func test_successful_till_spawns_transient_tool_and_soil_effects() -> void:
     assert_null(effects.get_node_or_null(_fx_name("SoilFx", cell)), "cell effect frees")
     assert_null(world.player.get_node_or_null("ToolFx"), "tool overlay frees")
 
+func test_tool_redispatch_inside_tool_motion_stays_error_free() -> void:
+    var world := _world()
+    var cells: Array = WorldContract.farm_cells()
+    await _place_target(world, cells[0])
+    world.use_selected_action()
+    assert_not_null(world.player.get_node_or_null("ToolFx"))
+    # Re-dispatch inside the 150 ms tool motion: the replacement frees the
+    # old overlay while its tween's trailing release is still pending.
+    await get_tree().create_timer(0.05).timeout
+    var offset: Vector2i = WorldMath.TARGET_OFFSETS[WorldMath.Facing.DOWN]
+    world.player.global_position = WorldMath.grid_to_world(
+        Vector2(cells[1] - offset) + Vector2.ONE * 0.5
+    )
+    world.player.facing = WorldMath.Facing.DOWN
+    world.use_selected_action()
+    var replacement := world.player.get_node_or_null("ToolFx") as Sprite2D
+    assert_not_null(replacement, "second dispatch replaces the tool overlay")
+    if replacement != null:
+        assert_false(
+            replacement.is_queued_for_deletion(),
+            "replacement tool node stays valid",
+        )
+    await _await_effects_settled()
+    assert_null(world.player.get_node_or_null("ToolFx"), "replacement tool frees")
+
 func test_tool_overlay_follows_hpa458_facing_table() -> void:
     var world := _world()
     var effects := _farm_effects(world)

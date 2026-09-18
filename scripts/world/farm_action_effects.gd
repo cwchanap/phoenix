@@ -38,6 +38,7 @@ const HARVEST_POP_SECONDS := 0.3
 var _player: PlayerController
 var _entities: FarmView
 var _tweens: Array[Tween] = []
+var _tool_tween: Tween
 var _external_nodes: Array[Node] = []
 
 func setup(player: PlayerController, entities: FarmView) -> void:
@@ -74,9 +75,15 @@ func play_success(
             _play_harvest(cell, preview["crop"], player_position)
 
 func _play_tool(texture: Texture2D, facing: int) -> void:
+    # Replacing a live overlay must retire its tween too: a surviving trailing
+    # _release would fire on the freed node ("previously freed instance").
+    if _tool_tween != null and _tool_tween.is_valid():
+        _tool_tween.kill()
     var previous := _player.get_node_or_null("ToolFx")
     if previous != null:
-        previous.queue_free()
+        _external_nodes.erase(previous)
+        # Free immediately so the replacement reuses the ToolFx name.
+        previous.free()
     var entry: Dictionary = TOOL_FACING[facing]
     var tool := Sprite2D.new()
     tool.name = "ToolFx"
@@ -90,6 +97,7 @@ func _play_tool(texture: Texture2D, facing: int) -> void:
     # Small Player-local dip around the HPA-458 anchor; never touches the
     # CharacterBody2D root or its collision.
     var tween := _track(create_tween())
+    _tool_tween = tween
     tween.tween_property(tool, "position", entry["anchor"] + TOOL_DIP, TOOL_MOTION_SECONDS)
     tween.tween_callback(_release.bind(tool))
 
@@ -175,4 +183,5 @@ func _track(tween: Tween) -> Tween:
 
 func _release(node: Node) -> void:
     _external_nodes.erase(node)
-    node.queue_free()
+    if is_instance_valid(node):
+        node.queue_free()
