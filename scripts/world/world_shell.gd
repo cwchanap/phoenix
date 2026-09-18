@@ -11,12 +11,17 @@ const FARM_ACTION_SUCCESS_CODES := [
     GameRules.CommandCode.CROP_HARVESTED,
 ]
 
+const ACTION_HOLD_DWELL_SECONDS := 0.15
+
 var _session: GameSession
 var _initial_state: Variant = null
 var _save_repository: SaveRepository = null
 var _settings: UiSettings
 var _world_input_enabled := true
 var _finale_in_progress := false
+var _action_hold_active := false
+var _action_hold_target: Variant = null
+var _action_hold_dwell := 0.0
 
 @onready var player: PlayerController = $Entities/Player as PlayerController
 @onready var farm_view: FarmView = $Entities as FarmView
@@ -95,7 +100,7 @@ func _ready() -> void:
     _farm_effects.setup(player, farm_view)
     _refresh_from_session()
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
     var target: Variant = player.current_target_cell()
 
     if not _world_input_enabled:
@@ -105,6 +110,8 @@ func _process(_delta: float) -> void:
         return
 
     var preview: Dictionary = _session.preview_selected_action(target)
+    if _advance_action_hold(delta, target, preview):
+        return
     farm_view.set_target_cell(target)
     if FARM_ACTION_SUCCESS_CODES.has(preview["code"]):
         player.set_target_tint(PlayerController.TargetTint.VALID)
@@ -143,11 +150,14 @@ func _refresh_world_input_gate() -> void:
     # while _finish_finale awaits the cue (the terminal state opens no modal,
     # so the modal gate alone would leave input enabled).
     _world_input_enabled = not _finale_in_progress and not hud.has_blocking_modal()
+    if not _world_input_enabled:
+        _cancel_action_hold()
     player.set_input_enabled(_world_input_enabled)
 
 func select_action_slot(slot: int) -> void:
     if not _world_input_enabled:
         return
+    _cancel_action_hold()
     match slot:
         1:
             _finish_command(_session.select_action(GameRules.FarmingAction.HOE))
@@ -174,11 +184,37 @@ func _attempt_selected_action(target_cell: Variant) -> void:
     if FARM_ACTION_SUCCESS_CODES.has(code):
         _farm_effects.play_success(code, preview, target_cell, facing, player_position)
 
+func _cancel_action_hold() -> void:
+    _action_hold_active = false
+    _action_hold_target = null
+    _action_hold_dwell = 0.0
+
+func _advance_action_hold(delta: float, target: Variant, preview: Dictionary) -> bool:
+    if not _action_hold_active:
+        return false
+    if target != _action_hold_target:
+        _action_hold_target = target
+        _action_hold_dwell = 0.0
+        return false
+    _action_hold_dwell += delta
+    if _action_hold_dwell < ACTION_HOLD_DWELL_SECONDS:
+        return false
+    if not FARM_ACTION_SUCCESS_CODES.has(preview["code"]):
+        return false
+    # With tool/seed fixed for the hold, the just-worked cell is rules-
+    # ineligible for the same action, so no success-cell set is tracked.
+    _attempt_selected_action(target)
+    return true
+
 func use_selected_action() -> void:
     if not _world_input_enabled:
         return
     # One-shot wrapper: it never starts or advances hold state.
     _attempt_selected_action(player.current_target_cell())
+
+func _notification(what: int) -> void:
+    if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+        _cancel_action_hold()
 
 func interact() -> void:
     if not _world_input_enabled:
@@ -208,18 +244,30 @@ func _unhandled_input(event: InputEvent) -> void:
     elif event.is_action_pressed("select_hands"):
         select_action_slot(4)
     elif event.is_action_pressed("use_action"):
-        use_selected_action()
+        # Hold-to-work start: return before touching hold state while gated;
+        # otherwise reset and dispatch exactly once on the fresh press.
+        if not _world_input_enabled:
+            return
+        _cancel_action_hold()
+        _action_hold_active = true
+        _action_hold_target = player.current_target_cell()
+        _action_hold_dwell = 0.0
+        _attempt_selected_action(_action_hold_target)
+    elif event.is_action_released("use_action"):
+        _cancel_action_hold()
     elif event.is_action_pressed("interact"):
         interact()
 
 func _on_select_action_requested(action: int) -> void:
     if not _world_input_enabled:
         return
+    _cancel_action_hold()
     _finish_command(_session.select_action(action))
 
 func _on_select_seed_requested(kind: int) -> void:
     if not _world_input_enabled:
         return
+    _cancel_action_hold()
     _finish_command(_session.select_seed(kind))
 
 func _on_buy_requested(kind: int, quantity: int) -> void:

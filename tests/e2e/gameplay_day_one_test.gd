@@ -83,6 +83,14 @@ func _stand_at_target(game, target: Vector2i, facing: int) -> void:
 	assert_that(await game.call_method(PLAYER, "current_target_cell")).is_equal(target)
 
 
+func _soil_path(cell: Vector2i) -> String:
+	return WORLD + "/FarmSoil/Soil_%d_%d" % [cell.x, cell.y]
+
+
+func _crop_path(cell: Vector2i) -> String:
+	return WORLD + "/Entities/FarmCrop_%d_%d" % [cell.x, cell.y]
+
+
 func _use_action(game, button: String, feedback: String) -> void:
 	assert_bool(await game.click_node(HUD + "/" + button)).is_true()
 	# use_selected_action returns void; transport errors surface via is_failure().
@@ -150,6 +158,86 @@ func test_day_one_farming_loop_and_sleep() -> void:
 		await game.wait_for_property(HUD + "/MorningSummaryPanel", "visible", false, 5.0)
 	).is_true()
 	await _assert_stamina(game, 20)
+
+
+# Critical held-row flow: one real held gesture works a three-cell row
+# (till -> plant -> water) with exactly one operation per cell. Tool change
+# mid-hold cancels the gesture and needs a fresh press. Stamina math:
+# 3 x (3 + 1 + 2) = 18 of 20; all three starter seeds are spent.
+func test_day_one_held_row_works_three_cells() -> void:
+	var game = await _start_new_game()
+	if game == null or is_failure():
+		return
+
+	var origin: Vector2i = WorldContract.FARM_PATCH.position
+	var cells: Array[Vector2i] = [
+		origin, origin + Vector2i(1, 0), origin + Vector2i(2, 0),
+	]
+	var tail: Array[Vector2i] = [cells[1], cells[2]]
+	# Generous multiple of the dwell: CI/xvfb jitter margin, not gameplay timing.
+	var hold_wait := WorldShell.ACTION_HOLD_DWELL_SECONDS * 4.0
+
+	# Hoe + real held gesture: the first target applies on the press itself.
+	assert_bool(await game.click_node(HUD + "/Action_0")).is_true()
+	await _stand_at_target(game, cells[0], UP)
+	assert_bool(await game.input_action("use_action", true)).is_true()
+	assert_bool(
+		await game.wait_for_property(_soil_path(cells[0]), "visible", true, 5.0)
+	).is_true()
+	for cell in tail:
+		await _stand_at_target(game, cell, UP)
+		assert_bool(await game.wait_seconds(hold_wait)).is_true()
+		assert_bool(await game.get_property(_soil_path(cell), "visible")).is_true()
+	if is_failure():
+		return
+
+	# Seeds selected while Space stays down: the canceled gesture must not
+	# plant the tilled, unplanted first cell until a fresh press.
+	assert_bool(await game.click_node(HUD + "/Action_1")).is_true()
+	await _stand_at_target(game, cells[0], UP)
+	assert_bool(await game.wait_seconds(hold_wait)).is_true()
+	assert_bool(
+		await game.get_property(_crop_path(cells[0]) + "/Sprite2D", "visible")
+	).is_false()
+
+	# Fresh held gesture plants the row; release at the end.
+	assert_bool(await game.input_action("use_action", false)).is_true()
+	assert_bool(await game.input_action("use_action", true)).is_true()
+	assert_bool(
+		await game.wait_for_property(
+			_crop_path(cells[0]) + "/Sprite2D", "visible", true, 5.0
+		)
+	).is_true()
+	for cell in tail:
+		await _stand_at_target(game, cell, UP)
+		assert_bool(await game.wait_seconds(hold_wait)).is_true()
+		assert_bool(
+			await game.get_property(_crop_path(cell) + "/Sprite2D", "visible")
+		).is_true()
+	assert_bool(await game.input_action("use_action", false)).is_true()
+	if is_failure():
+		return
+
+	# One more fresh held gesture waters the row.
+	assert_bool(await game.click_node(HUD + "/Action_2")).is_true()
+	await _stand_at_target(game, cells[2], UP)
+	assert_bool(await game.input_action("use_action", true)).is_true()
+	for cell in [cells[1], cells[0]]:
+		await _stand_at_target(game, cell, UP)
+		assert_bool(await game.wait_seconds(hold_wait)).is_true()
+	assert_bool(await game.input_action("use_action", false)).is_true()
+	if is_failure():
+		return
+
+	# Exactly one operation per cell: tilled watered soil and a standing crop.
+	for cell in cells:
+		assert_bool(await game.get_property(_soil_path(cell), "visible")).is_true()
+		assert_int(int(await game.get_property(_soil_path(cell), "frame"))).is_equal(1)
+		assert_bool(
+			await game.get_property(_crop_path(cell) + "/Sprite2D", "visible")
+		).is_true()
+	assert_str(await game.get_property(HUD + "/Action_1/Badge", "text")).is_equal("×0")
+	await _assert_stamina(game, 2)
 
 
 func test_player_moves_with_real_input() -> void:

@@ -2106,3 +2106,251 @@ func test_escape_over_morning_summary_keeps_lock_and_help_hidden() -> void:
     assert_true(_panel(hud, "MorningSummaryPanel").visible)
     assert_false(_panel(hud, "PausePanel").visible)
     assert_false(world._world_input_enabled)
+
+
+## Hold-to-work: deterministic hold-state contract. Hold tests drive
+## _advance_action_hold() with explicit deltas and must not let a real frame
+## pass while a hold is armed, so placement uses the await-free _set_target
+## and presses use the synchronous push_input seam.
+
+func _push_use_action(world: WorldShell, pressed: bool) -> void:
+    var event := InputEventAction.new()
+    event.action = &"use_action"
+    event.pressed = pressed
+    world.get_viewport().push_input(event)
+
+func _set_target(
+    world: WorldShell,
+    target: Vector2i,
+    facing := WorldMath.Facing.DOWN,
+) -> void:
+    var offset: Vector2i = WorldMath.TARGET_OFFSETS[facing]
+    world.player.global_position = WorldMath.grid_to_world(
+        Vector2(target - offset) + Vector2.ONE * 0.5
+    )
+    world.player.facing = facing
+    world.player.velocity = Vector2.ZERO
+
+func _hold_preview(world: WorldShell, target: Variant) -> Dictionary:
+    return world._session.preview_selected_action(target)
+
+func test_hold_fresh_press_attempts_once_and_release_clears_gesture() -> void:
+    var world := _world()
+    var cells := WorldContract.farm_cells()
+    await _place_target(world, cells[0])
+
+    _push_use_action(world, true)
+    assert_true(world._session.snapshot()["farm"][0]["tilled"])
+    assert_true(world._action_hold_active)
+    assert_eq(world._action_hold_target, cells[0])
+    assert_eq(world._action_hold_dwell, 0.0)
+
+    _push_use_action(world, false)
+    assert_false(world._action_hold_active)
+    assert_null(world._action_hold_target)
+
+func test_hold_blocked_press_never_arms_and_unblock_needs_fresh_press() -> void:
+    var world := _world()
+    var cells := WorldContract.farm_cells()
+    await _place_target(world, cells[0])
+    world.hud.open_shop()
+    assert_false(world._world_input_enabled)
+
+    _push_use_action(world, true)
+    assert_false(world._action_hold_active, "press must not touch hold while gated")
+    assert_false(world._session.snapshot()["farm"][0]["tilled"])
+
+    world.hud.close_shop()
+    assert_true(world._world_input_enabled)
+    assert_false(world._advance_action_hold(1.0, cells[0], _hold_preview(world, cells[0])))
+    assert_false(world._session.snapshot()["farm"][0]["tilled"])
+
+    _push_use_action(world, true)
+    assert_true(world._action_hold_active)
+    assert_true(world._session.snapshot()["farm"][0]["tilled"])
+
+func test_hold_same_cell_never_repeats_and_new_target_needs_dwell() -> void:
+    var world := _world()
+    var cells := WorldContract.farm_cells()
+    var first: Vector2i = cells[0]
+    var second: Vector2i = cells[1]
+    await _place_target(world, first)
+    _push_use_action(world, true)
+    assert_true(world._session.snapshot()["farm"][0]["tilled"])
+
+    var worked_preview := _hold_preview(world, first)
+    assert_eq(worked_preview["code"], GameRules.CommandCode.ALREADY_TILLED)
+    for _poll in 10:
+        assert_false(world._advance_action_hold(0.05, first, worked_preview))
+    assert_false(world._session.snapshot()["farm"][1]["tilled"])
+
+    _set_target(world, second)
+    var fresh_preview := _hold_preview(world, second)
+    assert_eq(fresh_preview["code"], GameRules.CommandCode.SOIL_TILLED)
+    assert_false(world._advance_action_hold(0.14, second, fresh_preview))
+    assert_false(world._session.snapshot()["farm"][1]["tilled"])
+    assert_false(world._advance_action_hold(0.14, second, fresh_preview))
+    assert_false(world._session.snapshot()["farm"][1]["tilled"])
+    assert_true(world._advance_action_hold(0.01, second, fresh_preview))
+    assert_true(world._session.snapshot()["farm"][1]["tilled"])
+    assert_false(world._advance_action_hold(0.5, second, _hold_preview(world, second)))
+
+func test_hold_revisiting_worked_cell_skips_and_later_cell_continues() -> void:
+    var world := _world()
+    var cells := WorldContract.farm_cells()
+    await _place_target(world, cells[0])
+    _push_use_action(world, true)
+
+    _set_target(world, cells[1])
+    assert_false(world._advance_action_hold(0.0, cells[1], _hold_preview(world, cells[1])))
+    assert_true(world._advance_action_hold(0.15, cells[1], _hold_preview(world, cells[1])))
+    assert_true(world._session.snapshot()["farm"][1]["tilled"])
+
+    _set_target(world, cells[0])
+    var worked_preview := _hold_preview(world, cells[0])
+    for _poll in 6:
+        assert_false(world._advance_action_hold(0.1, cells[0], worked_preview))
+
+    _set_target(world, cells[2])
+    assert_false(world._advance_action_hold(0.14, cells[2], _hold_preview(world, cells[2])))
+    assert_false(world._advance_action_hold(0.14, cells[2], _hold_preview(world, cells[2])))
+    assert_true(world._advance_action_hold(0.02, cells[2], _hold_preview(world, cells[2])))
+    assert_true(world._session.snapshot()["farm"][2]["tilled"])
+
+func test_hold_invalid_and_nonfarm_targets_never_dispatch_or_restart_feedback() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var cells := WorldContract.farm_cells()
+    await _place_target(world, cells[0])
+    _push_use_action(world, true)
+    assert_true(world._session.snapshot()["farm"][0]["tilled"])
+    var feedback := hud.get_node("HudRoot/Feedback") as Label
+    var sfx := hud.get_node("SfxPlayer") as AudioStreamPlayer
+    assert_eq(feedback.text, "Soil tilled.")
+    assert_eq(sfx.stream.resource_path, "res://assets/audio/farm-hoe.wav")
+
+    # Invalid farm target: crop already planted while the Hoe is selected.
+    assert_eq(world._session.hoe(cells[1]), GameRules.CommandCode.SOIL_TILLED)
+    assert_eq(world._session.plant(cells[1]), GameRules.CommandCode.CROP_PLANTED)
+    var invalid_preview := _hold_preview(world, cells[1])
+    assert_eq(invalid_preview["code"], GameRules.CommandCode.CROP_PRESENT)
+    # Non-farm target alongside it.
+    _set_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
+    var shop_preview := _hold_preview(world, WorldContract.SHOP_CELL)
+    assert_eq(shop_preview["code"], GameRules.CommandCode.NOT_FARM_CELL)
+    var before := world._session.snapshot()
+
+    for _poll in 10:
+        assert_false(world._advance_action_hold(0.1, cells[1], invalid_preview))
+        assert_false(world._advance_action_hold(0.1, WorldContract.SHOP_CELL, shop_preview))
+    assert_eq(world._session.snapshot(), before, "hold polling must not dispatch")
+    assert_eq(feedback.text, "Soil tilled.", "feedback text must not restart")
+    assert_eq(
+        sfx.stream.resource_path,
+        "res://assets/audio/farm-hoe.wav",
+        "SFX stream must not restart",
+    )
+
+    # A later eligible target resets dwell and continues the same hold.
+    _set_target(world, cells[2])
+    assert_false(world._advance_action_hold(0.14, cells[2], _hold_preview(world, cells[2])))
+    assert_false(world._advance_action_hold(0.14, cells[2], _hold_preview(world, cells[2])))
+    assert_true(world._advance_action_hold(0.01, cells[2], _hold_preview(world, cells[2])))
+    assert_true(world._session.snapshot()["farm"][2]["tilled"])
+
+func test_hold_tool_and_seed_selection_cancel_the_gesture() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var cells := WorldContract.farm_cells()
+    await _place_target(world, cells[0])
+
+    # Tool selection through the slot route.
+    _push_use_action(world, true)
+    assert_true(world._action_hold_active)
+    world.select_action_slot(2)
+    assert_false(world._action_hold_active)
+    _set_target(world, cells[1])
+    assert_false(world._advance_action_hold(1.0, cells[1], _hold_preview(world, cells[1])))
+    assert_null(world._session.snapshot()["farm"][1]["crop"])
+
+    # Fresh press plants; the HUD seed-request route clears the new gesture.
+    # The row cell is tilled at session level so the press can plant it.
+    assert_eq(world._session.hoe(cells[1]), GameRules.CommandCode.SOIL_TILLED)
+    _push_use_action(world, true)
+    assert_not_null(world._session.snapshot()["farm"][1]["crop"])
+    assert_true(world._action_hold_active)
+    hud.select_seed_requested.emit(GameRules.CropKind.POTATO)
+    assert_false(world._action_hold_active)
+    _set_target(world, cells[2])
+    assert_false(world._advance_action_hold(1.0, cells[2], _hold_preview(world, cells[2])))
+    assert_null(world._session.snapshot()["farm"][2]["crop"])
+
+    # Fresh press arms again (the potato attempt fails but the gesture is
+    # live); a seed cycle through the slot route clears it.
+    _push_use_action(world, true)
+    assert_true(world._action_hold_active)
+    world.select_action_slot(2)
+    assert_false(world._action_hold_active)
+
+    # ...and the HUD action-request route clears a fresh gesture too.
+    _push_use_action(world, true)
+    assert_true(world._action_hold_active)
+    hud.select_action_requested.emit(GameRules.FarmingAction.HOE)
+    assert_false(world._action_hold_active)
+    _set_target(world, cells[0])
+    assert_false(world._advance_action_hold(1.0, cells[0], _hold_preview(world, cells[0])))
+
+func test_hold_blocking_modal_cancels_and_closing_does_not_resume() -> void:
+    var world := _world()
+    var cells := WorldContract.farm_cells()
+    await _place_target(world, cells[0])
+    _push_use_action(world, true)
+    assert_true(world._action_hold_active)
+
+    world.hud.open_bag()
+    assert_false(world._world_input_enabled)
+    assert_false(world._action_hold_active)
+    _set_target(world, cells[1])
+    assert_false(world._advance_action_hold(1.0, cells[1], _hold_preview(world, cells[1])))
+    world.hud.close_bag()
+    assert_true(world._world_input_enabled)
+    assert_false(world._advance_action_hold(1.0, cells[1], _hold_preview(world, cells[1])))
+    assert_null(world._session.snapshot()["farm"][1]["crop"])
+
+func test_hold_focus_loss_and_day_or_finale_gates_clear_the_gesture() -> void:
+    var world := _world()
+    var cells := WorldContract.farm_cells()
+    await _place_target(world, cells[0])
+
+    _push_use_action(world, true)
+    world.notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+    assert_false(world._action_hold_active)
+    _push_use_action(world, false)
+
+    _push_use_action(world, true)
+    world.notification(Node.NOTIFICATION_WM_WINDOW_FOCUS_OUT)
+    assert_false(world._action_hold_active)
+    _push_use_action(world, false)
+
+    # Successful day transition: the morning-summary gate clears the hold.
+    await _place_target(world, WorldContract.BED_CELL, WorldMath.Facing.UP)
+    _push_use_action(world, true)
+    assert_true(world._action_hold_active)
+    world._on_sleep_requested()
+    assert_false(world._world_input_enabled)
+    assert_false(world._action_hold_active)
+    world.hud.morning_summary_acknowledged.emit()
+    assert_true(world._world_input_enabled)
+    assert_false(world._advance_action_hold(
+        1.0, WorldContract.BED_CELL, _hold_preview(world, WorldContract.BED_CELL)
+    ))
+
+    # The terminal finale lock cancels through the same gate transition.
+    _push_use_action(world, true)
+    assert_true(world._action_hold_active)
+    world._finale_in_progress = true
+    world._refresh_from_session()
+    assert_false(world._action_hold_active)
+    assert_false(world._advance_action_hold(
+        1.0, WorldContract.BED_CELL, _hold_preview(world, WorldContract.BED_CELL)
+    ))
