@@ -15,7 +15,7 @@
 - Keep `GameSession` as the only mutable gameplay authority.
 - Keep `GameRules.action_cost()` / budget policy as the source used by preview and real commands.
 - Keep `PlayerController` focused on movement/facing/targeting; do not move its root/collision for tool animation.
-- Keep `Entities` as the only world Y-sort root and `FarmSoil` as the non-Y-sorted ground-effect layer.
+- Keep `Entities` as the only world Y-sort root. `FarmSoil` remains the pinned non-Y-sorted container with exactly 30 soil Sprite2D children; transient ground effects go on one new non-Y-sorted direct-World `FarmActionEffects` child at `z_index = 5`.
 - Keep the current save schema/state unchanged.
 - No new crop/economy/balance rules, new map, tool upgrade, auto-pathing, scan, queue, event bus, effect registry, animation state machine, or player animation rig.
 - Held input never bypasses the same session validation/cost path.
@@ -91,10 +91,10 @@ Run the smallest relevant suite after each RED/GREEN step; the full gates are Ta
 ### 1.4 RED/GREEN — one mature-target cue
 
 - [ ] Add an integration fixture with a mature crop and a non-Hands selected action.
-- [ ] Make `FarmView.refresh()` cache only the mature-cell presentation fact needed for targeting.
-- [ ] Create one reusable sparkle cue and reparent it to the targeted mature crop sprite at HPA-458's `(0, -44)` crop-local offset.
-- [ ] Add `FarmView.set_target_cell()`; show for a targeted mature crop regardless of tool, hide otherwise.
-- [ ] Have `WorldShell` clear it whenever world input is blocked.
+- [ ] Do **not** cache a parallel mature-cell set. `FarmView.set_target_cell()` inspects the existing `_crop_sprites[cell]` directly: visible + mature visual frame is the readiness source.
+- [ ] Define `FarmView.SPARKLE_CROP_OFFSET := Vector2(0, -44)` once and create one reusable sparkle cue reparented under the targeted crop sprite at that offset. Task 2's harvest effect reads the same constant.
+- [ ] Call `FarmView.set_target_cell(target)` on every enabled target before `WorldShell` branches on preview validity, including invalid Hoe/Seeds/Water previews on a mature crop.
+- [ ] Clear it in the existing `_process()` early return whenever world input is blocked.
 - [ ] Do not add 30 cue nodes, new snapshot fields, or readiness state to `GameSession`.
 
 **Checkpoint:** focused unit + integration tests green; commit before using `verify-clean.sh`.
@@ -113,7 +113,8 @@ Run the smallest relevant suite after each RED/GREEN step; the full gates are Ta
 `assets/audio/farm-water.wav` (new)  
 `assets/audio/farm-harvest.wav` (new)  
 `assets/audio/README.md`  
-`tests/integration/test_gameplay_shell.gd`
+`tests/integration/test_gameplay_shell.gd`  
+`tests/headless/world_shell_smoke.gd`
 
 ### 2.1 RED — pin capture-before-mutation and success-only effects
 
@@ -122,7 +123,7 @@ Run the smallest relevant suite after each RED/GREEN step; the full gates are Ta
 - [ ] Assert invalid commands create no farming success effect.
 - [ ] For Harvest, prove the captured crop kind survives even though session refresh removes the authoritative crop.
 
-Prefer a narrow test-visible effect context/counter over timing-sensitive pixel assertions. Do not add production debug APIs solely for tests.
+Observe the real transient effect nodes by parent/name/frame immediately after dispatch (and their absence after cleanup) rather than adding a production `last_played`, counter, or debug API. Keep the existing rest-state child-count tests intact.
 
 ### 2.2 GREEN — centralize manual/held dispatch
 
@@ -131,11 +132,13 @@ Prefer a narrow test-visible effect context/counter over timing-sensitive pixel 
 - [ ] Call `GameSession.apply_selected_action()`.
 - [ ] Route every result through existing `_finish_command()`.
 - [ ] Invoke the effect helper only for the four success codes.
-- [ ] Make current `use_selected_action()` delegate to this path.
+- [ ] Keep current `use_selected_action()` as a one-shot wrapper that delegates to this path and returns; it never starts/advances hold state. Only `_unhandled_input` Space press/release plus `_process()` continuation own the hold fields.
 
 ### 2.3 GREEN — one `FarmActionEffects` helper, no framework
 
-- [ ] Add exactly one helper Node under World; no per-effect PackedScenes or registry.
+- [ ] Add exactly one non-Y-sorted `FarmActionEffects` helper directly under World, immediately after `FarmSoil`, with `z_index = 5`; no per-effect PackedScenes or registry.
+- [ ] In the same change, update `tests/headless/world_shell_smoke.gd`'s exact World child allowlist/order to include `FarmActionEffects`; keep `Entities` as the only enabled y-sort node.
+- [ ] Keep `FarmSoil` at exactly its 30 soil children and preserve the pinned rest-state `Entities` list once transient harvest nodes are freed.
 - [ ] Preload the six approved HPA-458 farming textures.
 - [ ] Encode the final HPA-458 tool frame/flip/anchor table exactly once in this helper:
   - UP → frame 1 at `(0,-22)`;
@@ -146,9 +149,10 @@ Prefer a narrow test-visible effect context/counter over timing-sensitive pixel 
 - [ ] Hoe: short tool positional motion + cell-centered `soil-impact` 0→1→2.
 - [ ] Plant: cell-centered seed drop/fade.
 - [ ] Water: short can positional dip + cell-centered `water-splash` 0→1→2.
-- [ ] Harvest: temporary mature crop pop toward the captured player position + `+1` + sparkle at `(0,-44)`.
-- [ ] Target roughly 180–220 ms and keep all tweens non-blocking.
-- [ ] Ground effects go under FarmSoil; harvest pop stays under Entities; tool overlays stay under Player.
+- [ ] Harvest: temporary mature crop pop toward the captured player position + `+1` + sparkle using `FarmView.SPARKLE_CROP_OFFSET`; do not duplicate `(0,-44)`.
+- [ ] Use one fixed ~200 ms playback window and document that this intentionally overrides HPA-458's slower strip-fps recommendations so the 150 ms held-row cadence remains readable.
+- [ ] Position cell FX with the existing `WorldMath.grid_to_world(Vector2(cell) + Vector2(0.5, 0.5))`; do not add a second projection helper.
+- [ ] Ground effects go under direct-World `FarmActionEffects` at z=5; harvest pop stays under Entities; tool overlays stay under Player.
 - [ ] Replacing/restarting a current tool tween is fine; never move Player/Collision/Y-sort root.
 - [ ] Free transient nodes/tweens on completion and world teardown.
 
@@ -206,20 +210,24 @@ Add integration tests that drive the hold updater with explicit delta values ins
 - [ ] Automatic invalid/non-farm targets do not call `_finish_command()` and do not play error feedback.
 - [ ] Never call `Input.is_action_pressed("use_action")` to reconstruct a canceled hold.
 - [ ] Ignore key echo/repeat as a dispatch source.
-- [ ] Cancel from the existing action/seed selection entry points and world-input gate transition.
-- [ ] Handle focus loss through the narrow Godot notification/input path already available; no global input manager.
+- [ ] Cancel from the existing action/seed selection entry points.
+- [ ] Inside `_refresh_world_input_gate()`, cancel immediately when the recomputed gate becomes false; do not wait for the next `_process()` tick. Tutorial cards do not cancel because they are not blocking modals.
+- [ ] Handle both `NOTIFICATION_APPLICATION_FOCUS_OUT` and `NOTIFICATION_WM_WINDOW_FOCUS_OUT`; no global input manager.
+- [ ] Filter `event.is_echo()` on the existing `use_action` press branch before the initial dispatch, not only during continuation.
 
 ### 3.3 E2E — one three-cell held Day-1 row
 
-Extend the existing Day-1 E2E; do not create another harness.
+Add a new held-row test in the existing Day-1 E2E file; do not modify the existing one-cell `test_day_one_farming_loop_and_sleep()` budget flow or its `14`-stamina assertion. Do not create another harness.
 
 - [ ] Derive three adjacent cells from `WorldContract.FARM_PATCH`.
-- [ ] Hoe all three via one held gesture, then release.
-- [ ] Select Seeds (which cancels hold), start a fresh hold, plant all three, release.
-- [ ] Select Water, start a fresh hold, water all three, release.
+- [ ] Select Hoe, then drive the real gesture with `game.input_action("use_action", true)`; verify the first target applies immediately.
+- [ ] Retarget with the existing `_stand_at_target()` helper and `wait_seconds()` just beyond 150 ms for each next cell; do **not** call `use_selected_action()` remotely for this test.
+- [ ] While Space is still down, select Seeds, retarget, and wait beyond dwell; verify no plant occurs, pinning that tool change canceled hold and requires a fresh press.
+- [ ] Release with `game.input_action("use_action", false)`, then start a fresh held gesture and plant all three; release.
+- [ ] Select Water, start another fresh held gesture, water all three, release.
 - [ ] Verify three cells reached the expected state.
 - [ ] Verify exactly three starter seeds were consumed.
-- [ ] Verify exactly the expected stamina was consumed: 3×(3+1+2)=18, leaving 2 from the 20-stamina Day-1 budget.
+- [ ] Verify exactly the expected stamina was consumed: 3×(3+1+2)=18, leaving 2 from this separate fresh Day-1 run's 20-stamina budget.
 - [ ] Keep mature/harvest hold proof in deterministic integration/session setup rather than making E2E depend on several weather rolls.
 
 **Checkpoint:** affected integration + existing E2E green; commit then run the relevant clean/GdUnit lanes.
@@ -237,7 +245,7 @@ PR description/evidence
 
 - [ ] Confirm no save/state/schema field was added.
 - [ ] Confirm `PlayerController` still owns only movement/facing/targeting unless a concrete defect required a narrow fix.
-- [ ] Confirm one `FarmActionEffects` helper exists and no event/action/effect framework appeared.
+- [ ] Confirm one direct-World, non-Y-sorted `FarmActionEffects` helper exists; the headless World allowlist is updated, `FarmSoil` still has exactly 30 soil children, and no event/action/effect framework appeared.
 - [ ] Confirm hold state lives only in `WorldShell`.
 - [ ] Confirm HPA-458 images are consumed as-is and no new image generation/art cleanup happened.
 - [ ] Confirm no farming budget/crop/economy/finale values changed.
@@ -291,13 +299,13 @@ Before implementation starts, confirm the plan still satisfies all of these:
 - HPA-458 is consumed, not reopened or regenerated;
 - one enriched preview replaces the old shape rather than adding a parallel preview API;
 - preview and commands share validation/cost policy;
-- one mature target cue, not 30 permanent markers;
-- one effects helper, not an action/event framework;
+- one mature target cue derived from existing crop sprites, with no parallel mature-cell cache;
+- one direct-World effects helper at z=5, with FarmSoil/Entities rest-state counts preserved, not an action/event framework;
 - no tool texture rotation despite the ticket's “tilt” wording;
 - no Player root/collision motion;
 - held input never scans, paths, queues, switches tools, or extends range;
 - only successful cells are remembered within a continuous hold;
-- modal/focus/day/tool/seed cancellation requires a fresh press;
+- blocking-gate/focus/day/tool/seed cancellation is immediate and requires a fresh press; non-blocking tutorial cards do not cancel;
 - blocked hold targets do not spam commands or error SFX;
 - audio uses the existing SFX player and Sound preference;
 - no save changes or compatibility work;
