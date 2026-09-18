@@ -1420,6 +1420,191 @@ func test_blocking_intro_never_advertises_farm_action() -> void:
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_NEUTRAL)
     assert_eq((hud.get_node("HudRoot/InteractionHint") as Label).text, "")
 
+func _farm_effects(world: WorldShell) -> Node2D:
+    return world.get_node_or_null("FarmActionEffects") as Node2D
+
+func _await_effects_settled() -> void:
+    # Longest effect chain (tool motion + cell strip) stays under 0.6 s.
+    await get_tree().create_timer(1.0).timeout
+
+func _fx_name(prefix: String, cell: Vector2i) -> String:
+    return "%s_%d_%d" % [prefix, cell.x, cell.y]
+
+func test_successful_till_spawns_transient_tool_and_soil_effects() -> void:
+    var world := _world()
+    var effects := _farm_effects(world)
+    assert_not_null(effects, "FarmActionEffects exists directly under World")
+    if effects == null:
+        return
+    var cell: Vector2i = WorldContract.farm_cells()[0]
+    await _place_target(world, cell)
+    world.use_selected_action()
+    # Observe the real transient nodes immediately after dispatch.
+    var impact := effects.get_node_or_null(_fx_name("SoilFx", cell)) as Sprite2D
+    assert_not_null(impact, "cell-centered soil impact spawns at the captured cell")
+    if impact != null:
+        assert_eq(impact.texture.resource_path, "res://assets/sprites/polish/soil-impact.png")
+        assert_eq(impact.position, WorldMath.grid_to_world(Vector2(cell) + Vector2(0.5, 0.5)))
+        assert_eq(impact.frame, 0)
+        assert_eq(impact.scale, Vector2(2, 2))
+    var tool := world.player.get_node_or_null("ToolFx") as Sprite2D
+    assert_not_null(tool, "tool overlay is a child of the Player root")
+    if tool != null:
+        assert_eq(tool.texture.resource_path, "res://assets/sprites/polish/hoe-overlay.png")
+        # DOWN facing: frame 0 at (4, -16) per the HPA-458 tool-facing contract.
+        assert_eq(tool.frame, 0)
+        assert_eq(tool.position, Vector2(4, -16))
+        assert_false(tool.flip_h)
+    await _await_effects_settled()
+    assert_null(effects.get_node_or_null(_fx_name("SoilFx", cell)), "cell effect frees")
+    assert_null(world.player.get_node_or_null("ToolFx"), "tool overlay frees")
+
+func test_tool_overlay_follows_hpa458_facing_table() -> void:
+    var world := _world()
+    var effects := _farm_effects(world)
+    assert_not_null(effects)
+    if effects == null:
+        return
+    var cells: Array = WorldContract.farm_cells()
+    var cases := [
+        [WorldMath.Facing.UP, 1, false, Vector2(0, -22)],
+        [WorldMath.Facing.RIGHT, 2, false, Vector2(10, -21)],
+        [WorldMath.Facing.DOWN, 0, false, Vector2(4, -16)],
+        [WorldMath.Facing.LEFT, 2, true, Vector2(-10, -21)],
+    ]
+    for index in cases.size():
+        var entry: Array = cases[index]
+        var cell: Vector2i = cells[index]
+        await _place_target(world, cell, entry[0])
+        world.use_selected_action()
+        var tool := world.player.get_node_or_null("ToolFx") as Sprite2D
+        assert_not_null(tool, "tool overlay for facing %s" % [entry[0]])
+        if tool != null:
+            assert_eq(tool.frame, entry[1], "frame for facing %s" % [entry[0]])
+            assert_eq(tool.flip_h, entry[2], "flip for facing %s" % [entry[0]])
+            assert_eq(tool.position, entry[3], "anchor for facing %s" % [entry[0]])
+        await _await_effects_settled()
+        assert_null(world.player.get_node_or_null("ToolFx"))
+
+func test_plant_and_water_spawn_their_distinct_cell_effects() -> void:
+    var world := _world()
+    var effects := _farm_effects(world)
+    assert_not_null(effects)
+    if effects == null:
+        return
+    var cell: Vector2i = WorldContract.farm_cells()[0]
+    await _place_target(world, cell)
+    world.use_selected_action()
+    await _await_effects_settled()
+    world.select_action_slot(2)
+    world.use_selected_action()
+    var seed_fx := effects.get_node_or_null(_fx_name("SeedFx", cell)) as Sprite2D
+    assert_not_null(seed_fx, "plant spawns the seed drop at the captured cell")
+    if seed_fx != null:
+        assert_eq(seed_fx.texture.resource_path, "res://assets/sprites/polish/planting-seed.png")
+    assert_null(world.player.get_node_or_null("ToolFx"), "plant uses no tool overlay")
+    await _await_effects_settled()
+    assert_null(effects.get_node_or_null(_fx_name("SeedFx", cell)))
+
+    world.select_action_slot(3)
+    await _place_target(world, cell, WorldMath.Facing.RIGHT)
+    world.use_selected_action()
+    var can := world.player.get_node_or_null("ToolFx") as Sprite2D
+    assert_not_null(can, "water spawns the can overlay")
+    if can != null:
+        assert_eq(can.texture.resource_path, "res://assets/sprites/polish/watering-can-overlay.png")
+        assert_eq(can.frame, 2)
+        assert_eq(can.position, Vector2(10, -21))
+        assert_false(can.flip_h)
+    var splash := effects.get_node_or_null(_fx_name("SplashFx", cell)) as Sprite2D
+    assert_not_null(splash, "water spawns the splash at the captured cell")
+    if splash != null:
+        assert_eq(splash.texture.resource_path, "res://assets/sprites/polish/water-splash.png")
+        assert_eq(splash.frame, 0)
+        assert_eq(splash.scale, Vector2(2, 2))
+    await _await_effects_settled()
+    assert_null(effects.get_node_or_null(_fx_name("SplashFx", cell)))
+    assert_null(world.player.get_node_or_null("ToolFx"))
+
+func test_harvest_effect_keeps_premutation_crop_kind_under_entities() -> void:
+    var world := _world()
+    var effects := _farm_effects(world)
+    assert_not_null(effects)
+    if effects == null:
+        return
+    var cells: Array = WorldContract.farm_cells()
+    var cell: Vector2i = cells[1]
+    var index := cells.find(cell)
+    _grow_mature_turnip(world, cell)
+    world.select_action_slot(4)
+    assert_eq(world._session.preview_selected_action(cell)["crop"], GameRules.CropKind.TURNIP)
+    var rest_children := world.farm_view.get_child_count()
+    await _place_target(world, cell)
+    world.use_selected_action()
+    assert_null(world._session.snapshot()["farm"][index]["crop"], "session refresh removed the crop")
+    var pop := world.farm_view.get_node_or_null(_fx_name("HarvestPop", cell)) as Node2D
+    assert_not_null(pop, "harvest pop stays under the Entities Y-sort owner")
+    if pop != null:
+        assert_eq(pop.position, WorldMath.grid_to_world(Vector2(cell) + Vector2(0.5, 0.5)))
+        var crop := pop.get_node("Sprite2D") as Sprite2D
+        assert_eq(crop.texture.resource_path, "res://assets/sprites/proof-crops.png")
+        assert_eq(crop.frame, GameRules.CropKind.TURNIP * 4 + 3, "mature turnip frame")
+        var sparkle := crop.get_node("Sparkle") as Sprite2D
+        assert_eq(sparkle.texture.resource_path, "res://assets/sprites/polish/harvest-sparkle.png")
+        assert_eq(sparkle.offset, FarmView.SPARKLE_CROP_OFFSET)
+        assert_not_null(pop.get_node_or_null("PlusOne"))
+    await _await_effects_settled()
+    assert_null(world.farm_view.get_node_or_null(_fx_name("HarvestPop", cell)), "pop frees")
+    assert_eq(world.farm_view.get_child_count(), rest_children, "rest-state Entities list restored")
+
+func test_invalid_farming_commands_spawn_no_effects() -> void:
+    var world := _world()
+    var effects := _farm_effects(world)
+    assert_not_null(effects)
+    if effects == null:
+        return
+    var cell: Vector2i = WorldContract.farm_cells()[0]
+    await _place_target(world, cell)
+    world.use_selected_action()
+    await _await_effects_settled()
+    assert_eq(effects.get_child_count(), 0)
+
+    world.use_selected_action()
+    assert_eq(world._session.preview_selected_action(cell)["code"], GameRules.CommandCode.ALREADY_TILLED)
+    assert_eq(effects.get_child_count(), 0, "blocked till spawns no effect")
+    assert_null(world.player.get_node_or_null("ToolFx"))
+
+    await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
+    world.use_selected_action()
+    assert_eq(effects.get_child_count(), 0, "non-farm target spawns no effect")
+    assert_null(world.player.get_node_or_null("ToolFx"))
+
+func test_farming_success_codes_resolve_to_four_distinct_streams() -> void:
+    var world := _world()
+    var hud := world.hud
+    var hoe := hud._sfx_for_code(GameRules.CommandCode.SOIL_TILLED)
+    var plant := hud._sfx_for_code(GameRules.CommandCode.CROP_PLANTED)
+    var water := hud._sfx_for_code(GameRules.CommandCode.CROP_WATERED)
+    var harvest := hud._sfx_for_code(GameRules.CommandCode.CROP_HARVESTED)
+    for stream: AudioStream in [hoe, plant, water, harvest]:
+        assert_not_null(stream)
+    assert_ne(hoe, plant)
+    assert_ne(hoe, water)
+    assert_ne(hoe, harvest)
+    assert_ne(plant, water)
+    assert_ne(plant, harvest)
+    assert_ne(water, harvest)
+    assert_eq(
+        hud._sfx_for_code(GameRules.CommandCode.ACTION_SELECTED),
+        hud._sfx_for_code(GameRules.CommandCode.SEED_SELECTED),
+        "selection keeps the shared ACTION_SFX",
+    )
+    assert_eq(
+        hud._sfx_for_code(GameRules.CommandCode.ALREADY_TILLED),
+        hud._sfx_for_code(GameRules.CommandCode.INSUFFICIENT_STAMINA),
+        "failures keep the shared cancel cue",
+    )
+
 func test_villager_interaction_opens_dialogue_and_gates_world_input() -> void:
     var world := _world()
     if world == null:
@@ -1870,7 +2055,7 @@ func test_hud_audio_players_and_representative_feedback_streams() -> void:
     assert_eq((music.stream as AudioStreamWAV).loop_mode, AudioStreamWAV.LOOP_FORWARD)
 
     world.hud.show_feedback(GameRules.CommandCode.SOIL_TILLED)
-    assert_eq(sfx.stream.resource_path, "res://assets/audio/action.wav")
+    assert_eq(sfx.stream.resource_path, "res://assets/audio/farm-hoe.wav")
     world.hud.show_feedback(GameRules.CommandCode.SEEDS_PURCHASED)
     assert_eq(sfx.stream.resource_path, "res://assets/audio/commerce.wav")
     world.hud.show_feedback(GameRules.CommandCode.CROP_GIFTED)

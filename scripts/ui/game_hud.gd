@@ -21,6 +21,10 @@ const FARMING_PREVIEW_VERBS := {
     GameRules.FarmingAction.HANDS: "Harvest",
 }
 const ACTION_SFX := preload("res://assets/audio/action.wav")
+const FARM_HOE_SFX := preload("res://assets/audio/farm-hoe.wav")
+const FARM_PLANT_SFX := preload("res://assets/audio/farm-plant.wav")
+const FARM_WATER_SFX := preload("res://assets/audio/farm-water.wav")
+const FARM_HARVEST_SFX := preload("res://assets/audio/farm-harvest.wav")
 const COMMERCE_SFX := preload("res://assets/audio/commerce.wav")
 const SOCIAL_SFX := preload("res://assets/audio/social.wav")
 const CONFIRM_SFX := preload("res://assets/audio/confirm.wav")
@@ -400,12 +404,16 @@ func show_feedback(code: GameRules.CommandCode) -> void:
 func _sfx_for_code(code: GameRules.CommandCode) -> AudioStream:
     match code:
         GameRules.CommandCode.ACTION_SELECTED, \
-        GameRules.CommandCode.SEED_SELECTED, \
-        GameRules.CommandCode.SOIL_TILLED, \
-        GameRules.CommandCode.CROP_PLANTED, \
-        GameRules.CommandCode.CROP_WATERED, \
-        GameRules.CommandCode.CROP_HARVESTED:
+        GameRules.CommandCode.SEED_SELECTED:
             return ACTION_SFX
+        GameRules.CommandCode.SOIL_TILLED:
+            return FARM_HOE_SFX
+        GameRules.CommandCode.CROP_PLANTED:
+            return FARM_PLANT_SFX
+        GameRules.CommandCode.CROP_WATERED:
+            return FARM_WATER_SFX
+        GameRules.CommandCode.CROP_HARVESTED:
+            return FARM_HARVEST_SFX
         GameRules.CommandCode.SEEDS_PURCHASED, \
         GameRules.CommandCode.CROP_DEPOSITED:
             return COMMERCE_SFX
