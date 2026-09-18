@@ -20,6 +20,7 @@ var _finale_in_progress := false
 
 @onready var player: PlayerController = $Entities/Player as PlayerController
 @onready var farm_view: FarmView = $Entities as FarmView
+@onready var _farm_effects: FarmActionEffects = $FarmActionEffects as FarmActionEffects
 @onready var hud: GameHud = $GameHud as GameHud
 
 static func perimeter_footprints() -> Array[Rect2]:
@@ -91,6 +92,7 @@ func _ready() -> void:
     hud.morning_summary_acknowledged.connect(_on_morning_summary_acknowledged)
     hud.intro_acknowledged.connect(_on_intro_acknowledged)
     hud.modal_state_changed.connect(_refresh_world_input_gate)
+    _farm_effects.setup(player, farm_view)
     _refresh_from_session()
 
 func _process(_delta: float) -> void:
@@ -161,11 +163,22 @@ func select_action_slot(slot: int) -> void:
         4:
             _finish_command(_session.select_action(GameRules.FarmingAction.HANDS))
 
+func _attempt_selected_action(target_cell: Variant) -> void:
+    # Capture the presentation facts that mutation could destroy (notably the
+    # harvest crop kind) before dispatching the authoritative command.
+    var facing := player.facing
+    var player_position := player.global_position
+    var preview := _session.preview_selected_action(target_cell)
+    var code := _session.apply_selected_action(target_cell)
+    _finish_command(code)
+    if FARM_ACTION_SUCCESS_CODES.has(code):
+        _farm_effects.play_success(code, preview, target_cell, facing, player_position)
+
 func use_selected_action() -> void:
     if not _world_input_enabled:
         return
-    var target: Variant = player.current_target_cell()
-    _finish_command(_session.apply_selected_action(target))
+    # One-shot wrapper: it never starts or advances hold state.
+    _attempt_selected_action(player.current_target_cell())
 
 func interact() -> void:
     if not _world_input_enabled:

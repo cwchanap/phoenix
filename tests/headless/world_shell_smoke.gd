@@ -258,6 +258,7 @@ func _run() -> void:
         "Paths",
         "GroundDecoration",
         "FarmSoil",
+        "FarmActionEffects",
         "StaticCollision",
         "Entities",
         "TargetHighlight",
@@ -406,6 +407,14 @@ func _run() -> void:
     if not _expect(farm_cells.size() == 30, "farm cell count"):
         return
     if not _expect(farm_soil.get_child_count() == farm_cells.size(), "FarmSoil soil sprite count"):
+        return
+
+    var farm_effects := world.get_node("FarmActionEffects") as Node2D
+    if not _expect(farm_effects != null, "FarmActionEffects must exist"):
+        return
+    if not _expect(not farm_effects.y_sort_enabled, "FarmActionEffects must not enable y-sort"):
+        return
+    if not _expect(farm_effects.z_index == 5, "FarmActionEffects z-index"):
         return
     for index in farm_cells.size():
         var soil := farm_soil.get_child(index) as Sprite2D

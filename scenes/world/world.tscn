@@ -8,6 +8,7 @@
 [ext_resource type="Texture2D" uid="uid://bhob7tjeipnog" path="res://assets/sprites/proof-villagers.png" id="6_villagers"]
 [ext_resource type="Texture2D" path="res://assets/sprites/proof-shadow.png" id="9_shadow"]
 [ext_resource type="Script" path="res://scripts/world/farm_view.gd" id="7_farm_view"]
+[ext_resource type="Script" path="res://scripts/world/farm_action_effects.gd" id="9_fx"]
 [ext_resource type="PackedScene" path="res://scenes/ui/game_hud.tscn" id="8_hud"]
 
 [node name="World" type="Node2D" unique_id=1894839507]
@@ -35,6 +36,10 @@ tile_set = ExtResource("2_6m72w")
 
 [node name="FarmSoil" type="Node2D" parent="." unique_id=253862436]
 y_sort_enabled = false
+z_index = 5
+
+[node name="FarmActionEffects" type="Node2D" parent="." unique_id=253862437]
+script = ExtResource("9_fx")
 z_index = 5
 
 [node name="StaticCollision" type="StaticBody2D" parent="." unique_id=216997322]
