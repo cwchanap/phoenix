@@ -41,7 +41,9 @@ There is no JavaScript or Tauri runtime in the current checkout.
   social commands `talk_to`/`gift_crop` return one narrow result Dictionary local to those methods; views read the immutable `snapshot()` dictionaries and never session internals.
 - Farming preview and every farming guard/budget check route through
   `GameSession._cost_for()`; rules-owned effective cost changes (HPA-460) land
-  at that one seam, never at call sites.
+  at that one seam, never at call sites. The 200G Efficient Can is bought once
+  via `buy_watering_can_upgrade()` at the shop cell and persists as the
+  `watering_can_upgraded` state/snapshot bit that `_cost_for()` reads.
 - GameSession owns relationship points, daily talk/gift flags, and close_friend_dialogue_seen.
 - GameSession derives tutorial completion only inside `_commit()` via
   `ContentRules.tutorial_for_code()`; guard failures never complete a tutorial.
