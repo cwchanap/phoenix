@@ -47,6 +47,8 @@ enum CommandCode {
     MARKET_NOT_READY,
     NOT_AT_MARKET,
     FINALE_ALREADY_TRIGGERED,
+    WATERING_CAN_UPGRADED,
+    WATERING_CAN_ALREADY_UPGRADED,
 }
 
 const DAY_START_MINUTES := 360
@@ -55,6 +57,7 @@ const MAX_STAMINA := 20
 const MAX_DAY := 14
 const RAIN_CHANCE := 0.25
 const STARTING_MONEY := 150
+const WATERING_CAN_UPGRADE_PRICE := 200
 
 const CROP_KEYS: Array[StringName] = [&"turnip", &"potato", &"pumpkin"]
 const ACTION_KEYS: Array[StringName] = [&"hoe", &"seeds", &"watering_can", &"hands"]
@@ -95,6 +98,12 @@ static func action_cost(action: FarmingAction) -> Dictionary:
         "minutes": ACTION_MINUTES[action],
         "stamina": ACTION_STAMINA[action],
     }
+
+static func effective_action_cost(action: FarmingAction, watering_can_upgraded: bool) -> Dictionary:
+    var cost := action_cost(action)
+    if action == FarmingAction.WATERING_CAN and watering_can_upgraded:
+        cost["stamina"] = 1
+    return cost
 
 static func visual_stage(kind: CropKind, progress: int) -> int:
     var stage := int(floor(float(progress * 3) / float(growth_nights(kind))))

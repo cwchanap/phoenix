@@ -54,6 +54,16 @@ func test_tutorial_helpers_derive_from_the_table() -> void:
         assert_false(progress[id])
     assert_eq(ContentRules.tutorial_for_code(GameRules.CommandCode.ACTION_SELECTED), &"")
 
+func test_watering_can_codes_complete_no_tutorial() -> void:
+    assert_eq(
+        ContentRules.tutorial_for_code(GameRules.CommandCode.WATERING_CAN_UPGRADED),
+        &"",
+    )
+    assert_eq(
+        ContentRules.tutorial_for_code(GameRules.CommandCode.WATERING_CAN_ALREADY_UPGRADED),
+        &"",
+    )
+
 func _fresh_snapshot() -> Dictionary:
     var snapshot := GameSession.new().snapshot()
     snapshot["intro_acknowledged"] = true
