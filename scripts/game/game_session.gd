@@ -16,6 +16,7 @@ var _shipped_counts: Array[int] = [0, 0, 0]
 var _intro_acknowledged := false
 var _tutorial_progress: Dictionary = ContentRules.initial_tutorial_progress()
 var _finale_triggered := false
+var _watering_can_upgraded := false
 var _farm: Array[Dictionary] = []
 var _relationships: Array[Dictionary] = []
 var _pending_morning_summary: Variant = null
@@ -56,6 +57,7 @@ func state() -> Dictionary:
         "tutorial": _tutorial_progress.duplicate(true),
         "shipped": _counts_snapshot(_shipped_counts),
         "finale_triggered": _finale_triggered,
+        "watering_can_upgraded": _watering_can_upgraded,
     }.duplicate(true)
 
 func snapshot() -> Dictionary:
@@ -80,6 +82,7 @@ func snapshot() -> Dictionary:
         "tutorial": state_result["tutorial"],
         "shipped": state_result["shipped"],
         "finale_triggered": state_result["finale_triggered"],
+        "watering_can_upgraded": state_result["watering_can_upgraded"],
     }
     for id in range(VillagerRules.VillagerId.size()):
         var key := VillagerRules.villager_key(id)
@@ -273,6 +276,11 @@ static func state_error(candidate: Variant) -> String:
     var summary_error := _morning_summary_state_error(summary_field["value"], state)
     if summary_error != "":
         return summary_error
+    var watering_field := _field(state, "watering_can_upgraded", "watering_can_upgraded")
+    if not bool(watering_field["ok"]):
+        return String(watering_field["error"])
+    if not (watering_field["value"] is bool):
+        return "watering_can_upgraded must be a boolean"
     return _finale_state_error(state)
 
 func restore_state(candidate: Dictionary) -> bool:
@@ -301,6 +309,7 @@ func restore_state(candidate: Dictionary) -> bool:
         _tutorial_progress[id] = bool(field["value"])
     _shipped_counts = _counts_array(candidate["shipped"])
     _finale_triggered = bool(candidate["finale_triggered"])
+    _watering_can_upgraded = bool(candidate["watering_can_upgraded"])
     _farm = _farm_array(candidate["farm"])
     _relationships = _relationship_array(candidate["relationships"])
     _pending_morning_summary = (
@@ -388,7 +397,7 @@ func _preview_crop(target_cell: Variant) -> Variant:
             return null
 
 func _cost_for(action: GameRules.FarmingAction) -> Dictionary:
-    return GameRules.action_cost(action)
+    return GameRules.effective_action_cost(action, _watering_can_upgraded)
 
 func _hoe_failure(target_cell: Variant) -> int:
     var active_failure := _active_day_failure()
@@ -599,6 +608,21 @@ func buy_seeds(
     _money -= total
     _seed_counts[kind] += quantity
     return _commit(GameRules.CommandCode.SEEDS_PURCHASED)
+
+func buy_watering_can_upgrade(target_cell: Variant) -> GameRules.CommandCode:
+    var active_failure := _active_day_failure()
+    if active_failure != -1:
+        return active_failure
+    if not (target_cell is Vector2i) or target_cell != WorldContract.SHOP_CELL:
+        return GameRules.CommandCode.NOT_AT_SHOP
+    if _watering_can_upgraded:
+        return GameRules.CommandCode.WATERING_CAN_ALREADY_UPGRADED
+    if _money < GameRules.WATERING_CAN_UPGRADE_PRICE:
+        return GameRules.CommandCode.INSUFFICIENT_FUNDS
+
+    _money -= GameRules.WATERING_CAN_UPGRADE_PRICE
+    _watering_can_upgraded = true
+    return _commit(GameRules.CommandCode.WATERING_CAN_UPGRADED)
 
 func deposit_crop(
     kind: GameRules.CropKind,

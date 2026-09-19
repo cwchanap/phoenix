@@ -68,10 +68,41 @@ func _seed_harvested(session: GameSession, counts: Array[int]) -> void:
     assert_eq(harvested[&"potato"], counts[GameRules.CropKind.POTATO])
     assert_eq(harvested[&"pumpkin"], counts[GameRules.CropKind.PUMPKIN])
 
+func _session_with_money(money: int) -> GameSession:
+    var session := GameSession.new(func() -> float: return 0.9)
+    var seeded := session.state()
+    seeded["money"] = money
+    assert_eq(GameSession.state_error(seeded), "")
+    assert_true(session.restore_state(seeded))
+    return session
+
+func _purchase_upgrade(session: GameSession) -> void:
+    assert_eq(
+        session.buy_watering_can_upgrade(WorldContract.SHOP_CELL),
+        GameRules.CommandCode.WATERING_CAN_UPGRADED,
+    )
+
+func _water_target_session(stamina: int, upgraded: bool, weather: StringName = &"sunny") -> GameSession:
+    var session := GameSession.new(func() -> float: return 0.9)
+    _plant_turnip(session)
+    if upgraded:
+        var funded := session.state()
+        funded["money"] = GameRules.WATERING_CAN_UPGRADE_PRICE
+        assert_eq(GameSession.state_error(funded), "")
+        assert_true(session.restore_state(funded))
+        _purchase_upgrade(session)
+    var prepared := session.state()
+    prepared["stamina"] = stamina
+    prepared["weather"] = weather
+    prepared["weather_history"] = [weather]
+    assert_eq(GameSession.state_error(prepared), "")
+    assert_true(session.restore_state(prepared))
+    return session
+
 func test_new_session_has_exact_starter_state() -> void:
     var session := GameSession.new(func() -> float: return 0.9)
     var snapshot := session.snapshot()
-    assert_eq(snapshot.size(), 19)
+    assert_eq(snapshot.size(), 20)
     assert_eq(snapshot.keys(), [
         "day",
         "time_minutes",
@@ -92,6 +123,7 @@ func test_new_session_has_exact_starter_state() -> void:
         "tutorial",
         "shipped",
         "finale_triggered",
+        "watering_can_upgraded",
     ])
     assert_eq(snapshot["max_stamina"], GameRules.MAX_STAMINA)
     assert_eq(snapshot["day"], 1)
@@ -134,9 +166,16 @@ func test_new_session_has_exact_starter_state() -> void:
     assert_eq(snapshot["tutorial"], ContentRules.initial_tutorial_progress())
     assert_eq(snapshot["shipped"], {&"turnip": 0, &"potato": 0, &"pumpkin": 0})
     assert_false(snapshot["finale_triggered"])
+    assert_false(snapshot["watering_can_upgraded"])
 
     var starter_state := session.state()
-    for field in ["intro_acknowledged", "tutorial", "shipped", "finale_triggered"]:
+    for field in [
+        "intro_acknowledged",
+        "tutorial",
+        "shipped",
+        "finale_triggered",
+        "watering_can_upgraded",
+    ]:
         assert_true(starter_state.has(field))
 
     var expected_cells := WorldContract.farm_cells()
@@ -384,7 +423,13 @@ func test_state_error_rejects_invalid_onboarding_and_finale_shapes() -> void:
     var candidates: Array[Dictionary] = []
     var invalid: Dictionary = valid.duplicate(true)
 
-    for field in ["intro_acknowledged", "tutorial", "shipped", "finale_triggered"]:
+    for field in [
+        "intro_acknowledged",
+        "tutorial",
+        "shipped",
+        "finale_triggered",
+        "watering_can_upgraded",
+    ]:
         invalid = valid.duplicate(true)
         invalid.erase(field)
         candidates.append(invalid)
@@ -419,6 +464,13 @@ func test_state_error_rejects_invalid_onboarding_and_finale_shapes() -> void:
     candidates.append(invalid)
     invalid = valid.duplicate(true)
     invalid["finale_triggered"] = true
+    candidates.append(invalid)
+
+    invalid = valid.duplicate(true)
+    invalid["watering_can_upgraded"] = "yes"
+    candidates.append(invalid)
+    invalid = valid.duplicate(true)
+    invalid["watering_can_upgraded"] = 1
     candidates.append(invalid)
 
     var finale_session := GameSession.new(func() -> float: return 0.9)
@@ -1141,6 +1193,121 @@ func test_buy_seeds_validates_target_quantity_and_funds_atomically() -> void:
     assert_eq(purchased["time_minutes"], GameRules.DAY_START_MINUTES)
     assert_eq(purchased["stamina"], GameRules.MAX_STAMINA)
 
+func test_buy_watering_can_upgrade_guards_in_order_and_purchases_atomically() -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    var starter := session.snapshot()
+    assert_eq(int(starter["money"]), 150)
+
+    # Wrong location outranks insufficient funds and changes nothing.
+    assert_eq(
+        session.buy_watering_can_upgrade(Vector2i(0, 0)),
+        GameRules.CommandCode.NOT_AT_SHOP,
+    )
+    assert_eq(
+        session.buy_watering_can_upgrade(null),
+        GameRules.CommandCode.NOT_AT_SHOP,
+    )
+    _assert_unchanged(session, starter)
+
+    # Starter 150G is short of the 200G price at the exact shop cell.
+    assert_eq(
+        session.buy_watering_can_upgrade(WorldContract.SHOP_CELL),
+        GameRules.CommandCode.INSUFFICIENT_FUNDS,
+    )
+    _assert_unchanged(session, starter)
+
+    # Exact 200G succeeds: only money and ownership move.
+    var funded := _session_with_money(200)
+    var funded_before := funded.snapshot()
+    _purchase_upgrade(funded)
+    var expected := funded_before.duplicate(true)
+    expected["money"] = 0
+    expected["watering_can_upgraded"] = true
+    assert_eq(funded.snapshot(), expected)
+
+    # Duplicate purchase is a no-op returning the dedicated code.
+    assert_eq(
+        funded.buy_watering_can_upgrade(WorldContract.SHOP_CELL),
+        GameRules.CommandCode.WATERING_CAN_ALREADY_UPGRADED,
+    )
+    _assert_unchanged(funded, expected)
+
+func test_buy_watering_can_upgrade_scales_with_funds_and_restores_ownership() -> void:
+    # The reference route's 255G moment: purchase lands at exactly 55G.
+    var session := _session_with_money(255)
+    _purchase_upgrade(session)
+    var purchased := session.snapshot()
+    assert_eq(int(purchased["money"]), 55)
+    assert_true(purchased["watering_can_upgraded"])
+
+    var saved := session.state()
+    assert_eq(GameSession.state_error(saved), "")
+    var restored := GameSession.new(func() -> float: return 0.9)
+    assert_true(restored.restore_state(saved))
+    assert_eq(restored.snapshot(), purchased)
+    assert_eq(
+        restored._cost_for(GameRules.FarmingAction.WATERING_CAN),
+        {"minutes": 20, "stamina": 1},
+    )
+    assert_eq(
+        restored.buy_watering_can_upgrade(WorldContract.SHOP_CELL),
+        GameRules.CommandCode.WATERING_CAN_ALREADY_UPGRADED,
+    )
+
+func test_preview_and_watering_agree_at_base_and_upgraded_boundaries() -> void:
+    var base := GameSession.new(func() -> float: return 0.9)
+    _plant_turnip(base)
+    assert_eq(
+        base.select_action(GameRules.FarmingAction.WATERING_CAN),
+        GameRules.CommandCode.ACTION_SELECTED,
+    )
+    var base_preview := _assert_preview(
+        base,
+        FARM_CELL,
+        GameRules.CommandCode.CROP_WATERED,
+        GameRules.FarmingAction.WATERING_CAN,
+        GameRules.CropKind.TURNIP,
+    )
+    assert_eq(base_preview["cost"], {"minutes": 20, "stamina": 2})
+    assert_eq(base.water(FARM_CELL), GameRules.CommandCode.CROP_WATERED)
+    assert_eq(int(base.snapshot()["stamina"]), GameRules.MAX_STAMINA - 4 - 2)
+
+    var upgraded := _water_target_session(GameRules.MAX_STAMINA - 4, true)
+    assert_eq(
+        upgraded.select_action(GameRules.FarmingAction.WATERING_CAN),
+        GameRules.CommandCode.ACTION_SELECTED,
+    )
+    var upgraded_preview := _assert_preview(
+        upgraded,
+        FARM_CELL,
+        GameRules.CommandCode.CROP_WATERED,
+        GameRules.FarmingAction.WATERING_CAN,
+        GameRules.CropKind.TURNIP,
+    )
+    assert_eq(upgraded_preview["cost"], {"minutes": 20, "stamina": 1})
+    assert_eq(upgraded.water(FARM_CELL), GameRules.CommandCode.CROP_WATERED)
+    assert_eq(int(upgraded.snapshot()["stamina"]), GameRules.MAX_STAMINA - 4 - 1)
+
+func test_upgraded_watering_succeeds_where_base_watering_cannot() -> void:
+    var base := _water_target_session(1, false)
+    var base_before := base.snapshot()
+    assert_eq(
+        base.water(FARM_CELL),
+        GameRules.CommandCode.INSUFFICIENT_STAMINA,
+    )
+    _assert_unchanged(base, base_before)
+
+    var upgraded := _water_target_session(1, true)
+    assert_eq(upgraded.water(FARM_CELL), GameRules.CommandCode.CROP_WATERED)
+    assert_eq(int(upgraded.snapshot()["stamina"]), 0)
+
+func test_rain_still_rejects_watering_in_both_ownership_states() -> void:
+    for upgraded in [false, true]:
+        var session := _water_target_session(GameRules.MAX_STAMINA, upgraded, &"rainy")
+        var before := session.snapshot()
+        assert_eq(session.water(FARM_CELL), GameRules.CommandCode.RAIN_WATERS_CROPS)
+        _assert_unchanged(session, before)
+
 func test_deposit_crop_validates_target_quantity_and_carried_inventory() -> void:
     var session := GameSession.new(func() -> float: return 0.9)
     _grow_and_harvest_turnip(session)
@@ -1310,6 +1477,11 @@ func test_pending_morning_summary_blocks_active_commands_without_mutation() -> v
     _assert_unchanged(session, before)
     assert_eq(
         session.buy_seeds(GameRules.CropKind.POTATO, 1, WorldContract.SHOP_CELL),
+        GameRules.CommandCode.DAY_SUMMARY_PENDING,
+    )
+    _assert_unchanged(session, before)
+    assert_eq(
+        session.buy_watering_can_upgrade(WorldContract.SHOP_CELL),
         GameRules.CommandCode.DAY_SUMMARY_PENDING,
     )
     _assert_unchanged(session, before)
@@ -1501,6 +1673,10 @@ func test_finale_blocks_every_ordinary_gameplay_command() -> void:
         GameRules.CommandCode.FINALE_ALREADY_TRIGGERED,
     )
     assert_eq(
+        session.buy_watering_can_upgrade(WorldContract.SHOP_CELL),
+        GameRules.CommandCode.FINALE_ALREADY_TRIGGERED,
+    )
+    assert_eq(
         session.deposit_crop(GameRules.CropKind.TURNIP, 1, WorldContract.SHIPPING_CELL),
         GameRules.CommandCode.FINALE_ALREADY_TRIGGERED,
     )
@@ -1657,3 +1833,83 @@ func test_representative_reinvestment_route_reaches_promising() -> void:
     assert_eq(result["shipped_value"], 175)
     assert_true(int(result["shipped_value"]) >= ContentRules.PROMISING_SHIPPED_VALUE)
     assert_eq(result["tier"], &"promising_farmer")
+
+func _benchmark_session(upgraded: bool) -> GameSession:
+    # Prepared balance fixture: Day 1, 200G, ten authored farm cells already
+    # tilled and empty, ten Pumpkin seeds, always-sunny weather, and no
+    # relationship shortcut. It isolates stamina throughput, not seed buying.
+    var session := GameSession.new(func() -> float: return 0.9)
+    var seeded := session.state()
+    seeded["money"] = GameRules.WATERING_CAN_UPGRADE_PRICE
+    seeded["seeds"] = {&"turnip": 0, &"potato": 0, &"pumpkin": 10}
+    seeded["selected_seed"] = &"pumpkin"
+    for index in 10:
+        seeded["farm"][index]["tilled"] = true
+    assert_eq(GameSession.state_error(seeded), "")
+    assert_true(session.restore_state(seeded))
+    if upgraded:
+        _purchase_upgrade(session)
+        assert_eq(int(session.snapshot()["money"]), 0)
+    return session
+
+func _run_benchmark_route(session: GameSession, crop_count: int) -> void:
+    var cells := WorldContract.farm_cells()
+    # Day 1: complete Plant + Water pairs cost 3 stamina base vs 2 upgraded.
+    for index in crop_count:
+        assert_eq(session.plant(cells[index]), GameRules.CommandCode.CROP_PLANTED)
+        assert_eq(session.water(cells[index]), GameRules.CommandCode.CROP_WATERED)
+    _sleep_and_ack(session)  # Night 1
+    # Days 2..7: maintain the crops through their remaining sunny nights.
+    for _night in 6:
+        for index in crop_count:
+            assert_eq(session.water(cells[index]), GameRules.CommandCode.CROP_WATERED)
+        _sleep_and_ack(session)
+    # Day 8: mature; harvest, deposit, and settle overnight into Day 9.
+    for index in crop_count:
+        assert_eq(session.harvest(cells[index]), GameRules.CommandCode.CROP_HARVESTED)
+    assert_eq(
+        session.deposit_crop(
+            GameRules.CropKind.PUMPKIN,
+            crop_count,
+            WorldContract.SHIPPING_CELL,
+        ),
+        GameRules.CommandCode.CROP_DEPOSITED,
+    )
+    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+    assert_eq(int(session.snapshot()["day"]), 9)
+
+func test_balance_gate_two_hundred_gold_buys_real_throughput_by_day_nine() -> void:
+    var baseline := _benchmark_session(false)
+    var upgraded := _benchmark_session(true)
+    assert_eq(int(baseline.snapshot()["money"]), 200)
+    assert_eq(int(upgraded.snapshot()["money"]), 0)
+
+    _run_benchmark_route(baseline, 6)
+    _run_benchmark_route(upgraded, 10)
+
+    var baseline_result := baseline.snapshot()
+    var upgraded_result := upgraded.snapshot()
+    assert_eq(int(baseline_result["day"]), 9)
+    assert_eq(int(upgraded_result["day"]), 9)
+    assert_eq(baseline_result["weather"], &"sunny")
+    assert_eq(upgraded_result["weather"], &"sunny")
+    assert_false(baseline_result["watering_can_upgraded"])
+    assert_true(upgraded_result["watering_can_upgraded"])
+
+    var baseline_crops := int(baseline_result["shipped"][&"pumpkin"])
+    var upgraded_crops := int(upgraded_result["shipped"][&"pumpkin"])
+    var pumpkin_value := GameRules.sale_value(GameRules.CropKind.PUMPKIN)
+    var baseline_shipped := baseline_crops * pumpkin_value
+    var upgraded_shipped := upgraded_crops * pumpkin_value
+    assert_eq(baseline_crops, 6)
+    assert_eq(upgraded_crops, 10)
+    assert_eq(baseline_shipped, 840)
+    assert_eq(upgraded_shipped, 1400)
+    assert_eq(int(baseline_result["money"]), 1040)
+    assert_eq(int(upgraded_result["money"]), 1400)
+
+    # The pinned advantage: +4 crops / +560G shipped / +360G final money
+    # after paying the 200G upgrade price.
+    assert_eq(upgraded_crops - baseline_crops, 4)
+    assert_eq(upgraded_shipped - baseline_shipped, 560)
+    assert_eq(int(upgraded_result["money"]) - int(baseline_result["money"]), 360)

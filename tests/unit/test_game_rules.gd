@@ -149,3 +149,49 @@ func test_format_time_is_zero_padded() -> void:
 func test_earliest_ready_day_uses_remaining_growth() -> void:
     assert_eq(GameRules.earliest_ready_day(GameRules.CropKind.TURNIP, 1, 4), 6)
     assert_eq(GameRules.earliest_ready_day(GameRules.CropKind.PUMPKIN, 0, 13), -1)
+
+func test_watering_can_upgrade_price_is_pinned() -> void:
+    assert_eq(GameRules.WATERING_CAN_UPGRADE_PRICE, 200)
+
+func test_effective_action_cost_upgrades_only_watering_stamina() -> void:
+    assert_eq(
+        GameRules.effective_action_cost(GameRules.FarmingAction.WATERING_CAN, false),
+        {"minutes": 20, "stamina": 2},
+    )
+    assert_eq(
+        GameRules.effective_action_cost(GameRules.FarmingAction.WATERING_CAN, true),
+        {"minutes": 20, "stamina": 1},
+    )
+
+    for action in [
+        GameRules.FarmingAction.HOE,
+        GameRules.FarmingAction.SEEDS,
+        GameRules.FarmingAction.HANDS,
+    ]:
+        assert_eq(
+            GameRules.effective_action_cost(action, false),
+            GameRules.action_cost(action),
+        )
+        assert_eq(
+            GameRules.effective_action_cost(action, true),
+            GameRules.action_cost(action),
+        )
+
+func test_effective_action_cost_returns_fresh_dictionaries_over_an_unchanged_base_table() -> void:
+    var mutated := GameRules.effective_action_cost(GameRules.FarmingAction.WATERING_CAN, true)
+    mutated["stamina"] = 99
+    mutated["minutes"] = 99
+
+    assert_eq(
+        GameRules.effective_action_cost(GameRules.FarmingAction.WATERING_CAN, true),
+        {"minutes": 20, "stamina": 1},
+    )
+    assert_eq(GameRules.action_cost(GameRules.FarmingAction.WATERING_CAN), {"minutes": 20, "stamina": 2})
+    assert_eq(GameRules.ACTION_MINUTES, [30, 20, 20, 20])
+    assert_eq(GameRules.ACTION_STAMINA, [3, 1, 2, 1])
+
+func test_watering_pacing_examples_each_consume_twelve_stamina() -> void:
+    var base_cost := GameRules.effective_action_cost(GameRules.FarmingAction.WATERING_CAN, false)
+    var upgraded_cost := GameRules.effective_action_cost(GameRules.FarmingAction.WATERING_CAN, true)
+    assert_eq(6 * int(base_cost["stamina"]), 12)
+    assert_eq(12 * int(upgraded_cost["stamina"]), 12)
