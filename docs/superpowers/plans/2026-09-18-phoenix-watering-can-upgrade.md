@@ -16,227 +16,208 @@
 - Keep manual tool selection, one-cell range, and hold-to-work behavior unchanged.
 - Change only watering stamina after ownership; keep watering time and every other action cost unchanged.
 - Do not add an upgrade framework, equipment inventory, catalog/SKU abstraction, migration adapter, second save slot, or new image/audio work.
-- The final upgrade price starts at 200G. Only this one number may move if the required short play check disproves the intended reinvestment pacing.
+- The final upgrade price starts at 200G. Only this one number may move, and only if Task 1's deterministic same-day-count throughput benchmark fails to show both higher shipped value and higher final money after paying for the can.
 - Purchase spending never contributes to shipped/finale score.
 
-## Task 1: Add the rules-owned effective watering cost and one state bit
+## Task 1: Add rules, ownership, purchase command, and the balance gate
 
 **Files:**  
 `scripts/game/game_rules.gd`  
 `scripts/game/game_session.gd`  
 `tests/unit/test_game_rules.gd`  
-`tests/unit/test_game_session.gd`
+`tests/unit/test_game_session.gd`  
+`tests/unit/test_content_rules.gd`
 
-### 1.1 RED — pin the cost policy
+### 1.1 RED/GREEN — add one rules-owned effective-cost policy
 
-Add focused `GameRules` tests:
+- [ ] Pin `WATERING_CAN_UPGRADE_PRICE == 200`.
+- [ ] Base watering remains `{"minutes": 20, "stamina": 2}`; upgraded watering is `{"minutes": 20, "stamina": 1}`.
+- [ ] Hoe, Seeds, and Hands effective costs are identical for false/true ownership.
+- [ ] Add `GameRules.effective_action_cost(action, watering_can_upgraded)` by copying `action_cost(action)` and overriding only upgraded watering stamina.
+- [ ] Return a fresh Dictionary; keep `ACTION_MINUTES`, `ACTION_STAMINA`, and `action_cost()` as the unchanged base table.
 
-- [ ] `WATERING_CAN_UPGRADE_PRICE == 200`.
-- [ ] Base watering remains `{"minutes": 20, "stamina": 2}`.
-- [ ] Upgraded watering is `{"minutes": 20, "stamina": 1}`.
-- [ ] Hoe, Seeds, and Hands effective costs are byte-for-byte the same for false/true ownership.
-- [ ] Six base waterings and twelve upgraded waterings both consume 12 stamina from a 20-stamina budget.
-
-Do not rewrite `ACTION_STAMINA`; it remains the base rule table.
-
-### 1.2 GREEN — add one pure effective-cost helper
-
-- [ ] Add `GameRules.WATERING_CAN_UPGRADE_PRICE := 200`.
-- [ ] Add `GameRules.effective_action_cost(action, watering_can_upgraded)`.
-- [ ] Start from `action_cost(action)`; only override watering stamina to 1 when upgraded.
-- [ ] Return a fresh Dictionary and do not mutate shared/base data.
-
-### 1.3 RED/GREEN — add ownership to `GameSession`
+### 1.2 RED/GREEN — add the state bit and real purchase transition together
 
 - [ ] Add `_watering_can_upgraded := false`.
-- [ ] Add `watering_can_upgraded` to `state()` and `snapshot()`.
-- [ ] Update exact starter snapshot/state assertions.
+- [ ] Add required `watering_can_upgraded` to `state()` / `snapshot()`, validate it as boolean in `state_error()`, and restore it in `restore_state()`.
 - [ ] Change only `GameSession._cost_for(action)` to call `GameRules.effective_action_cost(action, _watering_can_upgraded)`.
-- [ ] Prove HPA-459 `preview_selected_action()` reports 2 stamina before ownership and 1 after ownership.
-- [ ] Prove real watering consumes the same cost at exact stamina boundaries.
-- [ ] Keep rainy-day watering rejected before any time/stamina spend in both states.
-- [ ] During Task 1 only, set `session._watering_can_upgraded = true` directly in focused unit tests to exercise the effective-cost seam before the purchase command exists. Do not add a production setter/test hook; Task 2 replaces this as the real state-transition proof.
+- [ ] Add `WATERING_CAN_UPGRADED` / `WATERING_CAN_ALREADY_UPGRADED`.
+- [ ] Implement `buy_watering_can_upgrade(target_cell)` with the existing `buy_seeds()` guard order: active day → exact shop cell → not already owned → sufficient funds.
+- [ ] Success subtracts the rules-owned price, sets the boolean, and returns `_commit(WATERING_CAN_UPGRADED)`.
+- [ ] Pin 150G insufficient, exact 200G success, 255G → 55G, duplicate no-op, wrong-location no-op, and inactive-day rejection.
+- [ ] Pin that purchase changes only money + ownership; no stamina/time/seeds/harvest/shipment/social/finale/tutorial mutation.
+- [ ] Assert `ContentRules.tutorial_for_code()` returns `&""` for both new codes; do not add them to `TUTORIALS`.
 
-**Checkpoint:** focused unit tests green. No shop or persistence changes yet.
+No test-only setter/private-field poke is needed: the real purchase command is the state transition from the first ownership-aware session test onward.
+
+### 1.3 RED/GREEN — prove preview/command agreement and HPA-459 continuation
+
+- [ ] Before purchase, HPA-459 preview reports watering cost 2; after purchase it reports 1.
+- [ ] Real watering consumes the same cost at exact stamina boundaries.
+- [ ] Rain still rejects watering before time/stamina spend in both ownership states.
+- [ ] Keep the small arithmetic examples: six base waterings and twelve upgraded waterings each consume 12 stamina.
+- [ ] Unit-level cost tests remain pure; session tests acquire ownership through `buy_watering_can_upgrade()`.
+
+### 1.4 Balance gate — prove 200G buys real throughput before UI work
+
+Create one prepared, deterministic larger-farm comparison. Use two otherwise identical sunny sessions restored from the same valid state:
+
+- [ ] Day 1; **200G**; first **10** authored farm cells already tilled/empty; **10 Pumpkin seeds**; no relationship shortcut.
+- [ ] Baseline keeps 200G and the base can.
+- [ ] Upgrade route buys the can through `buy_watering_can_upgrade()`, leaving 0G.
+- [ ] Day 1 complete Plant + Water costs 3 stamina base vs 2 upgraded, so pin **6** established Pumpkins baseline vs **10** upgraded.
+- [ ] Maintain exactly those established crops for the same seven sunny watered nights, harvest/deposit, and settle. Both routes finish on **Day 9**.
+- [ ] Baseline result: **6 crops / 840G shipped / 1040G final money**.
+- [ ] Upgraded result: **10 crops / 1400G shipped / 1400G final money**.
+- [ ] Pin the advantage: **+4 crops / +560G shipped / +360G final money after paying 200G**.
+- [ ] Treat the supplied seed inventory as a balance fixture that isolates stamina throughput; do not turn this into a seed-acquisition simulation.
+
+If this exact benchmark does not hold after implementation/tuning, stop before Task 2 and adjust only `WATERING_CAN_UPGRADE_PRICE`. Do not rebalance crops or stamina to rescue the upgrade.
+
+**Checkpoint:** all focused rules/session/content unit tests green, including the throughput benchmark. The 200G price is mechanically defended before any shop UI work starts.
 
 ---
 
-## Task 2: Add one purchase command and one fourth shop row
+## Task 2A: Wire the upgrade through existing HUD/world seams
 
 **Files:**  
-`scripts/game/game_rules.gd`  
-`scripts/game/game_session.gd`  
-`scripts/ui/shop_panel.gd`  
-`scenes/ui/shop_panel.tscn`  
+`scripts/ui/shop_panel.gd` (signal only; no row/geometry yet)  
 `scripts/ui/game_hud.gd`  
 `scripts/world/world_shell.gd`  
-`tests/unit/test_game_session.gd`  
-`tests/unit/test_content_rules.gd`  
 `tests/integration/test_gameplay_shell.gd`
 
-### 2.1 RED — pin atomic purchase behavior
+### 2A.1 RED/GREEN — add the explicit request chain
 
-Add session tests for `buy_watering_can_upgrade(target_cell)`:
-
-- [ ] 150G fresh state → insufficient funds and no mutation.
-- [ ] Exactly 200G → success, money 0, ownership true.
-- [ ] 255G → success leaves 55G.
-- [ ] Duplicate purchase → dedicated already-owned failure and no money change.
-- [ ] Wrong target → `NOT_AT_SHOP` and no mutation.
-- [ ] Inactive/pending day state still uses the existing active-day guard.
-- [ ] Successful purchase does not change stamina, time, seeds, harvested, pending shipment, shipped counts, relationships, tutorial progress, or finale fields.
-
-### 2.2 GREEN — implement the narrow command
-
-- [ ] Add `WATERING_CAN_UPGRADED` and `WATERING_CAN_ALREADY_UPGRADED` command codes.
-- [ ] Implement validation in the same order as the design.
-- [ ] Subtract `WATERING_CAN_UPGRADE_PRICE` and set the boolean only on success.
-- [ ] Route success through the existing `_commit()`.
-- [ ] Add `ContentRules` assertions that both new upgrade codes map to `&""`; do **not** add either code to `TUTORIALS`, so buying the can cannot complete Reinvest / seed purchase.
-- [ ] Add truthful `GameHud.feedback_text()` strings.
-- [ ] Map `WATERING_CAN_UPGRADED` to `COMMERCE_SFX` in the same match arm as `SEEDS_PURCHASED`; the current default is cancel feedback, so this mapping is required. No new stream.
-
-### 2.3 RED — extend current shop keyboard behavior
-
-Update integration coverage around the existing shop panel:
-
-- [ ] Selected row is 0..3; S wraps row 3 → row 0 and W wraps row 0 → row 3. Navigation modulus is 4, not `CropKind.size()`.
-- [ ] Rows 0–2 keep current A/D/M quantity behavior and Enter emits `buy_requested(kind, quantity)`; existing `selected_kind()` remains crop-only for these rows so `test_shop_keyboard_rows_update_quantity_max_and_enter_request` keeps its contract.
-- [ ] Row 3 hides Minus/Plus/Quantity/Max; A/D/M are no-ops.
-- [ ] At 150G, row 3 remains visible and footer still says **BUY · 200G**; Enter emits exactly one `upgrade_requested`, then the session returns `INSUFFICIENT_FUNDS`.
-- [ ] With enough money, the same request succeeds.
-- [ ] Owned row renders footer **OWNED** and panel Enter emits nothing; a direct duplicate session call remains covered separately.
-- [ ] Existing crop-row tests keep their behavior; do not replace them with broad UI snapshots.
-
-### 2.4 GREEN — add the row without a shop framework
-
-- [ ] Use one panel-local selected row index; derive crop kind only for rows < `GameRules.CropKind.size()`. Keep `selected_kind()` crop-only and expose row selection separately if tests need it.
-- [ ] Add `UPGRADE_ROW := GameRules.CropKind.size()`; no SKU/product enum outside this panel.
 - [ ] Add `ShopPanel.upgrade_requested`.
-- [ ] Forward as `GameHud.upgrade_requested`.
-- [ ] Connect in `WorldShell` to `_on_upgrade_requested()`, using current target cell and `_finish_command()`.
-- [ ] Add one fourth row to `shop_panel.tscn` using `assets/ui/icons/watering-can-efficient.png`.
-- [ ] Price comes from `WATERING_CAN_UPGRADE_PRICE`; benefit copy formats base/upgraded watering stamina from two `effective_action_cost()` calls instead of hardcoding `2→1`.
-- [ ] Footer is **BUY · 200G** whenever unowned (including 150G) and **OWNED** when owned.
-- [ ] Pin the fixed 640×360 geometry: Frame `x=128..512, y=24..336`; Header local `y=2..40`; Body `y=40..275`; rows at Body `8..58`, `64..114`, `120..170`, `176..226`; Footer local `y=275..310`.
-- [ ] Keep seed quantity controls hidden on row 3 rather than inventing fake ×1 semantics. No scrolling.
+- [ ] Forward it as `GameHud.upgrade_requested`.
+- [ ] Connect `WorldShell._on_upgrade_requested()` to current target cell → `GameSession.buy_watering_can_upgrade()` → existing `_finish_command()`.
+- [ ] Integration-drive the signal directly before the fourth scene row exists: wrong target stays `NOT_AT_SHOP`; valid target refreshes the session/HUD.
+- [ ] Keep `buy_requested(kind, quantity)` untouched; never encode the upgrade as a fake crop kind.
 
-### 2.5 GREEN — update the immediate read surfaces
+### 2A.2 RED/GREEN — feedback, icon, SFX, and hold-to-work
 
-- [ ] When `watering_can_upgraded` is true, `GameHud.render()` swaps only Action_2's icon to `watering-can-efficient.png`; world FX stays on `watering-can-overlay.png`.
-- [ ] Keep the same action slot and same `WATERING_CAN` action.
-- [ ] While ShopPanel is open, HUD chrome is hidden: only shop money + **OWNED** are immediately visible through the existing `_finish_command() → render() → present()` path.
-- [ ] After Esc, the already-rendered Action_2 icon is visible and the next valid watering target automatically shows **1 stamina** through HPA-459 preview. Do not special-case hint text or add another refresh.
-- [ ] Leave Almanac untouched.
+- [ ] Add truthful feedback text for the two new command codes.
+- [ ] Map `WATERING_CAN_UPGRADED` to `COMMERCE_SFX` beside `SEEDS_PURCHASED`; leave failures on the existing cancel/default path.
+- [ ] In `GameHud.render()`, swap only Action_2's icon from `watering-can.png` to `watering-can-efficient.png` when the snapshot flag is true. World FX remains `watering-can-overlay.png`.
+- [ ] Keep HPA-459 hint formatting untouched; after purchase a valid water preview must naturally read **1 stamina**.
+- [ ] Prepare three eligible unwatered crops, acquire the upgrade through the real session command, then drive the existing hold seam across all three. Assert **20 → 17 stamina**: N=3 successful held waterings cost exactly N stamina.
+- [ ] No new hold state, gesture rule, or E2E is introduced for this assertion.
 
-**Checkpoint:** unit + gameplay-shell integration green; inspect the shop once at native 640×360.
+**Checkpoint:** gameplay-shell integration green for request wiring, SFX/icon/hint, and upgraded hold-to-work. No shop scene geometry has changed yet.
 
 ---
 
-## Task 3: Persist ownership as a required schema-2 state field
+## Task 2B: Add the fourth fixed shop row and prove its chrome immediately
 
 **Files:**  
-`scripts/game/game_session.gd`  
+`scripts/ui/shop_panel.gd`  
+`scenes/ui/shop_panel.tscn`  
+`tests/integration/test_gameplay_shell.gd`  
+existing visual state/golden `02-seed-shop`
+
+### 2B.1 RED/GREEN — split navigation row from crop quantity state
+
+- [ ] Add `_selected_row: int = 0` for navigation over 0..3.
+- [ ] Keep `_selected_kind` permanently valid in 0..2; selecting crop rows updates it, selecting row 3 does not.
+- [ ] Keep `selected_kind()` returning the last real crop even while row 3 is selected; add `selected_row()` for navigation assertions.
+- [ ] `present()`, `_clamped_quantity()`, `_max_quantity()`, and every `seed_price()` call use only `_selected_kind`; they never receive `_selected_row`.
+- [ ] Existing crop loop updates rows 0–2. Add one focused `_update_upgrade_row()` for row 3/footer instead of branching generic item logic through the crop loop.
+- [ ] S/W navigation modulus is 4: S row3→Turnip, W Turnip→row3.
+- [ ] Row 3 hides Minus/Plus/Quantity/Max; A/D/M do nothing.
+- [ ] At 150G, footer remains **BUY · 200G** and Enter still emits one upgrade request so the session returns `INSUFFICIENT_FUNDS`.
+- [ ] Owned footer is **OWNED** and Enter emits nothing; direct duplicate session command remains separately authoritative.
+
+This shape prevents `GameRules.seed_price(3)` / `SEED_PRICES[3]` by construction, including during `present()` after a successful purchase refresh.
+
+### 2B.2 GREEN — add the authored row and fixed geometry
+
+- [ ] Add row 3 using `assets/ui/icons/watering-can-efficient.png`.
+- [ ] Price comes from `WATERING_CAN_UPGRADE_PRICE`.
+- [ ] Benefit copy formats the two effective watering costs, yielding **Water 2→1 STA** at current values; no hardcoded cost table.
+- [ ] Pin Frame `x=128..512, y=24..336`; Header local `2..40`; Body `40..275`; rows `8..58`, `64..114`, `120..170`, `176..226`; Footer `275..310`.
+- [ ] No scrolling/responsive shop framework.
+
+### 2B.3 Checkpoint — native proof belongs here, not final cleanup
+
+- [ ] Extend gameplay-shell integration for four-row wrap, crop-only `selected_kind()`, row-3 quantity no-ops, unaffordable Enter, successful purchase, immediate open-shop **55G + OWNED**, and Owned no-emit.
+- [ ] Inspect the frame at native 640×360 and shipped integer 2× immediately after the scene move.
+- [ ] Regolden **only `02-seed-shop`** now.
+- [ ] Do not add a 15th **OWNED** visual state; integration pins it.
+- [ ] Do not touch `05-almanac`.
+
+**Checkpoint:** shop integration + native layout + `02-seed-shop` visual gate green before persistence work.
+
+---
+
+## Task 3: Prove required-field persistence and Continue compatibility
+
+**Files:**  
+`scripts/game/game_session.gd` (already owns field validation/restore from Task 1)  
 `tests/unit/test_game_session.gd`  
 `tests/integration/test_app_launch.gd`  
 `tests/integration/test_gameplay_shell.gd`
 
-### 3.1 RED — pin state validation and restore
+### 3.1 Keep schema 2 and pin the loaded-but-incompatible path
 
-- [ ] `GameSession.state_error()` rejects missing `watering_can_upgraded`.
-- [ ] It rejects non-boolean values.
-- [ ] `restore_state()` restores both false and true.
-- [ ] A restored true state immediately returns 1-stamina watering preview/cost.
-- [ ] New `GameSession` still starts false.
-- [ ] `SaveFileCodec.SCHEMA_VERSION` remains exactly 2; no codec test or codec implementation change is needed.
+- [ ] `SaveFileCodec.SCHEMA_VERSION` remains exactly 2; no codec implementation/test change.
+- [ ] Save a current schema-2 state with `watering_can_upgraded` removed.
+- [ ] Prove `SaveRepository.load()` returns `loaded`, then `GameSession.state_error()` rejects the missing field.
+- [ ] AppRoot disables Continue with **“Save is incompatible; start a New Game.”**.
+- [ ] Bypass the disabled Continue signal as the existing integration test does and prove no World launches.
+- [ ] Non-boolean ownership follows the same required-field/state-validation path.
+- [ ] Never default missing ownership to false; **“Save unavailable”** remains reserved for codec/I/O invalidity.
 
-### 3.2 GREEN — add the required field
+### 3.2 Overnight ownership contract at integration level
 
-- [ ] Validate `watering_can_upgraded` next to the existing simple boolean/scalar fields.
-- [ ] Restore it into `_watering_can_upgraded`.
-- [ ] Do not infer ownership from money, icon, shop state, or past actions.
-- [ ] Never default a missing field to false.
+- [ ] Acquire the upgrade through the real session command.
+- [ ] Sleep through the existing overnight save path; no mid-day save is added.
+- [ ] Load the saved schema-2 state and restore a new `GameSession`.
+- [ ] Assert ownership remains true and a valid watering preview/command still costs 1 stamina.
+- [ ] At gameplay-shell level, render the restored snapshot and assert the efficient Action_2 icon; no second process launch is needed.
 
-### 3.3 RED/GREEN — pin the existing Continue incompatibility path
-
-- [ ] In `test_app_launch.gd`, create/save a schema-2 current state with `watering_can_upgraded` removed.
-- [ ] Prove `SaveRepository.load()` still returns `loaded` (codec accepted schema 2).
-- [ ] Prove AppRoot disables Continue with **“Save is incompatible; start a New Game.”** through `GameSession.state_error()`.
-- [ ] Bypass the disabled Continue signal as the existing test does and prove no World launches.
-- [ ] Keep **“Save unavailable”** reserved for codec/I/O invalid states; do not manufacture an Unsupported-schema path.
-
-### 3.4 Integration — overnight ownership contract
-
-- [ ] Buy the upgrade.
-- [ ] Sleep through the existing overnight save path.
-- [ ] Restore/Continue from the resulting state.
-- [ ] Assert ownership, Action_2 icon, and 1-stamina watering behavior remain true after leaving any blocking modal.
-- [ ] Do not add a mid-day save after purchase.
-
-**Checkpoint:** state-validation/app-launch/gameplay-shell suites green.
+**Checkpoint:** app-launch + save/restore/gameplay-shell integration green. Persistence coverage ends here; E2E does not repeat it.
 
 ---
 
-## Task 4: Prove reinvestment, optionality, and the shipped UI path
+## Task 4: Keep economy safety, prove one real UI purchase, and close out
 
 **Files:**  
 `tests/unit/test_game_session.gd`  
-`tests/integration/test_gameplay_shell.gd`  
 `tests/e2e/gameplay_day_one_test.gd`  
-`README.md` / `CLAUDE.md` only if behavior/ownership docs need updating
+`README.md` / `CLAUDE.md` only if current documentation covers the affected behavior
 
-### 4.1 Keep the existing no-upgrade route
+### 4.1 Keep the old route and add one economy-safety clone
 
-- [ ] Do not change existing crop values, starter resources, stamina cap, finale thresholds, or no-upgrade Day-14 expectations.
-- [ ] Run the existing five-Turnip/175G Promising route unchanged.
-- [ ] If a test needs edits only because the snapshot gained one boolean, keep its behavior assertions otherwise identical.
+- [ ] Keep `test_representative_reinvestment_route_reaches_promising()` behavior unchanged: five Turnips / 175G / `promising_farmer`.
+- [ ] Clone it only to prove purchase accounting does not corrupt the existing route.
+- [ ] After first settlement pin **255G → buy upgrade → 55G → buy two Turnip seeds → 15G**.
+- [ ] Pin ownership true, final shipped **5 / 175G**, tier **`promising_farmer`**, **final_money = 85**, finale on Day 14, and no Day 15.
+- [ ] Label this as economy-safety evidence, not the price justification; Task 1's larger-farm benchmark owns the 200G value proof.
 
-### 4.2 Add one deterministic upgrade/reinvestment route
+### 4.2 One seeded, single-launch real-input E2E
 
-At session level, pin the reference economy:
+Do not grow three starter Turnips and do not relaunch the child process.
 
-- [ ] Start 150G.
-- [ ] Ship/settle the three starter Turnips → 255G.
-- [ ] Buy efficient can → 55G.
-- [ ] Buy two Turnip seeds → 15G.
-- [ ] Clone `test_representative_reinvestment_route_reaches_promising()` and insert the upgrade after the first shipment settlement, before buying the two new Turnip seeds.
-- [ ] Pin money **255 → 55 → 15** and `watering_can_upgraded == true`.
-- [ ] Continue the same two-Turnip second crop and settlement.
-- [ ] Pin result **shipped_count = 5**, **shipped_value = 175**, **tier = promising_farmer**, and **final_money = 85**.
-- [ ] Assert upgrade spending never increments shipped counts or finale score inputs.
-- [ ] Assert finale is on Day 14 and no Day 15 exists.
+- [ ] Add/reuse one helper that writes a valid schema-2 save before launch to the isolated `PHOENIX_SAVE_PATH`.
+- [ ] Seed 255G, ownership false, intro acknowledged, and one tilled/planted/unwatered crop.
+- [ ] Launch once and Continue.
+- [ ] Target the real shop and navigate with real W/S input to row 3.
+- [ ] Enter once; assert open-shop money **55** and **OWNED**.
+- [ ] Esc; assert the primary signal — valid Water hint reads **1 stamina**.
+- [ ] Also assert Action_2 uses `watering-can-efficient.png` as the secondary ownership accent.
+- [ ] Water the prepared crop once through the real action path and assert success.
+- [ ] Stop there. Task 3 already owns sleep/save/restore persistence; do not build a same-save relaunch harness.
 
-Do not duplicate the whole finale as a second end-to-end UI test.
+### 4.3 Final native UX check — not a balance gate
 
-### 4.3 One focused real-input E2E
+- [ ] Reconfirm the shop at native 640×360 and shipped integer 2×; the actual golden update already happened in Task 2B.
+- [ ] After Esc, verify the **1 stamina** preview is immediately obvious; this is the primary feedback.
+- [ ] Explicitly check the three-pixel efficient-can glint still reads at the shipped integer 2× default; treat it as secondary feedback only.
+- [ ] Record a short subjective before/after pacing note in the PR if useful, but do not use that note to defend or retune 200G. The deterministic Task 1 throughput benchmark owns that decision.
 
-Extend the existing gameplay E2E seam without simulating the four-day starter economy:
+### 4.4 Documentation and final gates
 
-- [ ] Add/reuse a helper that writes a valid schema-2 save to the isolated `PHOENIX_SAVE_PATH` before launch.
-- [ ] Seed that save at 255G with `watering_can_upgraded = false`, intro acknowledged, and one tilled/planted/unwatered crop; use current state shape rather than a special production test hook.
-- [ ] Launch via Continue, target the real shop, and use real W/S keyboard navigation to the can row.
-- [ ] Press Enter and assert open-shop money becomes **55** and the row becomes **OWNED**.
-- [ ] Esc the shop; then assert Action_2 uses the efficient icon and a valid watering target hint reports **1 stamina**.
-- [ ] Water once through the real action path.
-- [ ] Sleep and wait for the normal save confirmation.
-- [ ] Relaunch against the same isolated save and Continue.
-- [ ] Assert ownership/icon/1-stamina behavior persists.
-
-Reuse existing shop/sleep/positioning helpers and save isolation. No new E2E harness and no in-E2E crop-growth loop.
-
-### 4.4 Native visual/pacing check
-
-- [ ] Inspect the shop at 640×360 and integer 2×: four rows fit, footer is readable, upgrade row is keyboard-visible, Owned is legible.
-- [ ] Inspect base vs upgraded watering hint/toolbar icon.
-- [ ] Run the existing visual workflow and update **only `02-seed-shop`**; the fourth row/frame necessarily changes that production state.
-- [ ] Do not add a 15th visual state for **OWNED**; pin Owned in gameplay-shell integration.
-- [ ] Do not update `05-almanac` or unrelated goldens.
-- [ ] Record the short before/after pacing observation in the PR.
-- [ ] Keep 200G unless this check demonstrates the required route is not a useful early reinvestment; if changed, update the one rules constant and its tests/evidence only.
-
-### 4.5 Documentation and final gates
-
-Record the final ownership/cost seam in `CLAUDE.md` and player-facing upgrade behavior in `README.md` only if those documents currently cover the corresponding area.
+Record the final ownership/cost seam in `CLAUDE.md` and player-facing upgrade behavior in `README.md` only if those documents already cover the corresponding area.
 
 Run:
 
