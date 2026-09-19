@@ -501,6 +501,25 @@ func test_state_error_rejects_invalid_onboarding_and_finale_shapes() -> void:
     for candidate in candidates:
         assert_ne(GameSession.state_error(candidate), "")
 
+func test_schema_2_transport_stays_field_blind_and_session_rejects_sabotaged_ownership() -> void:
+    assert_eq(SaveFileCodec.SCHEMA_VERSION, 2)
+
+    # Missing ownership decodes fine (the codec is field-blind) but the
+    # session validation rejects it; it must never default to false.
+    var missing := GameSession.new(func() -> float: return 0.9).state()
+    missing.erase("watering_can_upgraded")
+    var decoded_missing := SaveFileCodec.decode(SaveFileCodec.encode(missing))
+    assert_true(bool(decoded_missing["ok"]))
+    assert_false(decoded_missing["state"].has("watering_can_upgraded"))
+    assert_ne(GameSession.state_error(decoded_missing["state"]), "")
+
+    # Non-boolean ownership rides the same decode-then-reject path.
+    var non_boolean := GameSession.new(func() -> float: return 0.9).state()
+    non_boolean["watering_can_upgraded"] = "yes"
+    var decoded_non_boolean := SaveFileCodec.decode(SaveFileCodec.encode(non_boolean))
+    assert_true(bool(decoded_non_boolean["ok"]))
+    assert_ne(GameSession.state_error(decoded_non_boolean["state"]), "")
+
 func test_acknowledge_intro_mutates_once_and_duplicate_is_noop() -> void:
     var session := GameSession.new()
     assert_false(session.snapshot()["intro_acknowledged"])

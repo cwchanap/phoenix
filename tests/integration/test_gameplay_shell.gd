@@ -1,6 +1,7 @@
 extends GutTest
 
 const SETTINGS_PATH := "user://phoenix-task9-gameplay-settings.cfg"
+const OVERNIGHT_SAVE_PATH := "user://phoenix-hpa-460-overnight-ownership.json"
 
 func before_each() -> void:
     _clean_settings()
@@ -9,8 +10,9 @@ func after_each() -> void:
     _clean_settings()
 
 func _clean_settings() -> void:
-    if FileAccess.file_exists(SETTINGS_PATH):
-        DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS_PATH))
+    for path in [SETTINGS_PATH, OVERNIGHT_SAVE_PATH]:
+        if FileAccess.file_exists(path):
+            DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
 func _spawn_world(acknowledge_intro: bool, settings: UiSettings = null) -> WorldShell:
     var packed := load("res://scenes/world/world.tscn") as PackedScene
@@ -2538,3 +2540,87 @@ func test_upgraded_watering_hold_costs_one_stamina_per_cell() -> void:
     assert_true(world._advance_action_hold(0.15, cells[2], _hold_preview(world, cells[2])))
     assert_true(session.snapshot()["farm"][2]["crop"]["watered_today"])
     assert_eq(int(session.snapshot()["stamina"]), 17)
+
+func _configured_world(initial_state: Variant, repository: SaveRepository) -> WorldShell:
+    var packed := load("res://scenes/world/world.tscn") as PackedScene
+    assert_not_null(packed)
+    if packed == null:
+        return null
+    var world := packed.instantiate() as WorldShell
+    assert_not_null(world)
+    if world == null:
+        return null
+    world.configure(initial_state, repository)
+    add_child_autoqfree(world)
+    var accepted := InputEventAction.new()
+    accepted.action = &"ui_accept"
+    accepted.pressed = true
+    world.get_viewport().push_input(accepted)
+    var released := InputEventAction.new()
+    released.action = &"ui_accept"
+    released.pressed = false
+    world.get_viewport().push_input(released)
+    return world
+
+func test_overnight_save_restores_upgrade_and_efficient_watering() -> void:
+    var repository := SaveRepository.new(OVERNIGHT_SAVE_PATH)
+    var world := _configured_world(null, repository)
+    if world == null:
+        return
+    var session := world._session
+    var cell: Vector2i = WorldContract.farm_cells()[0]
+    # Pin the overnight roll so day 2 is sunny and the crop stays waterable.
+    session._weather_roll = func() -> float: return 0.9
+    assert_eq(session.hoe(cell), GameRules.CommandCode.SOIL_TILLED)
+    assert_eq(session.plant(cell), GameRules.CommandCode.CROP_PLANTED)
+    var funded := session.state()
+    funded["money"] = 250
+    assert_true(session.restore_state(funded))
+
+    # Acquire through the real ownership command, then sleep at the bed so
+    # the existing overnight path is the one and only save.
+    assert_eq(
+        session.buy_watering_can_upgrade(WorldContract.SHOP_CELL),
+        GameRules.CommandCode.WATERING_CAN_UPGRADED,
+    )
+    assert_true(session.snapshot()["watering_can_upgraded"])
+    await _place_target(world, WorldContract.BED_CELL, WorldMath.Facing.UP)
+    world.hud.sleep_requested.emit()
+    assert_eq(int(session.snapshot()["day"]), 2)
+    assert_eq(session.snapshot()["weather"], &"sunny")
+
+    var loaded := repository.load()
+    assert_eq(loaded["status"], &"loaded")
+    var saved_state: Dictionary = loaded["state"]
+    assert_eq(GameSession.state_error(saved_state), "")
+    assert_true(bool(saved_state["watering_can_upgraded"]))
+
+    var restored := GameSession.new(func() -> float: return 0.9)
+    assert_true(restored.restore_state(saved_state))
+    assert_true(bool(restored.snapshot()["watering_can_upgraded"]))
+    assert_eq(int(restored.snapshot()["stamina"]), GameRules.MAX_STAMINA)
+    assert_eq(
+        restored.acknowledge_morning_summary(),
+        GameRules.CommandCode.DAY_STARTED,
+    )
+    assert_eq(
+        restored.select_action(GameRules.FarmingAction.WATERING_CAN),
+        GameRules.CommandCode.ACTION_SELECTED,
+    )
+    var preview := restored.preview_selected_action(cell)
+    assert_eq(preview["code"], GameRules.CommandCode.CROP_WATERED)
+    assert_eq(preview["cost"], {"minutes": 20, "stamina": 1})
+    assert_eq(int(restored.snapshot()["stamina"]), GameRules.MAX_STAMINA)
+    assert_eq(restored.water(cell), GameRules.CommandCode.CROP_WATERED)
+    assert_eq(int(restored.snapshot()["stamina"]), GameRules.MAX_STAMINA - 1)
+
+    # A fresh gameplay shell restores the loaded state in _ready and renders
+    # the efficient icon straight from the snapshot.
+    var shell := _configured_world(saved_state, null)
+    if shell == null:
+        return
+    assert_true(bool(shell._session.snapshot()["watering_can_upgraded"]))
+    assert_eq(
+        (_hud(shell).get_node("HudRoot/Action_2/Icon") as TextureRect).texture.resource_path,
+        "res://assets/ui/icons/watering-can-efficient.png",
+    )
