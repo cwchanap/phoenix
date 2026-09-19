@@ -55,6 +55,26 @@ The ticket's pacing examples therefore stay mechanically true:
 - six successful base waterings from 20 stamina leave 8;
 - twelve successful upgraded waterings from 20 stamina leave 8.
 
+### Balance evidence
+
+The starter `255 → 55 → 15` route is an economy-safety proof only: it shows buying the can does not corrupt the existing five-Turnip Promising path. It does **not** justify the 200G price because that route never makes stamina binding.
+
+The price is defended by one deterministic larger-farm throughput comparison before UI work begins. Build two otherwise identical sunny sessions from a prepared balance fixture:
+
+- Day 1, 200G, ten authored farm cells already tilled and empty, ten Pumpkin seeds, no relationship shortcut;
+- baseline keeps the 200G and has the base can;
+- upgrade route spends the 200G at the real shop command before farming.
+
+On Day 1, one complete Plant + Water pair costs 3 stamina at base and 2 stamina upgraded, so the baseline can establish six Pumpkins while the upgraded route can establish all ten. Maintain those established crops through the same seven sunny watered nights, harvest/deposit them, and settle once. Both routes finish on Day 9.
+
+Pin the current-value result:
+
+- baseline: **6 crops / 840G shipped / 1040G final money**;
+- upgraded: **10 crops / 1400G shipped / 1400G final money**;
+- upgrade advantage: **+4 crops / +560G shipped / +360G final money even after paying 200G**.
+
+This fixture intentionally supplies the same seed inventory to both routes so it measures the stamina/reinvestment decision rather than seed acquisition. If the exact comparison stops demonstrating a throughput and final-money gain after tuning, adjust only `WATERING_CAN_UPGRADE_PRICE` before proceeding to shop UI work; do not compensate by changing crop/stamina rules.
+
 ### Scoring
 
 Buying the upgrade only subtracts money. It never modifies shipped counts, harvested counts, relationship points, stamina, or finale score inputs.
@@ -130,14 +150,18 @@ Keep the existing fixed seed shop and add exactly one fourth row.
 
 ### Selection model
 
-The current panel assumes three crop rows. Replace that panel-local assumption with one panel-local selected row index `0..3`:
+The current panel assumes the selected row is also a crop kind. Split those two concepts locally instead of widening `CropKind`:
 
-- rows 0–2: existing Turnip/Potato/Pumpkin purchase behavior;
-- row 3: efficient watering-can upgrade.
+- `_selected_row: int` is always 0..3 and owns W/S navigation;
+- `_selected_kind` remains a valid crop index 0..2 and owns **every** seed quantity/price path;
+- selecting rows 0–2 updates both fields;
+- selecting row 3 changes only `_selected_row`, so `_selected_kind` retains the last real crop;
+- `selected_kind()` therefore always returns a truthful crop, including while row 3 is selected;
+- add `selected_row()` only for navigation/integration assertions.
+
+`present()`, `_clamped_quantity()`, `_max_quantity()`, and seed footer math must never receive `_selected_row`. The existing crop loop updates rows 0–2; one focused `_update_upgrade_row()` renders row 3 and the upgrade footer branch. This prevents `GameRules.seed_price(3)` / `SEED_PRICES[3]` entirely rather than guarding the crash after the fact.
 
 No product catalog, SKU type, equipment list, or data-driven shop registry is needed.
-
-Keep `selected_kind()` crop-only for rows 0–2 so the current seed-shop integration contract remains truthful; add/use a row accessor for tests/navigation rather than representing row 3 as a fake `CropKind`.
 
 Keyboard contract:
 
@@ -190,10 +214,10 @@ A successful purchase uses the existing `_finish_command() → render() → Shop
 
 The same render also updates the hidden watering action icon from the snapshot. After Esc closes the shop, the normal HUD/world paths expose:
 
-- Action_2 using `watering-can-efficient.png`;
-- a valid watering target showing **1 stamina** through HPA-459's preview-driven hint.
+- a valid watering target showing **1 stamina** through HPA-459's preview-driven hint — this is the **primary** gameplay signal;
+- Action_2 using `watering-can-efficient.png` — this is a secondary visual accent, because HPA-458 intentionally changed only three source pixels.
 
-Do not add a second refresh path or special-case hint text. There is no new action slot and no alternate watering command. The world watering FX continues using `watering-can-overlay.png`.
+Do not add a second refresh path or special-case hint text. The native acceptance pass must explicitly check that the small icon glint still reads at the shipped integer 2× default, but the icon is not relied on as the only ownership signal. There is no new action slot and no alternate watering command. The world watering FX continues using `watering-can-overlay.png`.
 
 Map `WATERING_CAN_UPGRADED` to the existing `COMMERCE_SFX` beside `SEEDS_PURCHASED`; no new audio asset or framework is needed.
 
@@ -254,14 +278,15 @@ Pin:
 - successful purchase updates open-shop money + **OWNED** immediately;
 - after Esc, Action_2 uses the efficient icon and a valid watering target shows **1 stamina**;
 - Owned Enter emits nothing while a direct duplicate session command still returns the dedicated already-owned code;
-- buy → water → sleep → Continue restores ownership/effective cost;
+- buy → water → sleep → restore preserves ownership/effective cost at integration level;
+- an upgraded hold-to-work watering gesture across **3** eligible cells consumes exactly **3 stamina** (one per successful cell), proving HPA-459's continuation path still routes through `_cost_for()`;
 - the fixed frame rectangle remains `128..512 × 24..336` at 640×360.
 
 ### Pacing and finale
 
 Keep the existing no-upgrade Day-14 route unchanged.
 
-Clone the existing representative reinvestment route and insert the upgrade between the first shipment settlement and the two new Turnip seeds. Pin the exact checkpoints:
+Keep the existing representative reinvestment route unchanged, then clone it only as an economy-safety route with the upgrade inserted between the first shipment settlement and the two new Turnip seeds. Pin:
 
 - first shipment settlement: **255G**;
 - upgrade purchase: **55G** and `watering_can_upgraded == true`;
@@ -271,7 +296,9 @@ Clone the existing representative reinvestment route and insert the upgrade betw
 - final result money is **85G** after the second 70G shipment;
 - finale is triggered on Day 14 and no Day 15 exists.
 
-Do not clone the entire finale into another E2E. One focused restore-based real-input E2E proves the cross-surface path without simulating four growth days: launch from a valid 255G schema-2 state with one planted, unwatered crop → buy through real shop keyboard → Esc → assert icon/hint → water once → sleep/save → relaunch Continue → assert ownership/effective cost persists.
+Do not use that inert clone to justify the price; the larger-farm Day-9 throughput comparison above is the balance gate.
+
+Persistence is already proved at integration level. The real-input E2E is deliberately **single-launch**: seed one valid 255G schema-2 save with one planted/unwatered crop, launch Continue once, navigate W/S to row 3, buy, assert open-shop **55G + OWNED**, Esc, assert the **1 stamina** hint plus the secondary efficient icon, then water once. No E2E sleep/relaunch or same-save multi-process harness is needed.
 
 ## Files expected to change
 
