@@ -279,3 +279,113 @@ func test_shop_purchase_updates_money() -> void:
 	assert_bool(
 		await game.wait_for_property(HUD + "/ShopPanel", "visible", false, 5.0)
 	).is_true()
+
+
+# One valid schema-2 save seeded before launch: 255G, unowned efficient can,
+# intro acknowledged, and one tilled/planted/unwatered Turnip on the first
+# contract farm cell.
+func _seed_upgrade_save(path: String) -> void:
+	var session := GameSession.new(func() -> float: return 0.9)
+	var seeded := session.state()
+	seeded["money"] = 255
+	seeded["intro_acknowledged"] = true
+	seeded["farm"][0]["tilled"] = true
+	seeded["farm"][0]["crop"] = {
+		"kind": &"turnip",
+		"growth": 0,
+		"watered_today": false,
+	}
+	assert_str(GameSession.state_error(seeded)).is_equal("")
+	assert_bool(session.restore_state(seeded)).is_true()
+	assert_int(SaveRepository.new(path).save(session.state())).is_equal(OK)
+
+
+# Single-launch fixture: seed the upgrade save at the isolated PHOENIX_SAVE_PATH
+# before spawn, then Continue instead of New Game. No intro overlay plays
+# (intro is acknowledged in the seed), so no ui_accept tap is needed.
+func _continue_seeded_game() -> Variant:
+	var options := E2ELaunchOptions.new()
+	options.scene_path = "res://scenes/app/app.tscn"
+	_save_path = create_temp_dir("phoenix-save-e2e") + "/save.json"
+	_seed_upgrade_save(_save_path)
+	var settings_path := create_temp_dir("phoenix-settings-e2e") + "/settings.cfg"
+	var settings := ConfigFile.new()
+	settings.set_value("ui", "window_scale", 1)
+	assert_int(settings.save(settings_path)).is_equal(OK)
+	OS.set_environment("PHOENIX_SAVE_PATH", _save_path)
+	OS.set_environment("PHOENIX_SETTINGS_PATH", settings_path)
+	var game := await launch_game(options)
+	OS.unset_environment("PHOENIX_SAVE_PATH")
+	OS.unset_environment("PHOENIX_SETTINGS_PATH")
+	if game == null or is_failure():
+		return null
+	assert_bool(await game.click_node("/root/AppRoot/TitleScreen/Panel/Continue")).is_true()
+	assert_bool(await game.wait_for_node(WORLD, 10.0)).is_true()
+	assert_bool(
+		await game.wait_for_property(HUD + "/TopBar/DayValue", "text", "1", 10.0)
+	).is_true()
+	return game
+
+
+# Single-launch purchase proof: Continue into the seeded 255G save, buy the
+# 200G Efficient Can through the real shop rows (one Enter), then verify the
+# ownership signals and one real watering. Stop there — no relaunch, no
+# sleep; the Task 3 integration tests own persistence.
+func test_continue_seeded_save_buys_upgrade_and_waters_with_one_stamina() -> void:
+	var game = await _continue_seeded_game()
+	if game == null or is_failure():
+		return
+
+	# Real shop entry at the contract cell, then real W/S navigation down to
+	# the Efficient Can row.
+	await _stand_at_target(game, WorldContract.SHOP_CELL, RIGHT)
+	await game.call_method(WORLD, "interact")
+	if is_failure():
+		return
+	assert_bool(
+		await game.wait_for_property(HUD + "/ShopPanel", "visible", true, 5.0)
+	).is_true()
+	for _row in ShopPanel.UPGRADE_ROW:
+		assert_bool(await game.input_action("move_down", true)).is_true()
+		assert_bool(await game.input_action("move_down", false)).is_true()
+	assert_str(
+		await game.get_property(HUD + "/ShopPanel/Frame/Footer/Action", "text")
+	).is_equal("BUY · 200G")
+
+	# One Enter buys through the real panel request path: 255 - 200 = 55.
+	assert_bool(await game.input_action("ui_accept", true)).is_true()
+	assert_bool(await game.input_action("ui_accept", false)).is_true()
+	assert_bool(
+		await game.wait_for_property(
+			HUD + "/ShopPanel/Frame/Header/MoneyValue", "text", "55", 5.0
+		)
+	).is_true()
+	assert_str(
+		await game.get_property(HUD + "/ShopPanel/Frame/Footer/Action", "text")
+	).is_equal("OWNED")
+
+	# Esc closes the shop; ownership now shows on the world HUD.
+	assert_bool(await game.input_action("ui_cancel", true)).is_true()
+	assert_bool(await game.input_action("ui_cancel", false)).is_true()
+	assert_bool(
+		await game.wait_for_property(HUD + "/ShopPanel", "visible", false, 5.0)
+	).is_true()
+
+	# Primary feedback: the Water preview reads 1 stamina. Secondary: the
+	# Action_2 icon swapped to the efficient-can glint.
+	await _stand_at_target(game, WorldContract.farm_cells()[0], UP)
+	assert_bool(await game.click_node(HUD + "/Action_2")).is_true()
+	assert_bool(
+		await game.wait_for_property(
+			HUD + "/InteractionHint", "text", "Space — Water Turnip · 1 stamina", 5.0
+		)
+	).is_true()
+	assert_str(
+		await game.get_property(HUD + "/Action_2/Icon", "texture:resource_path")
+	).is_equal("res://assets/ui/icons/watering-can-efficient.png")
+
+	# One real watering succeeds and spends exactly one pip (20 -> 19).
+	await _use_action(game, "Action_2", "Crop watered.")
+	if is_failure():
+		return
+	await _assert_stamina(game, 19)
