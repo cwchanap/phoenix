@@ -85,10 +85,13 @@ renders.
    an action, then Space to use it: till soil with the hoe, plant the
    selected seed, water the crop, and harvest once it is mature.
 2. **Budget the day.** Each action costs clock minutes and stamina; the day
-   runs 06:00 to 22:00 and stamina caps at 20. Rain waters every crop for
+   runs 06:00 to 22:00 and stamina caps at 20. Watering costs 2 stamina, or 1
+   with the Efficient Can upgrade. Rain waters every crop for
    free, so the watering can is unneeded on rainy days.
 3. **Shop.** Face the shop cell and press E to open the seed shop: buy
-   Turnip, Potato, or Pumpkin seeds with the day's money.
+   Turnip, Potato, or Pumpkin seeds with the day's money, or the 200G
+   Efficient Can upgrade on the fourth row, which makes every watering cost
+   1 stamina for the rest of the run.
 4. **Ship.** Face the shipping cell and press E to open the bin: deposit
    harvested crops into the pending shipment.
 5. **Sleep.** Face the bed cell and press E to open a sleep confirmation.
