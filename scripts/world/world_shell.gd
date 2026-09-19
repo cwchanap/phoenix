@@ -91,6 +91,7 @@ func _ready() -> void:
     hud.select_action_requested.connect(_on_select_action_requested)
     hud.select_seed_requested.connect(_on_select_seed_requested)
     hud.buy_requested.connect(_on_buy_requested)
+    hud.upgrade_requested.connect(_on_upgrade_requested)
     hud.deposit_requested.connect(_on_deposit_requested)
     hud.sleep_requested.connect(_on_sleep_requested)
     hud.gift_requested.connect(_on_gift_requested)
@@ -273,6 +274,10 @@ func _on_select_seed_requested(kind: int) -> void:
 func _on_buy_requested(kind: int, quantity: int) -> void:
     var target: Variant = player.current_target_cell()
     _finish_command(_session.buy_seeds(kind, quantity, target))
+
+func _on_upgrade_requested() -> void:
+    var target: Variant = player.current_target_cell()
+    _finish_command(_session.buy_watering_can_upgrade(target))
 
 func _on_deposit_requested(kind: int, quantity: int) -> void:
     var target: Variant = player.current_target_cell()

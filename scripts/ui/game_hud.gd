@@ -4,6 +4,7 @@ extends CanvasLayer
 signal select_action_requested(action: int)
 signal select_seed_requested(kind: int)
 signal buy_requested(kind: int, quantity: int)
+signal upgrade_requested
 signal deposit_requested(kind: int, quantity: int)
 signal sleep_requested
 signal gift_requested(villager_id: int, crop_kind: int)
@@ -26,6 +27,8 @@ const FARM_PLANT_SFX := preload("res://assets/audio/farm-plant.wav")
 const FARM_WATER_SFX := preload("res://assets/audio/farm-water.wav")
 const FARM_HARVEST_SFX := preload("res://assets/audio/farm-harvest.wav")
 const COMMERCE_SFX := preload("res://assets/audio/commerce.wav")
+const WATERING_CAN_ICON := preload("res://assets/ui/icons/watering-can.png")
+const WATERING_CAN_EFFICIENT_ICON := preload("res://assets/ui/icons/watering-can-efficient.png")
 const SOCIAL_SFX := preload("res://assets/audio/social.wav")
 const CONFIRM_SFX := preload("res://assets/audio/confirm.wav")
 const CANCEL_SFX := preload("res://assets/audio/cancel.wav")
@@ -159,6 +162,11 @@ func render(snapshot: Dictionary) -> void:
     _selected_seed = snapshot["selected_seed"]
     _refresh_action_selection()
     _refresh_seed_selection()
+    ($HudRoot.get_node("Action_2/Icon") as TextureRect).texture = (
+        WATERING_CAN_EFFICIENT_ICON
+        if snapshot["watering_can_upgraded"]
+        else WATERING_CAN_ICON
+    )
 
     var seeds: Dictionary = snapshot["seeds"]
     var harvested: Dictionary = snapshot["harvested"]
@@ -317,6 +325,10 @@ func feedback_text(code: GameRules.CommandCode) -> String:
             return "Crop harvested."
         GameRules.CommandCode.SEEDS_PURCHASED:
             return "Seeds purchased."
+        GameRules.CommandCode.WATERING_CAN_UPGRADED:
+            return "Watering can upgraded."
+        GameRules.CommandCode.WATERING_CAN_ALREADY_UPGRADED:
+            return "Watering can is already upgraded."
         GameRules.CommandCode.CROP_DEPOSITED:
             return "Crop deposited."
         GameRules.CommandCode.DAY_ADVANCED:
@@ -415,6 +427,7 @@ func _sfx_for_code(code: GameRules.CommandCode) -> AudioStream:
         GameRules.CommandCode.CROP_HARVESTED:
             return FARM_HARVEST_SFX
         GameRules.CommandCode.SEEDS_PURCHASED, \
+        GameRules.CommandCode.WATERING_CAN_UPGRADED, \
         GameRules.CommandCode.CROP_DEPOSITED:
             return COMMERCE_SFX
         GameRules.CommandCode.VILLAGER_TALKED, \
@@ -577,6 +590,9 @@ func _build_modals() -> void:
     _root.add_child(_shop_panel)
     _shop_panel.buy_requested.connect(func(kind: int, quantity: int) -> void:
         buy_requested.emit(kind, quantity)
+    )
+    _shop_panel.upgrade_requested.connect(func() -> void:
+        upgrade_requested.emit()
     )
     _shipping_panel = SHIPPING_SCENE.instantiate() as ShippingPanel
     _root.add_child(_shipping_panel)
