@@ -444,6 +444,107 @@ func test_shop_keyboard_rows_update_quantity_max_and_enter_request() -> void:
     await _press_panel_action("ui_accept")
     assert_eq(requests, [{"kind": GameRules.CropKind.TURNIP, "quantity": 7}])
 
+func test_shop_four_row_navigation_wraps_and_selected_kind_stays_on_crops() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    hud.render(world._session.snapshot())
+    hud.open_shop()
+    var panel := _panel(hud, "ShopPanel")
+    assert_true(panel.has_method("selected_row"))
+    assert_eq(int(panel.call("selected_row")), 0)
+    assert_eq(int(panel.call("selected_kind")), GameRules.CropKind.TURNIP)
+
+    for _i in range(3):
+        await _press_panel_action("move_down")
+    assert_eq(int(panel.call("selected_row")), 3)
+    assert_eq(
+        int(panel.call("selected_kind")),
+        GameRules.CropKind.PUMPKIN,
+        "row 3 selection must not leak into the crop kind",
+    )
+
+    await _press_panel_action("move_down")
+    assert_eq(int(panel.call("selected_row")), 0, "S wraps row 3 to Turnip")
+    assert_eq(int(panel.call("selected_kind")), GameRules.CropKind.TURNIP)
+
+    await _press_panel_action("move_up")
+    assert_eq(int(panel.call("selected_row")), 3, "W wraps Turnip to row 3")
+    assert_eq(int(panel.call("selected_kind")), GameRules.CropKind.TURNIP)
+
+    await _press_panel_action("move_up")
+    assert_eq(int(panel.call("selected_row")), 2)
+    assert_eq(int(panel.call("selected_kind")), GameRules.CropKind.PUMPKIN)
+    hud.close_shop()
+
+func test_shop_upgrade_row_ignores_quantity_keys_and_unaffordable_enter_requests_once() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var requests: Array[bool] = []
+    hud.upgrade_requested.connect(func() -> void: requests.append(true))
+    var snapshot := world._session.snapshot()
+    snapshot["money"] = 150
+    hud.render(snapshot)
+    hud.open_shop()
+    var panel := _panel(hud, "ShopPanel")
+    for _i in range(3):
+        await _press_panel_action("move_down")
+    assert_eq(int(panel.call("selected_row")), 3)
+    var footer := panel.get_node("Frame/Footer/Action") as Label
+    assert_eq(footer.text, "BUY · %dG" % GameRules.WATERING_CAN_UPGRADE_PRICE)
+    var quantity_before := int(panel.call("selected_quantity"))
+
+    await _press_panel_action("move_left")
+    await _press_panel_action("move_right")
+    await _press_panel_action("panel_max")
+    assert_eq(int(panel.call("selected_quantity")), quantity_before, "A/D/M no-op on row 3")
+    assert_eq(footer.text, "BUY · %dG" % GameRules.WATERING_CAN_UPGRADE_PRICE)
+
+    await _press_panel_action("ui_accept")
+    assert_eq(requests.size(), 1, "unaffordable Enter still emits one upgrade request")
+    hud.close_shop()
+
+func test_shop_upgrade_purchase_refreshes_open_shop_to_55g_owned_and_owned_enter_emits_nothing() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var state := world._session.state()
+    state["money"] = 255
+    assert_true(world._session.restore_state(state))
+    world._refresh_from_session()
+    await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
+    world.interact()
+    var shop := _panel(hud, "ShopPanel") as ShopPanel
+    assert_true(shop.visible)
+    for _i in range(3):
+        await _press_panel_action("move_down")
+    assert_eq(int(shop.call("selected_row")), 3)
+
+    await _press_panel_action("ui_accept")
+    assert_eq(
+        int(world._session.snapshot()["money"]),
+        255 - GameRules.WATERING_CAN_UPGRADE_PRICE,
+    )
+    assert_eq((shop.get_node("Frame/Header/MoneyValue") as Label).text, "55")
+    assert_eq((shop.get_node("Frame/Footer/Action") as Label).text, "OWNED")
+
+    var requests: Array[bool] = []
+    hud.upgrade_requested.connect(func() -> void: requests.append(true))
+    await _press_panel_action("ui_accept")
+    assert_eq(requests.size(), 0, "owned row Enter emits nothing")
+    assert_eq(int(world._session.snapshot()["money"]), 55)
+    hud.close_shop()
+
 func test_shipping_keyboard_rows_update_quantity_max_and_enter_request() -> void:
     var world := _world()
     if world == null:

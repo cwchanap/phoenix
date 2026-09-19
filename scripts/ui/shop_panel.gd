@@ -4,7 +4,10 @@ extends Control
 signal buy_requested(kind: int, quantity: int)
 signal upgrade_requested
 
+const UPGRADE_ROW := 3
+
 var _snapshot: Dictionary = {}
+var _selected_row := 0
 var _selected_kind := GameRules.CropKind.TURNIP
 var _quantity := 1
 var _rows: Array[Panel] = []
@@ -21,6 +24,7 @@ func _ready() -> void:
     _update_rows()
 
 func open_panel(snapshot: Dictionary) -> void:
+    _selected_row = 0
     _selected_kind = GameRules.CropKind.TURNIP
     _quantity = 1
     present(snapshot)
@@ -34,6 +38,9 @@ func present(snapshot: Dictionary) -> void:
 func selected_kind() -> int:
     return _selected_kind
 
+func selected_row() -> int:
+    return _selected_row
+
 func selected_quantity() -> int:
     return _quantity
 
@@ -41,9 +48,9 @@ func _input(event: InputEvent) -> void:
     if not visible or not event.is_pressed() or event.is_echo():
         return
     if event.is_action_pressed("move_up"):
-        _select_kind(-1)
+        _select_row(-1)
     elif event.is_action_pressed("move_down"):
-        _select_kind(1)
+        _select_row(1)
     elif event.is_action_pressed("move_left"):
         _adjust_quantity(-1)
     elif event.is_action_pressed("move_right"):
@@ -56,20 +63,30 @@ func _input(event: InputEvent) -> void:
         return
     get_viewport().set_input_as_handled()
 
-func _select_kind(delta: int) -> void:
-    _selected_kind = posmod(_selected_kind + delta, GameRules.CropKind.size())
+func _select_row(delta: int) -> void:
+    _selected_row = posmod(_selected_row + delta, UPGRADE_ROW + 1)
+    if _selected_row != UPGRADE_ROW:
+        _selected_kind = _selected_row
     _quantity = _clamped_quantity(_quantity)
     _update_rows()
 
 func _adjust_quantity(delta: int) -> void:
+    if _selected_row == UPGRADE_ROW:
+        return
     _quantity = clampi(_quantity + delta, 0, _max_quantity(_selected_kind))
     _update_rows()
 
 func _select_max() -> void:
+    if _selected_row == UPGRADE_ROW:
+        return
     _quantity = _max_quantity(_selected_kind)
     _update_rows()
 
 func _buy() -> void:
+    if _selected_row == UPGRADE_ROW:
+        if not bool(_snapshot.get("watering_can_upgraded", false)):
+            upgrade_requested.emit()
+        return
     buy_requested.emit(_selected_kind, _quantity)
 
 func _clamped_quantity(quantity: int) -> int:
@@ -81,12 +98,13 @@ func _max_quantity(kind: int) -> int:
 func _update_rows() -> void:
     var money := int(_snapshot.get("money", 0))
     (get_node("Frame/Header/MoneyValue") as Label).text = "%d" % money
-    (get_node("Frame/Footer/Action") as Label).text = "BUY · %dG" % (
-        GameRules.seed_price(_selected_kind) * _quantity
-    )
+    if _selected_row != UPGRADE_ROW:
+        (get_node("Frame/Footer/Action") as Label).text = "BUY · %dG" % (
+            GameRules.seed_price(_selected_kind) * _quantity
+        )
     for kind in range(GameRules.CropKind.size()):
         var row := _rows[kind]
-        var selected := kind == _selected_kind
+        var selected := kind == _selected_row
         var seeds: Dictionary = _snapshot.get("seeds", {})
         var held := int(seeds.get(GameRules.crop_key(kind), 0))
         var row_name := row.get_node("Name") as Label
@@ -120,6 +138,30 @@ func _update_rows() -> void:
         (row.get_node("Plus") as Button).visible = selected
         (row.get_node("Accent") as ColorRect).visible = selected
         row.modulate = Color.WHITE
+    _update_upgrade_row()
+
+func _update_upgrade_row() -> void:
+    var row := get_node("Frame/Body/Row_%d" % UPGRADE_ROW) as Panel
+    var selected := _selected_row == UPGRADE_ROW
+    var row_name := row.get_node("Name") as Label
+    var price := row.get_node("Price") as Label
+    var benefit := row.get_node("Benefit") as Label
+    row_name.text = "Efficient Can"
+    price.text = "%d" % GameRules.WATERING_CAN_UPGRADE_PRICE
+    benefit.text = "Water %d→%d STA" % [
+        int(GameRules.effective_action_cost(GameRules.FarmingAction.WATERING_CAN, false)["stamina"]),
+        int(GameRules.effective_action_cost(GameRules.FarmingAction.WATERING_CAN, true)["stamina"]),
+    ]
+    UiStyle.text(row_name, 12, UiStyle.CREAM if selected else UiStyle.TEXT, 800)
+    UiStyle.text(price, 10, UiStyle.GOLD if selected else UiStyle.MUTED, 700, true)
+    UiStyle.text(benefit, 8, UiStyle.MUTED, 600)
+    (row.get_node("Accent") as ColorRect).visible = selected
+    row.modulate = Color.WHITE
+    if selected:
+        (get_node("Frame/Footer/Action") as Label).text = (
+            "OWNED" if bool(_snapshot.get("watering_can_upgraded", false))
+            else "BUY · %dG" % GameRules.WATERING_CAN_UPGRADE_PRICE
+        )
 
 func _style_tree(node: Node) -> void:
     for child in node.get_children():
@@ -130,6 +172,9 @@ func _style_tree(node: Node) -> void:
         _style_tree(child)
     for row in _rows:
         row.add_theme_stylebox_override("panel", UiStyle.panel(UiStyle.INSET, UiStyle.BORDER, 1))
+    (get_node("Frame/Body/Row_%d" % UPGRADE_ROW) as Panel).add_theme_stylebox_override(
+        "panel", UiStyle.panel(UiStyle.INSET, UiStyle.BORDER, 1)
+    )
     (get_node("Frame") as Panel).add_theme_stylebox_override(
         "panel", UiStyle.panel(UiStyle.PRIMARY, UiStyle.FRAME_BORDER, 2)
     )
