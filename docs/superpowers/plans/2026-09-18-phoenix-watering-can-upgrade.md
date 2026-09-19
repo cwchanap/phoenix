@@ -1,7 +1,7 @@
 # Phoenix Efficient Watering Can Implementation Plan
 
-**Linear:** HPA-460  
-**Branch:** `agent/hpa-460-watering-can-upgrade-plan`  
+**Linear:** HPA-460
+**Branch:** `agent/hpa-460-watering-can-upgrade-plan`
 **Spec:** `docs/superpowers/specs/2026-09-18-phoenix-watering-can-upgrade-design.md`
 
 **Goal:** Add one optional 200G efficient watering-can purchase that changes only successful single-tile watering stamina from 2 to 1, survives Continue, and proves that farming income can be reinvested without making the upgrade mandatory.
@@ -21,11 +21,11 @@
 
 ## Task 1: Add rules, ownership, purchase command, and the balance gate
 
-**Files:**  
-`scripts/game/game_rules.gd`  
-`scripts/game/game_session.gd`  
-`tests/unit/test_game_rules.gd`  
-`tests/unit/test_game_session.gd`  
+**Files:**
+`scripts/game/game_rules.gd`
+`scripts/game/game_session.gd`
+`tests/unit/test_game_rules.gd`
+`tests/unit/test_game_session.gd`
 `tests/unit/test_content_rules.gd`
 
 ### 1.1 RED/GREEN — add one rules-owned effective-cost policy
@@ -80,10 +80,10 @@ If this exact benchmark does not hold after implementation/tuning, stop before T
 
 ## Task 2A: Wire the upgrade through existing HUD/world seams
 
-**Files:**  
-`scripts/ui/shop_panel.gd` (signal only; no row/geometry yet)  
-`scripts/ui/game_hud.gd`  
-`scripts/world/world_shell.gd`  
+**Files:**
+`scripts/ui/shop_panel.gd` (signal only; no row/geometry yet)
+`scripts/ui/game_hud.gd`
+`scripts/world/world_shell.gd`
 `tests/integration/test_gameplay_shell.gd`
 
 ### 2A.1 RED/GREEN — add the explicit request chain
@@ -109,10 +109,10 @@ If this exact benchmark does not hold after implementation/tuning, stop before T
 
 ## Task 2B: Add the fourth fixed shop row and prove its chrome immediately
 
-**Files:**  
-`scripts/ui/shop_panel.gd`  
-`scenes/ui/shop_panel.tscn`  
-`tests/integration/test_gameplay_shell.gd`  
+**Files:**
+`scripts/ui/shop_panel.gd`
+`scenes/ui/shop_panel.tscn`
+`tests/integration/test_gameplay_shell.gd`
 existing visual state/golden `02-seed-shop`
 
 ### 2B.1 RED/GREEN — split navigation row from crop quantity state
@@ -151,10 +151,10 @@ This shape prevents `GameRules.seed_price(3)` / `SEED_PRICES[3]` by construction
 
 ## Task 3: Prove required-field persistence and Continue compatibility
 
-**Files:**  
-`scripts/game/game_session.gd` (already owns field validation/restore from Task 1)  
-`tests/unit/test_game_session.gd`  
-`tests/integration/test_app_launch.gd`  
+**Files:**
+`scripts/game/game_session.gd` (already owns field validation/restore from Task 1)
+`tests/unit/test_game_session.gd`
+`tests/integration/test_app_launch.gd`
 `tests/integration/test_gameplay_shell.gd`
 
 ### 3.1 Keep schema 2 and pin the loaded-but-incompatible path
@@ -181,9 +181,9 @@ This shape prevents `GameRules.seed_price(3)` / `SEED_PRICES[3]` by construction
 
 ## Task 4: Keep economy safety, prove one real UI purchase, and close out
 
-**Files:**  
-`tests/unit/test_game_session.gd`  
-`tests/e2e/gameplay_day_one_test.gd`  
+**Files:**
+`tests/unit/test_game_session.gd`
+`tests/e2e/gameplay_day_one_test.gd`
 `README.md` / `CLAUDE.md` only if current documentation covers the affected behavior
 
 ### 4.1 Keep the old route and add one economy-safety clone
