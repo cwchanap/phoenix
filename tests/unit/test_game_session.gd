@@ -1853,6 +1853,96 @@ func test_representative_reinvestment_route_reaches_promising() -> void:
     assert_true(int(result["shipped_value"]) >= ContentRules.PROMISING_SHIPPED_VALUE)
     assert_eq(result["tier"], &"promising_farmer")
 
+func test_upgrade_purchase_keeps_reinvestment_route_intact() -> void:
+    # Economy-safety clone of the representative route: the same five Turnips
+    # reach the same 175G / promising_farmer finale when the 200G upgrade is
+    # bought at the first-settlement seam. This proves purchase accounting
+    # does not corrupt the route; the 200G value proof itself stays with the
+    # larger-farm throughput benchmark in test_balance_gate_*.
+    var session := GameSession.new(func() -> float: return 0.9)
+    var cells := [
+        WorldContract.farm_cells()[0],
+        WorldContract.farm_cells()[1],
+        WorldContract.farm_cells()[2],
+    ]
+
+    # Starter crop: three Turnips, watered through three sunny growth nights.
+    for cell in cells:
+        assert_eq(session.hoe(cell), GameRules.CommandCode.SOIL_TILLED)
+        assert_eq(session.plant(cell), GameRules.CommandCode.CROP_PLANTED)
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    _sleep_and_ack(session)  # Day 2
+    for cell in cells:
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    _sleep_and_ack(session)  # Day 3
+    for cell in cells:
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    _sleep_and_ack(session)  # Day 4, mature
+
+    for cell in cells:
+        assert_eq(session.harvest(cell), GameRules.CommandCode.CROP_HARVESTED)
+    assert_eq(
+        session.deposit_crop(GameRules.CropKind.TURNIP, 3, WorldContract.SHIPPING_CELL),
+        GameRules.CommandCode.CROP_DEPOSITED,
+    )
+    _sleep_and_ack(session)  # Day 5, first 105G shipment settled
+
+    # The purchase seam: 255G settled -> upgrade -> 55G -> two seeds -> 15G.
+    assert_eq(int(session.snapshot()["money"]), 255)
+    assert_eq(
+        session.buy_watering_can_upgrade(WorldContract.SHOP_CELL),
+        GameRules.CommandCode.WATERING_CAN_UPGRADED,
+    )
+    assert_eq(int(session.snapshot()["money"]), 55)
+    assert_true(session.snapshot()["watering_can_upgraded"])
+    assert_eq(
+        session.buy_seeds(GameRules.CropKind.TURNIP, 2, WorldContract.SHOP_CELL),
+        GameRules.CommandCode.SEEDS_PURCHASED,
+    )
+    assert_eq(int(session.snapshot()["money"]), 15)
+
+    # Same reinvestment into two more Turnips on already-tilled cells.
+    for cell in cells.slice(0, 2):
+        assert_eq(session.plant(cell), GameRules.CommandCode.CROP_PLANTED)
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    _sleep_and_ack(session)  # Day 6
+    for cell in cells.slice(0, 2):
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    _sleep_and_ack(session)  # Day 7
+    for cell in cells.slice(0, 2):
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    _sleep_and_ack(session)  # Day 8, mature
+
+    for cell in cells.slice(0, 2):
+        assert_eq(session.harvest(cell), GameRules.CommandCode.CROP_HARVESTED)
+    assert_eq(
+        session.deposit_crop(GameRules.CropKind.TURNIP, 2, WorldContract.SHIPPING_CELL),
+        GameRules.CommandCode.CROP_DEPOSITED,
+    )
+    _sleep_and_ack(session)  # Day 9, second 70G shipment settles into 85G
+
+    while int(session.snapshot()["day"]) < GameRules.MAX_DAY:
+        _sleep_and_ack(session)
+
+    assert_eq(
+        session.trigger_harvest_finale(WorldContract.MARKET_CELL),
+        GameRules.CommandCode.FINALE_TRIGGERED,
+    )
+    var final := session.snapshot()
+    var result := ContentRules.build_harvest_result(session.state())
+    assert_eq(result["shipped_count"], 5)
+    assert_eq(result["shipped_value"], 175)
+    assert_eq(result["tier"], &"promising_farmer")
+    assert_true(bool(final["watering_can_upgraded"]))
+    assert_eq(int(final["money"]), 85)
+    assert_eq(int(final["day"]), GameRules.MAX_DAY)
+    # The terminal state leaves no Day 15: sleep is refused without mutation.
+    assert_eq(
+        session.sleep(WorldContract.BED_CELL),
+        GameRules.CommandCode.FINALE_ALREADY_TRIGGERED,
+    )
+    assert_eq(int(session.snapshot()["day"]), GameRules.MAX_DAY)
+
 func _benchmark_session(upgraded: bool) -> GameSession:
     # Prepared balance fixture: Day 1, 200G, ten authored farm cells already
     # tilled and empty, ten Pumpkin seeds, always-sunny weather, and no
