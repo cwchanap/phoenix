@@ -322,6 +322,57 @@ func test_incompatible_slot_refuses_continue_but_new_game_still_launches() -> vo
     assert_eq(still_incompatible["status"], &"loaded")
     assert_ne(GameSession.state_error(still_incompatible["state"]), "")
 
+func test_save_missing_ownership_disables_continue_and_refuses_launch() -> void:
+    assert_eq(SaveFileCodec.SCHEMA_VERSION, 2)
+    var repository := SaveRepository.new(TEST_PATH)
+    var missing := GameSession.new(func() -> float: return 0.9).state()
+    missing.erase("watering_can_upgraded")
+    assert_eq(repository.save(missing), OK)
+
+    # The codec is field-blind, so the schema-2 slot still loads...
+    var loaded := repository.load()
+    assert_eq(loaded["status"], &"loaded")
+    assert_ne(GameSession.state_error(loaded["state"]), "")
+
+    # ...and AppRoot classifies the rejection as incompatible, never as
+    # the "Save unavailable" codec/I/O failure.
+    var app := _spawn_app(repository)
+    if app == null:
+        return
+    var title := app.get_node("TitleScreen") as TitleScreen
+    var continue_button := title.get_node("Panel/Continue") as Button
+    var status := title.get_node("Panel/Status/Label") as Label
+    assert_true(continue_button.disabled)
+    assert_eq(status.text, "Save is incompatible; start a New Game.")
+
+    # Bypass the disabled Button and prove AppRoot itself refuses the launch.
+    title.continue_requested.emit()
+    await get_tree().process_frame
+    assert_null(app.get_node_or_null("World"))
+
+func test_nonboolean_ownership_takes_the_same_incompatible_path() -> void:
+    var repository := SaveRepository.new(TEST_PATH)
+    var non_boolean := GameSession.new(func() -> float: return 0.9).state()
+    non_boolean["watering_can_upgraded"] = "yes"
+    assert_eq(repository.save(non_boolean), OK)
+    var loaded := repository.load()
+    assert_eq(loaded["status"], &"loaded")
+    assert_ne(GameSession.state_error(loaded["state"]), "")
+
+    var app := _spawn_app(repository)
+    if app == null:
+        return
+    var title := app.get_node("TitleScreen") as TitleScreen
+    assert_true((title.get_node("Panel/Continue") as Button).disabled)
+    assert_eq(
+        (title.get_node("Panel/Status/Label") as Label).text,
+        "Save is incompatible; start a New Game.",
+    )
+
+    title.continue_requested.emit()
+    await get_tree().process_frame
+    assert_null(app.get_node_or_null("World"))
+
 func test_missing_save_disables_continue_and_refuses_launch() -> void:
     var repository := SaveRepository.new(TEST_PATH)
     var app := _spawn_app(repository)
