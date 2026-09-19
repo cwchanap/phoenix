@@ -2,6 +2,7 @@ class_name ShopPanel
 extends Control
 
 signal buy_requested(kind: int, quantity: int)
+signal upgrade_requested
 
 var _snapshot: Dictionary = {}
 var _selected_kind := GameRules.CropKind.TURNIP

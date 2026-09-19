@@ -990,6 +990,47 @@ func test_successful_shop_refresh_preserves_modal_mask_until_close() -> void:
     assert_true(hotbar.visible)
     assert_true(tutorial.visible)
 
+func test_upgrade_request_chain_gates_target_and_refreshes_hud() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var shop := _panel(hud, "ShopPanel") as ShopPanel
+    var forwarded: Array[bool] = []
+    hud.upgrade_requested.connect(func() -> void: forwarded.append(true))
+    shop.upgrade_requested.emit()
+    assert_eq(forwarded.size(), 1, "ShopPanel upgrade request must forward as GameHud signal")
+
+    var feedback := hud.get_node("HudRoot/Feedback") as Label
+    var sfx := hud.get_node("SfxPlayer") as AudioStreamPlayer
+
+    # Wrong target: the shop guard holds and nothing mutates.
+    await _place_target(world, WorldContract.farm_cells()[0])
+    hud.upgrade_requested.emit()
+    assert_eq(feedback.text, "Stand at the shop.")
+    assert_false(world._session.snapshot()["watering_can_upgraded"])
+    assert_eq(int(world._session.snapshot()["money"]), 150)
+
+    # Funded and standing at the shop: real command runs, HUD refreshes.
+    var state := world._session.state()
+    state["money"] = 250
+    assert_true(world._session.restore_state(state))
+    world._refresh_from_session()
+    await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
+    hud.upgrade_requested.emit()
+    assert_true(world._session.snapshot()["watering_can_upgraded"])
+    assert_eq(int(world._session.snapshot()["money"]), 250 - GameRules.WATERING_CAN_UPGRADE_PRICE)
+    assert_eq(feedback.text, "Watering can upgraded.")
+    assert_eq(sfx.stream.resource_path, "res://assets/audio/commerce.wav")
+    assert_eq(
+        (hud.get_node("HudRoot/Action_2/Icon") as TextureRect).texture.resource_path,
+        "res://assets/ui/icons/watering-can-efficient.png",
+    )
+
+    # Repeat purchase: truthful failure text on the cancel path, money intact.
+    hud.upgrade_requested.emit()
+    assert_eq(feedback.text, "Watering can is already upgraded.")
+    assert_eq(sfx.stream.resource_path, "res://assets/audio/cancel.wav")
+    assert_eq(int(world._session.snapshot()["money"]), 250 - GameRules.WATERING_CAN_UPGRADE_PRICE)
+
 func test_opening_shipping_immediately_gates_world_input() -> void:
     var world := _world()
     if world == null:
@@ -2354,3 +2395,45 @@ func test_hold_focus_loss_and_day_or_finale_gates_clear_the_gesture() -> void:
     assert_false(world._advance_action_hold(
         1.0, WorldContract.BED_CELL, _hold_preview(world, WorldContract.BED_CELL)
     ))
+
+func test_upgraded_watering_hold_costs_one_stamina_per_cell() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var session := world._session
+    var cells := WorldContract.farm_cells()
+
+    # Three eligible unwatered crops; prep spends stamina, so restore a full
+    # 20 alongside the upgrade funds before purchasing.
+    for index in 3:
+        assert_eq(session.hoe(cells[index]), GameRules.CommandCode.SOIL_TILLED)
+        assert_eq(session.plant(cells[index]), GameRules.CommandCode.CROP_PLANTED)
+    var state := session.state()
+    state["money"] = 250
+    state["stamina"] = 20
+    assert_true(session.restore_state(state))
+    assert_eq(
+        session.buy_watering_can_upgrade(WorldContract.SHOP_CELL),
+        GameRules.CommandCode.WATERING_CAN_UPGRADED,
+    )
+    world._refresh_from_session()
+    assert_true(session.snapshot()["watering_can_upgraded"])
+
+    await _place_target(world, cells[0])
+    world.select_action_slot(3)
+    world._process(0.0)
+    var hint := hud.get_node("HudRoot/InteractionHint") as Label
+    assert_eq(hint.text, "Space — Water Turnip · 1 stamina")
+
+    assert_eq(int(session.snapshot()["stamina"]), 20)
+    _push_use_action(world, true)
+    assert_true(session.snapshot()["farm"][0]["crop"]["watered_today"])
+    assert_eq(int(session.snapshot()["stamina"]), 19)
+    _set_target(world, cells[1])
+    assert_false(world._advance_action_hold(0.0, cells[1], _hold_preview(world, cells[1])))
+    assert_true(world._advance_action_hold(0.15, cells[1], _hold_preview(world, cells[1])))
+    assert_true(session.snapshot()["farm"][1]["crop"]["watered_today"])
+    _set_target(world, cells[2])
+    assert_false(world._advance_action_hold(0.0, cells[2], _hold_preview(world, cells[2])))
+    assert_true(world._advance_action_hold(0.15, cells[2], _hold_preview(world, cells[2])))
+    assert_true(session.snapshot()["farm"][2]["crop"]["watered_today"])
+    assert_eq(int(session.snapshot()["stamina"]), 17)
