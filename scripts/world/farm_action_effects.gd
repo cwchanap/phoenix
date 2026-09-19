@@ -178,6 +178,9 @@ func _cell_center(cell: Vector2i) -> Vector2:
     return WorldMath.grid_to_world(Vector2(cell) + Vector2(0.5, 0.5))
 
 func _track(tween: Tween) -> Tween:
+    # Finished or killed tweens stay referenced until pruned; drop them here so
+    # _tweens only ever holds live tweens for _exit_tree().
+    _tweens = _tweens.filter(func(t: Tween) -> bool: return t.is_valid())
     _tweens.append(tween)
     return tween
 
