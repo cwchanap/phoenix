@@ -1,8 +1,8 @@
 # Phoenix Efficient Watering Can Design
 
-**Linear:** HPA-460  
-**Repository:** `cwchanap/phoenix`  
-**Branch:** `agent/hpa-460-watering-can-upgrade-plan`  
+**Linear:** HPA-460
+**Repository:** `cwchanap/phoenix`
+**Branch:** `agent/hpa-460-watering-can-upgrade-plan`
 **Base reviewed:** `main` at `3ce489e7c32ef2a5c3aab9931c07baae724d7940`
 
 ## Goal
