@@ -96,9 +96,12 @@ static func dialogue_state() -> Dictionary:
 static func dialogue_result() -> Dictionary:
     return {
         "code": GameRules.CommandCode.VILLAGER_TALKED,
-        "lines": [VillagerRules.dialogue_line(
+        "lines": [VillagerRules.ordinary_dialogue_line(
             VillagerRules.VillagerId.SHOPKEEPER,
             VillagerRules.RelationshipLevel.FRIEND,
+            3,
+            false,
+            false,
         )],
         "points_gained": 1,
         "gift_reaction": &"",
