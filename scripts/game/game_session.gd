@@ -690,7 +690,15 @@ func talk_to(
             true,
         )
 
-    var lines: Array[String] = [VillagerRules.dialogue_line(villager_id, level)]
+    var is_rainy := _weather == GameRules.Weather.RAINY
+    var has_settled_shipment := false
+    for count in _shipped_counts:
+        if count > 0:
+            has_settled_shipment = true
+            break
+    var lines: Array[String] = [
+        VillagerRules.ordinary_dialogue_line(villager_id, level, _day, is_rainy, has_settled_shipment)
+    ]
     return _social_success(GameRules.CommandCode.VILLAGER_TALKED, lines, points_gained)
 
 func gift_crop(
