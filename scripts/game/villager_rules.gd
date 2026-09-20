@@ -9,6 +9,7 @@ const GIFT_POINTS := 3
 const FAVOURITE_GIFT_BONUS := 2
 const FRIEND_POINTS := 12
 const CLOSE_FRIEND_POINTS := 18
+const MARKET_DIALOGUE_START_DAY := 12
 
 const VILLAGER_KEYS: Array[StringName] = [&"shopkeeper", &"farmer", &"resident"]
 const DISPLAY_NAMES: Array[String] = ["Mira", "Rowan", "June"]
@@ -23,20 +24,71 @@ const RELATIONSHIP_DISPLAY_NAMES: Array[String] = ["Stranger", "Friend", "Close 
 
 const NORMAL_DIALOGUE: Array = [
     [
-        "The seed counter is open whenever you need it.",
-        "Your fields are starting to look dependable.",
-        "You have made this little farm part of the village.",
+        [
+            "The seed counter is open whenever you need it.",
+            "Turnips are quick. Potatoes ask for a little more patience.",
+            "Buy only the seeds you have time to water.",
+        ],
+        [
+            "Your fields are starting to look dependable.",
+            "You are planning your seed money better now.",
+            "A mixed crop shelf keeps the counter interesting.",
+        ],
+        [
+            "You have made this little farm part of the village.",
+            "You know what your fields can afford now.",
+            "I save the better seed lots when I know you will stop by.",
+        ],
     ],
     [
-        "Watered soil tells you what tomorrow will bring.",
-        "Your rows are getting cleaner every day.",
-        "I would trust you with a field of my own.",
+        [
+            "Watered soil tells you what tomorrow will bring.",
+            "A straight row is nice, but a watered row is useful.",
+            "Do the work you can finish before dusk.",
+        ],
+        [
+            "Your rows are getting cleaner every day.",
+            "You move through the field with less wasted effort now.",
+            "A few well-kept plots beat a field you cannot tend.",
+        ],
+        [
+            "I would trust you with a field of my own.",
+            "You have learned when to push and when to leave the soil alone.",
+            "Your farm has your rhythm in it now.",
+        ],
     ],
     [
-        "It is quieter here than the road makes it look.",
-        "I keep seeing you around. I like that.",
-        "The village feels more like home with you here.",
+        [
+            "It is quieter here than the road makes it look.",
+            "The village notices steady footsteps more than grand entrances.",
+            "You will learn which corners feel familiar before long.",
+        ],
+        [
+            "I keep seeing you around. I like that.",
+            "It is nice seeing your farm light up another part of the road.",
+            "People say your farm now, not the old farm.",
+        ],
+        [
+            "The village feels more like home with you here.",
+            "You do not look like a newcomer when you walk through town anymore.",
+            "Some places become home one ordinary day at a time.",
+        ],
     ],
+]
+const RAINY_DIALOGUE: Array[String] = [
+    "Rain saves you a watering round. Good day to plan the next planting.",
+    "Let the rain do its share. Save your strength for the rest.",
+    "Rain pulls the village closer. Everyone listens to the same roofs.",
+]
+const SHIPPED_DIALOGUE: Array[String] = [
+    "Produce has left your farm now. Growing and selling are different skills.",
+    "You have sent real harvest out now. That means the farm is working.",
+    "Your produce is going out now. The farm touches more than your own day.",
+]
+const MARKET_DIALOGUE: Array[String] = [
+    "The market is close. Keep some coin ready for what comes next.",
+    "The market is close. Finish what will be ready before you plant more.",
+    "The market is almost here. You will see who noticed your season.",
 ]
 const CLOSE_FRIEND_DIALOGUE: Array = [
     [
@@ -110,8 +162,33 @@ static func relationship_level(points: int) -> RelationshipLevel:
         return RelationshipLevel.FRIEND
     return RelationshipLevel.STRANGER
 
-static func dialogue_line(id: VillagerId, level: RelationshipLevel) -> String:
-    return NORMAL_DIALOGUE[id][level]
+static func ordinary_dialogue_candidates(
+    id: VillagerId,
+    level: RelationshipLevel,
+    day: int,
+    is_rainy: bool,
+    has_settled_shipment: bool,
+) -> Array[String]:
+    var candidates: Array[String] = []
+    for line in NORMAL_DIALOGUE[id][level]:
+        candidates.append(String(line))
+    if is_rainy:
+        candidates.append(RAINY_DIALOGUE[id])
+    if has_settled_shipment:
+        candidates.append(SHIPPED_DIALOGUE[id])
+    if day >= MARKET_DIALOGUE_START_DAY:
+        candidates.append(MARKET_DIALOGUE[id])
+    return candidates
+
+static func ordinary_dialogue_line(
+    id: VillagerId,
+    level: RelationshipLevel,
+    day: int,
+    is_rainy: bool,
+    has_settled_shipment: bool,
+) -> String:
+    var candidates := ordinary_dialogue_candidates(id, level, day, is_rainy, has_settled_shipment)
+    return candidates[posmod((day - 1) + int(id), candidates.size())]
 
 static func finale_line(id: VillagerId, level: RelationshipLevel) -> String:
     return FINALE_LINES[id][level]
