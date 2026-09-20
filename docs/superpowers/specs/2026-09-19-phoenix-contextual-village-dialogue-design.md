@@ -13,28 +13,24 @@ This is a content-and-selection-policy slice. The existing relationship rules, f
 
 ## Current seams to preserve
 
-The current implementation is already small enough for this feature:
+- `VillagerRules` owns villager identity, relationship thresholds, authored speech, gift reactions, finale lines, and the new pure ordinary-dialogue policy.
+- `GameSession.talk_to()` remains the only social talk mutation boundary.
+- `GameSession` already owns the exact context this ticket needs: current day, current weather, lifetime settled `_shipped_counts`, and relationship state.
+- Harvested inventory, pending shipment, and settled shipped totals remain separate. Only lifetime settled shipped totals may enable shipped flavor.
+- Settled shipped totals are sticky lifetime state, not a one-shot event. The shipped line joins the ordinary candidate pool; it must never claim a shipment just happened.
+- `DialoguePanel` continues to render the existing social result dictionary and existing player-paced Close Friend sequence.
+- `WorldShell` continues to coordinate session results into the current panel; it gets no new social state or event path.
+- The current save already persists every selector input, so equivalent restored state reproduces the same line without dialogue history.
 
-- `VillagerRules` owns villager identity, relationship thresholds, authored normal dialogue, Close Friend dialogue, gift reactions, and finale lines.
-- `GameSession.talk_to()` owns talk eligibility, the once-per-day talk point, relationship mutation, and Close Friend event precedence.
-- `GameSession` already owns the exact context this ticket needs: current day, current weather, settled `_shipped_counts`, and relationship state.
-- Pending shipment and harvested inventory are separate from settled shipped totals. Only settled totals may enable shipping flavor.
-- Settled shipped totals are lifetime state, not a one-shot event. Once the player has sold produce, the shipping line remains one eligible ordinary candidate; it must never claim a shipment just happened.
-- `DialoguePanel` renders the existing social result dictionary and already supports one-line ordinary dialogue plus the player-paced two-line Close Friend sequence.
-- `WorldShell` only coordinates session results into the existing dialogue panel. It does not need a new event path.
-- The current save already persists day, weather, shipped totals, and relationship state, so the same restored state can choose the same line without storing dialogue history.
-
-Extend those owners only. Do not route greetings through `ContentRules`; that owner remains tutorial-specific.
+Do not route greetings through `ContentRules`; tutorial relevance remains a separate owner.
 
 ## Bounded authored content
 
-Keep the current normal line as slot 0 at every villager/tier and add exactly two more normal lines beside it. Add exactly one rainy, one lifetime-sold, and one Days 12-14 market reaction per villager.
+Keep each current normal line as slot 0 in the reshaped table and add exactly two normal lines beside it. Add exactly one rainy, one lifetime-sold, and one Days 12-14 market reaction per villager.
 
 That is 27 new lines total.
 
 ### Mira — seeds, trade, and farm economics
-
-Keep the existing tier lines unchanged.
 
 **Stranger — add:**
 
@@ -55,7 +51,7 @@ Keep the existing tier lines unchanged.
 
 - "Rain saves you a watering round. Good day to plan the next planting."
 
-**Settled shipment / lifetime-sold:**
+**Lifetime-sold:**
 
 - "Produce has left your farm now. Growing and selling are different skills."
 
@@ -64,8 +60,6 @@ Keep the existing tier lines unchanged.
 - "The market is close. Keep some coin ready for what comes next."
 
 ### Rowan — farming effort and field craft
-
-Keep the existing tier lines unchanged.
 
 **Stranger — add:**
 
@@ -86,7 +80,7 @@ Keep the existing tier lines unchanged.
 
 - "Let the rain do its share. Save your strength for the rest."
 
-**Settled shipment / lifetime-sold:**
+**Lifetime-sold:**
 
 - "You have sent real harvest out now. That means the farm is working."
 
@@ -95,8 +89,6 @@ Keep the existing tier lines unchanged.
 - "The market is close. Finish what will be ready before you plant more."
 
 ### June — belonging and village life
-
-Keep the existing tier lines unchanged.
 
 **Stranger — add:**
 
@@ -117,7 +109,7 @@ Keep the existing tier lines unchanged.
 
 - "Rain pulls the village closer. Everyone listens to the same roofs."
 
-**Settled shipment / lifetime-sold:**
+**Lifetime-sold:**
 
 - "Your produce is going out now. The farm touches more than your own day."
 
@@ -127,269 +119,246 @@ Keep the existing tier lines unchanged.
 
 ## Content rules
 
-- Add `MARKET_DIALOGUE_START_DAY := 12` in `VillagerRules` beside the relationship thresholds.
-- Shipping flavor requires at least one crop in the settled lifetime `_shipped_counts`.
-- Harvested inventory and pending shipment never qualify.
-- Do not claim a shipment happened "today", was the player's first shipment, or happened once. Those claims would require new state.
-- Market reactions are eligible when `day >= MARKET_DIALOGUE_START_DAY`; in the current 14-day game that means Days 12-14.
-- Rain reactions are eligible only when the current session weather is rainy.
-- Relationship-tier normal lines always use the level after the current talk point is awarded, matching current semantics.
-- The unseen Close Friend conversation remains higher priority than every ordinary candidate.
-- Finale lines, gift lines, favourite-gift rules, thresholds, and point values are unchanged.
+- Add `MARKET_DIALOGUE_START_DAY := 12` beside the relationship thresholds.
+- Shipping flavor is eligible iff any lifetime settled `_shipped_counts[i] > 0`.
+- Harvested and pending counts never qualify.
+- Never claim a shipment happened "today", was the first shipment, or happened once.
+- Market flavor is eligible when `day >= MARKET_DIALOGUE_START_DAY`.
+- Rain flavor is eligible only for rainy current weather.
+- Normal dialogue uses the relationship level after the current first-talk point is awarded.
+- The unseen Close Friend sequence remains above every ordinary candidate.
+- Gift lines, gift values, relationship thresholds, Close Friend event lines, and finale lines remain unchanged.
 
 ## Pure selection policy
 
 ### Authored table shape
 
-Change `NORMAL_DIALOGUE` from one string per villager/tier to three strings per villager/tier:
+Reshape:
 
 `NORMAL_DIALOGUE[villager_id][relationship_level][normal_slot]`
 
-Slot 0 is the existing line. Slots 1 and 2 are the new lines above.
+Each tier contains exactly three strings. Slot 0 is the existing HPA-595 line.
 
-Add three one-dimensional authored arrays, each indexed by villager:
+Add the villager-indexed arrays:
 
 - `RAINY_DIALOGUE`
 - `SHIPPED_DIALOGUE`
 - `MARKET_DIALOGUE`
 
-Do not add a dialogue-entry class, condition object, tag registry, or data file. The current content set is fixed and small.
+There is no dialogue-entry class, condition object, tag registry, resource file, or authoring framework.
 
-### Public helper contract
+### Public API
 
-Keep the old accessor only for the original HPA-595 oracle and static fixtures:
-
-`dialogue_line(id, level) -> String`
-
-It returns `NORMAL_DIALOGUE[id][level][0]` and is no longer the production talk selector.
-
-Add exactly two ordinary-dialogue helpers:
+Expose only the real ordinary-dialogue API:
 
 `ordinary_dialogue_candidates(id, level, day, is_rainy, has_settled_shipment) -> Array[String]`
 
 `ordinary_dialogue_line(id, level, day, is_rainy, has_settled_shipment) -> String`
 
-The candidate helper is intentionally public so tests can pin overlap ordering directly rather than searching for a day whose modulo happens to land on a contextual slot.
+Delete the old `dialogue_line(id, level)` accessor. Once ordinary speech depends on day/context, a public slot-0 accessor would be a stale parallel representation that future production code could misuse.
 
-Both context flags are booleans. `VillagerRules` does not need the full weather enum or a session snapshot.
+Exact-content tests that need slot 0 index `NORMAL_DIALOGUE[id][level][0]` directly.
 
-### Eligible ordinary set
+### Candidate order
 
-`ordinary_dialogue_candidates()` returns candidates in one fixed order:
+`ordinary_dialogue_candidates()` returns:
 
-1. the three normal lines for the current relationship tier;
-2. rainy reaction when `is_rainy`;
-3. lifetime-sold reaction when `has_settled_shipment`;
-4. market reaction when `day >= MARKET_DIALOGUE_START_DAY`.
+1. the three current-tier normal lines;
+2. rainy line when `is_rainy`;
+3. lifetime-sold line when `has_settled_shipment`;
+4. market line when `day >= MARKET_DIALOGUE_START_DAY`.
 
-This order is part of the deterministic contract.
+The two context inputs are booleans. `VillagerRules` does not receive a session snapshot or raw weather enum.
 
 ### Deterministic choice
 
-`ordinary_dialogue_line()` chooses:
+`ordinary_dialogue_line()` returns:
 
 `candidates[posmod((day - 1) + int(villager_id), candidates.size())]`
 
-Why this shape:
+Same inputs therefore always reproduce the same line, while successive eligible days and villager identity rotate the pool without gameplay/weather RNG or history state.
 
-- same state always returns the same greeting;
-- baseline sunny/unshipped days rotate through the three normal options;
-- different villagers do not all land on the same slot on the same day;
-- no gameplay RNG, weather RNG, timestamp, process hash, or persisted history is needed;
-- restoring equivalent state naturally reproduces the same result.
+Context eligibility does not guarantee a contextual line. This is intentional: contextual lines join the pool rather than override normal relationship speech.
 
-Contextual lines join the ordinary candidate set rather than overriding one another. Rain, lifetime-sold, and market can overlap without a priority ladder or extra event state.
+## Distribution review and literal acceptance table
+
+The policy is tested internally in `VillagerRules`, but session/UI boundaries must assert literal player-visible lines rather than recomputing expected values through the helper under test.
+
+### Day 1 — sunny, no settled shipment, Stranger
+
+| Villager | Literal player-visible line |
+| --- | --- |
+| Mira | "The seed counter is open whenever you need it." |
+| Rowan | "A straight row is nice, but a watered row is useful." |
+| June | "You will learn which corners feel familiar before long." |
+
+### Day 12 — rainy, settled shipment, Stranger
+
+There are six eligible candidates. The fixed formula deliberately produces:
+
+| Villager | Literal player-visible line |
+| --- | --- |
+| Mira | "The market is close. Keep some coin ready for what comes next." |
+| Rowan | "Watered soil tells you what tomorrow will bring." |
+| June | "The village notices steady footsteps more than grand entrances." |
+
+This distribution is accepted. A context-rich day does not force every villager to mention rain/shipping/market; that would require weighting or precedence machinery that this ticket intentionally avoids.
+
+For derivation coverage, a Day-12 rainy Mira with harvested-only or pending-only state still has `has_settled_shipment == false` and therefore says:
+
+"Turnips are quick. Potatoes ask for a little more patience."
+
+The equivalent state with any settled shipped count says the Day-12 market line above.
 
 ## GameSession wiring
 
-Keep `talk_to()` as the only social command owner.
+Keep `talk_to()` in its current order:
 
-The order stays:
+1. active-day / target guards;
+2. first valid daily talk point;
+3. relationship level from updated points;
+4. unseen Close Friend sequence;
+5. ordinary selector.
 
-1. reject inactive day / wrong villager target;
-2. award the first valid daily talk point if not already awarded;
-3. calculate the relationship level from the updated points;
-4. if Close Friend is now reached and its event is unseen, mark it seen and return the existing two-line Close Friend sequence;
-5. otherwise derive narrow read-only context and call `VillagerRules.ordinary_dialogue_line()`.
+Step 5 derives:
 
-The ordinary branch passes only:
+- `is_rainy := _weather == GameRules.Weather.RAINY`;
+- `has_settled_shipment := any _shipped_counts[i] > 0`.
 
-- villager id;
-- post-talk relationship level;
-- `_day`;
-- `_weather == GameRules.Weather.RAINY`;
-- `has_settled_shipment`, derived as true when any element of `_shipped_counts` is greater than zero.
+It then calls `VillagerRules.ordinary_dialogue_line(...)` and returns the same one-line social result dictionary.
 
-Do not reuse a snapshot-shaped generic count helper. Do not pass the full session snapshot or raw weather enum into `VillagerRules`.
-
-The existing social result dictionary stays unchanged:
-
-- `code`
-- `lines`
-- `points_gained`
-- `gift_reaction`
-- `close_friend_sequence`
-
-No new result field is required.
-
-## Existing call-site contract
-
-The selector deliberately changes ordinary spoken lines, so existing tests must stop using `dialogue_line()` as the production-talk oracle.
-
-Required updates:
-
-- Session tests that assert ordinary `talk_to()["lines"]` compare against `ordinary_dialogue_line(...)`.
-- `test_june_reaches_close_friend_and_special_sequence_once()` updates any post-event ordinary-line assertion to the new selector.
-- `test_all_villagers_route_through_same_direct_interaction_path()` must expect the selector on Day 1. Mira lands on normal slot 0, Rowan slot 1, and June slot 2 with the current formula.
-- HPA-595 exact-content tests and static visual fixtures may continue calling `dialogue_line(id, level)` because that accessor intentionally means slot 0.
-
-Do not weaken those assertions to "non-empty line"; point them at the new policy.
+Do not pass the snapshot, raw weather enum, harvested counts, or pending counts into `VillagerRules`. Do not reuse the snapshot-shaped private count helper in `ContentRules`.
 
 ## Relationship and interaction semantics
 
-This ticket must not change any of the existing social economy:
+Unchanged:
 
-- the first valid talk per villager per day awards exactly 1 point;
-- repeat talks award 0 points;
-- one gift per villager per day remains the limit;
-- normal gift = 3 points;
-- favourite gift = 5 points total;
-- Friend remains 12 points;
-- Close Friend remains 18 points;
-- the Close Friend two-line event is still shown exactly once;
-- repeat talks after that event use ordinary selection at the Close Friend tier;
-- gifting does not directly consume or mark the Close Friend event;
-- Esc dismissal and E interaction remain unchanged.
+- first valid talk per villager/day = +1;
+- repeat talk = +0;
+- one gift per villager/day;
+- normal gift = +3;
+- favourite gift = +5 total;
+- Friend = 12;
+- Close Friend = 18;
+- unseen Close Friend two-line event appears once and preempts ordinary dialogue;
+- gifting can cross the threshold but does not mark the Close Friend event seen;
+- later Close Friend talks use the ordinary selector;
+- E/Esc/Continue behavior stays unchanged.
 
-A useful integration route is:
+The existing `test_june_reaches_close_friend_and_special_sequence_once()` already owns the state-machine proof. Update its post-event ordinary line to the literal selected by the new policy; do not add a second full integration copy.
 
-1. restore the live session to 14 points with one favourite harvested crop;
-2. ordinary talk gives +1 and opens a Friend-tier ordinary line;
-3. give the favourite gift for +5;
-4. close the panel;
-5. talk again the same day for +0;
-6. the unseen Close Friend sequence takes precedence over ordinary selection;
-7. complete the two-line event and verify it does not replay.
+On its existing Day-3 sunny/no-shipment state, June's post-event Close Friend line is:
 
-This exercises ordinary talk, gifting, threshold crossing, repeat-talk semantics, and event precedence in one short flow.
+"You do not look like a newcomer when you walk through town anymore."
 
 ## Persistence and RNG
 
-No save-schema change.
+No save-schema change and no new persisted line/history state.
 
-The selector uses only data already persisted by `GameSession.state()`:
+The selector uses already-persisted day, weather, shipped totals, relationship points, and Close Friend seen state.
 
-- day;
-- weather;
-- shipped totals;
-- relationship points and Close Friend seen flag.
+Talking must not invoke `_weather_roll` or other RNG. Although the new selector does not approach weather-roll code, keep one focused counter-callable assertion because HPA-461 explicitly requires that dialogue selection not advance weather RNG.
 
-Therefore a restored equivalent state must choose the same ordinary greeting.
+Equivalent restored state must return the same literal line.
 
-Talking must not call `_weather_roll`, `randf()`, or any other RNG source. Weather RNG remains sleep-only. Reuse the existing counter-callable testing pattern to prove a talk does not consume a weather roll.
+## Visual fixture and golden truthfulness
 
-Do not persist:
+The existing `07-dialogue` fixture declares:
 
-- last line;
-- line index;
-- per-villager history;
-- last contextual reaction;
-- per-day talk seed.
+- Day 3;
+- sunny;
+- zero settled shipment;
+- Mira at Friend.
 
-## UI and visual scope
+Production selection for that exact state is Friend normal slot 2:
 
-No runtime UI code is expected to change.
+"A mixed crop shelf keeps the counter interesting."
 
-`DialoguePanel` already autowraps the line label and renders the existing result shape. Keep:
+Update `tests/visual/ui_fixture_factory.gd` to call `ordinary_dialogue_line(SHOPKEEPER, FRIEND, 3, false, false)`, then natively regolden the existing `tests/visual/goldens/07-dialogue.png`.
 
-- the same full dialogue panel;
-- the same portrait;
-- the same relationship display;
-- the same gift controls;
-- E to interact;
-- Esc to dismiss ordinary dialogue;
-- Continue gating for the existing Close Friend sequence.
+This is not a new visual state and does not justify a panel/layout change. It makes the existing golden truthful for its declared state.
 
-At 640x360, review the longest new lines in the existing panel. If a line reads poorly or clips, shorten the authored sentence. Do not enlarge the panel, move gift controls, reduce font size, or add a speech-bubble mode for this content-only problem.
-
-Do not create a new visual golden merely because text changed. Add focused visual evidence only if the panel layout itself changes, which is not expected.
+The line label remains the current autowrapping 640x360 panel. Review long new copy manually and shorten wording if needed; do not resize the panel or reduce font size.
 
 ## Verification strategy
 
 ### VillagerRules
 
-Cover only rules-owned facts:
+Pin:
 
-- three villagers;
-- three relationship tiers;
-- exactly three normal lines per tier;
-- all existing slot-0 lines unchanged;
-- all 27 new authored lines present in the intended tables;
-- `dialogue_line()` returns slot 0 only;
-- exact candidate ordering;
-- baseline sunny/unshipped rotation across successive days;
-- stable output for identical inputs;
-- different villager offsets;
-- rainy boolean absent/present;
-- settled-shipment boolean absent/present;
-- market candidate absent before `MARKET_DIALOGUE_START_DAY` and present on the start day and Day 14;
-- overlapping rainy + shipped + market preserves the fixed candidate order;
-- selector equals the documented `posmod` choice from that candidate array.
-
-Do not put harvested-vs-pending-vs-settled session facts in `VillagerRules` tests.
+- exact three-slot table content for every villager/tier;
+- all 27 new strings;
+- existing slot-0 strings directly through `NORMAL_DIALOGUE[id][level][0]`;
+- contextual table sizes/content;
+- `MARKET_DIALOGUE_START_DAY == 12`;
+- exact candidate order;
+- true/false rain and shipped gates independently;
+- Day 11 / 12 / 14 market eligibility;
+- stable identical-input result;
+- day and villager rotation;
+- overlap candidate array;
+- helper output equals the documented `posmod` index.
 
 ### GameSession
 
-Pin production wiring, including direct line assertions:
+Assert player-visible literals, not helper-vs-helper tautologies:
 
-- Day-1 sunny/unshipped Mira `talk_to()["lines"]` equals `ordinary_dialogue_line(...)`.
-- A restored rainy state returns the helper-selected line and does not mutate weather.
-- On the same day/weather, harvested-only and pending-only state both pass `has_settled_shipment == false`; restored settled shipped totals pass true.
-- An 11 -> 12 first-talk threshold uses the Friend tier after awarding the talk point.
-- First talk/repeat talk point semantics remain unchanged.
-- Talk does not consume the injected weather-roll callable.
-- Restoring an equivalent state into a fresh session returns the same ordinary line.
-- Unseen Close Friend event still preempts ordinary selection.
-- Once seen, Close Friend ordinary dialogue uses the new selector.
-- Gift limits, favourite bonus, and failure atomicity remain unchanged.
+- Day-1 sunny/unshipped literal lines for all three villagers;
+- Day-12 rainy + settled-shipment literal lines for all three villagers;
+- Day-12 rainy Mira harvested-only and pending-only both return the literal no-shipment line;
+- the equivalent Mira settled-shipment state returns the literal market line;
+- 11 -> 12 points uses the Friend-tier literal after +1;
+- first/repeat talk point behavior unchanged;
+- weather-roll counter remains untouched by talk;
+- equivalent restored state returns the same literal;
+- existing Close Friend state-machine test uses the new literal post-event line.
 
-Prepare isolation cases with `state()` / `restore_state()` rather than `sleep()` when the test is about selector inputs; sleep changes day, weather, and settlement together.
+Use `state()` / `restore_state()` to isolate day/weather/count context rather than `sleep()`, which changes several inputs together.
 
 ### Integration
 
-Extend the existing social integration coverage rather than adding a second harness:
+Keep the existing all-villager direct-interaction test and update its Day-1 line assertions to the three literals above. That is the one new live fact this ticket needs: production `talk_to()` reaches the existing panel with the selected line.
 
-- update the existing all-villager Day-1 line assertions to the selector;
-- restore prepared state into `world._session` before the live interaction flow;
-- ordinary talk opens the existing panel with the selector-owned line;
-- ordinary talk -> favourite gift -> repeat talk crosses into the unseen Close Friend event;
-- Close Friend Continue/Esc behavior remains unchanged;
-- no extra modal or world-input path is added;
-- review the longest Mira/Rowan/June lines at the shipped 640x360 window.
+Do not add a new talk -> gift -> Close Friend integration flow. Existing session and shell tests already cover relationship threshold/event behavior, gift round-trip, and Close Friend panel progression.
 
-Run worktree GUT suites during TDD. The repository clean verifier archives committed HEAD, so run `./tools/verify-clean.sh` only after committing the implementation state that is meant to be verified. Run `git diff --check` before the final implementation commit and again before leaving draft.
+### Visual
+
+Update only the existing dialogue fixture and `07-dialogue.png` golden. No additional visual state.
+
+### Verification sequence
+
+Use worktree GUT during RED/GREEN development. `./tools/verify-clean.sh` archives committed `HEAD`, so run it only after committing the implementation state intended for verification.
+
+Run `git diff --check` before that implementation commit and again before leaving draft.
 
 ## Risks
 
-The primary regression risk is stale `dialogue_line()` call sites: the new villager offset intentionally changes Rowan and June's Day-1 ordinary lines and changes later-day ordinary assertions. Explicitly update those tests to the selector rather than weakening them.
+Primary: stale `dialogue_line()` call sites. Delete the accessor and move all current users either to the real selector or direct table indexing where a test explicitly inspects authored slot 0.
 
-Text wrapping is lower risk. Existing dialogue already supports similarly long lines; manual 640x360 review is sufficient unless the panel layout actually changes.
+Secondary: session assertions accidentally recomputing expectations through the selector. Boundary tests must pin literals.
+
+Lower risk: text wrapping. Existing same-label copy is already comparable in length; manual 640x360 review is enough unless layout actually changes.
 
 ## Expected implementation files
 
-Primary runtime:
+Runtime:
 
 - `scripts/game/villager_rules.gd`
 - `scripts/game/game_session.gd`
 
-Focused tests:
+Unit/integration tests:
 
 - `tests/unit/test_villager_rules.gd`
 - `tests/unit/test_game_session.gd`
 - `tests/integration/test_gameplay_shell.gd`
 
-Planning docs remain in this PR. No `DialoguePanel`, `GameHud`, scene, persistence, image, audio, README, or CLAUDE change is expected unless implementation discovers a concrete contradiction with the reviewed seams.
+Visual fixture/evidence:
+
+- `tests/visual/ui_fixture_factory.gd`
+- `tests/visual/goldens/07-dialogue.png`
+
+Planning docs remain in this PR. No `DialoguePanel`, `GameHud`, persistence, scene, image asset, audio, README, or CLAUDE change is expected.
 
 ## Non-goals
 
-No new NPCs, schedules, pathing, quests, request board, romance, voice acting, speech bubbles, AI-authored runtime text, localization framework, dialogue graph, generic event system, dialogue-history persistence, save migration, relationship rebalance, new ending, new portrait, new image generation, or new SFX.
+No new NPCs, schedules, pathing, quests, request board, romance, voice acting, speech bubbles, AI-authored runtime text, localization framework, dialogue graph, generic event system, dialogue-history persistence, save migration, relationship rebalance, new ending, new portrait, new generated art, or new SFX.
