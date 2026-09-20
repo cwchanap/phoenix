@@ -6,201 +6,215 @@
 
 **Goal:** Give Mira, Rowan, and June deterministic relationship-tier variety plus rainy, lifetime-sold, and Days 12-14 reactions while preserving the current relationship economy, Close Friend event, persistence, and dialogue UI.
 
-**Architecture:** Keep authored content plus the pure candidate/selection policy in `VillagerRules`. Keep `GameSession.talk_to()` as the only mutable social authority and pass only day, `is_rainy`, and `has_settled_shipment` into the selector. Reuse the existing social result dictionary and `DialoguePanel`; add no new state or UI subsystem.
+**Architecture:** Keep fixed speech tables and the pure candidate/selector policy in `VillagerRules`. Keep `GameSession.talk_to()` as the only mutable social authority and pass only day plus two booleans into the selector. Delete the old context-free dialogue accessor rather than preserve a stale second representation. Reuse the existing social result dictionary/panel and existing social integration coverage.
 
 ## Global constraints
 
 - One ticket, one branch, one PR. Implementation continues on this same draft PR after planning review.
 - Exactly 27 new lines: 18 extra normal lines and 9 contextual lines.
-- Keep every current normal slot-0 line, gift line, Close Friend line, and finale line unchanged.
-- Shipping flavor comes only from lifetime settled `_shipped_counts`; harvested and pending crops do not qualify.
-- Keep the unseen Close Friend sequence above ordinary selection.
-- No dialogue history, RNG, new save field, schema change, event bus, dialogue graph, localization framework, speech bubble, new image, or new SFX.
-- Prefer shortening copy over changing the existing 640x360 dialogue layout.
-- Do not use `ContentRules` as a greeting owner or reuse snapshot-shaped tutorial helpers.
+- Keep every existing normal slot-0 string, gift line, Close Friend event line, and finale line unchanged.
+- Shipping flavor derives only from lifetime settled `_shipped_counts`; harvested and pending crops do not qualify.
+- No dialogue history, RNG selection, new save field, schema change, event bus, dialogue graph, localization framework, speech bubble, image asset, or SFX.
+- No generic condition/dialogue abstraction.
+- Prefer shortening copy over changing the 640x360 dialogue layout.
+- Boundary tests assert literal speech. Helper-equality tests stay only where `VillagerRules` itself is under test.
 
-## Task 1: Expand VillagerRules and land the selector as one green unit
+## Task 1: Reshape VillagerRules and land the only ordinary selector
 
 **Files:**
 
 - `scripts/game/villager_rules.gd`
 - `tests/unit/test_villager_rules.gd`
 
-### 1.1 RED — pin the authored and public API contract
+### 1.1 RED — pin authored content without the new API
 
-Add focused tests before changing the rules:
+First pin facts that compile against the current class:
 
 - [ ] Each villager still has three relationship tiers.
-- [ ] Each tier now has exactly three normal lines.
-- [ ] Normal slot 0 exactly matches the current HPA-595 oracle line.
-- [ ] Slots 1 and 2 match the 18 new normal lines in the design spec.
-- [ ] `RAINY_DIALOGUE`, `SHIPPED_DIALOGUE`, and `MARKET_DIALOGUE` each contain exactly one line per villager.
-- [ ] The nine contextual lines match the design spec exactly.
-- [ ] Existing gift, Close Friend, and finale content remains unchanged.
+- [ ] The expected new table shape is three normal strings per tier.
+- [ ] Existing HPA-595 strings are expected at slot 0.
+- [ ] Slots 1/2 match the 18 new normal lines in the spec.
+- [ ] Rainy/shipped/market tables contain the nine exact contextual strings.
+- [ ] Gift, Close Friend event, and finale content remains unchanged.
 - [ ] `MARKET_DIALOGUE_START_DAY == 12`.
-- [ ] `dialogue_line(id, level)` means slot 0 only.
-- [ ] Public helpers exist with the narrow signatures:
+
+The new statics do not exist yet; in GDScript, tests that call missing statics are parser-red for the whole file. Keep that window short rather than treating it as a behavioral assertion.
+
+### 1.2 RED/GREEN — add helper signatures, reshape tables, and test selector behavior together
+
+In one runnable step:
+
+- [ ] Reshape `NORMAL_DIALOGUE[id][level]` to three strings.
+- [ ] Delete `dialogue_line(id, level)`.
+- [ ] Exact-content tests read `NORMAL_DIALOGUE[id][level][0]` directly when they mean authored slot 0.
+- [ ] Add `MARKET_DIALOGUE_START_DAY := 12`.
+- [ ] Add `RAINY_DIALOGUE`, `SHIPPED_DIALOGUE`, and `MARKET_DIALOGUE`.
+- [ ] Add:
   - `ordinary_dialogue_candidates(id, level, day, is_rainy, has_settled_shipment) -> Array[String]`
   - `ordinary_dialogue_line(id, level, day, is_rainy, has_settled_shipment) -> String`
+- [ ] Candidate order is exactly: three normals, rainy, shipped, market when each context is eligible.
+- [ ] Test `is_rainy=true/has_settled_shipment=false` and `false/true` independently so adjacent booleans cannot silently swap.
+- [ ] Day 11 excludes market; Days 12 and 14 include it.
+- [ ] Identical inputs are stable.
+- [ ] Day/villager rotation uses `posmod((day - 1) + int(id), candidates.size())`.
+- [ ] Context-saturated tests assert the candidate array directly before asserting the chosen index.
+- [ ] Do not add a dialogue entry/condition object, registry, resource file, or authoring layer.
 
-### 1.2 RED/GREEN — reshape tables and add candidate + selector helpers together
+**Checkpoint:** run the VillagerRules worktree GUT suite.
 
-Land the table shape and accessors in the same green step so the HPA-595 oracle never sits broken between checkpoints:
-
-- [ ] Change `NORMAL_DIALOGUE[id][level]` from a string to an array of three strings.
-- [ ] Keep `dialogue_line(id, level)` returning slot 0 for the exact-content oracle and static fixtures only.
-- [ ] Add `MARKET_DIALOGUE_START_DAY := 12` beside the relationship thresholds.
-- [ ] Add the three villager-indexed contextual arrays.
-- [ ] Implement `ordinary_dialogue_candidates()` with exact order: three normals, rainy when `is_rainy`, shipped when `has_settled_shipment`, market when `day >= MARKET_DIALOGUE_START_DAY`.
-- [ ] Implement `ordinary_dialogue_line()` as `candidates[posmod((day - 1) + int(id), candidates.size())]`.
-- [ ] Baseline sunny/unshipped days rotate through the three normal options.
-- [ ] Identical arguments return the identical line.
-- [ ] Villager identity offsets the same-day choice.
-- [ ] Overlapping rainy + shipped + market tests assert the candidate array ordering directly.
-- [ ] Do not introduce a dialogue entry class, condition object, registry, resource file, or authoring layer.
-
-**Checkpoint:** run the VillagerRules worktree GUT suite before touching `GameSession`.
-
-## Task 2: Wire talk_to() and pin the production call site
+## Task 2: Wire talk_to() and pin literal session behavior
 
 **Files:**
 
 - `scripts/game/game_session.gd`
 - `tests/unit/test_game_session.gd`
 
-### 2.1 RED — require talk_to()["lines"] to use the selector
+### 2.1 RED — literal boundary table
 
-Add focused production-boundary assertions:
+Session tests must assert what the player hears without calling `ordinary_dialogue_line()` for the expected side.
 
-- [ ] Day-1 sunny/unshipped Mira result equals:
-  `[VillagerRules.ordinary_dialogue_line(id, level, day, false, false)]`.
-- [ ] A restored rainy state returns the helper-selected line without changing weather.
-- [ ] On the same restored day/weather, harvested-only state returns the false-shipping helper result.
-- [ ] On that same day/weather, pending-only state also returns the false-shipping helper result.
-- [ ] On that same day/weather, non-zero restored `shipped` totals return the true-shipping helper result.
-- [ ] An 11 -> 12 first-talk transition uses the Friend tier in the helper call after awarding +1.
-- [ ] First valid talk still gives exactly +1 once per day; repeat talk gives +0.
-- [ ] A talk does not invoke the injected weather-roll counter callable.
-- [ ] Restoring equivalent state into a fresh session returns the same ordinary line.
+Pin these Day-1 sunny/unshipped Stranger literals:
 
-Use `state()` / `restore_state()` for selector-input isolation. Do not use `sleep()` to build these cases because sleep simultaneously changes day, weather, and settlement. Do not add a test-only production setter.
+- [ ] Mira: `The seed counter is open whenever you need it.`
+- [ ] Rowan: `A straight row is nice, but a watered row is useful.`
+- [ ] June: `You will learn which corners feel familiar before long.`
 
-### 2.2 GREEN — change only the ordinary branch
+Pin these Day-12 rainy + settled-shipment Stranger literals:
 
-Keep the current order in `talk_to()`:
+- [ ] Mira: `The market is close. Keep some coin ready for what comes next.`
+- [ ] Rowan: `Watered soil tells you what tomorrow will bring.`
+- [ ] June: `The village notices steady footsteps more than grand entrances.`
 
-1. existing active-day/target guards;
-2. existing first-talk point mutation;
-3. existing post-point relationship-level calculation;
-4. existing unseen Close Friend branch;
-5. ordinary line selection.
+Also pin the session-owned derivation boundary on the same Day-12 rainy Mira state:
 
-For step 5 only:
+- [ ] harvested-only -> `Turnips are quick. Potatoes ask for a little more patience.`
+- [ ] pending-only -> the same no-shipment literal;
+- [ ] non-zero settled `shipped` -> the market literal above.
+
+Pin post-point relationship selection:
+
+- [ ] a Mira state at 11 points talks once to 12 and says Friend slot 0: `Your fields are starting to look dependable.`
+
+Retain:
+
+- [ ] first valid daily talk gives +1; repeat gives +0;
+- [ ] the injected weather-roll counter is unchanged by talk, because the Linear acceptance explicitly requires no weather-RNG consumption;
+- [ ] equivalent restored state reproduces the same literal line.
+
+Use `state()` / `restore_state()` to prepare day/weather/count cases. Do not use `sleep()` as a selector fixture and do not add a production setter.
+
+### 2.2 GREEN — change only talk_to()'s ordinary branch
+
+Keep the current order:
+
+1. active-day/target guards;
+2. first-talk point;
+3. relationship level from updated points;
+4. unseen Close Friend event;
+5. ordinary line.
+
+At step 5 only:
 
 - [ ] derive `is_rainy := _weather == GameRules.Weather.RAINY`;
-- [ ] derive `has_settled_shipment` as true when any `_shipped_counts[i] > 0`;
+- [ ] derive `has_settled_shipment` as any `_shipped_counts[i] > 0`;
 - [ ] call `VillagerRules.ordinary_dialogue_line(villager_id, level, _day, is_rainy, has_settled_shipment)`;
-- [ ] keep the current one-line `lines` array and social result dictionary.
+- [ ] keep the existing one-line result shape.
 
-Do not pass the whole snapshot or raw weather enum into `VillagerRules`. Do not reuse a snapshot-dictionary count helper.
+No snapshot/raw weather enum enters `VillagerRules`. No harvested/pending count is passed to it.
 
-### 2.3 RED/GREEN — protect Close Friend precedence and update stale oracles
+### 2.3 Update the existing Close Friend session test, do not duplicate it
 
-Pin and update the existing tests rather than weakening them:
+`test_june_reaches_close_friend_and_special_sequence_once()` already covers talk -> favourite gift -> threshold -> unseen event -> seen flag -> post-event ordinary speech.
 
-- [ ] Reaching 18+ on the first daily talk still returns the existing two-line event.
-- [ ] Reaching 18+ through a gift does not mark the event seen.
-- [ ] The next repeat talk can trigger that unseen event with 0 talk points.
-- [ ] After the event is seen, later Close Friend talks use `ordinary_dialogue_line()` and never replay the event.
-- [ ] Update `test_june_reaches_close_friend_and_special_sequence_once()` ordinary-line expectations to the selector.
-- [ ] Any other session `talk_to()["lines"]` assertion uses `ordinary_dialogue_line()`, not `dialogue_line()`.
-- [ ] Keep `dialogue_line()` only where the test explicitly means authored slot 0.
+Keep that test and change only its stale ordinary expectation:
 
-**Checkpoint:** run VillagerRules + GameSession worktree GUT suites. No UI work should be necessary at this point.
+- [ ] the existing Day-3 sunny/no-shipment post-event line is the literal:
+  `You do not look like a newcomer when you walk through town anymore.`
+- [ ] existing special-event lines/points/seen assertions remain unchanged.
 
-## Task 3: Update the existing shell contract and prove the live flow
+**Checkpoint:** run VillagerRules + GameSession worktree GUT suites.
+
+## Task 3: Update the one live speech proof and truthful visual fixture
 
 **Files:**
 
 - `tests/integration/test_gameplay_shell.gd`
-- planning docs already in this PR
-- runtime UI files only if a concrete regression proves the reviewed assumption wrong
+- `tests/visual/ui_fixture_factory.gd`
+- `tests/visual/goldens/07-dialogue.png`
 
-### 3.1 Update the existing all-villager direct-interaction assertion
+### 3.1 Update the existing all-villager direct-interaction test
 
-Extend `test_all_villagers_route_through_same_direct_interaction_path()` instead of loosening it:
+Keep `test_all_villagers_route_through_same_direct_interaction_path()` and replace its `dialogue_line()` oracle with the three Day-1 literals:
 
-- [ ] Keep the shared E-interaction/panel/name/role checks.
-- [ ] Calculate each expected Day-1 Stranger line through `ordinary_dialogue_line(id, STRANGER, 1, false, false)`.
-- [ ] This intentionally proves the villager offset live: Mira slot 0, Rowan slot 1, June slot 2.
-- [ ] Do not replace the exact line check with non-empty/contains assertions.
+- [ ] Mira -> `The seed counter is open whenever you need it.`
+- [ ] Rowan -> `A straight row is nice, but a watered row is useful.`
+- [ ] June -> `You will learn which corners feel familiar before long.`
 
-### 3.2 Add the compact ordinary talk -> gift -> Close Friend flow on the real session
+Keep the existing panel/name/role/world-input checks.
 
-Prepare the live world by restoring state into `world._session`, not by mutating a detached snapshot:
+Do not add the previously planned talk -> gift -> Close Friend shell flow. Existing unit/integration tests already own that unchanged behavior.
 
-- [ ] Start from `world._session.state()`.
-- [ ] Set one villager to 14 relationship points and seed one favourite harvested crop in that state.
-- [ ] Validate/restore the prepared state into `world._session`.
-- [ ] Interact: ordinary talk gives +1 and opens the existing Friend-tier selector-owned line.
-- [ ] Give the favourite gift: relationship crosses Close Friend threshold.
-- [ ] Close the panel.
-- [ ] Interact again the same day: repeat talk gives +0 and opens the unseen two-line Close Friend sequence.
-- [ ] Continue through the sequence; verify it is marked seen.
-- [ ] Talk again and verify ordinary Close Friend selection returns rather than replaying the event.
-- [ ] Existing world-input gating, gift controls, Esc behavior, and Continue behavior remain intact.
+### 3.2 Make the dialogue visual fixture represent production
 
-Do not add a production setter and do not create a new E2E harness.
+The current visual fixture declares Day 3, sunny, no settled shipment, Mira Friend. Update `dialogue_result()` to obtain the real production line through:
 
-### 3.3 640x360 text review
+`ordinary_dialogue_line(SHOPKEEPER, FRIEND, 3, false, false)`
 
-Review the longest new line for each villager in the existing native panel:
+The expected line is:
 
-- [ ] Mira: lifetime-sold line.
-- [ ] Rowan: Close Friend or market line.
-- [ ] June: Close Friend or lifetime-sold line.
+`A mixed crop shelf keeps the counter interesting.`
 
-If any line clips or becomes awkward, shorten the sentence in `VillagerRules` and update the exact-content unit expectation. Do not resize the panel or reduce font size.
+Then:
 
-No new visual golden is expected when layout is unchanged.
+- [ ] capture `07-dialogue` natively at 640x360;
+- [ ] review the new copy and the longest new lines manually;
+- [ ] replace only `tests/visual/goldens/07-dialogue.png`;
+- [ ] do not add a fifteenth visual state or touch `DialoguePanel` layout/font unless a real clipping defect appears.
 
-### 3.4 Verification sequence
+### 3.3 Verification sequence
 
 During implementation:
 
-- [ ] Run the affected worktree GUT suites after each RED/GREEN checkpoint.
-- [ ] Run `git diff --check` before the implementation commit.
+- [ ] run affected worktree GUT suites after each runnable RED/GREEN checkpoint;
+- [ ] run `git diff --check` before the implementation commit.
 
-After committing the implementation state intended for verification:
+After committing the intended implementation state:
 
-- [ ] Run `./tools/verify-clean.sh`; it archives committed HEAD, so do not treat it as a worktree TDD command.
-- [ ] Re-run `git diff --check`.
-- [ ] Confirm the visual suite remains unchanged unless an actual layout change was required.
+- [ ] run `./tools/verify-clean.sh` because it archives committed `HEAD`;
+- [ ] run the native visual verifier for the updated existing golden;
+- [ ] re-run `git diff --check`.
 
-Keep content review, implementation, tests, and verification on this one HPA-461 PR.
+Keep all implementation, content review, regolden, and verification on this single HPA-461 PR.
 
 ## Risks
 
-Primary: stale `dialogue_line()` production/test oracles. The new Day + villager formula intentionally makes Rowan and June differ from slot 0 on Day 1 and changes later-day ordinary expectations. Point those assertions at `ordinary_dialogue_line()`; do not weaken them.
+Primary: retaining or recreating a context-free ordinary-line accessor. There must be one production selector, not a stale slot-0 public API.
 
-Secondary: content wrapping. Existing dialogue already supports similarly long copy, so manual 640x360 review is enough unless layout actually changes.
+Secondary: tautological boundary tests that call the selector on both sides. Session and shell expected speech stays literal.
+
+Lower: copy wrapping. The existing 392x28 autowrapping label already carries similarly long Close Friend copy; manually review before considering any layout work.
 
 ## Expected final diff
 
-Expected runtime changes:
+Runtime:
 
 - `scripts/game/villager_rules.gd`
 - `scripts/game/game_session.gd`
 
-Expected test changes:
+Unit/integration:
 
 - `tests/unit/test_villager_rules.gd`
 - `tests/unit/test_game_session.gd`
 - `tests/integration/test_gameplay_shell.gd`
 
-Expected planning docs:
+Visual fixture/evidence:
+
+- `tests/visual/ui_fixture_factory.gd`
+- `tests/visual/goldens/07-dialogue.png`
+
+Planning docs:
 
 - `docs/superpowers/specs/2026-09-19-phoenix-contextual-village-dialogue-design.md`
 - `docs/superpowers/plans/2026-09-19-phoenix-contextual-village-dialogue.md`
 
-Anything beyond those files needs a concrete reason discovered during implementation. In particular, do not proactively touch `DialoguePanel`, `GameHud`, persistence, scenes, assets, README, or CLAUDE.
+Anything beyond these files needs a concrete implementation reason. In particular, do not proactively touch `DialoguePanel`, `GameHud`, persistence, scenes, generated art, audio, README, or CLAUDE.
