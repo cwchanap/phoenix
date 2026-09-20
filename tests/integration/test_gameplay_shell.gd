@@ -1977,6 +1977,11 @@ func test_all_villagers_route_through_same_direct_interaction_path() -> void:
     var hud := _hud(world)
     if hud == null:
         return
+    var day_one_lines := [
+        "The seed counter is open whenever you need it.",
+        "A straight row is nice, but a watered row is useful.",
+        "You will learn which corners feel familiar before long.",
+    ]
     for id in range(VillagerRules.VillagerId.size()):
         await _place_target(world, WorldContract.villager_cell(id))
         world.interact()
@@ -1986,7 +1991,7 @@ func test_all_villagers_route_through_same_direct_interaction_path() -> void:
         assert_eq((panel.get_node("Panel/Role") as Label).text, VillagerRules.role_label(id).to_upper())
         assert_eq(
             (panel.get_node("Panel/Line") as Label).text,
-            "“%s”" % VillagerRules.dialogue_line(id, VillagerRules.RelationshipLevel.STRANGER),
+            "“%s”" % day_one_lines[id],
         )
         hud.close_dialogue()
         assert_true(world._world_input_enabled)
