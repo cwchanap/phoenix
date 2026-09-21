@@ -160,7 +160,7 @@ Bound it to a small constant count (16). Each line is:
 - 1 px wide;
 - pale/low-alpha;
 - slanted consistently;
-- world-canvas z-index above entities/target but below CanvasLayer 10 HUD.
+- world-canvas z-index 9: above ground/ripples but below `TargetHighlight` (10) and `Entities` (20).
 
 `HomesteadAmbience._process(delta)` may advance only a visual rain phase. On each rainy frame, position the fixed line set around `Camera2D.get_screen_center_position()` using deterministic index-based offsets and wrap them across the 640x360 viewport.
 
@@ -209,7 +209,8 @@ Both players use the same preference and headroom. Do not add buses, sliders, mi
 
 Playback:
 
-- River loop starts once for the lifetime of the world.
+- Both players start at the muted -80 dB default so no frame can play at full volume before settings arrive.
+- River loop starts once after the initial Sound volume is delivered for the lifetime of the world.
 - Rain loop plays only while the presentation is rainy.
 - Switching sunny/rainy starts/stops only the Rain player.
 - Sound=0 silences both via the existing -80 dB convention.
@@ -254,7 +255,7 @@ Before capture, disable `HomesteadAmbience` processing so ripple/rain phase stay
 
 Add `tests/unit/test_homestead_ambience.gd` to pin:
 
-- 17:59 -> daytime;
+- 17:50 -> daytime;
 - 18:00 -> evening;
 - sunny/rainy detection;
 - daytime tints remain the existing exact values;
