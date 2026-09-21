@@ -1,7 +1,7 @@
 # Phoenix Contextual Village Dialogue Implementation Plan
 
-**Linear:** HPA-461  
-**Branch:** `agent/hpa-461-contextual-village-dialogue-plan`  
+**Linear:** HPA-461
+**Branch:** `agent/hpa-461-contextual-village-dialogue-plan`
 **Spec:** `docs/superpowers/specs/2026-09-19-phoenix-contextual-village-dialogue-design.md`
 
 **Goal:** Give Mira, Rowan, and June deterministic relationship-tier variety plus rainy, lifetime-sold, and Days 12-14 reactions while preserving the current relationship economy, Close Friend event, persistence, and dialogue UI.

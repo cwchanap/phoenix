@@ -1,8 +1,8 @@
 # Phoenix Contextual Village Dialogue Design
 
-**Linear:** HPA-461  
-**Repository:** `cwchanap/phoenix`  
-**Branch:** `agent/hpa-461-contextual-village-dialogue-plan`  
+**Linear:** HPA-461
+**Repository:** `cwchanap/phoenix`
+**Branch:** `agent/hpa-461-contextual-village-dialogue-plan`
 **Base reviewed:** `main` at `207511222970f0f171b400da901a9f9bfca4e252`
 
 ## Goal
