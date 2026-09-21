@@ -252,7 +252,7 @@ Do not reach through `GameHud._settings_panel` or poll Settings every frame.
 
 ### 3.4 GREEN — weather controls Rain audio only
 
-`HomesteadAmbience.render(presentation)`:
+`HomesteadAmbience.render(snapshot)`:
 
 - rainy -> ensure Rain player is playing;
 - sunny -> stop Rain player;
