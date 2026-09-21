@@ -77,7 +77,7 @@ No enum/class/resource for time-of-day. No stored day/night state.
 
 In `world.tscn`:
 
-- [ ] add exactly one direct `HomesteadAmbience` node under World with the new script;
+- [ ] add exactly one direct `HomesteadAmbience` node under World immediately after `FarmActionEffects` and before `StaticCollision`;
 - [ ] add `Entities/House/WindowLight` after the base House sprite;
 - [ ] use `assets/sprites/polish/house-window-light.png`;
 - [ ] `offset = Vector2(0, -48)`;
@@ -86,7 +86,8 @@ In `world.tscn`:
 
 Update `world_shell_smoke.gd`:
 
-- [ ] add `HomesteadAmbience` to the exact direct-child contract;
+- [ ] add `HomesteadAmbience` to the exact direct-child contract in that exact position;
+- [ ] change only the House prop child contract to exact order `["Shadow", "Sprite2D", "WindowLight"]`; every other prop remains `["Shadow", "Sprite2D"]`;
 - [ ] assert `WindowLight` uses the approved texture;
 - [ ] assert offset/alignment and hidden default;
 - [ ] leave every collision/map footprint assertion unchanged.
@@ -110,7 +111,7 @@ Add integration coverage around normal `WorldShell` refresh:
 
 - [ ] restored sunny 17:50 starts with `WindowLight.visible == false`;
 - [ ] wait several process frames and assert session `time_minutes` is unchanged and the mask is still hidden;
-- [ ] prepare a valid session/action at 17:30 whose existing action cost reaches 18:00, execute through the normal world command path, and assert the mask becomes visible;
+- [ ] prepare a valid session at 17:30 with Hoe selected and an eligible farm target; execute one successful Hoe through the normal world command path so the existing 30-minute Hoe cost lands exactly at 18:00, then assert the mask becomes visible;
 - [ ] restored rainy state exposes the rain visuals; restored sunny state hides them;
 - [ ] restoring equivalent `time_minutes` / `weather` reproduces the same presentation without a new save field.
 
@@ -135,6 +136,8 @@ Keep those presentation coordinates in `HomesteadAmbience`, not `WorldContract`.
 
 Add a small unit/helper assertion that each logical center is inside either existing river footprint. Do not alter the footprints.
 
+Extend `world_shell_smoke.gd` in the same slice to pin exactly three ripple sprites, their `river-ripple.png` texture, `hframes = 3`, `scale = Vector2(2, 2)`, initial frames 0/1/2, and the projected positions.
+
 ### 2.3 GREEN — deterministic camera-following rain
 
 Create exactly 16 runtime `Line2D` streaks once.
@@ -149,34 +152,37 @@ Create exactly 16 runtime `Line2D` streaks once.
 
 Do not use GPUParticles/CPUParticles, a rain texture, or a second script/class just for streaks.
 
-### 2.4 GREEN — one House mask and one tint surface
+Extend `world_shell_smoke.gd` to pin the ambience rain container/lines at z-index 9 so the existing z-stack contract becomes ground/soil/ripples < rain < target < entities.
+
+### 2.4 GREEN — keep `GameHud.render()` as the tint application seam
 
 Add a setup method receiving the existing `Camera2D` and `WindowLight` references.
 
-`HomesteadAmbience.render(presentation)`:
+`HomesteadAmbience.render(snapshot)`:
 
+- [ ] calls `presentation_for(snapshot)`;
 - [ ] caches only current `rainy` / `evening` booleans needed by transient rendering;
 - [ ] sets `WindowLight.visible`;
 - [ ] shows/hides the rain line set;
 - [ ] does not touch session data.
 
-In `GameHud`:
+In `GameHud.render(snapshot)`:
 
-- [ ] remove the independent sunny/rainy tint choice from `render(snapshot)`;
-- [ ] add only `set_world_tint(color: Color)`;
-- [ ] keep `WeatherTint` as the same existing ColorRect.
+- [ ] replace the current two-way weather tint expression with `HomesteadAmbience.presentation_for(snapshot)["world_tint"]`;
+- [ ] keep `WeatherTint` as the same existing ColorRect and the only tint application surface;
+- [ ] do **not** add `set_world_tint()`.
+
+Update the existing `test_weather_tint_matches_rainy_and_sunny_snapshots()` to keep its direct `hud.render(snapshot)` calls and compare against the shared helper/tint constants. `UiCaptureHost`, `capture_ui_states.gd`, and existing UI fixture call sites remain unchanged; daytime colors are exact, so existing sunny/rainy daytime goldens should not move.
 
 In `WorldShell._refresh_from_session()`:
 
 - [ ] take one session snapshot;
-- [ ] compute `HomesteadAmbience.presentation_for(snapshot)`;
 - [ ] refresh `FarmView`;
-- [ ] render `HomesteadAmbience`;
-- [ ] render `GameHud`;
-- [ ] apply the one composed tint;
+- [ ] call `HomesteadAmbience.render(snapshot)`;
+- [ ] call `GameHud.render(snapshot)`;
 - [ ] preserve the existing input/modal refresh.
 
-Do not add a second snapshot call or passive refresh loop.
+Do not add a second snapshot call, a second imperative HUD API, or a passive refresh loop. Two pure `presentation_for(snapshot)` calls on the same snapshot are cheaper and safer than duplicating application sites.
 
 **Checkpoint:** run unit + gameplay-shell integration + headless smoke. Inspect sunny/rainy daytime to confirm the existing look has not changed. Run `git diff --check`.
 
@@ -256,48 +262,26 @@ Repeated `render()` calls must not restart an already playing loop.
 
 **Checkpoint:** run the affected GUT suite. Manually adjust Sound 7 -> 0 -> 7 in a native run and verify ambience follows while Music keeps its existing behavior. Run `git diff --check`.
 
-## Task 4: Pin world teardown and Continue/result lifecycle
+## Task 4: Extend the existing AppRoot teardown/new-game proof
 
 **Files:**
 
-- `tests/integration/test_gameplay_shell.gd`
-- `tests/integration/test_app_launch.gd`
-- optionally `scripts/world/homestead_ambience.gd` only if the tests expose a real teardown defect
+- `tests/integration/test_persistence_flow.gd`
+- optionally `scripts/world/homestead_ambience.gd` only if the existing lifecycle exposes a real teardown defect
 
-### 4.1 World-owned teardown
+Extend `test_result_return_to_title_reloads_save_and_new_game_keeps_slot()`, which already owns World -> result teardown -> title/result -> fresh World:
 
-In gameplay-shell integration:
+- [ ] before the finale, retain references to the live World's `RiverAmbience` and `RainAmbience` players;
+- [ ] after the existing `_await_world_teardown(app)`, assert both old player instances are invalid;
+- [ ] keep the existing Continue-on-final-save behavior unchanged;
+- [ ] after the existing same-frame New Game, assert the fresh World owns exactly one `RiverAmbience` and one `RainAmbience`;
+- [ ] assert no ambience players are parked under AppRoot, TitleScreen, or ResultScreen.
 
-- [ ] retain references to both ambience players;
-- [ ] remove/free the world;
-- [ ] await one frame;
-- [ ] assert the old player instances are no longer valid.
+Do not add a separate World-free test, a second result lifecycle test, or another restore clone. Task 2.1 already pins restored weather/time presentation, and its process-frame assertion already pins that real time cannot advance `time_minutes`.
 
-Child ownership should make this pass without a manager. Add an explicit `_exit_tree()` stop only if Godot playback survives detach long enough to fail the lifecycle assertion.
+Child ownership should make the existing teardown path pass without production cleanup machinery. Add an explicit `_exit_tree()` stop only if this concrete test exposes a real playback/lifetime defect.
 
-### 4.2 AppRoot concrete lifecycle
-
-Extend the existing AppRoot integration path with one create -> result -> title/new world proof:
-
-- [ ] launch one World and record its ambience players;
-- [ ] route through the existing result teardown path;
-- [ ] assert the old World/players are freed;
-- [ ] launch a new/continued World;
-- [ ] assert it owns exactly one River and one Rain player;
-- [ ] no audio nodes exist under AppRoot/Title/Result.
-
-Do not add an ambience registry to make this test pass.
-
-### 4.3 Restore proof
-
-Use an existing valid persisted/restored state with rainy/evening values:
-
-- [ ] Continue launches directly into the matching mask/rain/tint state;
-- [ ] no migration or new persisted key is expected.
-
-Prefer extending an existing persistence/AppRoot test if its fixture already owns the Continue state; otherwise keep the assertion in `test_gameplay_shell.gd`. Do not duplicate the full persistence suite.
-
-**Checkpoint:** run integration tests and `world_shell_smoke.gd`.
+**Checkpoint:** run the affected persistence/integration tests and `world_shell_smoke.gd`.
 
 ## Task 5: Add four fixed-phase native captures and complete verification
 
@@ -316,15 +300,19 @@ The script accepts an output directory, instantiates the real `world.tscn`, and 
 - `sunny-evening`: 19:00, sunny;
 - `rainy-evening`: 19:00, rainy.
 
-For each state:
+For each state, follow the production `AppRoot._launch()` order exactly:
 
-- [ ] acknowledge/seed the intro flag so normal HUD/world presentation is visible;
+- [ ] build a complete valid initial state with `intro_acknowledged = true`;
+- [ ] instantiate `world.tscn` off-tree;
+- [ ] call `world.configure(initial_state, null, UiSettings.new())` before `add_child()`;
+- [ ] fetch `HomesteadAmbience` while still off-tree and call `set_process(false)`;
+- [ ] only then add the World to the SceneTree;
+- [ ] do not `await process_frame` before ambience processing is disabled;
 - [ ] use the real World/Camera/HUD;
-- [ ] disable `HomesteadAmbience` processing before capture so ripple/rain phase stays fixed;
-- [ ] capture exactly 640x360;
+- [ ] capture exactly 640x360 after the minimum settle frames;
 - [ ] write to `test_output/hpa-462/<state>.png`.
 
-Do not teach `capture_ui_states.gd` about world states and do not add these four images as permanent golden tests.
+This preserves initial ripple phases 0/1/2 and deterministic rain placement. Do not teach `capture_ui_states.gd` / `compare_ui_states.gd` about world states and do not add these four images as permanent golden tests.
 
 ### 5.2 Manual visual review
 
@@ -374,7 +362,7 @@ Tests/evidence:
 - `tests/unit/test_homestead_ambience.gd`
 - generated test UID as needed
 - `tests/integration/test_gameplay_shell.gd`
-- `tests/integration/test_app_launch.gd`
+- `tests/integration/test_persistence_flow.gd`
 - `tests/headless/world_shell_smoke.gd`
 - `tests/visual/capture_homestead_ambience.gd`
 - generated capture-script UID as needed
