@@ -68,7 +68,7 @@ World ambience uses Sound, not Music. Music behavior and `farm-day-loop.wav` rem
 
 ### One world-local presenter
 
-Add one `HomesteadAmbience` `Node2D` under `World`:
+Add one `HomesteadAmbience` `Node2D` as a direct `World` child immediately after `FarmActionEffects` and before `StaticCollision`:
 
 `scripts/world/homestead_ambience.gd`
 
@@ -111,7 +111,7 @@ There is no dawn state, night state, interpolation state, season, real-time cloc
 
 ### Four composed tint states
 
-Move the current day tint constants out of `GameHud` and into `HomesteadAmbience` so one owner composes weather plus time.
+Keep tint policy in the shared pure `HomesteadAmbience.presentation_for(snapshot)` helper, but keep tint application inside the existing `GameHud.render(snapshot)` seam.
 
 Preserve the current daytime values exactly:
 
@@ -120,13 +120,11 @@ Preserve the current daytime values exactly:
 
 Add one restrained sunny-evening tint and one restrained rainy-evening tint. They are presentation constants, not game rules. Native 640x360 evidence may tune those two values for readability, but the state mapping and single-overlay rule are fixed.
 
-`GameHud` gains only:
+`GameHud.render(snapshot)` calls `HomesteadAmbience.presentation_for(snapshot)` and assigns the returned `world_tint` to its existing `WeatherTint` ColorRect. Do not add `set_world_tint()` or require a second imperative call after `render()`.
 
-`set_world_tint(color: Color) -> void`
+This preserves every HUD-only caller: `UiCaptureHost`, direct integration tests, and any future isolated HUD fixture continue to get the correct sunny/rainy/evening tint from one `render(snapshot)` call. `WorldShell` and `GameHud` may each call the same pure projection on the same snapshot; the policy cannot drift because there is still one formula and one tint application site.
 
-`GameHud.render(snapshot)` stops independently deriving a weather tint. `WorldShell` computes one presentation result and applies its `world_tint` to the existing HUD surface.
-
-This prevents a rainy evening from becoming two stacked alpha overlays.
+This also prevents a rainy evening from becoming two stacked alpha overlays.
 
 ## River presentation
 
@@ -176,21 +174,21 @@ Keep it static. Do not add a light node, shader, bloom, shadow system, pulse tim
 
 ## Snapshot wiring
 
-`WorldShell._refresh_from_session()` becomes conceptually:
+Keep `WorldShell._refresh_from_session()` as a dump fan-out with one authoritative snapshot:
 
 ```gdscript
 var snapshot := _session.snapshot()
-var ambience := HomesteadAmbience.presentation_for(snapshot)
 farm_view.refresh(snapshot)
-_homestead_ambience.render(ambience)
+_homestead_ambience.render(snapshot)
 hud.render(snapshot)
-hud.set_world_tint(ambience["world_tint"])
 _refresh_world_input_gate()
 ```
 
-Exact call order may vary only to keep existing modal/HUD behavior intact. There is still one session snapshot and no duplicate policy.
+`HomesteadAmbience.render(snapshot)` calls `presentation_for(snapshot)` for river/rain/window/audio state. `GameHud.render(snapshot)` calls the same pure helper for the existing `WeatherTint`. There is no second HUD API and no duplicated tint formula.
 
-A successful action that moves `time_minutes` across 18:00 naturally changes the next refresh. Merely waiting in `_process()` changes animation phase only.
+Exact call order may vary only to keep existing modal/HUD behavior intact. There is still one session snapshot and no mutable presentation state shared between presenters.
+
+A successful Hoe from 17:30 reaches 18:00 under the existing 30-minute Hoe cost and naturally changes the next refresh. Merely waiting in `_process()` changes animation phase only.
 
 ## Sound preference wiring
 
@@ -247,7 +245,9 @@ It instantiates `world.tscn` with valid restored snapshots for exactly four case
 3. sunny evening;
 4. rainy evening.
 
-Before capture, disable `HomesteadAmbience` processing so ripple/rain phase stays at its initial deterministic state. Capture the native 640x360 viewport into `test_output/hpa-462/` for PR evidence. No new committed golden matrix is required.
+Follow the same lifecycle order as `AppRoot._launch()`: instantiate `world.tscn`, call `WorldShell.configure(valid_state, ...)` while it is still off-tree, fetch `HomesteadAmbience`, call `set_process(false)`, and only then add the World to the SceneTree. No `await process_frame` may occur before ambience processing is disabled.
+
+This keeps the authored ripple phases at 0/1/2 and rain at its initial deterministic layout before any settle frames. Capture the native 640x360 viewport into `test_output/hpa-462/` for PR evidence. No new committed golden matrix is required.
 
 ## Testing boundaries
 
@@ -273,14 +273,19 @@ Extend `tests/integration/test_gameplay_shell.gd` to pin:
 
 ### Lifecycle
 
-Use the existing AppRoot integration surface in `tests/integration/test_app_launch.gd` for one concrete create -> result teardown -> create path. Assert old ambience players are freed and the next world owns one River and one Rain player, not accumulated globals.
+Extend the existing `test_result_return_to_title_reloads_save_and_new_game_keeps_slot()` path in `tests/integration/test_persistence_flow.gd`. It already proves World -> result teardown -> title/result -> fresh World. Add only the ambience ownership assertions there: old River/Rain players become invalid after teardown, the fresh World owns exactly one of each, and no ambience players live under AppRoot/Title/Result.
+
+Do not add a second standalone World-free lifecycle test or another restore clone.
 
 ### Scene/headless contract
 
 Update `tests/headless/world_shell_smoke.gd` for:
 
-- the new direct `HomesteadAmbience` World child;
-- the House `WindowLight` asset/alignment/hidden default;
+- the exact direct World child order with `HomesteadAmbience` immediately after `FarmActionEffects`;
+- House child order exactly `Shadow`, `Sprite2D`, `WindowLight` while every other prop keeps its existing two-child contract;
+- the `WindowLight` asset/alignment/hidden default;
+- exactly three ripple sprites using `river-ripple.png`, `hframes = 3`, `scale = Vector2(2, 2)`, and the three projected authored positions;
+- rain presentation at z-index 9, below `TargetHighlight` (10) and `Entities` (20);
 - no map/collision contract changes.
 
 ## Alternatives rejected
