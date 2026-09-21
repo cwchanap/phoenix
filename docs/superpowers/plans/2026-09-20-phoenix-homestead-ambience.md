@@ -51,9 +51,9 @@ Do not temporarily synthesize, copy, or commit placeholder ambience in this PR.
 
 Add unit tests for `HomesteadAmbience.presentation_for(snapshot)`:
 
-- [ ] sunny 17:59 -> `rainy=false`, `evening=false`;
+- [ ] sunny 17:50 -> `rainy=false`, `evening=false`;
 - [ ] sunny 18:00 -> `rainy=false`, `evening=true`;
-- [ ] rainy 17:59 -> `rainy=true`, `evening=false`;
+- [ ] rainy 17:50 -> `rainy=true`, `evening=false`;
 - [ ] rainy 18:00 -> `rainy=true`, `evening=true`;
 - [ ] sunny daytime tint is exactly `Color(1.0, 0.96, 0.86, 0.03)`;
 - [ ] rainy daytime tint is exactly `Color(0.38, 0.52, 0.72, 0.12)`;
@@ -108,7 +108,7 @@ Update `world_shell_smoke.gd`:
 
 Add integration coverage around normal `WorldShell` refresh:
 
-- [ ] restored sunny 17:59 starts with `WindowLight.visible == false`;
+- [ ] restored sunny 17:50 starts with `WindowLight.visible == false`;
 - [ ] wait several process frames and assert session `time_minutes` is unchanged and the mask is still hidden;
 - [ ] prepare a valid session/action at 17:30 whose existing action cost reaches 18:00, execute through the normal world command path, and assert the mask becomes visible;
 - [ ] restored rainy state exposes the rain visuals; restored sunny state hides them;
@@ -142,7 +142,7 @@ Create exactly 16 runtime `Line2D` streaks once.
 - [ ] one-pixel width;
 - [ ] short, pale, low-alpha slanted segments;
 - [ ] fixed index-derived offsets; no RNG;
-- [ ] z-index above ordinary world entities/target but still below CanvasLayer 10 HUD;
+- [ ] z-index 9: above ground/ripples but below `TargetHighlight` (10) and `Entities` (20);
 - [ ] in `_process(delta)`, advance only a visual phase;
 - [ ] wrap positions around `Camera2D.get_screen_center_position()` across the 640x360 viewport;
 - [ ] hide the lines when not rainy.
@@ -212,6 +212,8 @@ Create the players once under `HomesteadAmbience`:
 
 - `RiverAmbience`
 - `RainAmbience`
+
+Initialize both at -80 dB and do not start River until the first Sound volume arrives, so startup cannot produce one full-volume frame.
 
 Use one `AMBIENCE_HEADROOM_DB := -12.0`.
 
