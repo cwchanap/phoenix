@@ -1,180 +1,213 @@
-# Phoenix Homestead Ambience Design
+# Phoenix River and Rain Homestead Ambience Design
 
 **Linear:** HPA-462
-**Audio dependency:** HPA-440
+**Audio dependency:** HPA-440 (audio task only)
 **Repository:** `cwchanap/phoenix`
 **Branch:** `agent/hpa-462-homestead-ambience-plan`
 **Base reviewed:** `main` at `0c8ec8f55cbc38087488976c6dca75021dfe5b0f`
 
 ## Goal
 
-Make the existing homestead feel more alive through restrained river movement, readable rain, and warm evening windows without changing gameplay weather, game time, persistence, map geometry, or the current farming loop.
+Make the existing homestead feel more alive through restrained river movement, readable rain, and quiet environmental audio without changing gameplay weather, game time, persistence, map geometry, or the farming loop.
 
-This is a presentation slice. The session snapshot remains the only source of truth for weather and clock time. Real-time animation may move pixels and audio playback, but it never advances or derives new gameplay state.
+This is a presentation-only slice. `GameSession.weather` remains the only gameplay weather state. Real-time animation may move pixels and audio playback, but it never waters crops, rolls weather, spends stamina/time, or mutates the session.
 
-## Dependency split
+## Evening scope removed after reachability review
 
-HPA-458 is complete and already supplies the two image assets HPA-462 needs:
+The earlier draft included an 18:00 evening tint and HPA-458's `house-window-light.png`. That work is removed.
+
+Current gameplay cannot reach 18:00:
+
+- each day starts at 06:00 (`360` minutes) with 20 stamina;
+- every time-advancing farming action spends at least 1 stamina;
+- the best minutes-per-stamina rate is 20 minutes, including the upgraded watering can;
+- therefore even the theoretical maximum is `360 + 20 * 20 = 760`, or 12:40.
+
+Sleeping resets the next day to 06:00, and the normal save path writes the next-morning state. An 18:00 integration fixture would therefore prove only that manually injected state renders, not that a player can reach the feature.
+
+HPA-462 consequently ships no evening state, no evening tint constants, no `WindowLight`, and no time-of-day helper. `assets/sprites/polish/house-window-light.png` remains an unused HPA-458 asset until a future gameplay change makes a real time-of-day cue reachable.
+
+Changing action/stamina/time rules just to expose evening is explicitly outside this ticket.
+
+## Dependencies and asset ownership
+
+HPA-458 is complete and supplies the image HPA-462 consumes:
 
 - `assets/sprites/polish/river-ripple.png`
-- `assets/sprites/polish/house-window-light.png`
 
-New ambient audio is deliberately outside this runtime ticket. HPA-440, repurposed from Graveyard, owns exactly:
+HPA-440 owns exactly the two new audio assets:
 
 - `assets/audio/river-ambience.wav`
 - `assets/audio/rain-ambience.wav`
 
-HPA-462 implementation begins after HPA-440 merges. This PR consumes those fixed paths but does not generate or edit audio.
+HPA-440 gates only audio integration. River/rain visual implementation can proceed before those WAV files merge. No placeholder or duplicate audio belongs in HPA-462.
 
 ## Existing seams to preserve
 
 ### Snapshot refresh
 
-`WorldShell._refresh_from_session()` already obtains one `GameSession.snapshot()` and fans it into `FarmView` and `GameHud`. Every farming command, sleep transition, morning acknowledgement, restore, and social/shop refresh already passes through this seam.
+`WorldShell._refresh_from_session()` already obtains one `GameSession.snapshot()` and fans it into the world/HUD presenters. HPA-462 adds one more world presenter to the same fan-out.
 
-HPA-462 adds ambience presentation to that same fan-out. It does not add another observer, timer-driven session refresh, event bus, or background state model.
+There is no observer, event bus, weather service, or second state model.
 
-### Clock and weather
+### Weather tint
 
-`GameSession` already owns:
+`GameHud.render(snapshot)` already owns the single full-screen sunny/rainy tint through `HudRoot/WeatherTint`.
 
-- `time_minutes`, advanced only by gameplay actions;
-- `weather`, rolled only by the existing day transition;
-- persisted/restored time and weather.
+Leave that code untouched. HPA-462's world presenter only needs to derive:
 
-`GameRules` currently defines the action-driven clock bounds and weather keys. HPA-462 does not add a gameplay time-of-day enum or save field. The 18:00 boundary is presentation policy owned by the ambience helper.
+`snapshot["weather"] == GameRules.weather_key(GameRules.Weather.RAINY)`
+
+There is no shared tint helper and no dependency from UI code to a world `Node2D` script.
 
 ### World layering
 
-The world currently has ordinary canvas content, `FarmSoil` / `FarmActionEffects` at low world z-index, `TargetHighlight` at z 10, and y-sorted `Entities` at z 20.
+The existing contract is:
 
-`GameHud` is CanvasLayer 10. Its first child, `WeatherTint`, already covers the 640x360 viewport and is drawn before the HUD chrome. That makes it the correct single full-screen tint target: it can color the world while text, target hints, controls, and modal content remain readable above it.
+- ground;
+- `FarmSoil` / `FarmActionEffects` at low world z;
+- `TargetHighlight` at z 10;
+- y-sorted `Entities` at z 20;
+- `GameHud` on CanvasLayer 10.
 
-Do not add a second full-screen weather/evening overlay.
-
-### House transform
-
-The existing House is positioned/scaled as one `Node2D` at 2x. Its sprite uses `offset = Vector2(0, -48)`.
-
-The HPA-458 window mask was authored against that exact source frame. Add `WindowLight` as a child of `Entities/House`, after the base sprite, with the same offset and local scale 1. It therefore inherits the House's existing 2x transform. It starts hidden.
+Add `HomesteadAmbience` as a direct non-Y-sorted World child immediately after `FarmActionEffects`. Its ripple/rain presentation stays above soil/effects and below `TargetHighlight` / `Entities`, so gameplay targeting and actors remain readable.
 
 ### Settings and audio
 
-`UiSettings.sound` is already the one 0..10 sound preference and maps level 0 to -80 dB. `GameHud.apply_settings()` is the existing live settings application point.
+`UiSettings.sound` remains the only environmental/SFX volume preference. `UiSettings.db_for_level(0)` already maps mute to -80 dB.
 
-World ambience uses Sound, not Music. Music behavior and `farm-day-loop.wav` remain unchanged.
+World ambience uses Sound, not Music. `farm-day-loop.wav` and the Music preference remain unchanged.
 
-## Chosen architecture
+## One world-local presenter
 
-### One world-local presenter
-
-Add one `HomesteadAmbience` `Node2D` as a direct `World` child immediately after `FarmActionEffects` and before `StaticCollision`:
+Add:
 
 `scripts/world/homestead_ambience.gd`
 
-It owns only transient presentation:
+`HomesteadAmbience` owns only transient world presentation:
 
-- three river ripple sprites;
-- a small fixed set of rain `Line2D` streaks;
-- references to the existing camera and House `WindowLight`;
-- one River and one Rain `AudioStreamPlayer`;
-- visual animation phase.
+- three ripple `Sprite2D` children;
+- deterministic runtime `Line2D` rain streaks;
+- the existing `Camera2D` reference;
+- one River and one Rain `AudioStreamPlayer` after HPA-440 lands;
+- visual rain phase.
 
-It owns no gameplay mutation, save data, weather roll, game-time timer, collision, or crop state.
+It owns no gameplay state, save data, collision, crop state, or game clock.
 
-This is intentionally one helper rather than separate river/rain/day-night/audio managers.
-
-### Pure weather/time projection
-
-Expose one pure static projection:
-
-`presentation_for(snapshot: Dictionary) -> Dictionary`
-
-The returned shape is deliberately tiny:
-
-```gdscript
-{
-    "rainy": bool,
-    "evening": bool,
-    "world_tint": Color,
-}
-```
-
-Rules:
-
-- `rainy` iff `snapshot["weather"] == GameRules.weather_key(GameRules.Weather.RAINY)`;
-- `evening` iff `snapshot["time_minutes"] >= 18 * 60`;
-- before 18:00 is daytime;
-- exactly 18:00 is evening.
-
-There is no dawn state, night state, interpolation state, season, real-time clock, or persisted presentation state.
-
-### Four composed tint states
-
-Keep tint policy in the shared pure `HomesteadAmbience.presentation_for(snapshot)` helper, but keep tint application inside the existing `GameHud.render(snapshot)` seam.
-
-Preserve the current daytime values exactly:
-
-- sunny day: `Color(1.0, 0.96, 0.86, 0.03)`;
-- rainy day: `Color(0.38, 0.52, 0.72, 0.12)`.
-
-Add one restrained sunny-evening tint and one restrained rainy-evening tint. They are presentation constants, not game rules. Native 640x360 evidence may tune those two values for readability, but the state mapping and single-overlay rule are fixed.
-
-`GameHud.render(snapshot)` calls `HomesteadAmbience.presentation_for(snapshot)` and assigns the returned `world_tint` to its existing `WeatherTint` ColorRect. Do not add `set_world_tint()` or require a second imperative call after `render()`.
-
-This preserves every HUD-only caller: `UiCaptureHost`, direct integration tests, and any future isolated HUD fixture continue to get the correct sunny/rainy/evening tint from one `render(snapshot)` call. `WorldShell` and `GameHud` may each call the same pure projection on the same snapshot; the policy cannot drift because there is still one formula and one tint application site.
-
-This also prevents a rainy evening from becoming two stacked alpha overlays.
+Do not split this into river/rain/audio managers.
 
 ## River presentation
 
-Create exactly three ripple `Sprite2D` children under `HomesteadAmbience`, all using the approved HPA-458 strip.
+Create exactly three ripple `Sprite2D` children using `river-ripple.png`.
 
-Use fixed logical centers projected through `WorldMath.grid_to_world()`:
+Start with these authored logical centers:
 
 - west river: `Vector2(1.0, 6.5)`;
 - west river: `Vector2(1.0, 13.0)`;
 - south river: `Vector2(6.5, 19.0)`.
 
-These points sit inside the existing `RIVER_WEST_FOOTPRINT` / `RIVER_SOUTH_FOOTPRINT`; they are presentation coordinates and do not belong in `WorldContract`.
+Project them with `WorldMath.grid_to_world()`. These are presentation constants, not `WorldContract` state.
 
-Runtime contract:
+Sprite contract:
 
 - `hframes = 3`;
-- respect HPA-458's 2x display contract;
-- world z-index below `TargetHighlight` and `Entities`;
-- advance one frame every 0.5 seconds (~2 fps);
-- fixed initial phase offsets 0, 1, 2 so all ripples do not blink in sync.
+- `scale = Vector2(2, 2)`;
+- `offset = Vector2.ZERO`;
+- no rotation/flip;
+- render between farm effects and the target highlight/entities.
 
-Do not animate the water TileMap itself or create one ripple per tile.
+Reuse the repository's tween idiom for frame animation: one looping bound Tween per ripple advances frame 0→2 at roughly 2 fps, with small start delays to avoid lockstep animation. `_process()` should not manage ripple frames.
+
+The exact ripple centers, start delays, and playback rate remain visual-tuning values. Manual evidence must specifically check bank overhang on the two west-river candidates because a 64x32 frame rendered at 2x spans 128x64.
+
+Do not animate the whole water TileMap or create one ripple per tile.
 
 ## Rain presentation
 
-Use deterministic runtime-created `Line2D` streaks rather than a particle subsystem or generated texture.
+Use deterministic runtime-created `Line2D` streaks rather than particles or a generated rain texture.
 
-Bound it to a small constant count (16). Each line is:
+Keep one `RAIN_STREAK_COUNT` constant, but treat its value as a visual tuning knob. Start with a moderate native-screen density rather than freezing the original 16-streak guess.
 
-- roughly 10-14 px long;
-- 1 px wide;
+Each streak is:
+
+- one pixel wide;
+- short and consistently slanted;
 - pale/low-alpha;
-- slanted consistently;
-- world-canvas z-index 9: above ground/ripples but below `TargetHighlight` (10) and `Entities` (20).
+- placed deterministically from its index;
+- rendered above soil/ripples but below `TargetHighlight` and `Entities`.
 
-`HomesteadAmbience._process(delta)` may advance only a visual rain phase. On each rainy frame, position the fixed line set around `Camera2D.get_screen_center_position()` using deterministic index-based offsets and wrap them across the 640x360 viewport.
+No RNG is required.
 
-No RNG is needed. The line set is hidden when `rainy == false`.
+### One reusable layout function
 
-Because the streak positions follow the camera center, moving the camera does not leave rain behind. Because they remain ordinary world-canvas nodes, the HUD CanvasLayer stays above them.
+Implement:
 
-## Evening window light
+`_layout_rain(phase: float)`
 
-`WindowLight.visible = presentation["evening"]`.
+It positions/wraps every streak around `Camera2D.get_screen_center_position()` across the 640x360 viewport.
 
-Keep it static. Do not add a light node, shader, bloom, shadow system, pulse timer, or another time-state object. The world tint is enough to establish dusk; the mask gives the house one warm focal cue.
+Call it from both:
+
+- `render(snapshot)` when rain becomes/currently is visible, using the current phase (initially 0);
+- `_process(delta)` while rainy after advancing the transient phase.
+
+This keeps fixed-phase captures truthful even when processing is disabled.
+
+`render(snapshot)` derives rain directly from the snapshot, shows/hides the streaks, and never mutates session state.
+
+## Audio integration
+
+Audio is Task 3 and waits for HPA-440 only.
+
+After the two WAV files land, `HomesteadAmbience` owns:
+
+- `RiverAmbience`
+- `RainAmbience`
+
+Both are ordinary non-spatial `AudioStreamPlayer` children of the World-owned presenter.
+
+### Initial settings are not signal-dependent
+
+`setup(camera: Camera2D, settings: UiSettings)` receives the current settings directly from `WorldShell`.
+
+It:
+
+1. stores the camera;
+2. computes the current Sound dB with `settings.db_for_level(settings.sound)`;
+3. applies the fixed ambience headroom;
+4. starts the River loop immediately at that resolved volume.
+
+This means a missed signal cannot leave River permanently silent.
+
+Use one `AMBIENCE_HEADROOM_DB := -12.0`:
+
+- Sound mute (-80 dB) stays -80 dB;
+- otherwise ambience uses `sound_db - 12 dB`.
+
+### Live setting changes
+
+Add one narrow `GameHud` signal:
+
+`sound_volume_changed(volume_db: float)`
+
+`GameHud.apply_settings()` emits it after applying the existing Sound level.
+
+`WorldShell` connects that signal to `HomesteadAmbience.set_sound_volume_db()` for live settings changes. The signal is not needed for initial setup correctness.
+
+Do not add a settings bus, audio bus, ambience slider, or reach into `_settings_panel`.
+
+### Weather controls Rain audio only
+
+- River plays for the World lifetime.
+- Rain plays only while the snapshot reports rainy weather.
+- Repeated `render(snapshot)` calls do not restart a loop already playing.
+- Sound=0 silences both through the existing -80 dB convention.
+
+All players are children of `HomesteadAmbience`, so World teardown owns their lifetime.
 
 ## Snapshot wiring
 
-Keep `WorldShell._refresh_from_session()` as a dump fan-out with one authoritative snapshot:
+Keep `WorldShell._refresh_from_session()` as one-snapshot fan-out:
 
 ```gdscript
 var snapshot := _session.snapshot()
@@ -184,132 +217,134 @@ hud.render(snapshot)
 _refresh_world_input_gate()
 ```
 
-`HomesteadAmbience.render(snapshot)` calls `presentation_for(snapshot)` for river/rain/window/audio state. `GameHud.render(snapshot)` calls the same pure helper for the existing `WeatherTint`. There is no second HUD API and no duplicated tint formula.
+`GameHud.render(snapshot)` keeps its current sunny/rainy tint logic unchanged.
 
-Exact call order may vary only to keep existing modal/HUD behavior intact. There is still one session snapshot and no mutable presentation state shared between presenters.
+No second snapshot call, no time-of-day projection, and no imperative HUD tint API are added.
 
-A successful Hoe from 17:30 reaches 18:00 under the existing 30-minute Hoe cost and naturally changes the next refresh. Merely waiting in `_process()` changes animation phase only.
+## Lifecycle
 
-## Sound preference wiring
+`AppRoot._show_result()` already removes and queues the World for deletion.
 
-Add one narrow public signal to `GameHud`:
+Extend the existing `test_result_return_to_title_reloads_save_and_new_game_keeps_slot()` flow only:
 
-`sound_volume_changed(volume_db: float)`
+- retain old River/Rain player references before result teardown;
+- assert they become invalid after the existing teardown wait;
+- after the existing New Game path, assert the new World owns exactly one River and one Rain player.
 
-`apply_settings()` emits the current Sound dB after applying settings. `WorldShell` connects the signal to `HomesteadAmbience` before the initial `hud.configure(_settings)` call so the world gets both the initial volume and later Settings changes.
+Do not add a duplicate world-free test or assertions that players are not reparented into unrelated UI nodes.
 
-`HomesteadAmbience` applies fixed ambience headroom (initially -12 dB) relative to the incoming Sound dB:
+## Native evidence
 
-- incoming -80 dB remains -80 dB;
-- otherwise ambience uses `sound_db - 12 dB`.
-
-Both players use the same preference and headroom. Do not add buses, sliders, mixers, or separate ambience settings.
-
-Playback:
-
-- Both players start at the muted -80 dB default so no frame can play at full volume before settings arrive.
-- River loop starts once after the initial Sound volume is delivered for the lifetime of the world.
-- Rain loop plays only while the presentation is rainy.
-- Switching sunny/rainy starts/stops only the Rain player.
-- Sound=0 silences both via the existing -80 dB convention.
-- Both players are children of `HomesteadAmbience`, so removing the World owns their teardown. An explicit `_exit_tree()` stop is fine but no global cleanup registry is needed.
-
-## Restore and lifecycle
-
-No new persistence is required. `time_minutes` and `weather` are already saved and restored.
-
-On New Game / Continue:
-
-1. `WorldShell` creates/restores the existing `GameSession`;
-2. it obtains the current snapshot;
-3. the same ambience projection reproduces the right daytime/evening/rain state.
-
-On finale:
-
-`AppRoot._show_result()` removes and queues the World for deletion. Because all ambience nodes/players are beneath World, no audio or effect survives into Result/Title.
-
-Do not add AppRoot ambience ownership.
-
-## Deterministic native evidence
-
-Do not extend the current UI-golden framework with a second generalized world-capture system.
-
-Add one narrow script:
+Add one narrow capture script:
 
 `tests/visual/capture_homestead_ambience.gd`
 
-It instantiates `world.tscn` with valid restored snapshots for exactly four cases:
+Capture exactly two states at a normal reachable daytime value such as 09:20:
 
-1. sunny daytime;
-2. rainy daytime;
-3. sunny evening;
-4. rainy evening.
+1. sunny;
+2. rainy.
 
-Follow the same lifecycle order as `AppRoot._launch()`: instantiate `world.tscn`, call `WorldShell.configure(valid_state, ...)` while it is still off-tree, fetch `HomesteadAmbience`, call `set_process(false)`, and only then add the World to the SceneTree. No `await process_frame` may occur before ambience processing is disabled.
+No new committed goldens and no changes to `capture_ui_states.gd` / `compare_ui_states.gd`.
 
-This keeps the authored ripple phases at 0/1/2 and rain at its initial deterministic layout before any settle frames. Capture the native 640x360 viewport into `test_output/hpa-462/` for PR evidence. No new committed golden matrix is required.
+### Fixed phase
+
+For each capture:
+
+1. build a valid initial session state with `intro_acknowledged = true`;
+2. instantiate `world.tscn` off-tree;
+3. call `world.configure(initial_state, ...)` before adding it;
+4. set `HomesteadAmbience.process_mode = Node.PROCESS_MODE_DISABLED` before `add_child()` so bound ripple Tweens and rain processing stay frozen;
+5. add the World;
+6. let the camera/world settle minimally;
+7. call `HomesteadAmbience.render(world._session.snapshot())` once more so `_layout_rain(0.0)` uses the settled camera center;
+8. capture the native 640x360 viewport.
+
+This guarantees rainy evidence actually contains rain while keeping a deterministic phase.
+
+## Smoke-test contract vs tuning knobs
+
+Extend `world_shell_smoke.gd` only for structural facts:
+
+- `HomesteadAmbience` exists in the exact World child position immediately after `FarmActionEffects`;
+- exactly three ripple sprites exist;
+- every ripple uses `river-ripple.png`, `hframes = 3`, `scale = Vector2(2, 2)`, and `offset = Vector2.ZERO`;
+- ripple/rain rendering is strictly above farm soil/effects and below `TargetHighlight` / `Entities`.
+
+Do not pin:
+
+- exact ripple positions;
+- ripple start frames/delays;
+- rain streak count;
+- rain alpha/length/speed;
+- fixed pixel positions.
+
+Those values are reviewed/tuned through the two native captures, not treated as architecture.
 
 ## Testing boundaries
 
-### Pure mapping
+### Gameplay-shell integration
 
-Add `tests/unit/test_homestead_ambience.gd` to pin:
+Pin only behavior with a real ownership failure mode:
 
-- 17:50 -> daytime;
-- 18:00 -> evening;
-- sunny/rainy detection;
-- daytime tints remain the existing exact values;
-- rainy evening is one composed result, not an additive overlay API.
+- rainy snapshot -> rain lines visible;
+- sunny snapshot -> rain lines hidden;
+- rainy/sunny refresh never changes gameplay weather or farm state;
+- after HPA-440: River/Rain players use the two expected streams;
+- Sound=0 -> both players at -80 dB;
+- live Sound adjustment updates both existing players;
+- changing Music alone does not alter ambience volume;
+- rainy -> Rain player runs, sunny -> it stops, without recreating the player.
 
-### World integration
-
-Extend `tests/integration/test_gameplay_shell.gd` to pin:
-
-- an unchanged pre-18:00 session remains pre-evening after real process frames;
-- a successful action crossing 18:00 turns on the window mask through normal refresh;
-- rainy snapshots show rain and run the Rain loop; sunny snapshots hide/stop it;
-- Sound=0 and live Sound adjustment reach both ambience players;
-- restore starts in the correct presentation state.
+Do not add a "waiting frames does not advance time" test; no timer-driven gameplay path exists in this feature after evening is removed.
 
 ### Lifecycle
 
-Extend the existing `test_result_return_to_title_reloads_save_and_new_game_keeps_slot()` path in `tests/integration/test_persistence_flow.gd`. It already proves World -> result teardown -> title/result -> fresh World. Add only the ambience ownership assertions there: old River/Rain players become invalid after teardown, the fresh World owns exactly one of each, and no ambience players live under AppRoot/Title/Result.
+Use only the existing persistence-flow result teardown/new-game test described above.
 
-Do not add a second standalone World-free lifecycle test or another restore clone.
+### Visual review
 
-### Scene/headless contract
+The two captures verify:
 
-Update `tests/headless/world_shell_smoke.gd` for:
+- ripples remain visibly inside water, especially at the west bank;
+- rain is actually visible at native 640x360;
+- rain stays restrained enough that crops, target highlight, interaction hint, and HUD remain readable;
+- sunny/rainy existing HUD tint behavior remains unchanged.
 
-- the exact direct World child order with `HomesteadAmbience` immediately after `FarmActionEffects`;
-- House child order exactly `Shadow`, `Sprite2D`, `WindowLight` while every other prop keeps its existing two-child contract;
-- the `WindowLight` asset/alignment/hidden default;
-- exactly three ripple sprites using `river-ripple.png`, `hframes = 3`, `scale = Vector2(2, 2)`, and the three projected authored positions;
-- rain presentation at z-index 9, below `TargetHighlight` (10) and `Entities` (20);
-- no map/collision contract changes.
+Explicit tuning knobs are:
+
+- ripple logical centers;
+- ripple tween rate/start delays;
+- `RAIN_STREAK_COUNT`;
+- rain alpha;
+- rain line length/slant;
+- rain fall speed.
 
 ## Alternatives rejected
 
-### Put everything in GameHud
+### Keep the 18:00 evening slice
 
-Rejected. The existing tint belongs there as a rendering surface, but ripples, camera-following rain, house presentation, and ambience audio should die with the world. Moving all of that into the HUD would broaden an already large UI presenter.
+Rejected because the current stamina/time economy cannot reach it. Manually restored evening state would be dead-content verification, not player-visible acceptance.
 
-### Add day/night state to GameSession
+### Move dusk into the reachable morning band
 
-Rejected. Day/evening is fully derivable from persisted `time_minutes`; storing another field creates synchronization and migration work with no product benefit.
+Rejected because a lit-house/window cue around late morning reads incorrectly and solves no current gameplay problem.
 
-### Add a global ambience/day-night service
+### Change time/stamina rules
 
-Rejected. Phoenix has one world at a time. Child ownership already gives correct lifecycle and is cheaper to maintain.
+Rejected as a balance change outside this presentation ticket.
+
+### Share a presentation helper with GameHud
+
+Rejected after evening removal. The HUD already has the correct two-way weather-tint owner; adding a dependency on a world Node2D class would make the architecture worse for no benefit.
+
+### Put environmental audio in GameHud
+
+Rejected. River/rain lifetime belongs to the World. The one Sound-volume signal is the smallest live-settings bridge.
 
 ### Use GPUParticles/CPUParticles
 
-Rejected for this slice. Sixteen deterministic `Line2D` streaks are enough, require no texture, behave in headless/native evidence consistently, and avoid particle tuning/lifecycle machinery.
-
-### Generate audio in HPA-462
-
-Rejected by project workflow. New audio assets are isolated in HPA-440 so this runtime PR remains code/presentation integration only.
+Rejected. Deterministic `Line2D` rain is enough and easier to review/capture.
 
 ## Non-goals
 
-No new weather types, passive game clock, new save fields, village scene, house interior, new map geometry, collision change, NPC schedules, foliage animation pass, wildlife, dynamic shadows, dynamic lights, shader/post-processing framework, audio bus architecture, spatial audio, new soundtrack, or gameplay balance changes.
+No evening/day-night presentation, WindowLight integration, gameplay time change, new weather types, passive game clock, new save fields, map/collision changes, house interior, NPC schedules, foliage/wildlife systems, shaders/post-processing, dynamic lights/shadows, audio bus architecture, spatial audio, new soundtrack, or gameplay balance changes.
