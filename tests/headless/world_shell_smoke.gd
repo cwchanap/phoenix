@@ -259,6 +259,7 @@ func _run() -> void:
         "GroundDecoration",
         "FarmSoil",
         "FarmActionEffects",
+        "HomesteadAmbience",
         "StaticCollision",
         "Entities",
         "TargetHighlight",
@@ -415,6 +416,35 @@ func _run() -> void:
     if not _expect(not farm_effects.y_sort_enabled, "FarmActionEffects must not enable y-sort"):
         return
     if not _expect(farm_effects.z_index == 5, "FarmActionEffects z-index"):
+        return
+
+    var ambience := world.get_node("HomesteadAmbience") as Node2D
+    if not _expect(ambience != null, "HomesteadAmbience must exist"):
+        return
+    if not _expect(ambience.get_child_count() == 3, "HomesteadAmbience ripple count"):
+        return
+    for index in ambience.get_child_count():
+        var ripple := ambience.get_child(index) as Sprite2D
+        if not _expect(ripple != null, "ripple %d sprite" % index):
+            return
+        if not _expect(
+            ripple.texture.resource_path == "res://assets/sprites/polish/river-ripple.png",
+            "ripple %d texture" % index,
+        ):
+            return
+        if not _expect(ripple.hframes == 3, "ripple %d frame columns" % index):
+            return
+        if not _expect_vec2(ripple.scale, Vector2(2, 2), "ripple %d scale" % index):
+            return
+        if not _expect_vec2(ripple.offset, Vector2.ZERO, "ripple %d offset" % index):
+            return
+    if not _expect(
+        farm_soil.z_index < ambience.z_index
+        and farm_effects.z_index < ambience.z_index
+        and ambience.z_index < (world.get_node("TargetHighlight") as Line2D).z_index
+        and ambience.z_index < (world.get_node("Entities") as Node2D).z_index,
+        "ambience renders above soil/effects below target/entities",
+    ):
         return
     for index in farm_cells.size():
         var soil := farm_soil.get_child(index) as Sprite2D

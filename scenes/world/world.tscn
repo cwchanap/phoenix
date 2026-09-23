@@ -9,6 +9,7 @@
 [ext_resource type="Texture2D" path="res://assets/sprites/proof-shadow.png" id="9_shadow"]
 [ext_resource type="Script" path="res://scripts/world/farm_view.gd" id="7_farm_view"]
 [ext_resource type="Script" path="res://scripts/world/farm_action_effects.gd" id="9_fx"]
+[ext_resource type="Script" path="res://scripts/world/homestead_ambience.gd" id="10_ambience"]
 [ext_resource type="PackedScene" path="res://scenes/ui/game_hud.tscn" id="8_hud"]
 
 [node name="World" type="Node2D" unique_id=1894839507]
@@ -41,6 +42,10 @@ z_index = 5
 [node name="FarmActionEffects" type="Node2D" parent="." unique_id=253862437]
 script = ExtResource("9_fx")
 z_index = 5
+
+[node name="HomesteadAmbience" type="Node2D" parent="." unique_id=253862438]
+script = ExtResource("10_ambience")
+z_index = 6
 
 [node name="StaticCollision" type="StaticBody2D" parent="." unique_id=216997322]
 
