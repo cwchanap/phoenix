@@ -2252,6 +2252,23 @@ func test_rain_lines_follow_rainy_and_sunny_snapshots_reusing_instances() -> voi
         assert_true(line.visible)
 
 
+func test_refresh_from_session_renders_rainy_snapshot() -> void:
+    var world := _world()
+    var state := world._session.state()
+    var rainy_key := GameRules.weather_key(GameRules.Weather.RAINY)
+    state["weather"] = rainy_key
+    var history: Array = state["weather_history"]
+    history[history.size() - 1] = rainy_key
+    state["weather_history"] = history
+    assert_true(world._session.restore_state(state))
+
+    world._refresh_from_session()
+    var lines := _rain_lines(world)
+    assert_gt(lines.size(), 0)
+    for line in lines:
+        assert_true(line.visible)
+
+
 func test_ambience_render_does_not_mutate_session_state() -> void:
     var world := _world()
     var before := world._session.snapshot()

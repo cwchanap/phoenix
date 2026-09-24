@@ -77,12 +77,16 @@ func _add_ripple(index: int) -> void:
     ripple.name = "RiverRipple%d" % index
     ripple.texture = RIPPLE_TEXTURE
     ripple.hframes = 3
-    ripple.scale = Vector2(2, 2)
+    ripple.scale = Vector2(1, 1)
     ripple.offset = Vector2.ZERO
     ripple.position = WorldMath.grid_to_world(RIPPLE_CELLS[index])
     add_child(ripple)
+    var starter := create_tween()
+    starter.tween_interval(RIPPLE_START_DELAYS[index])
+    starter.tween_callback(_start_ripple_loop.bind(ripple))
+
+func _start_ripple_loop(ripple: Sprite2D) -> void:
     var tween := create_tween().set_loops()
-    tween.tween_interval(RIPPLE_START_DELAYS[index])
     for frame in [1, 2, 0]:
         tween.tween_callback(_show_frame.bind(ripple, frame)).set_delay(RIPPLE_FRAME_SECONDS)
 

@@ -56,7 +56,7 @@ For each:
 
 - [ ] position via `WorldMath.grid_to_world()`;
 - [ ] `hframes = 3`;
-- [ ] `scale = Vector2(2, 2)`;
+- [ ] `scale = Vector2(1, 1)`;
 - [ ] `offset = Vector2.ZERO`;
 - [ ] no flip/rotation;
 - [ ] render above `FarmSoil` / `FarmActionEffects` and below `TargetHighlight` / `Entities`.
@@ -68,7 +68,7 @@ The logical centers are implementation candidates, not smoke-test constants.
 Animate each strip with a bound looping Tween instead of hand-rolled frame math in `_process()`.
 
 - [ ] advance frame 0→2 at roughly 2 fps;
-- [ ] use small start delays to avoid perfect lockstep;
+- [ ] use small start delays, applied once before each looping Tween starts, to avoid perfect lockstep;
 - [ ] let final native review tune rate/delay.
 
 Do not introduce `AnimatedSprite2D`, SpriteFrames resources, or an animation manager for three strips.
@@ -81,7 +81,7 @@ Pin:
 - [ ] exactly three ripple children;
 - [ ] correct ripple texture;
 - [ ] `hframes = 3`;
-- [ ] `scale = Vector2(2, 2)`;
+- [ ] `scale = Vector2(1, 1)`;
 - [ ] `offset = Vector2.ZERO`;
 - [ ] ambience visual layering is above soil/effects and below target/entities.
 
