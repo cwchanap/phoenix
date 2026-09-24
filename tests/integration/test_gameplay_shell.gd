@@ -2219,6 +2219,51 @@ func test_weather_tint_matches_rainy_and_sunny_snapshots() -> void:
     assert_eq(tint.color, GameHud.SUNNY_TINT)
 
 
+func _rain_lines(world: WorldShell) -> Array[Line2D]:
+    var lines: Array[Line2D] = []
+    for child in world._homestead_ambience.get_children():
+        var line := child as Line2D
+        if line != null:
+            lines.append(line)
+    return lines
+
+
+func test_rain_lines_follow_rainy_and_sunny_snapshots_reusing_instances() -> void:
+    var world := _world()
+    var ambience := world._homestead_ambience
+    var rainy := world._session.snapshot()
+    rainy["weather"] = GameRules.weather_key(GameRules.Weather.RAINY)
+    var sunny := world._session.snapshot()
+    sunny["weather"] = GameRules.weather_key(GameRules.Weather.SUNNY)
+
+    ambience.render(rainy)
+    var lines := _rain_lines(world)
+    assert_gt(lines.size(), 0)
+    for line in lines:
+        assert_true(line.visible)
+
+    ambience.render(sunny)
+    for line in lines:
+        assert_false(line.visible)
+
+    ambience.render(rainy)
+    assert_eq(_rain_lines(world), lines)
+    for line in lines:
+        assert_true(line.visible)
+
+
+func test_ambience_render_does_not_mutate_session_state() -> void:
+    var world := _world()
+    var before := world._session.snapshot()
+    var rainy := before.duplicate(true)
+    rainy["weather"] = GameRules.weather_key(GameRules.Weather.RAINY)
+    world._homestead_ambience.render(rainy)
+    world._refresh_from_session()
+    assert_eq(world._session.snapshot(), before)
+    for line in _rain_lines(world):
+        assert_false(line.visible)
+
+
 func test_hud_audio_players_and_representative_feedback_streams() -> void:
     var world := _world()
     var sfx := world.hud.get_node("SfxPlayer") as AudioStreamPlayer

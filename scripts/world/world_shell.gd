@@ -26,6 +26,7 @@ var _action_hold_dwell := 0.0
 @onready var player: PlayerController = $Entities/Player as PlayerController
 @onready var farm_view: FarmView = $Entities as FarmView
 @onready var _farm_effects: FarmActionEffects = $FarmActionEffects as FarmActionEffects
+@onready var _homestead_ambience: HomesteadAmbience = $HomesteadAmbience as HomesteadAmbience
 @onready var hud: GameHud = $GameHud as GameHud
 
 static func perimeter_footprints() -> Array[Rect2]:
@@ -99,6 +100,7 @@ func _ready() -> void:
     hud.intro_acknowledged.connect(_on_intro_acknowledged)
     hud.modal_state_changed.connect(_refresh_world_input_gate)
     _farm_effects.setup(player, farm_view)
+    _homestead_ambience.setup(player.camera)
     _refresh_from_session()
 
 func _process(delta: float) -> void:
@@ -142,6 +144,7 @@ func _process(delta: float) -> void:
 func _refresh_from_session() -> void:
     var snapshot := _session.snapshot()
     farm_view.refresh(snapshot)
+    _homestead_ambience.render(snapshot)
     hud.render(snapshot)
     _refresh_world_input_gate()
 
