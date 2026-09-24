@@ -111,14 +111,14 @@ Project them with `WorldMath.grid_to_world()`. These are presentation constants,
 Sprite contract:
 
 - `hframes = 3`;
-- `scale = Vector2(2, 2)`;
+- `scale = Vector2(1, 1)`;
 - `offset = Vector2.ZERO`;
 - no rotation/flip;
 - render between farm effects and the target highlight/entities.
 
-Reuse the repository's tween idiom for frame animation: one looping bound Tween per ripple advances frame 0→2 at roughly 2 fps, with small start delays to avoid lockstep animation. `_process()` should not manage ripple frames.
+Reuse the repository's tween idiom for frame animation: one looping bound Tween per ripple advances frame 0→2 at roughly 2 fps, with small start delays applied once before each loop starts so they do not recur every cycle. `_process()` should not manage ripple frames.
 
-The exact ripple centers, start delays, and playback rate remain visual-tuning values. Manual evidence must specifically check bank overhang on the two west-river candidates because a 64x32 frame rendered at 2x spans 128x64.
+The exact ripple centers, start delays, and playback rate remain visual-tuning values. The frame stays at 1x: review confirmed a 64x32 frame rendered at 2x spans 128x64 and its opaque corner pixels overhang both banks of the two-cell-wide rivers on every candidate cell.
 
 Do not animate the whole water TileMap or create one ripple per tile.
 

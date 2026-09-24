@@ -443,7 +443,7 @@ func _run() -> void:
             return
         if not _expect(ripple.hframes == 3, "ripple %d frame columns" % index):
             return
-        if not _expect_vec2(ripple.scale, Vector2(2, 2), "ripple %d scale" % index):
+        if not _expect_vec2(ripple.scale, Vector2(1, 1), "ripple %d scale" % index):
             return
         if not _expect_vec2(ripple.offset, Vector2.ZERO, "ripple %d offset" % index):
             return
