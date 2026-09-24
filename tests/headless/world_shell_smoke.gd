@@ -421,10 +421,19 @@ func _run() -> void:
     var ambience := world.get_node("HomesteadAmbience") as Node2D
     if not _expect(ambience != null, "HomesteadAmbience must exist"):
         return
-    if not _expect(ambience.get_child_count() == 3, "HomesteadAmbience ripple count"):
+    var ripples: Array[Sprite2D] = []
+    var rain_lines: Array[Line2D] = []
+    for child in ambience.get_children():
+        var ripple := child as Sprite2D
+        if ripple != null:
+            ripples.append(ripple)
+        var rain := child as Line2D
+        if rain != null:
+            rain_lines.append(rain)
+    if not _expect(ripples.size() == 3, "HomesteadAmbience ripple count"):
         return
-    for index in ambience.get_child_count():
-        var ripple := ambience.get_child(index) as Sprite2D
+    for index in ripples.size():
+        var ripple := ripples[index]
         if not _expect(ripple != null, "ripple %d sprite" % index):
             return
         if not _expect(
@@ -444,6 +453,20 @@ func _run() -> void:
         and ambience.z_index < (world.get_node("TargetHighlight") as Line2D).z_index
         and ambience.z_index < (world.get_node("Entities") as Node2D).z_index,
         "ambience renders above soil/effects below target/entities",
+    ):
+        return
+    if not _expect(rain_lines.size() > 0, "rain streaks exist"):
+        return
+    for rain in rain_lines:
+        if not _expect(rain.z_as_relative and rain.z_index == 0, "rain streak z"):
+            return
+    if not _expect(
+        farm_soil.z_index < ambience.z_index + rain_lines[0].z_index
+        and ambience.z_index + rain_lines[0].z_index
+            < (world.get_node("TargetHighlight") as Line2D).z_index
+        and ambience.z_index + rain_lines[0].z_index
+            < (world.get_node("Entities") as Node2D).z_index,
+        "rain renders above soil/ripples below target/entities",
     ):
         return
     for index in farm_cells.size():
