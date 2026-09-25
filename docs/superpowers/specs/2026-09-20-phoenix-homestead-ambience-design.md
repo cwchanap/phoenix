@@ -5,6 +5,7 @@
 **Repository:** `cwchanap/phoenix`
 **Branch:** `agent/hpa-462-homestead-ambience-plan`
 **Base reviewed:** `main` at `0c8ec8f55cbc38087488976c6dca75021dfe5b0f`
+**Delivery:** PR #19 is HPA-462's only PR and carries the visual slice. The HPA-440-gated audio integration and lifecycle test are owned by HPA-402 and land on its follow-up PR branched from `main`.
 
 ## Goal
 
