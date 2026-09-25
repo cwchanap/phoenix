@@ -267,7 +267,7 @@ Extend `world_shell_smoke.gd` only for structural facts:
 
 - `HomesteadAmbience` exists in the exact World child position immediately after `FarmActionEffects`;
 - exactly three ripple sprites exist;
-- every ripple uses `river-ripple.png`, `hframes = 3`, `scale = Vector2(2, 2)`, and `offset = Vector2.ZERO`;
+- every ripple uses `river-ripple.png`, `hframes = 3`, `scale = Vector2(1, 1)`, and `offset = Vector2.ZERO`;
 - ripple/rain rendering is strictly above farm soil/effects and below `TargetHighlight` / `Entities`.
 
 Do not pin:

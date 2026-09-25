@@ -1,7 +1,7 @@
 # Phoenix River and Rain Homestead Ambience Implementation Plan
 
 **Linear:** HPA-462
-**Audio dependency:** HPA-440, Task 3 only
+**Audio dependency:** HPA-440 gates Task 3; Tasks 3-4 ship on the follow-up PR
 **Branch:** `agent/hpa-462-homestead-ambience-plan`
 **Spec:** `docs/superpowers/specs/2026-09-20-phoenix-homestead-ambience-design.md`
 
@@ -11,12 +11,13 @@
 
 ## Global constraints
 
-- One HPA-462 branch and one HPA-462 PR. Implementation stays on PR #19.
+- HPA-462 ships as two PRs. PR #19 (`agent/hpa-462-homestead-ambience-plan`) carries the visual slice — Tasks 1, 2, and 5 — and merges without waiting for HPA-440.
+- Tasks 3-4 stay under HPA-462 but land on a separate follow-up PR branched from `main` after the HPA-440 WAVs exist. They do not land on PR #19.
 - Evening/window-light work is deleted. Current gameplay tops out theoretically at 12:40, so 18:00 content is unreachable.
 - Leave `GameHud.SUNNY_TINT`, `RAINY_TINT`, and the existing `GameHud.render(snapshot)` tint expression unchanged.
 - Do not create a shared tint/time projection helper.
 - HPA-458 supplies `river-ripple.png`; `house-window-light.png` is not consumed.
-- HPA-440 gates only Task 3 audio integration. Tasks 1-2 and the capture harness can proceed now.
+- HPA-440 gates only Task 3 audio integration. Tasks 1-2 and the capture harness proceed and merge on PR #19.
 - No placeholder audio in HPA-462.
 - No `GameSession`/save/schema/game-clock/weather-policy/balance changes.
 - No autoload/global service, particles framework, shader/lighting system, settings row, audio bus, spatial audio, or new golden framework.
@@ -178,13 +179,15 @@ Do not add the earlier "wait several frames and prove time does not advance" tes
 
 ## Task 3: Integrate HPA-440 audio when its assets land
 
+This task and Task 4 ship on the follow-up PR, not on PR #19.
+
 **Start gate:** HPA-440 merged with:
 
 - `assets/audio/river-ambience.wav`
 - `assets/audio/rain-ambience.wav`
 - forward-loop Godot import sidecars.
 
-Rebase this same branch onto current `main` before starting Task 3. Do not merge `main` into the branch and do not create placeholder WAVs.
+Branch the follow-up PR from current `main` after the assets land. Do not continue on `agent/hpa-462-homestead-ambience-plan` and do not create placeholder WAVs.
 
 **Files:**
 
@@ -265,6 +268,8 @@ No speaker-dependent test.
 **Checkpoint:** run the affected GUT/integration suite, manually check Sound 7 -> 0 -> 7 in native play, and run `git diff --check`.
 
 ## Task 4: Extend the existing result teardown/new-game test after Task 3
+
+Ships on the follow-up PR with Task 3.
 
 **Files:**
 
@@ -364,13 +369,13 @@ Runtime:
 - `scripts/world/homestead_ambience.gd`
 - generated UID as needed
 - `scripts/world/world_shell.gd`
-- `scripts/ui/game_hud.gd` — Sound signal only
+- `scripts/ui/game_hud.gd` — Sound signal only (follow-up PR)
 - `scenes/world/world.tscn`
 
 Tests/evidence:
 
 - `tests/integration/test_gameplay_shell.gd`
-- `tests/integration/test_persistence_flow.gd`
+- `tests/integration/test_persistence_flow.gd` (follow-up PR)
 - `tests/headless/world_shell_smoke.gd`
 - `tests/visual/capture_homestead_ambience.gd`
 - generated UID as needed
