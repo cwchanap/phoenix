@@ -2219,9 +2219,9 @@ func test_weather_tint_matches_rainy_and_sunny_snapshots() -> void:
     assert_eq(tint.color, GameHud.SUNNY_TINT)
 
 
-func _rain_lines(world: WorldShell) -> Array[Line2D]:
+func _rain_lines(ambience: HomesteadAmbience) -> Array[Line2D]:
     var lines: Array[Line2D] = []
-    for child in world._homestead_ambience.get_children():
+    for child in ambience.get_children():
         var line := child as Line2D
         if line != null:
             lines.append(line)
@@ -2237,7 +2237,7 @@ func test_rain_lines_follow_rainy_and_sunny_snapshots_reusing_instances() -> voi
     sunny["weather"] = GameRules.weather_key(GameRules.Weather.SUNNY)
 
     ambience.render(rainy)
-    var lines := _rain_lines(world)
+    var lines := _rain_lines(world._homestead_ambience)
     assert_gt(lines.size(), 0)
     for line in lines:
         assert_true(line.visible)
@@ -2247,7 +2247,7 @@ func test_rain_lines_follow_rainy_and_sunny_snapshots_reusing_instances() -> voi
         assert_false(line.visible)
 
     ambience.render(rainy)
-    assert_eq(_rain_lines(world), lines)
+    assert_eq(_rain_lines(world._homestead_ambience), lines)
     for line in lines:
         assert_true(line.visible)
 
@@ -2263,9 +2263,22 @@ func test_refresh_from_session_renders_rainy_snapshot() -> void:
     assert_true(world._session.restore_state(state))
 
     world._refresh_from_session()
-    var lines := _rain_lines(world)
+    var lines := _rain_lines(world._homestead_ambience)
     assert_gt(lines.size(), 0)
     for line in lines:
+        assert_true(line.visible)
+
+
+func test_render_without_camera_keeps_streaks_hidden() -> void:
+    var ambience := HomesteadAmbience.new()
+    add_child_autofree(ambience)
+    var rainy := {"weather": GameRules.weather_key(GameRules.Weather.RAINY)}
+    ambience.render(rainy)
+    for line in _rain_lines(ambience):
+        assert_false(line.visible)
+    ambience.setup(Camera2D.new())
+    ambience.render(rainy)
+    for line in _rain_lines(ambience):
         assert_true(line.visible)
 
 
@@ -2277,7 +2290,7 @@ func test_ambience_render_does_not_mutate_session_state() -> void:
     world._homestead_ambience.render(rainy)
     world._refresh_from_session()
     assert_eq(world._session.snapshot(), before)
-    for line in _rain_lines(world):
+    for line in _rain_lines(world._homestead_ambience):
         assert_false(line.visible)
 
 

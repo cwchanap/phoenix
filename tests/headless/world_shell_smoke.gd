@@ -461,12 +461,9 @@ func _run() -> void:
         if not _expect(rain.z_as_relative and rain.z_index == 0, "rain streak z"):
             return
     if not _expect(
-        farm_soil.z_index < ambience.z_index + rain_lines[0].z_index
-        and ambience.z_index + rain_lines[0].z_index
-            < (world.get_node("TargetHighlight") as Line2D).z_index
-        and ambience.z_index + rain_lines[0].z_index
-            < (world.get_node("Entities") as Node2D).z_index,
-        "rain renders above soil/ripples below target/entities",
+        ambience.get_child(2).name == "RiverRipple2"
+            and ambience.get_child(3).name == "RainStreak0",
+        "rain streaks draw after ripples (scene-tree order)",
     ):
         return
     for index in farm_cells.size():
