@@ -259,6 +259,7 @@ func _run() -> void:
         "GroundDecoration",
         "FarmSoil",
         "FarmActionEffects",
+        "HomesteadAmbience",
         "StaticCollision",
         "Entities",
         "TargetHighlight",
@@ -415,6 +416,55 @@ func _run() -> void:
     if not _expect(not farm_effects.y_sort_enabled, "FarmActionEffects must not enable y-sort"):
         return
     if not _expect(farm_effects.z_index == 5, "FarmActionEffects z-index"):
+        return
+
+    var ambience := world.get_node("HomesteadAmbience") as Node2D
+    if not _expect(ambience != null, "HomesteadAmbience must exist"):
+        return
+    var ripples: Array[Sprite2D] = []
+    var rain_lines: Array[Line2D] = []
+    for child in ambience.get_children():
+        var ripple := child as Sprite2D
+        if ripple != null:
+            ripples.append(ripple)
+        var rain := child as Line2D
+        if rain != null:
+            rain_lines.append(rain)
+    if not _expect(ripples.size() == 3, "HomesteadAmbience ripple count"):
+        return
+    for index in ripples.size():
+        var ripple := ripples[index]
+        if not _expect(ripple != null, "ripple %d sprite" % index):
+            return
+        if not _expect(
+            ripple.texture.resource_path == "res://assets/sprites/polish/river-ripple.png",
+            "ripple %d texture" % index,
+        ):
+            return
+        if not _expect(ripple.hframes == 3, "ripple %d frame columns" % index):
+            return
+        if not _expect_vec2(ripple.scale, Vector2(1, 1), "ripple %d scale" % index):
+            return
+        if not _expect_vec2(ripple.offset, Vector2.ZERO, "ripple %d offset" % index):
+            return
+    if not _expect(
+        farm_soil.z_index < ambience.z_index
+        and farm_effects.z_index < ambience.z_index
+        and ambience.z_index < (world.get_node("TargetHighlight") as Line2D).z_index
+        and ambience.z_index < (world.get_node("Entities") as Node2D).z_index,
+        "ambience renders above soil/effects below target/entities",
+    ):
+        return
+    if not _expect(rain_lines.size() > 0, "rain streaks exist"):
+        return
+    for rain in rain_lines:
+        if not _expect(rain.z_as_relative and rain.z_index == 0, "rain streak z"):
+            return
+    if not _expect(
+        ambience.get_child(2).name == "RiverRipple2"
+            and ambience.get_child(3).name == "RainStreak0",
+        "rain streaks draw after ripples (scene-tree order)",
+    ):
         return
     for index in farm_cells.size():
         var soil := farm_soil.get_child(index) as Sprite2D
