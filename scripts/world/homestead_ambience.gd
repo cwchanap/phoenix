@@ -34,7 +34,12 @@ func setup(camera: Camera2D) -> void:
     _camera = camera
 
 func render(snapshot: Dictionary) -> void:
-    _rain_falling = snapshot["weather"] == GameRules.weather_key(GameRules.Weather.RAINY)
+    # Keep streaks hidden until setup() supplies a camera; a layout without one
+    # would pile every line at the ambience origin.
+    _rain_falling = (
+        snapshot["weather"] == GameRules.weather_key(GameRules.Weather.RAINY)
+        and _camera != null
+    )
     for line in _rain_lines:
         line.visible = _rain_falling
     if _rain_falling:

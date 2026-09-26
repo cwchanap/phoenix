@@ -45,6 +45,8 @@ func _capture(rainy: bool) -> Image:
     for _step in SETTLE_FRAMES:
         await process_frame
     ambience.render(world._session.snapshot())
+    # One extra frame lets the rendered phase-0 rain layout reach the viewport
+    # texture; capturing in the same frame would show the pre-render layout.
     await process_frame
     var image := root.get_texture().get_image()
     world.queue_free()
