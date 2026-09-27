@@ -88,8 +88,8 @@ Add:
 `HomesteadAmbience` owns only transient world presentation:
 
 - three ripple `Sprite2D` children;
-- deterministic runtime `Line2D` rain streaks;
-- the existing `Camera2D` reference;
+- deterministic rain streaks drawn in one `_draw()` pass via `draw_multiline()`;
+- no stored camera — the viewport's active `Camera2D` is read at draw time;
 - one River and one Rain `AudioStreamPlayer` after HPA-440 lands;
 - visual rain phase.
 
@@ -125,7 +125,7 @@ Do not animate the whole water TileMap or create one ripple per tile.
 
 ## Rain presentation
 
-Use deterministic runtime-created `Line2D` streaks rather than particles or a generated rain texture.
+Draw deterministic rain in one `_draw()` pass via `draw_multiline()` rather than particles, a generated rain texture, or per-streak `Line2D` nodes.
 
 Keep one `RAIN_STREAK_COUNT` constant, but treat its value as a visual tuning knob. Start with a moderate native-screen density rather than freezing the original 16-streak guess.
 
@@ -135,26 +135,17 @@ Each streak is:
 - short and consistently slanted;
 - pale/low-alpha;
 - placed deterministically from its index;
-- rendered above soil/ripples but below `TargetHighlight` and `Entities`.
+- rendered above soil but below the ripple children, `TargetHighlight`, and `Entities` (a parent's own `_draw()` pass precedes its children).
 
 No RNG is required.
 
-### One reusable layout function
+### One draw-time layout
 
-Implement:
+`_process(delta)` advances per-streak offsets by `RAIN_VELOCITY * delta` (clamped against hitches) with exact-carry wrap over the 640x360 viewport padded by the streak extent, then queues a redraw. It is disabled while sunny.
 
-`_layout_rain(phase: float)`
+`_draw()` reads the viewport's active `Camera2D` and lays every streak from the current offsets around `get_screen_center_position()`. Reading the camera at draw time — after the smoothed camera applies its scroll — keeps fixed-phase captures truthful even when processing is disabled and rain cannot lag the camera regardless of scene-tree order.
 
-It positions/wraps every streak around `Camera2D.get_screen_center_position()` across the 640x360 viewport.
-
-Call it from both:
-
-- `render(snapshot)` when rain becomes/currently is visible, using the current phase (initially 0);
-- `_process(delta)` while rainy after advancing the transient phase.
-
-This keeps fixed-phase captures truthful even when processing is disabled.
-
-`render(snapshot)` derives rain directly from the snapshot, shows/hides the streaks, and never mutates session state.
+`render(snapshot)` derives rain directly from the snapshot, toggles processing/redraw with the weather, and never mutates session state.
 
 ## Audio integration
 
@@ -169,14 +160,13 @@ Both are ordinary non-spatial `AudioStreamPlayer` children of the World-owned pr
 
 ### Initial settings are not signal-dependent
 
-`setup(camera: Camera2D, settings: UiSettings)` receives the current settings directly from `WorldShell`.
+`setup(settings: UiSettings)` receives the current settings directly from `WorldShell`. The visual slice stores no camera, so audio setup needs no camera either.
 
 It:
 
-1. stores the camera;
-2. computes the current Sound dB with `settings.db_for_level(settings.sound)`;
-3. applies the fixed ambience headroom;
-4. starts the River loop immediately at that resolved volume.
+1. computes the current Sound dB with `settings.db_for_level(settings.sound)`;
+2. applies the fixed ambience headroom;
+3. starts the River loop immediately at that resolved volume.
 
 This means a missed signal cannot leave River permanently silent.
 
@@ -344,7 +334,7 @@ Rejected. River/rain lifetime belongs to the World. The one Sound-volume signal 
 
 ### Use GPUParticles/CPUParticles
 
-Rejected. Deterministic `Line2D` rain is enough and easier to review/capture.
+Rejected. Deterministic `draw_multiline()` rain is enough and easier to review/capture.
 
 ## Non-goals
 

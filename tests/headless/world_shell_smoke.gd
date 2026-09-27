@@ -451,11 +451,6 @@ func _run() -> void:
         "ambience renders above soil/effects below target/entities",
     ):
         return
-    if not _expect(
-        HomesteadAmbience.RAIN_STREAK_COUNT == 72,
-        "rain streak count",
-    ):
-        return
     for index in farm_cells.size():
         var soil := farm_soil.get_child(index) as Sprite2D
         if not _expect(soil != null, "soil sprite %s" % farm_cells[index]):
