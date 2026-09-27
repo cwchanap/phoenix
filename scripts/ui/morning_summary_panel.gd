@@ -28,7 +28,8 @@ func present(summary: Dictionary) -> void:
     ($Frame/Card_0/Value as Label).text = "+%d" % crops_advanced
     ($Frame/Card_0/Caption as Label).text = "CROPS GREW"
 
-    var rainy := GameRules.is_rainy(summary.get("next_weather", &"sunny"))
+    var weather := StringName(summary.get("next_weather", &"sunny"))
+    var rainy := weather == GameRules.weather_key(GameRules.Weather.RAINY)
     ($Frame/Card_1/Value as Label).text = "RAINY" if rainy else "SUNNY"
     ($Frame/Card_1/Caption as Label).text = (
         "TODAY — NO\nWATERING NEEDED" if rainy else "TODAY —\nWATER AS USUAL"

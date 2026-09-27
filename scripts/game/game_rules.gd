@@ -81,9 +81,6 @@ static func action_key(action: FarmingAction) -> StringName:
 static func weather_key(weather: Weather) -> StringName:
     return WEATHER_KEYS[weather]
 
-static func is_rainy(weather: Variant) -> bool:
-    return weather == weather_key(Weather.RAINY)
-
 static func crop_display_name(kind: CropKind) -> String:
     return CROP_DISPLAY_NAMES[kind]
 

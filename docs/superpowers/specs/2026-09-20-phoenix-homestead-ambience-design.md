@@ -247,7 +247,7 @@ For each capture:
 4. set `HomesteadAmbience.process_mode = Node.PROCESS_MODE_DISABLED` before `add_child()` so bound ripple Tweens and rain processing stay frozen;
 5. add the World;
 6. let the camera/world settle minimally;
-7. call `HomesteadAmbience.render(world._session.snapshot())` once more so `_layout_rain(0.0)` uses the settled camera center;
+7. call `HomesteadAmbience.render(world._session.snapshot())` once more so rainy state queues a redraw, then wait one frame so `_draw()` lays the streaks out around the settled camera center and the finished frame reaches the viewport texture;
 8. capture the native 640x360 viewport.
 
 This guarantees rainy evidence actually contains rain while keeping a deterministic phase.

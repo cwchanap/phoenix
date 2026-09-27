@@ -309,7 +309,7 @@ For each state:
 - [ ] set `HomesteadAmbience.process_mode = Node.PROCESS_MODE_DISABLED` before adding the World so both `_process()` and bound ripple Tweens remain frozen;
 - [ ] add the World;
 - [ ] allow the minimum frame needed for camera/world setup;
-- [ ] call `HomesteadAmbience.render(world._session.snapshot())` once after camera setup so rainy state executes `_layout_rain(0.0)` at the correct screen center;
+- [ ] call `HomesteadAmbience.render(world._session.snapshot())` once after camera setup so rainy state queues a redraw, then wait one frame: `_draw()` reads the settled camera at draw time and lays the streaks out around the screen center, and the finished frame reaches the viewport texture;
 - [ ] capture exactly 640x360 to `test_output/hpa-462/`.
 
 Do not extend `capture_ui_states.gd`, `compare_ui_states.gd`, or the permanent golden set.
