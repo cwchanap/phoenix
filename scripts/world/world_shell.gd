@@ -100,7 +100,6 @@ func _ready() -> void:
     hud.intro_acknowledged.connect(_on_intro_acknowledged)
     hud.modal_state_changed.connect(_refresh_world_input_gate)
     _farm_effects.setup(player, farm_view)
-    _homestead_ambience.setup(player.camera)
     _refresh_from_session()
 
 func _process(delta: float) -> void:

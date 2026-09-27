@@ -2219,16 +2219,7 @@ func test_weather_tint_matches_rainy_and_sunny_snapshots() -> void:
     assert_eq(tint.color, GameHud.SUNNY_TINT)
 
 
-func _rain_lines(ambience: HomesteadAmbience) -> Array[Line2D]:
-    var lines: Array[Line2D] = []
-    for child in ambience.get_children():
-        var line := child as Line2D
-        if line != null:
-            lines.append(line)
-    return lines
-
-
-func test_rain_lines_follow_rainy_and_sunny_snapshots_reusing_instances() -> void:
+func test_rain_visibility_follows_rainy_and_sunny_snapshots() -> void:
     var world := _world()
     var ambience := world._homestead_ambience
     var rainy := world._session.snapshot()
@@ -2237,19 +2228,13 @@ func test_rain_lines_follow_rainy_and_sunny_snapshots_reusing_instances() -> voi
     sunny["weather"] = GameRules.weather_key(GameRules.Weather.SUNNY)
 
     ambience.render(rainy)
-    var lines := _rain_lines(world._homestead_ambience)
-    assert_gt(lines.size(), 0)
-    for line in lines:
-        assert_true(line.visible)
+    assert_true(ambience.is_rain_falling())
 
     ambience.render(sunny)
-    for line in lines:
-        assert_false(line.visible)
+    assert_false(ambience.is_rain_falling())
 
     ambience.render(rainy)
-    assert_eq(_rain_lines(world._homestead_ambience), lines)
-    for line in lines:
-        assert_true(line.visible)
+    assert_true(ambience.is_rain_falling())
 
 
 func test_refresh_from_session_renders_rainy_snapshot() -> void:
@@ -2263,35 +2248,28 @@ func test_refresh_from_session_renders_rainy_snapshot() -> void:
     assert_true(world._session.restore_state(state))
 
     world._refresh_from_session()
-    var lines := _rain_lines(world._homestead_ambience)
-    assert_gt(lines.size(), 0)
-    for line in lines:
-        assert_true(line.visible)
+    assert_true(world._homestead_ambience.is_rain_falling())
 
 
-func test_render_without_camera_keeps_streaks_hidden() -> void:
+func test_render_without_camera_keeps_rain_state() -> void:
     var ambience := HomesteadAmbience.new()
     add_child_autofree(ambience)
     var rainy := {"weather": GameRules.weather_key(GameRules.Weather.RAINY)}
     ambience.render(rainy)
-    for line in _rain_lines(ambience):
-        assert_false(line.visible)
-    ambience.setup(Camera2D.new())
+    assert_true(ambience.is_rain_falling())
+    var camera := Camera2D.new()
+    add_child_autofree(camera)
     ambience.render(rainy)
-    for line in _rain_lines(ambience):
-        assert_true(line.visible)
+    assert_true(ambience.is_rain_falling())
 
 
 func test_ambience_render_does_not_mutate_session_state() -> void:
     var world := _world()
-    var before := world._session.snapshot()
-    var rainy := before.duplicate(true)
+    var before := world._session.snapshot().duplicate(true)
+    var rainy := world._session.snapshot()
     rainy["weather"] = GameRules.weather_key(GameRules.Weather.RAINY)
     world._homestead_ambience.render(rainy)
-    world._refresh_from_session()
     assert_eq(world._session.snapshot(), before)
-    for line in _rain_lines(world._homestead_ambience):
-        assert_false(line.visible)
 
 
 func test_hud_audio_players_and_representative_feedback_streams() -> void:

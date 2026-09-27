@@ -44,6 +44,11 @@ func _capture(rainy: bool) -> Image:
     root.add_child(world)
     for _step in SETTLE_FRAMES:
         await process_frame
+    # reset_smoothing() snaps the smoothed camera one frame after the call;
+    # wait that frame out so the captures are framed at the authored spawn
+    # camera, not mid-slide from the limit corner.
+    world.player.camera.reset_smoothing()
+    await process_frame
     ambience.render(world._session.snapshot())
     # One extra frame lets the rendered phase-0 rain layout reach the viewport
     # texture; capturing in the same frame would show the pre-render layout.
