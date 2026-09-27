@@ -7,7 +7,7 @@
 
 **Goal:** Add restrained river motion, readable rain, and world-owned environmental audio while leaving gameplay time, weather rules, save state, map/collision, and the existing HUD tint behavior unchanged.
 
-**Architecture:** Add one direct World child, `HomesteadAmbience`, after `FarmActionEffects`. It owns three ripple sprites, deterministic `Line2D` rain, and—after HPA-440 lands—the two ambient audio players. `WorldShell._refresh_from_session()` keeps one snapshot and fans it to `FarmView`, `HomesteadAmbience`, and `GameHud`.
+**Architecture:** Add one direct World child, `HomesteadAmbience`, after `FarmActionEffects`. It owns three ripple sprites, deterministic rain drawn as one `_draw()`/`draw_multiline()` pass, and—after HPA-440 lands—the two ambient audio players. `WorldShell._refresh_from_session()` keeps one snapshot and fans it to `FarmView`, `HomesteadAmbience`, and `GameHud`.
 
 ## Global constraints
 
@@ -99,19 +99,13 @@ Do **not** pin exact ripple positions, initial frames, tween delays, or speed.
 - `tests/integration/test_gameplay_shell.gd`
 - `tests/headless/world_shell_smoke.gd`
 
-### 2.1 Setup only the world references needed
+### 2.1 No setup stage for the visual slice
 
-Add:
+The presenter stores no references: `render(snapshot)` derives rain from the snapshot alone, and the active camera is fetched from the viewport at draw time. `WorldShell._ready()` wires nothing.
 
-`setup(camera: Camera2D)`
+### 2.2 Build deterministic draw-time rain
 
-for the visual-only stage. Store the existing player camera; no gameplay/session object is passed to the presenter.
-
-`WorldShell._ready()` calls setup once.
-
-### 2.2 Build deterministic Line2D rain
-
-Create one set of reusable `Line2D` streaks.
+Draw every streak in one `_draw()` pass via `draw_multiline()`; there are no `Line2D` children.
 
 Start `RAIN_STREAK_COUNT` around 72 as an implementation default, but keep it explicitly tunable after native review.
 
@@ -121,30 +115,25 @@ Each streak:
 - [ ] short, pale, low-alpha, consistently slanted;
 - [ ] deterministic from its index;
 - [ ] no RNG;
-- [ ] rendered above soil/ripples and below target/entities.
+- [ ] rendered above soil via the ambience z layer and below target/entities; the parent's own `_draw()` pass lands under its ripple children.
 
 Smoke pins only the z-order relationship, not count/alpha/geometry.
 
-### 2.3 One layout function used by render and process
-
-Add private:
-
-`_layout_rain(phase: float)`
-
-It positions/wraps streaks around `camera.get_screen_center_position()` across the 640x360 viewport.
+### 2.3 Draw-time rain layout
 
 `render(snapshot)`:
 
 - [ ] derives `rainy` directly from `snapshot["weather"]`;
-- [ ] shows/hides the rain lines;
-- [ ] when rainy, calls `_layout_rain(_rain_phase)` immediately;
+- [ ] toggles `_process()` and `queue_redraw()` with the weather;
 - [ ] does not change gameplay state.
 
 `_process(delta)`:
 
-- [ ] does nothing when sunny;
-- [ ] advances only `_rain_phase` when rainy;
-- [ ] calls `_layout_rain(_rain_phase)`.
+- [ ] is disabled while sunny;
+- [ ] advances per-streak offsets by `RAIN_VELOCITY * delta` (clamped against hitches) with exact-carry wrap over the viewport padded by the streak extent;
+- [ ] ends with `queue_redraw()`.
+
+`_draw()` fetches the viewport's active `Camera2D` at draw time — after the smoothed camera applies this frame's scroll — and lays every streak around `get_screen_center_position()`, so rain never lags the camera regardless of scene-tree order and fixed-phase captures stay truthful.
 
 Ripple animation stays on Tweens; `_process()` owns rain movement only.
 
@@ -209,9 +198,11 @@ Preload only the two HPA-440 streams. No audio registry/service.
 
 ### 3.2 Make initial volume independent of HUD signal ordering
 
-Evolve setup to:
+Add the audio-stage setup:
 
-`setup(camera: Camera2D, settings: UiSettings)`
+`setup(settings: UiSettings)`
+
+(The visual slice has no setup to evolve — the camera is read at draw time.)
 
 During setup:
 
