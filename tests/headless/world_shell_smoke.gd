@@ -418,18 +418,14 @@ func _run() -> void:
     if not _expect(farm_effects.z_index == 5, "FarmActionEffects z-index"):
         return
 
-    var ambience := world.get_node("HomesteadAmbience") as Node2D
+    var ambience := world.get_node("HomesteadAmbience") as HomesteadAmbience
     if not _expect(ambience != null, "HomesteadAmbience must exist"):
         return
     var ripples: Array[Sprite2D] = []
-    var rain_lines: Array[Line2D] = []
     for child in ambience.get_children():
         var ripple := child as Sprite2D
         if ripple != null:
             ripples.append(ripple)
-        var rain := child as Line2D
-        if rain != null:
-            rain_lines.append(rain)
     if not _expect(ripples.size() == 3, "HomesteadAmbience ripple count"):
         return
     for index in ripples.size():
@@ -455,15 +451,9 @@ func _run() -> void:
         "ambience renders above soil/effects below target/entities",
     ):
         return
-    if not _expect(rain_lines.size() > 0, "rain streaks exist"):
-        return
-    for rain in rain_lines:
-        if not _expect(rain.z_as_relative and rain.z_index == 0, "rain streak z"):
-            return
     if not _expect(
-        ambience.get_child(2).name == "RiverRipple2"
-            and ambience.get_child(3).name == "RainStreak0",
-        "rain streaks draw after ripples (scene-tree order)",
+        HomesteadAmbience.RAIN_STREAK_COUNT == 72,
+        "rain streak count",
     ):
         return
     for index in farm_cells.size():

@@ -141,9 +141,7 @@ func render(snapshot: Dictionary) -> void:
     _calendar_panel.present(snapshot)
     _onboarding_overlay.render(snapshot)
     _weather_tint.color = (
-        RAINY_TINT
-        if snapshot["weather"] == GameRules.weather_key(GameRules.Weather.RAINY)
-        else SUNNY_TINT
+        RAINY_TINT if GameRules.is_rainy(snapshot["weather"]) else SUNNY_TINT
     )
     _time_value_label.text = GameRules.format_time(int(snapshot["time_minutes"]))
     _day_value_label.text = "%d" % int(snapshot["day"])
@@ -745,7 +743,7 @@ func _set_hud_chrome_visible(is_visible: bool) -> void:
         ($HudRoot.get_node(node_path) as Control).visible = is_visible
 
 func _display_weather(key: Variant) -> String:
-    return "Rainy" if key == GameRules.weather_key(GameRules.Weather.RAINY) else "Sunny"
+    return "Rainy" if GameRules.is_rainy(key) else "Sunny"
 
 func _unhandled_input(event: InputEvent) -> void:
     if event.is_action_pressed("toggle_bag"):

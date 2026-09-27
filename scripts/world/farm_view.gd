@@ -65,10 +65,9 @@ func _ready() -> void:
         _crop_sparkles[cell] = sparkle
 
 func refresh(snapshot: Dictionary) -> void:
-    var rainy: bool = snapshot.get(
-        "weather",
-        GameRules.weather_key(GameRules.Weather.SUNNY),
-    ) == GameRules.weather_key(GameRules.Weather.RAINY)
+    var rainy := GameRules.is_rainy(
+        snapshot.get("weather", GameRules.weather_key(GameRules.Weather.SUNNY))
+    )
     for entry_variant in snapshot["farm"]:
         var entry: Dictionary = entry_variant
         var cell: Vector2i = entry["cell"]
