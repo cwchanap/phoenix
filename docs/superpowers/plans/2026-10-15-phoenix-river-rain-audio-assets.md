@@ -76,7 +76,7 @@ Using a temporary Python-stdlib generator, write `assets/audio/river-ambience.wa
 - conservative fixed output gain with no post-normalization to full scale;
 - no isolated splash/bird/voice/music events.
 
-The implementer may tune component count/weights locally, but must keep the locked format, seed, periodic construction, spectral lane, and peak ceiling.
+The implementer may tune component counts/weights locally, but must keep the locked format, seed, periodic construction, spectral lane, and peak ceiling. Whatever final counts/ranges/gains ship must be copied into the README in Step 7.
 
 - [ ] **Step 4: Generate deterministic Rain candidate**
 
@@ -90,7 +90,7 @@ Using the same temporary generator shape, write `assets/audio/rain-ambience.wav`
 - conservative fixed output gain with no post-normalization to full scale;
 - no thunder, gusts, pitched drops, voice, music, or discrete impact events.
 
-The two recipes should share construction, not timbre.
+The two recipes should share construction, not timbre. Record the final component counts/ranges/gains rather than leaving them as implementation-only tuning.
 
 - [ ] **Step 5: Run the source-container verifier**
 
@@ -124,7 +124,9 @@ Regenerate from the same fixed seed with adjusted deterministic weights if the l
 
 - [ ] **Step 7: Extend `assets/audio/README.md` with the HPA-440 recipe/handoff**
 
-Add one `## HPA-440 river and rain ambience` section that records both paths and, for each, the exact locked source format, fixed seed, periodic-harmonic method, spectral lane, `<0.30` peak guard, absence of external samples, full-clip Forward import requirement, and HPA-402 consumer ownership.
+Add one `## HPA-440 river and rain ambience` section that records both paths and, for each, the exact locked source format, fixed seed, periodic-harmonic method, **final component counts, harmonic/frequency ranges, amplitude-weight rules, modulation frequencies/depths, and fixed output gain**, measured peak, absence of external samples, full-clip Forward import requirement, and HPA-402 consumer ownership.
+
+The documented constants must be sufficient to reconstruct the accepted waveform with the same standard-library algorithm even though the temporary script itself is not retained.
 
 Keep the existing HPA-599/HPA-459 provenance intact. State explicitly that the temporary generator is not committed, matching the current one-off audio convention.
 
@@ -245,7 +247,18 @@ Accept only if both ambience loops are deliberately less attention-grabbing than
 
 Record this qualitative result in the PR description, not in a new repository artifact.
 
-- [ ] **Step 8: Run repository verification**
+- [ ] **Step 8: Commit the import/test change before the clean verifier**
+
+`./tools/verify-clean.sh` archives committed `HEAD`, so commit the Task 2 files before using it as an oracle:
+
+```bash
+git add assets/audio/river-ambience.wav.import \
+        assets/audio/rain-ambience.wav.import \
+        tests/headless/project_smoke.gd
+git commit -m "test(audio): verify ambience loop imports"
+```
+
+- [ ] **Step 9: Run committed-head repository verification**
 
 Run:
 
@@ -257,25 +270,18 @@ git status --short
 
 Expected:
 
-- `verify-clean.sh` passes;
+- `verify-clean.sh` passes against the committed Task 1 + Task 2 head;
 - `git diff --check` reports no whitespace errors;
 - only the intended HPA-440 files differ from `main`;
 - no untracked temporary generator/candidate/preview artifact remains in the repository worktree.
 
-- [ ] **Step 9: Commit import/test acceptance**
-
-```bash
-git add assets/audio/river-ambience.wav.import \
-        assets/audio/rain-ambience.wav.import \
-        tests/headless/project_smoke.gd
-git commit -m "test(audio): verify ambience loop imports"
-```
+If verification exposes a defect, fix it and commit the narrow correction on this same branch, then rerun the full step.
 
 - [ ] **Step 10: Update the same draft PR for implementation closeout**
 
 Keep HPA-440 on this one PR. Update the PR description with:
 
-- exact source metadata for both WAVs;
+- exact source metadata and documented recipe constants for both WAVs;
 - measured source peaks;
 - confirmation of fixed seeds and no external samples;
 - 30-second seam/repetition review result;
