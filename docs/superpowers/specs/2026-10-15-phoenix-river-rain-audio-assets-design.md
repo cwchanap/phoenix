@@ -1,9 +1,9 @@
 # Phoenix River and Rain Ambience Audio Assets Design
 
-**Linear:** HPA-440  
-**Repository:** `cwchanap/phoenix`  
-**Branch:** `agent/hpa-440-river-rain-audio-plan`  
-**Base reviewed:** `main` at `e3bead7d2d752559d4f2410e7b3c4cec0ae6712b`  
+**Linear:** HPA-440\
+**Repository:** `cwchanap/phoenix`\
+**Branch:** `agent/hpa-440-river-rain-audio-plan`\
+**Base reviewed:** `main` at `e3bead7d2d752559d4f2410e7b3c4cec0ae6712b`\
 **Delivery:** one HPA-440 asset-only PR; HPA-402 remains blocked until this PR merges.
 
 ## Goal
