@@ -222,3 +222,22 @@ HPA-440 is complete when:
 ## Delivery rule
 
 One issue, one branch, one PR. Generate, import, mechanically verify, listen, and accept the assets before committing their implementation files. Final generator, WAVs, `.import` sidecars, README handoff, narrow `project_smoke.gd` update, and verification all remain on this same draft PR. HPA-402 starts only after this PR merges.
+
+## Post-review change (2026-10-16): ElevenLabs provenance
+
+After the deterministic-generator implementation was accepted and verified on
+this branch, the repository owner directed that Phoenix audio generation use
+the ElevenLabs MCP (now recorded as the repo audio convention in CLAUDE.md).
+Both ambience WAVs were regenerated with `eleven_text_to_sound_v2`
+(`duration_seconds=5.0`, `loop=true`, `prompt_influence=0.7`), post-processed
+(mono 22050 Hz PCM-16 conversion, river lowpass tilt at 1400 Hz, rain peak
+taming, 100 ms equal-power circular crossfade so the loop wrap joins adjacent
+source samples) and re-verified through the same imported-stream gates: seam,
+periodicity, non-tonality, mix-level, and peak/RMS all pass as recorded in
+`assets/audio/README.md`. Consequences for this spec's contract: the
+"Chosen approach" deterministic generator and its byte-identical
+regeneration gate are superseded — the committed WAVs are the artifacts of
+record, provenance is the recorded prompt/model/post-processing recipe, and
+seeds 44001/44002 no longer apply. The container contract, 0.30 peak guard,
+Forward-loop import contract, smoke coverage, and HPA-402 boundary are
+unchanged.
