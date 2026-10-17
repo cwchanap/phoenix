@@ -62,6 +62,13 @@ func _init() -> void:
         if stream.loop_mode != AudioStreamWAV.LOOP_FORWARD:
             _fail("ambience loop_mode must be LOOP_FORWARD: %s" % path)
             return
+        if stream.loop_begin != 0:
+            _fail("ambience loop_begin must be 0: %s" % path)
+            return
+        var clip_end := roundi(stream.get_length() * stream.mix_rate) - 1
+        if stream.loop_end != clip_end:
+            _fail("ambience loop_end must cover the full clip: %s" % path)
+            return
         if stream.get_length() < 4.0 or stream.get_length() > 6.0:
             _fail("ambience duration must be 4-6 seconds: %s" % path)
             return

@@ -2,22 +2,48 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Produce the two deterministic HPA-440 river/rain ambience WAVs, keep their source recipe reproducible, and prove the imported Godot loops are seam-clean and correctly subordinate to existing Phoenix audio without adding runtime playback code.
+**Goal:** Produce the two HPA-440 river/rain ambience WAVs as committed artifacts of record under the repo's ElevenLabs MCP audio convention, and prove the imported Godot loops are seam-clean and correctly subordinate to existing Phoenix audio without adding runtime playback code.
 
-**Architecture:** Keep HPA-440 entirely at the asset boundary. Add one single-purpose Python-stdlib generator under `tools/`, generate two fixed 5-second mono PCM-16 source WAVs from seeded periodic noise shaped by a few filters/LFOs, import them through Godot, reuse `tests/headless/project_smoke.gd` with explicit `_fail()` exits, perform one imported-stream listening pass, then commit the accepted asset slice once. HPA-402 remains the runtime consumer.
+**Architecture:** Keep HPA-440 entirely at the asset boundary. Generate both 5-second mono PCM-16 22050 Hz beds through the ElevenLabs MCP `eleven_text_to_sound_v2` flow, post-process them into the locked container with a 100 ms equal-power circular crossfade, import them through Godot, reuse `tests/headless/project_smoke.gd` with explicit `_fail()` exits, record prompt/model/post-processing provenance and imported-stream measurement acceptance in `assets/audio/README.md`, then commit the accepted asset slice once. HPA-402 remains the runtime consumer.
 
-**Tech Stack:** Python 3 standard library (`wave`, `math`, `random`, `struct`), Godot 4.7.1 import pipeline, GDScript headless smoke, existing Phoenix verification scripts.
+**Tech Stack:** ElevenLabs MCP `eleven_text_to_sound_v2`, disposable uncommitted post-processing tooling, Godot 4.7.1 import pipeline, GDScript headless smoke, existing Phoenix verification scripts.
 
 **Spec:** `docs/superpowers/specs/2026-10-15-phoenix-river-rain-audio-assets-design.md`
+
+## Post-execution change (2026-10-16): ElevenLabs provenance
+
+After the deterministic-generator implementation was accepted on this branch,
+the repository owner directed that Phoenix audio generation use the ElevenLabs
+MCP (recorded as the repo audio convention in CLAUDE.md), matching the design
+spec's post-review change. This plan's seeded-generator instructions are
+superseded: `tools/generate_hpa_440_ambience.py` is deleted, seeds
+`44001`/`44002` no longer apply, and MCP-generated audio is not subject to the
+same-environment byte-identical rerun gate — rerunning generation produces new
+takes, not these files. Do not run or recreate a generator; the committed WAVs
+are the artifacts of record and provenance is the prompt/model/post-processing
+recipe in `assets/audio/README.md`.
+
+What was actually executed: four `eleven_text_to_sound_v2` takes per asset
+(`duration_seconds=5.0`, `loop=true`, `prompt_influence=0.7`), take selection
+plus post-processing into the locked container (mono 22050 Hz PCM-16, 110250
+frames, peak < 0.30) with the README's 100 ms equal-power circular crossfade,
+then the Step 4-7 smoke work — extended so the ambience checks also pin
+`loop_begin == 0` and `loop_end` covering the full clip — the imported-stream
+measurement acceptance recorded in `assets/audio/README.md`, and the Step
+10-13 diff/commit/verify discipline minus the regeneration gate. The container
+contract, Forward-loop import contract, `_fail()` smoke discipline, and
+HPA-402 boundary are unchanged. The recorded acceptance is measurement-based;
+a human listening pass on the imported streams remains the owner's pre-merge
+call.
 
 ## Global Constraints
 
 - Deliver exactly `assets/audio/river-ambience.wav` and `assets/audio/rain-ambience.wav` as new runtime audio files.
-- Add exactly one source generator: `tools/generate_hpa_440_ambience.py`.
-- The generator is single-purpose HPA-440 provenance, not a reusable audio framework/runtime dependency.
+- Commit no generator; the two WAVs are the artifacts of record under the repo's ElevenLabs MCP audio convention.
+- Provenance is the recorded prompt/model/post-processing recipe in `assets/audio/README.md`, not a committed synthesis script.
 - Each source WAV is exactly 5.0 seconds / 110250 frames, mono, signed PCM-16, 22050 Hz.
-- Use fixed seeds `44001` (River) and `44002` (Rain); no external samples.
-- Generate one periodic source buffer per asset, shape it with a few stable filters warmed across complete buffer periods, and use only periodic LFOs whose cycle counts are integers over five seconds.
+- No external samples or recordings; the ElevenLabs prompts and take ids are recorded in the README.
+- Make each loop seamless by construction with a 100 ms equal-power circular crossfade so the loop wrap joins adjacent source samples.
 - Final source peak stays below 0.30 full scale; print and record RMS but do not invent a second arbitrary numeric loudness limit.
 - Godot import uses full-clip Forward looping: `edit/loop_mode=2`, `edit/loop_begin=0`, `edit/loop_end=-1`.
 - Start with repository-default `compress/mode=2`; use `compress/mode=0` only if imported-loop listening exposes a compression-induced seam.
@@ -25,7 +51,7 @@
 - Reuse `tests/headless/project_smoke.gd`; add no audio-test framework.
 - Resource-check failures use its existing `_fail()` + `quit(1)` path, not bare `assert()`.
 - All listening acceptance uses the imported Godot resources.
-- Do not promise cross-platform byte identity; the generator rerun gate is for the same implementation environment.
+- Do not promise byte identity at all; MCP generation is not byte-reproducible, so no regeneration gate applies.
 - Commit no candidate archive, preview scene, runtime player/settings/weather code, alternate codec, or unrelated refactor.
 - One ticket / one branch / one PR; implementation continues on `agent/hpa-440-river-rain-audio-plan`.
 
@@ -34,7 +60,7 @@
 - **Imported seam:** the source may loop cleanly while QOA import introduces a click; imported playback must own the final seam gate and may fall back to PCM.
 - **Music masking/competition:** default Music 4 is `-24 dB`; Sound 7 plus HPA-402's `-12 dB` headroom also yields `-24 dB`, so ambience must be reviewed under `farm-day-loop.wav` at equal player gain.
 - **Smoke failure behavior:** every negative resource check must exit through `_fail()` instead of hanging on a bare assertion.
-- **Generator/output drift:** rerunning the committed generator in the same implementation environment must leave both committed WAVs unchanged.
+- **Asset drift:** MCP regeneration produces new takes; the committed WAVs are the artifacts of record and must never be overwritten by a rerun.
 - **Container/loudness drift:** files must remain mono PCM-16 / 22050 Hz / 110250 frames with peak `< 0.30`, and peak/RMS must be recorded.
 
 ---
@@ -42,7 +68,6 @@
 ### Task 1: Generate, import, accept, and commit the HPA-440 ambience assets
 
 **Files:**
-- Create: `tools/generate_hpa_440_ambience.py`
 - Create: `assets/audio/river-ambience.wav`
 - Create: `assets/audio/rain-ambience.wav`
 - Create: `assets/audio/river-ambience.wav.import`
@@ -52,9 +77,9 @@
 
 **Interfaces:**
 - Consumes: the source/import/listening contract in the design spec.
-- Produces: two accepted HPA-402-ready `AudioStreamWAV` paths, one reproducible source generator, and durable mechanical/perceptual handoff evidence.
+- Produces: two accepted HPA-402-ready `AudioStreamWAV` paths and durable provenance/measurement handoff evidence.
 
-- [ ] **Step 1: Implement the single-purpose seeded-noise generator**
+- [ ] **Step 1: Implement the single-purpose seeded-noise generator** (superseded — see Post-execution change; ElevenLabs MCP generation replaced this step and no generator is committed)
 
 Create `tools/generate_hpa_440_ambience.py` with only Python stdlib.
 
@@ -79,7 +104,7 @@ Keep the implementation direct:
 
 The exact filter coefficients, warm-up pass count, LFO depths, and output gains live only in this committed script.
 
-- [ ] **Step 2: Generate both source WAVs**
+- [ ] **Step 2: Generate both source WAVs** (superseded — see Post-execution change; the committed WAVs are the artifacts of record)
 
 Run:
 
@@ -146,6 +171,8 @@ loaded stream is AudioStreamWAV
 stream.mix_rate == 22050
 stream.stereo == false
 stream.loop_mode == AudioStreamWAV.LOOP_FORWARD
+stream.loop_begin == 0
+stream.loop_end == roundi(stream.get_length() * stream.mix_rate) - 1
 4.0 <= stream.get_length() <= 6.0
 ```
 
@@ -188,7 +215,7 @@ Expected: PASS; both resources load as mono 22050 Hz `AudioStreamWAV`, use `LOOP
 
 Rerun the Step 3 source-container check afterward to prove import work did not rewrite the source WAVs.
 
-- [ ] **Step 8: Perform one imported-stream listening acceptance pass**
+- [ ] **Step 8: Perform one imported-stream listening acceptance pass** (superseded — see Post-execution change; executed as imported-stream measurement acceptance recorded in `assets/audio/README.md`, human listen remains the owner's pre-merge call)
 
 Use Godot's imported-resource preview or a disposable uncommitted `AudioStreamPlayer` preview. Do **not** evaluate the final seam only in an external WAV player.
 
@@ -208,7 +235,7 @@ Accept only if:
 - both are less attention-grabbing than the farming one-shots;
 - River and Rain remain clearly distinguishable.
 
-If the source tone/balance is wrong, tune the committed generator and repeat Steps 2-8.
+If the source tone/balance is wrong, regenerate a fresh take and repeat Steps 2-8 (superseded: the generator no longer exists — MCP regeneration produces new takes).
 
 If the **source is acceptable but only the imported loop clicks**, change only the two ambience sidecars to:
 
@@ -224,8 +251,7 @@ Extend `assets/audio/README.md` with `## HPA-440 river and rain ambience` contai
 
 - both exact paths/purposes;
 - `5.0 s`, mono PCM-16, `22050 Hz`;
-- seeds `44001` / `44002`;
-- `tools/generate_hpa_440_ambience.py` as source recipe;
+- ElevenLabs MCP prompt/model/take-id provenance (superseded: seeds `44001`/`44002` and `tools/generate_hpa_440_ambience.py` no longer apply);
 - measured peak **and RMS** for each file;
 - accepted sidecar compression mode (`2` unless the seam fallback was required);
 - no external samples / no attribution;
@@ -242,7 +268,6 @@ Run:
 ```bash
 git status --short
 git diff -- assets/audio/README.md \
-             tools/generate_hpa_440_ambience.py \
              assets/audio/river-ambience.wav.import \
              assets/audio/rain-ambience.wav.import \
              tests/headless/project_smoke.gd
@@ -251,7 +276,6 @@ git diff -- assets/audio/README.md \
 Expected implementation scope:
 
 ```text
-tools/generate_hpa_440_ambience.py
 assets/audio/river-ambience.wav
 assets/audio/rain-ambience.wav
 assets/audio/river-ambience.wav.import
@@ -267,8 +291,7 @@ No preview/candidate file, runtime player/settings/world change, or unrelated si
 Only after Steps 3, 7, 8, and 9 are accepted:
 
 ```bash
-git add tools/generate_hpa_440_ambience.py \
-        assets/audio/river-ambience.wav \
+git add assets/audio/river-ambience.wav \
         assets/audio/rain-ambience.wav \
         assets/audio/river-ambience.wav.import \
         assets/audio/rain-ambience.wav.import \
@@ -277,14 +300,12 @@ git add tools/generate_hpa_440_ambience.py \
 git commit -m "feat(audio): add river and rain ambience loops"
 ```
 
-- [ ] **Step 12: Verify the committed head, then prove same-environment regeneration**
+- [ ] **Step 12: Verify the committed head** (superseded — the byte-identical regeneration gate does not apply to MCP-generated audio)
 
 Run in this order:
 
 ```bash
 ./tools/verify-clean.sh
-python3 tools/generate_hpa_440_ambience.py
-git diff --exit-code -- assets/audio/river-ambience.wav assets/audio/rain-ambience.wav
 git diff --check main...HEAD
 git status --short
 ```
@@ -292,7 +313,7 @@ git status --short
 Expected:
 
 - `verify-clean.sh` passes against committed `HEAD`;
-- same-environment generator rerun leaves the two WAVs unchanged;
+- the committed WAVs remain untouched (no regeneration rerun exists to diff);
 - `git diff --check` reports no whitespace errors;
 - worktree is clean;
 - only intended HPA-440 implementation/planning files differ from `main`.
@@ -305,8 +326,7 @@ Record:
 
 - peak/RMS metadata;
 - accepted compression mode;
-- generator path/seeds/no-external-samples provenance;
-- same-environment regeneration result;
+- ElevenLabs MCP prompt/model/take-id provenance and no-external-samples provenance;
 - imported 30-second seam/repetition result;
 - equal-gain `farm-day-loop.wav` mix verdict;
 - farming-SFX comparison;
