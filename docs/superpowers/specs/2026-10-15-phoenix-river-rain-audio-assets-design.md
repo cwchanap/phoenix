@@ -26,7 +26,7 @@ HPA-440 is the only unblocked Phoenix Todo. HPA-402 explicitly depends on these 
 - `assets/audio/README.md` already records project-generated audio provenance.
 - Phoenix keeps authored source artifacts when they materially improve reproducibility; HPA-440 follows that precedent with one small source generator rather than transcribing a complex texture recipe into prose.
 - Existing Phoenix audio imports as `AudioStreamWAV`; looping music uses `.import` metadata with `edit/loop_mode=2`, `edit/loop_begin=0`, and `edit/loop_end=-1`.
-- Existing WAV sidecars use `compress/mode=2`; Godot documents this WAV compression lane as QOA. HPA-440 starts with that project default and changes only if imported-loop listening exposes a seam artifact.
+- Existing WAV sidecars use `compress/mode=2`; Godot documents this WAV compression lane as QOA. HPA-440 starts with that project default and changes only if imported-stream review exposes a seam artifact.
 - `tests/headless/project_smoke.gd` already owns narrow resource checks and runs inside `./tools/verify-clean.sh`.
 - The repository commits source-adjacent `.import` sidecars; only `.godot/` generated import cache is ignored.
 - `UiSettings` defaults Music to 4 and Sound to 7. `db_for_level()` therefore resolves Music to `-24 dB` and Sound to `-12 dB`; HPA-402's additional `-12 dB` ambience headroom puts ambience at the same effective default gain as music. HPA-440 must therefore review ambience under `farm-day-loop.wav`, not only against one-shot SFX.
@@ -130,7 +130,7 @@ Both use full-clip forward looping:
 - `edit/loop_begin=0`;
 - `edit/loop_end=-1`.
 
-Start with the repository-default WAV compression setting (`compress/mode=2`). The 30-second seam review must listen to the **imported Godot resource**, not only the source WAV. If QOA import introduces an audible loop click that is absent from the source, set only these two ambience sidecars to `compress/mode=0`, reimport, and repeat the same imported-stream review. Two ~220 KB PCM imports are acceptable; do not add an alternate codec or wrapper.
+Start with the repository-default WAV compression setting (`compress/mode=2`). The 30-second-equivalent seam review must measure the **imported Godot resource**, not only the source WAV. If QOA import introduces an audible loop click that is absent from the source, set only these two ambience sidecars to `compress/mode=0`, reimport, and repeat the same imported-stream review. Two ~220 KB PCM imports are acceptable; do not add an alternate codec or wrapper.
 
 Do not add source WAV loop chunks, a custom importer, `.tres` wrapper, `AudioStreamRandomizer`, or Ogg/MP3 copies.
 
@@ -150,7 +150,7 @@ The HPA-440 section records:
 - accepted Godot compression mode for the two sidecars;
 - no external samples or third-party attribution;
 - full-clip Forward import contract;
-- final imported-stream listening verdict: 30-second seam/repetition result, placement under `farm-day-loop.wav` at equal gain, and prominence relative to `farm-hoe.wav` / `farm-harvest.wav`;
+- final imported-stream measurement verdict: ≥30-second seam/repetition result, placement under `farm-day-loop.wav` at equal gain, and prominence relative to `farm-hoe.wav` / `farm-harvest.wav`;
 - HPA-402 as the runtime consumer.
 
 Do not duplicate filter constants/tuning values into prose. The script is the reproducible source; the README is the compact handoff record.
@@ -177,20 +177,20 @@ Use Python stdlib `wave` as a one-shot source-container check:
 
 Do not teach production code about asset-generation constraints.
 
-## Audible acceptance
+## Acceptance review
 
-All final listening is against the **imported Godot resources**.
+All final acceptance is against the **imported Godot resources**. The human listening gate was removed at owner direction (2026-10-16): acceptance is a measurement-based imported-stream review recorded in `assets/audio/README.md`.
 
-Use one acceptance pass that covers:
+The review covers:
 
-1. each loop alone for at least 30 seconds — reject clicks, level jumps, obvious five-second pulses/swells, tonal River, harsh/pulsing Rain, or dramatic events;
-2. River, then Rain, under `farm-day-loop.wav` at equal player gain — ambience must remain subordinate rather than competing with the music at the effective default mix relationship;
-3. comparison against `farm-hoe.wav` and `farm-harvest.wav` at equal player gain — the ambience must remain less attention-grabbing than farming feedback;
-4. River and Rain must remain obviously distinguishable within a few seconds.
+1. each loop concatenated for at least 30 seconds — reject seam-localized clicks or level jumps at any wrap, periodic pulses/swells, tonal spikes, or dramatic transients;
+2. River, then Rain, against `farm-day-loop.wav` at equal gain — ambience measures subordinate rather than competing with the music at the effective default mix relationship;
+3. comparison against `farm-hoe.wav` and `farm-harvest.wav` at equal gain — the ambience measures less prominent than farming feedback;
+4. River and Rain must remain clearly distinguishable by spectrum.
 
-If sonic balance is wrong, tune the committed generator and regenerate. If only the imported seam clicks, try the `compress/mode=0` fallback before changing source synthesis.
+If sonic balance is wrong, generate a new take and re-measure. If only the imported seam clicks, try the `compress/mode=0` fallback before changing the source.
 
-Record the durable qualitative verdict in `assets/audio/README.md`; the PR description may repeat it but is not its only home. No preview scene is committed.
+Record the durable measurement verdict in `assets/audio/README.md`; the PR description may repeat it but is not its only home. No preview scene is committed.
 
 ## Downstream ownership
 
@@ -198,8 +198,8 @@ HPA-440 owns the asset-level import contract, including `LOOP_FORWARD`. HPA-402 
 
 ## Risks
 
-1. **Synthetic texture sounds tonal or tuning becomes slow** — filtered seeded noise keeps broadband generation linear in sample count; listening still rejects tonal results.
-2. **No source click but imported seam artifact** — listen to the Godot-imported resource; fall back to uncompressed PCM only for these two files if needed.
+1. **Synthetic texture sounds tonal or tuning becomes slow** — filtered seeded noise keeps broadband generation linear in sample count; measurement still rejects tonal results.
+2. **No source click but imported seam artifact** — measure the Godot-imported resource; fall back to uncompressed PCM only for these two files if needed.
 3. **Ambience competes with music** — record RMS, then judge the actual default gain relationship under `farm-day-loop.wav`.
 4. **Rain becomes harsh hiss** — keep low-mid body and tune filtering rather than solving brightness with amplitude.
 5. **Generator drifts from committed assets** — same-environment deterministic rerun must leave both WAVs unchanged.
@@ -213,15 +213,15 @@ HPA-440 is complete when:
 2. Both are exactly 5.0-second mono PCM-16 WAVs at 22050 Hz with peak below 0.30 full scale; peak and RMS are recorded.
 3. `tools/generate_hpa_440_ambience.py` deterministically reproduces both committed WAVs in the same implementation environment with no external samples.
 4. Both Godot sidecars forward-loop the full clip and imported resources pass the existing project smoke using clean `_fail()` exits.
-5. A 30-second imported-loop listen finds no obvious seam, distracting pattern, musical content, thunder, wildlife, or dramatic transient; `compress/mode=0` is used only if needed to eliminate an import-induced seam.
+5. An imported-stream measurement review over at least 30 seconds of looped content finds no seam-localized click, periodic pulse, tonal spike, musical content, thunder, wildlife, or dramatic transient; `compress/mode=0` is used only if needed to eliminate an import-induced seam.
 6. River and Rain remain subordinate under `farm-day-loop.wav` at equal player gain, remain less attention-grabbing than farming one-shots, and remain clearly distinguishable.
-7. `assets/audio/README.md` records compact provenance, peak/RMS, accepted compression mode, listening verdict, and HPA-402 handoff.
+7. `assets/audio/README.md` records compact provenance, peak/RMS, accepted compression mode, measurement verdict, and HPA-402 handoff.
 8. `./tools/verify-clean.sh` and `git diff --check main...HEAD` pass with no unrelated changes.
 9. No runtime player/settings/weather/world code, generic generation framework, alternate audio format, or unrelated refactor is added.
 
 ## Delivery rule
 
-One issue, one branch, one PR. Generate, import, mechanically verify, listen, and accept the assets before committing their implementation files. Final generator, WAVs, `.import` sidecars, README handoff, narrow `project_smoke.gd` update, and verification all remain on this same draft PR. HPA-402 starts only after this PR merges.
+One issue, one branch, one PR. Generate, import, mechanically verify, measure, and accept the assets before committing their implementation files. Final generator, WAVs, `.import` sidecars, README handoff, narrow `project_smoke.gd` update, and verification all remain on this same draft PR. HPA-402 starts only after this PR merges.
 
 ## Post-review change (2026-10-16): ElevenLabs provenance
 
@@ -240,4 +240,6 @@ regeneration gate are superseded — the committed WAVs are the artifacts of
 record, provenance is the recorded prompt/model/post-processing recipe, and
 seeds 44001/44002 no longer apply. The container contract, 0.30 peak guard,
 Forward-loop import contract, smoke coverage, and HPA-402 boundary are
-unchanged.
+unchanged. The human listening gate in the original Acceptance is removed at
+owner direction: acceptance is the imported-stream measurement review recorded
+in `assets/audio/README.md`.

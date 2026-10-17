@@ -33,8 +33,7 @@ measurement acceptance recorded in `assets/audio/README.md`, and the Step
 10-13 diff/commit/verify discipline minus the regeneration gate. The container
 contract, Forward-loop import contract, `_fail()` smoke discipline, and
 HPA-402 boundary are unchanged. The recorded acceptance is measurement-based;
-a human listening pass on the imported streams remains the owner's pre-merge
-call.
+the human listening gate was removed at owner direction (2026-10-16).
 
 ## Global Constraints
 
@@ -46,11 +45,11 @@ call.
 - Make each loop seamless by construction with a 100 ms equal-power circular crossfade so the loop wrap joins adjacent source samples.
 - Final source peak stays below 0.30 full scale; print and record RMS but do not invent a second arbitrary numeric loudness limit.
 - Godot import uses full-clip Forward looping: `edit/loop_mode=2`, `edit/loop_begin=0`, `edit/loop_end=-1`.
-- Start with repository-default `compress/mode=2`; use `compress/mode=0` only if imported-loop listening exposes a compression-induced seam.
+- Start with repository-default `compress/mode=2`; use `compress/mode=0` only if imported-stream review exposes a compression-induced seam.
 - Extend `assets/audio/README.md`; do not create another provenance/evidence document.
 - Reuse `tests/headless/project_smoke.gd`; add no audio-test framework.
 - Resource-check failures use its existing `_fail()` + `quit(1)` path, not bare `assert()`.
-- All listening acceptance uses the imported Godot resources.
+- All acceptance review uses the imported Godot resources.
 - Do not promise byte identity at all; MCP generation is not byte-reproducible, so no regeneration gate applies.
 - Commit no candidate archive, preview scene, runtime player/settings/weather code, alternate codec, or unrelated refactor.
 - One ticket / one branch / one PR; implementation continues on `agent/hpa-440-river-rain-audio-plan`.
@@ -76,7 +75,7 @@ call.
 - Modify: `tests/headless/project_smoke.gd`
 
 **Interfaces:**
-- Consumes: the source/import/listening contract in the design spec.
+- Consumes: the source/import/acceptance contract in the design spec.
 - Produces: two accepted HPA-402-ready `AudioStreamWAV` paths and durable provenance/measurement handoff evidence.
 
 - [ ] **Step 1: Implement the single-purpose seeded-noise generator** (superseded — see Post-execution change; ElevenLabs MCP generation replaced this step and no generator is committed)
@@ -215,7 +214,7 @@ Expected: PASS; both resources load as mono 22050 Hz `AudioStreamWAV`, use `LOOP
 
 Rerun the Step 3 source-container check afterward to prove import work did not rewrite the source WAVs.
 
-- [ ] **Step 8: Perform one imported-stream listening acceptance pass** (superseded — see Post-execution change; executed as imported-stream measurement acceptance recorded in `assets/audio/README.md`, human listen remains the owner's pre-merge call)
+- [ ] **Step 8: Perform one imported-stream listening acceptance pass** (superseded — see Post-execution change; executed as imported-stream measurement acceptance recorded in `assets/audio/README.md`, and the human listening gate was removed at owner direction)
 
 Use Godot's imported-resource preview or a disposable uncommitted `AudioStreamPlayer` preview. Do **not** evaluate the final seam only in an external WAV player.
 
@@ -256,7 +255,7 @@ Extend `assets/audio/README.md` with `## HPA-440 river and rain ambience` contai
 - accepted sidecar compression mode (`2` unless the seam fallback was required);
 - no external samples / no attribution;
 - full-clip Forward import contract;
-- actual imported-stream listening verdict covering 30-second seam/repetition, equal-gain mix under `farm-day-loop.wav`, farming-SFX comparison, and River/Rain distinction;
+- actual imported-stream measurement verdict covering ≥30-second seam/repetition, equal-gain mix under `farm-day-loop.wav`, farming-SFX comparison, and River/Rain distinction;
 - HPA-402 consumer handoff.
 
 Do not duplicate filter coefficients or generator tuning constants into prose.
