@@ -174,7 +174,7 @@ This task and Task 4 are owned by HPA-402 and ship on its follow-up PR, not on P
 
 - `assets/audio/river-ambience.wav`
 - `assets/audio/rain-ambience.wav`
-- forward-loop Godot import sidecars.
+- accepted forward-loop Godot import sidecars, with the asset-level loop contract already pinned by HPA-440's project smoke.
 
 Branch the HPA-402 follow-up PR from current `main` after the assets land. Do not continue on `agent/hpa-462-homestead-ambience-plan` and do not create placeholder WAVs.
 
@@ -247,12 +247,14 @@ Pin:
 
 - [ ] exactly one River and one Rain player;
 - [ ] expected stream paths;
-- [ ] streams import as forward loops;
+- [ ] each player's stream loops forward (`player.stream.loop_mode == AudioStreamWAV.LOOP_FORWARD`);
 - [ ] Sound=0 -> both players at -80 dB;
 - [ ] normal Sound applies the -12 dB headroom;
 - [ ] live Sound changes update the same player instances;
 - [ ] Music-only adjustment does not change ambience volume;
 - [ ] rainy/sunny toggles Rain playback without recreating the player.
+
+The import-level contract (the resource itself forward-loops the full clip) is HPA-440's asset-level smoke; the pin above covers the player-level wiring HPA-402 owns.
 
 No speaker-dependent test.
 
