@@ -38,5 +38,38 @@ func _init() -> void:
         "res://assets/ui/fonts/open-sans-variable.ttf",
         "res://assets/ui/fonts/jetbrains-mono-variable.ttf",
     ]:
-        assert(ResourceLoader.exists(path))
+        if not ResourceLoader.exists(path):
+            _fail("missing required resource: %s" % path)
+            return
+    for path in [
+        "res://assets/audio/river-ambience.wav",
+        "res://assets/audio/rain-ambience.wav",
+    ]:
+        if not ResourceLoader.exists(path):
+            _fail("missing ambience resource: %s" % path)
+            return
+        var loaded: Resource = ResourceLoader.load(path)
+        if not loaded is AudioStreamWAV:
+            _fail("ambience resource is not an AudioStreamWAV: %s" % path)
+            return
+        var stream: AudioStreamWAV = loaded
+        if stream.mix_rate != 22050:
+            _fail("ambience mix_rate must be 22050: %s" % path)
+            return
+        if stream.stereo:
+            _fail("ambience must be mono: %s" % path)
+            return
+        if stream.loop_mode != AudioStreamWAV.LOOP_FORWARD:
+            _fail("ambience loop_mode must be LOOP_FORWARD: %s" % path)
+            return
+        if stream.loop_begin != 0:
+            _fail("ambience loop_begin must be 0: %s" % path)
+            return
+        var clip_end := roundi(stream.get_length() * stream.mix_rate)
+        if stream.loop_end != clip_end:
+            _fail("ambience loop_end must cover the full clip: %s" % path)
+            return
+        if not is_equal_approx(stream.get_length(), 5.0):
+            _fail("ambience duration must be exactly 5.0 seconds: %s" % path)
+            return
     quit(0)
