@@ -38,12 +38,15 @@ discipline, and HPA-402 boundary are unchanged. The recorded acceptance is
 measurement-based; the human listening gate was removed at owner direction
 (2026-10-16).
 
-Final-head verification (2026-10-17, HEAD `68d8661`):
+Final-head verification (2026-10-18, HEAD `031155d`):
 `./tools/verify-clean.sh` passed against the committed head — 242/242 GUT
-tests plus the project, world-math, and world-shell headless smokes — and
-`git diff --check main...HEAD` is clean. This run covers the ElevenLabs WAVs
-and the post-execution provenance/plan edits; earlier `verify-clean.sh`
-results on this branch predate them.
+tests plus the project, world-math, and world-shell headless smokes,
+including `tools/check_audio_sources.py` (river peak 0.0565 / RMS 0.01142,
+rain peak 0.0549 / RMS 0.00995) — and `git diff --check main...HEAD` is
+clean. The earlier 2026-10-17 run at `68d8661` predates the review rework
+below; this run covers the reworked buffers, loop-bound sidecars, smoke
+checks, and the committed container check. Earlier `verify-clean.sh` results
+on this branch predate the ElevenLabs WAVs.
 
 Second post-execution change (2026-10-17, review rework on PR #20): the
 committed buffers were reworked in place after measurement review — periodic-
