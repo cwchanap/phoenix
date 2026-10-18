@@ -232,3 +232,11 @@ Sprite-isometric art contract
 - The proof player/crops/villagers/soil/shadow/scenery sprites remain live
   entity textures; only provably unreferenced proof ground resources were
   deleted.
+
+Audio generation convention
+- New Phoenix audio assets are generated through the ElevenLabs MCP
+  sound-effects tool `eleven_text_to_sound_v2`, not hand-written synthesis
+  scripts. The committed WAV is the artifact of record; record the prompt,
+  model id, plan tier/license terms, and any loop post-processing in
+  `assets/audio/README.md`. Byte-identical regeneration gates do not apply to
+  MCP-generated audio.
