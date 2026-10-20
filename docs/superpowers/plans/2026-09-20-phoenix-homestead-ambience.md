@@ -168,6 +168,8 @@ Do not add the earlier "wait several frames and prove time does not advance" tes
 
 ## Task 3: Integrate HPA-440 audio when its assets land
 
+**Superseded for execution:** Tasks 3–4 below are historical HPA-462 handoff notes, not a second live checklist. Implement HPA-402 only from the [current design](../specs/2026-10-19-phoenix-homestead-audio-integration-design.md) and [implementation plan](2026-10-19-phoenix-homestead-audio-integration.md) on [PR #21](https://github.com/cwchanap/phoenix/pull/21).
+
 This task and Task 4 are owned by HPA-402 and ship on its follow-up PR, not on PR #19.
 
 **Start gate:** HPA-440 merged with:
