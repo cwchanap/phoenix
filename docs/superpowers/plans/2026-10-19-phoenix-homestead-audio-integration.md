@@ -2,79 +2,55 @@
 
 **Issue:** [HPA-402](https://linear.app/cwchanap/issue/HPA-402/homestead-polish-integrate-river-and-rain-ambience-audio-after-hpa-440)  
 **Design:** [2026-10-19-phoenix-homestead-audio-integration-design.md](../specs/2026-10-19-phoenix-homestead-audio-integration-design.md)  
-**Delivery:** one PR `agent/hpa-402-homestead-audio-plan`, opened draft with docs; complete production/test changes on **this branch and PR**, never a second PR for HPA-402.  
-**Dependency:** HPA-440 PR #20 **merged** into `main` on 2026-10-18. HPA-462 PR #19 already owns the visuals. This plan is the still-unimplemented Tasks 3–4 of the original [homestead ambience plan](2026-09-20-phoenix-homestead-ambience.md). That original document remains historical and is not another implementation assignment.
+**Delivery:** **one PR #21**, branch `agent/hpa-402-homestead-audio-plan`: draft planning now; put all tests and implementation into this same PR.  
+**Upstream:** HPA-440 PR #20 merged both audio loops; HPA-462 PR #19 finished the visual presenter. The earlier [HPA-462 Tasks 3–4](2026-09-20-phoenix-homestead-ambience.md) are **superseded**, not a parallel implementation checklist.
 
-## 0. Baseline / reuse checks
+## Baseline and minimal reuse
 
-- [ ] Confirm both WAVs and `.import` sidecars load from `main`, and the existing `tests/headless/project_smoke.gd` covers their forward-loop import properties (HPA-440 owns these).
-- [ ] Inspect `scripts/world/homestead_ambience.gd`, `scripts/world/world_shell.gd`, `scripts/ui/game_hud.gd`, `scenes/world/world.tscn`, `scripts/ui/ui_settings.gd`, and existing tests. Do not replace the existing world/presenter/settings path.
-- [ ] Run/record clean baseline verification if Godot is available. The **planning-only commit has not run the Godot suite**.
+- [ ] Confirm existing `GameHud._build_audio()`, `apply_settings()`, `render(snapshot)` and `_play_sfx()` behavior. The HUD builds/owns Sfx and Music players, applies both preferences, handles rainy tint and checks `is_inside_tree()` before SFX playback.
+- [ ] Confirm exact HPA-440 assets exist and `tests/headless/project_smoke.gd` already enforces full-clip `AudioStreamWAV.LOOP_FORWARD`; don't add asset-loop tests or edit WAVs.
+- [ ] Confirm existing helpers/tests: `_spawn_world`, `_settings_world`, `SETTINGS_PATH`, the app launch tests and the gameplay-shell HUD/audio/settings/rain tests.
+- [ ] Record baseline verification if Godot is available; **this planning-only draft has not run GUT or native playback**.
 
-## 1. Add two World-owned players + volume setup
+## Task 1 — Add failing regression assertions first
 
-**Files:** `scenes/world/world.tscn`, `scripts/world/homestead_ambience.gd`
+**Files:** `tests/integration/test_gameplay_shell.gd`, `tests/integration/test_app_launch.gd`
 
-- [ ] Add two external `AudioStream` resources for `res://assets/audio/river-ambience.wav` and `res://assets/audio/rain-ambience.wav`; add child `AudioStreamPlayer` nodes `HomesteadAmbience/RiverAmbience` and `HomesteadAmbience/RainAmbience` with those streams. No replacement/clone streams, buses or looping scripts.
-- [ ] Bind both children with typed `@onready` refs. Add `AMBIENCE_HEADROOM_DB := -12.0`.
-- [ ] Add `set_sound_volume_db(sound_db: float)`: if input is mute (`<= -80.0`), set both to `-80.0`; otherwise set both to `sound_db - 12.0`.
-- [ ] Add `setup(settings: UiSettings)`: call `set_sound_volume_db(settings.db_for_level(settings.sound))` then `play()` River once. Do not store `settings` or camera.
-- [ ] Extend existing `render(snapshot)` with conditional Rain play/stop and no restart while already playing. Preserve `_rain_falling`, `set_process`, `queue_redraw` and all ripple behavior.
+- [ ] Extend `test_hud_audio_players_and_representative_feedback_streams()` to find exactly one `RiverAmbience` and `RainAmbience` HUD child each. Assert streams at the exact resource paths, River playing and default Sound 7 -> **-24 dB**. Preserve SFX/music checks.
+- [ ] In `test_new_game_propagates_settings_and_tutorial_toggle_to_world_hud()`, assert existing startup Sound 10 results in **-12 dB** on both ambience players. In `test_settings_environment_path_is_loaded_without_using_save_override()`, set startup Sound 0 and assert **-80 dB** on both. Do not invoke `apply_settings()` again to make either test pass.
+- [ ] In `test_settings_adjustment_persists_in_isolated_path_and_applies_audio()`, assert Music-only change doesn't alter River/Rain volume, navigate once to Sound, adjust once and verify both players' new dB without replacement. Reuse the existing SettingsPanel action flow.
+- [ ] Add **one** focused `test_game_hud_rain_playback_follows_world_refresh()` in gameplay-shell: rainy -> repeated rainy -> sunny -> rainy through `_refresh_from_session()` on a valid restored session state/history. Assert Rain starts/stops without replacing its node, River continues playing and session weather isn't mutated by the presenters. Include a detached-HUD rainy render playback guard only if it fits the same focused test without a new harness.
+- [ ] Run these target tests and record the expected failures **before** runtime changes. Do not add new suites or duplicate smoke assertions.
 
-**Checkpoint:** verify scene parses; at first World creation both streams are attached, River plays and Rain reflects first snapshot.
+**Checkpoint:** failures must be for missing ambience behavior, not unrelated fixture errors.
 
-## 2. Wire live Sound settings at existing seam
+## Task 2 — Implement the existing HUD audio seam
 
-**Files:** `scripts/ui/game_hud.gd`, `scripts/world/world_shell.gd`
+**File:** `scripts/ui/game_hud.gd` (**the only runtime file**)
 
-- [ ] Declare `signal sound_volume_changed(volume_db: float)` on `GameHud`.
-- [ ] Emit the current sound dB from `GameHud.apply_settings()` after `_sfx_player.volume_db = ...` (respect existing early return). Do not alter Music logic or change SettingsPanel.
-- [ ] In `WorldShell._ready()`, after HUD configuration, call `_homestead_ambience.setup(_settings)` and connect `hud.sound_volume_changed` to `_homestead_ambience.set_sound_volume_db` before the existing `_refresh_from_session()`. Initial setup is direct, not signal-dependent.
-- [ ] Check that the current one-snapshot fanout `farm_view.refresh -> ambience.render -> hud.render` is unchanged.
+- [ ] Preload `RIVER_AMBIENCE` and `RAIN_AMBIENCE` from their exact `res://assets/audio/*-ambience.wav` paths. Add `AMBIENCE_HEADROOM_DB := -12.0` and typed River/Rain player fields.
+- [ ] Extend `_build_audio()` to create `RiverAmbience` and `RainAmbience` as named ordinary `AudioStreamPlayer` children of HUD, assign streams, initialize both `volume_db = -80.0`, and play River once after adding it. Leave Music/SFX setup unchanged.
+- [ ] Extend the existing `apply_settings()` with the current Sound dB applied to **both** ambience players as `maxf(sound_db + AMBIENCE_HEADROOM_DB, -80.0)`. Preserve Music and SFX assignments and the existing settings guard. Sound 0 stays -80, Sound 7 -> -24, Sound 10 -> -12.
+- [ ] In `render(snapshot)` reuse the weather condition already used by `WeatherTint`: start Rain only if rainy, `is_inside_tree()`, and not playing; stop Rain on sunny only if playing. **Do not early-return the full HUD render** when detached. No restart for repeated rainy renders.
+- [ ] Keep `HomesteadAmbience` as the existing visual-only World child; make **no changes** to `world.tscn`, `world_shell.gd`, `homestead_ambience.gd`, `UiSettings`, `SettingsPanel` or `test_persistence_flow.gd`. No new signal, setup method or audio manager.
 
-**Checkpoint:** Sound adjustments update the same River/Rain players; changing Music alone leaves their dB unchanged; Sound 0 stays -80 rather than -92.
+**Checkpoint:** re-run Task 1 tests. Verify the old `HomesteadAmbience.new()` without-camera test still works because that class was untouched.
 
-## 3. Focused gameplay-shell integration coverage
+## Task 3 — Verify and review mix
 
-**File:** `tests/integration/test_gameplay_shell.gd`
+- [ ] Run affected `test_gameplay_shell.gd` and `test_app_launch.gd` GUT tests, plus existing headless smokes, and `./tools/verify-clean.sh` on committed HEAD. Run `git diff --check`.
+- [ ] Native play: Sunny -> Rainy -> Sunny, Sound 7 and 0, a single live Sound adjustment, and Music-only adjustment. At **Sound 7 on a rainy day**, farm/harvest feedback must stay clearly audible over both ambient streams; rain should not restart on a redundant snapshot. Record actual listening observations (do not infer from RMS).
+- [ ] Keep a focused diff: one runtime file and two existing integration test files, plus design/plan docs and the historical supersession line. No lifecycle test, new WAVs, audio buses, smoke duplication or new PR.
+- [ ] Update PR #21's checklist and attach verified evidence. Keep draft until implementation and verification are actually complete.
 
-Reuse `_spawn_world(..., UiSettings)` / `_settings_world()` and their isolated `SETTINGS_PATH`. Extend the existing Sound/Settings and rain test area, rather than adding a new audio test suite.
+## Risk
 
-- [ ] Verify `HomesteadAmbience` has **exactly** one `RiverAmbience` and one `RainAmbience`, with the HPA-440 stream paths and `AudioStreamWAV.LOOP_FORWARD`; runtime ripple children stay unchanged.
-- [ ] Verify startup default Sound 7 -> `-24.0` dB; startup Sound 0 -> `-80.0` dB **without** needing to invoke `apply_settings()` after World creation.
-- [ ] Change Sound 7 -> 0 -> 7 through existing settings flow, asserting both dB values and original player instance identities. Change Music only and assert the two audio volume values do not change.
-- [ ] Verify initial rainy/sunny snapshot state and rainy -> rainy -> sunny -> rainy behavior, using `WorldShell._refresh_from_session()` for at least one real rainy session; Rain toggles without replacing instances, River stays playing.
-- [ ] Do not add frame-count, RMS, audio waveform, loop-seam or repeated no-op-render tests beyond needed behavior; HPA-440 has asset validation.
+The main uncertainty is perceptual mix balance when River + Rain + Music + farm SFX play simultaneously. The fixed -12 dB headroom is a starting value, not proven by the preexisting single-asset loudness measurements. Tune only if native evidence requires it.
 
-**Checkpoint:** run targeted GUT checks and record result.
+## Expected final implementation diff
 
-## 4. Extend existing lifecycle test only
-
-**File:** `tests/integration/test_persistence_flow.gd`
-
-In `test_result_return_to_title_reloads_save_and_new_game_keeps_slot()`:
-
-- [ ] Before `world.interact()`, retain references to both World-owned players.
-- [ ] After `await _await_world_teardown(app)`, **always** `await get_tree().process_frame` once to flush the World's queued deletion; only then assert `not is_instance_valid(old_river)` and `not is_instance_valid(old_rain)`.
-- [ ] Keep Continue/result/save-slot logic and all current assertions.
-- [ ] After the existing same-frame New Game, assert the **fresh World** owns exactly one River player and one Rain player, both different from the freed refs. No separate free-world test or reparenting assertions.
-
-**Checkpoint:** run the existing persistence-flow suite.
-
-## 5. Final verification and PR follow-through
-
-- [ ] Run the affected gameplay-shell and persistence-flow GUT tests and the existing headless smoke(s), then `./tools/verify-clean.sh` on **committed HEAD**.
-- [ ] Run `git diff --check` and review the focused runtime/test diff for YAGNI/KISS compliance.
-- [ ] In native Godot play, exercise Sound 7 -> 0 -> 7 during sunny/rainy World and Music-only adjustment; verify quiet ambience and no harsh restart. Record actual observations, not inferred results.
-- [ ] Update this PR description with verification evidence; address review in the same PR, then mark ready when implementation is complete.
-
-## Expected implementation diff (after this documentation-only draft)
-
-- `scenes/world/world.tscn`
-- `scripts/world/homestead_ambience.gd`
-- `scripts/world/world_shell.gd`
-- `scripts/ui/game_hud.gd`
+- `scripts/ui/game_hud.gd` — **only runtime change**
 - `tests/integration/test_gameplay_shell.gd`
-- `tests/integration/test_persistence_flow.gd`
+- `tests/integration/test_app_launch.gd`
 
-Not expected: audio asset/sidecar changes, `UiSettings`, `SettingsPanel`, `GameSession`, `GameRules`, saves, the visual-capture framework, or new services.
+Explicitly **unchanged**: `scripts/world/homestead_ambience.gd`, `scripts/world/world_shell.gd`, `scenes/world/world.tscn`, `tests/integration/test_persistence_flow.gd`, audio source/import files and unrelated game logic.
