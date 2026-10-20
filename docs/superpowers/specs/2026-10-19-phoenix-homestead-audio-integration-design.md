@@ -21,7 +21,7 @@ Finish the deferred audio-only part of the existing homestead ambience presenter
 
 In `scenes/world/world.tscn`, add exactly two ordinary **non-spatial** `AudioStreamPlayer` children under the existing `HomesteadAmbience` node, named **RiverAmbience** and **RainAmbience**. Assign their streams to the two exact HPA-440 paths via direct scene external resources. Keep the existing three runtime ripple children and rain canvas rendering unchanged. No player under HUD, AppRoot, global autoload, audio bus, or new manager.
 
-In `scripts/world/homestead_ambience.gd`, use two `@onready` player references and a single constant `AMBIENCE_HEADROOM_DB := -12.0`. The existing instance owns playback for its entire World lifetime; freeing the World frees both players.
+In `scripts/world/homestead_ambience.gd`, use two `@onready` player references and a single constant `AMBIENCE_HEADROOM_DB := -12.0`. The existing instance owns playback for its entire World lifetime; freeing the World frees both players. `GameHud` also lives under World and would satisfy teardown alone, but using `HomesteadAmbience` intentionally keeps weather-controlled playback with the existing weather presenter and honors the HPA-462 ownership contract.
 
 ## Initial Sound volume and live changes
 
