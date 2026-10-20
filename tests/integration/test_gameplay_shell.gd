@@ -2140,11 +2140,19 @@ func test_open_settings_is_only_available_from_pause() -> void:
 func test_settings_adjustment_persists_in_isolated_path_and_applies_audio() -> void:
     var world := _settings_world()
     var hud := _hud(world)
+    var river := hud.get_node_or_null("RiverAmbience") as AudioStreamPlayer
+    var rain := hud.get_node_or_null("RainAmbience") as AudioStreamPlayer
+    assert_not_null(river)
+    assert_not_null(rain)
+    if river == null or rain == null:
+        return
     hud.open_pause()
     await _press_panel_action(&"open_settings")
     var settings := _panel(hud, "SettingsPanel") as SettingsPanel
     assert_eq(settings.selected_setting_name(), &"music")
 
+    var river_before := river.volume_db
+    var rain_before := rain.volume_db
     await _press_panel_action(&"move_right")
 
     assert_eq(hud._settings.music, UiSettings.DEFAULT_MUSIC + 1)
@@ -2152,9 +2160,23 @@ func test_settings_adjustment_persists_in_isolated_path_and_applies_audio() -> v
         (hud.get_node("MusicPlayer") as AudioStreamPlayer).volume_db,
         hud._settings.db_for_level(UiSettings.DEFAULT_MUSIC + 1),
     )
+    # A Music-only adjustment must leave both ambience players untouched.
+    assert_eq(river.volume_db, river_before)
+    assert_eq(rain.volume_db, rain_before)
     var config := ConfigFile.new()
     assert_eq(config.load(SETTINGS_PATH), OK)
     assert_eq(int(config.get_value("ui", "music")), UiSettings.DEFAULT_MUSIC + 1)
+
+    await _press_panel_action(&"move_down")
+    assert_eq(settings.selected_setting_name(), &"sound")
+    await _press_panel_action(&"move_right")
+
+    assert_eq(hud._settings.sound, UiSettings.DEFAULT_SOUND + 1)
+    # Sound 7 -> 8 keeps the ambience headroom on both original players.
+    assert_eq(river.volume_db, -20.0)
+    assert_eq(rain.volume_db, -20.0)
+    assert_eq(hud.get_node("RiverAmbience"), river)
+    assert_eq(hud.get_node("RainAmbience"), rain)
 
 
 func test_escape_closes_shop_before_help() -> void:
@@ -2251,6 +2273,72 @@ func test_refresh_from_session_renders_rainy_snapshot() -> void:
     assert_true(world._homestead_ambience.is_rain_falling())
 
 
+func test_game_hud_rain_playback_follows_world_refresh() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var rain := hud.get_node_or_null("RainAmbience") as AudioStreamPlayer
+    var river := hud.get_node_or_null("RiverAmbience") as AudioStreamPlayer
+    assert_not_null(rain)
+    assert_not_null(river)
+    if rain == null or river == null:
+        return
+
+    var rainy_key := GameRules.weather_key(GameRules.Weather.RAINY)
+    var sunny_key := GameRules.weather_key(GameRules.Weather.SUNNY)
+    var state := world._session.state()
+    state["weather"] = rainy_key
+    var history: Array = state["weather_history"]
+    history[history.size() - 1] = rainy_key
+    state["weather_history"] = history
+    assert_true(world._session.restore_state(state))
+
+    world._refresh_from_session()
+    assert_true(rain.playing)
+    assert_true(river.playing)
+
+    world._refresh_from_session()
+    # A repeated rainy refresh must keep the same node playing, not replace it.
+    assert_eq(hud.get_node("RainAmbience"), rain)
+    assert_true(rain.playing)
+    assert_true(river.playing)
+
+    state = world._session.state()
+    state["weather"] = sunny_key
+    history = state["weather_history"]
+    history[history.size() - 1] = sunny_key
+    state["weather_history"] = history
+    assert_true(world._session.restore_state(state))
+
+    world._refresh_from_session()
+    assert_eq(hud.get_node("RainAmbience"), rain)
+    assert_false(rain.playing)
+    assert_true(river.playing)
+
+    state = world._session.state()
+    state["weather"] = rainy_key
+    history = state["weather_history"]
+    history[history.size() - 1] = rainy_key
+    state["weather_history"] = history
+    assert_true(world._session.restore_state(state))
+
+    world._refresh_from_session()
+    assert_eq(hud.get_node("RainAmbience"), rain)
+    assert_true(rain.playing)
+    assert_true(river.playing)
+    # Presenter renders fan out from a snapshot and must not mutate the session.
+    assert_eq(world._session.snapshot()["weather"], rainy_key)
+
+    # Detached-HUD guard: a rainy render off-tree must not start playback.
+    var detached := (load("res://scenes/ui/game_hud.tscn") as PackedScene).instantiate() as GameHud
+    add_child_autofree(detached)
+    var detached_rain := detached.get_node_or_null("RainAmbience") as AudioStreamPlayer
+    assert_not_null(detached_rain)
+    if detached_rain != null:
+        detached.get_parent().remove_child(detached)
+        detached.render(world._session.snapshot())
+        assert_false(detached_rain.playing)
+
+
 func test_render_without_camera_keeps_rain_state() -> void:
     var ambience := HomesteadAmbience.new()
     add_child_autofree(ambience)
@@ -2280,6 +2368,26 @@ func test_hud_audio_players_and_representative_feedback_streams() -> void:
     assert_not_null(music)
     assert_eq(music.stream.resource_path, "res://assets/audio/farm-day-loop.wav")
     assert_eq((music.stream as AudioStreamWAV).loop_mode, AudioStreamWAV.LOOP_FORWARD)
+
+    var river := world.hud.get_node_or_null("RiverAmbience") as AudioStreamPlayer
+    var rain := world.hud.get_node_or_null("RainAmbience") as AudioStreamPlayer
+    var river_matches := world.hud.get_children().filter(
+        func(child: Node) -> bool: return child.name == &"RiverAmbience"
+    )
+    var rain_matches := world.hud.get_children().filter(
+        func(child: Node) -> bool: return child.name == &"RainAmbience"
+    )
+    assert_eq(river_matches.size(), 1, "exactly one RiverAmbience HUD child")
+    assert_eq(rain_matches.size(), 1, "exactly one RainAmbience HUD child")
+    assert_not_null(river)
+    assert_not_null(rain)
+    if river == null or rain == null:
+        return
+    assert_eq(river.stream.resource_path, "res://assets/audio/river-ambience.wav")
+    assert_eq(rain.stream.resource_path, "res://assets/audio/rain-ambience.wav")
+    assert_true(river.playing)
+    assert_eq(river.volume_db, -24.0)
+    assert_eq(rain.volume_db, -24.0)
 
     world.hud.show_feedback(GameRules.CommandCode.SOIL_TILLED)
     assert_eq(sfx.stream.resource_path, "res://assets/audio/farm-hoe.wav")
