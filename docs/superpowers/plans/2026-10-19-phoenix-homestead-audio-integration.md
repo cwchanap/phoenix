@@ -55,7 +55,7 @@ Reuse `_spawn_world(..., UiSettings)` / `_settings_world()` and their isolated `
 In `test_result_return_to_title_reloads_save_and_new_game_keeps_slot()`:
 
 - [ ] Before `world.interact()`, retain references to both World-owned players.
-- [ ] After `_await_world_teardown(app)`, ensure queued deletion has actually flushed (if needed, await one process frame) before asserting `not is_instance_valid(old_river)` and `not is_instance_valid(old_rain)`.
+- [ ] After `await _await_world_teardown(app)`, **always** `await get_tree().process_frame` once to flush the World's queued deletion; only then assert `not is_instance_valid(old_river)` and `not is_instance_valid(old_rain)`.
 - [ ] Keep Continue/result/save-slot logic and all current assertions.
 - [ ] After the existing same-frame New Game, assert the **fresh World** owns exactly one River player and one Rain player, both different from the freed refs. No separate free-world test or reparenting assertions.
 
