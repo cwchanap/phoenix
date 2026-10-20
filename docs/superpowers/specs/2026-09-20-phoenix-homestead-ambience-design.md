@@ -149,6 +149,8 @@ No RNG is required.
 
 ## Audio integration
 
+**Superseded for execution:** This HPA-462 audio ownership proposal is historical. [HPA-402 design](2026-10-19-phoenix-homestead-audio-integration-design.md) and [implementation plan](../plans/2026-10-19-phoenix-homestead-audio-integration.md) now put river/rain players in the existing `GameHud`, not `HomesteadAmbience`; no cross-node settings signal or lifecycle-test extension is needed.
+
 Audio is Task 3 and waits for HPA-440 only.
 
 After the two WAV files land, `HomesteadAmbience` owns:
