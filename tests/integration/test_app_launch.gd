@@ -92,6 +92,14 @@ func test_new_game_propagates_settings_and_tutorial_toggle_to_world_hud() -> voi
     assert_eq(hud._settings, settings)
     assert_eq((hud.get_node("MusicPlayer") as AudioStreamPlayer).volume_db, -80.0)
     assert_eq((hud.get_node("SfxPlayer") as AudioStreamPlayer).volume_db, 0.0)
+    var river := hud.get_node_or_null("RiverAmbience") as AudioStreamPlayer
+    var rain := hud.get_node_or_null("RainAmbience") as AudioStreamPlayer
+    assert_not_null(river)
+    assert_not_null(rain)
+    if river != null and rain != null:
+        # Startup Sound 10 keeps the ambience headroom on both players.
+        assert_eq(river.volume_db, -12.0)
+        assert_eq(rain.volume_db, -12.0)
 
     var opening := hud.get_node("HudRoot/OnboardingOverlay/OpeningPanel") as Control
     var card := hud.get_node("HudRoot/OnboardingOverlay/TutorialCard") as Control
@@ -119,6 +127,7 @@ func test_new_game_propagates_settings_and_tutorial_toggle_to_world_hud() -> voi
 func test_settings_environment_path_is_loaded_without_using_save_override() -> void:
     var settings := UiSettings.load(SETTINGS_PATH)
     assert_eq(settings.set_music(0), OK)
+    assert_eq(settings.set_sound(0), OK)
     assert_eq(settings.set_tutorial_cards(false), OK)
     OS.set_environment("PHOENIX_SETTINGS_PATH", SETTINGS_PATH)
 
@@ -132,6 +141,14 @@ func test_settings_environment_path_is_loaded_without_using_save_override() -> v
     var hud := world.hud
     assert_eq(hud._settings._path, SETTINGS_PATH)
     assert_eq((hud.get_node("MusicPlayer") as AudioStreamPlayer).volume_db, -80.0)
+    var river := hud.get_node_or_null("RiverAmbience") as AudioStreamPlayer
+    var rain := hud.get_node_or_null("RainAmbience") as AudioStreamPlayer
+    assert_not_null(river)
+    assert_not_null(rain)
+    if river != null and rain != null:
+        # Startup Sound 0 mutes both ambience players at the -80 dB floor.
+        assert_eq(river.volume_db, -80.0)
+        assert_eq(rain.volume_db, -80.0)
     assert_false((hud.get_node("HudRoot/OnboardingOverlay/TutorialCard") as Control).visible)
 
 func test_continue_restores_state_and_uses_authored_spawn() -> void:
