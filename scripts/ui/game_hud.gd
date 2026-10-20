@@ -35,6 +35,9 @@ const CANCEL_SFX := preload("res://assets/audio/cancel.wav")
 const DAY_TRANSITION_SFX := preload("res://assets/audio/day-transition.wav")
 const FINALE_SFX := preload("res://assets/audio/finale.wav")
 const FARM_DAY_LOOP := preload("res://assets/audio/farm-day-loop.wav")
+const RIVER_AMBIENCE := preload("res://assets/audio/river-ambience.wav")
+const RAIN_AMBIENCE := preload("res://assets/audio/rain-ambience.wav")
+const AMBIENCE_HEADROOM_DB := -12.0
 const ONBOARDING_SCENE := preload("res://scenes/ui/onboarding_overlay.tscn")
 const SHOP_SCENE := preload("res://scenes/ui/shop_panel.tscn")
 const SHIPPING_SCENE := preload("res://scenes/ui/shipping_panel.tscn")
@@ -80,6 +83,8 @@ var _seed_buttons: Array[Button] = []
 var _seed_count_labels: Array[Label] = []
 var _sfx_player: AudioStreamPlayer
 var _music_player: AudioStreamPlayer
+var _river_ambience_player: AudioStreamPlayer
+var _rain_ambience_player: AudioStreamPlayer
 var _settings: UiSettings
 var _last_snapshot: Dictionary = {}
 var _finale_in_progress := false
@@ -129,6 +134,9 @@ func apply_settings() -> void:
         return
     _music_player.volume_db = _settings.db_for_level(_settings.music)
     _sfx_player.volume_db = _settings.db_for_level(_settings.sound)
+    var ambience_db := maxf(_settings.db_for_level(_settings.sound) + AMBIENCE_HEADROOM_DB, -80.0)
+    _river_ambience_player.volume_db = ambience_db
+    _rain_ambience_player.volume_db = ambience_db
     _onboarding_overlay.set_tutorial_cards_enabled(_settings.tutorial_cards)
     _settings.apply_window(get_window())
 
@@ -140,11 +148,15 @@ func render(snapshot: Dictionary) -> void:
     _almanac_panel.present(snapshot)
     _calendar_panel.present(snapshot)
     _onboarding_overlay.render(snapshot)
-    _weather_tint.color = (
-        RAINY_TINT
-        if snapshot["weather"] == GameRules.weather_key(GameRules.Weather.RAINY)
-        else SUNNY_TINT
-    )
+    var rainy: bool = snapshot["weather"] == GameRules.weather_key(GameRules.Weather.RAINY)
+    _weather_tint.color = RAINY_TINT if rainy else SUNNY_TINT
+    if rainy:
+        # A detached World can still render (result teardown); playing
+        # off-tree only logs errors, so Rain starts only inside the tree.
+        if is_inside_tree() and not _rain_ambience_player.playing:
+            _rain_ambience_player.play()
+    elif _rain_ambience_player.playing:
+        _rain_ambience_player.stop()
     _time_value_label.text = GameRules.format_time(int(snapshot["time_minutes"]))
     _day_value_label.text = "%d" % int(snapshot["day"])
     _day_max_label.text = "/%d" % GameRules.MAX_DAY
@@ -457,6 +469,19 @@ func _build_audio() -> void:
     _music_player.stream = FARM_DAY_LOOP
     add_child(_music_player)
     _music_player.play()
+
+    _river_ambience_player = AudioStreamPlayer.new()
+    _river_ambience_player.name = "RiverAmbience"
+    _river_ambience_player.volume_db = -80.0
+    _river_ambience_player.stream = RIVER_AMBIENCE
+    add_child(_river_ambience_player)
+    _river_ambience_player.play()
+
+    _rain_ambience_player = AudioStreamPlayer.new()
+    _rain_ambience_player.name = "RainAmbience"
+    _rain_ambience_player.volume_db = -80.0
+    _rain_ambience_player.stream = RAIN_AMBIENCE
+    add_child(_rain_ambience_player)
 
 func await_feedback_cue() -> void:
     # Lets a caller hold the world until the just-started feedback stream has
