@@ -149,7 +149,7 @@ func apply_settings() -> void:
         not muted
         and is_inside_tree()
         and not _rain_ambience_player.playing
-        and GameRules.is_rainy(_last_snapshot.get("weather"))
+        and _last_snapshot.get("weather") == GameRules.weather_key(GameRules.Weather.RAINY)
     ):
         _rain_ambience_player.play()
     _onboarding_overlay.set_tutorial_cards_enabled(_settings.tutorial_cards)
@@ -166,7 +166,7 @@ func render(snapshot: Dictionary) -> void:
     _almanac_panel.present(snapshot)
     _calendar_panel.present(snapshot)
     _onboarding_overlay.render(snapshot)
-    var rainy := GameRules.is_rainy(snapshot["weather"])
+    var rainy: bool = snapshot["weather"] == GameRules.weather_key(GameRules.Weather.RAINY)
     _weather_tint.color = RAINY_TINT if rainy else SUNNY_TINT
     if rainy:
         # A detached World can still render (result teardown); playing
@@ -784,7 +784,7 @@ func _set_hud_chrome_visible(is_visible: bool) -> void:
         ($HudRoot.get_node(node_path) as Control).visible = is_visible
 
 func _display_weather(key: Variant) -> String:
-    return "Rainy" if GameRules.is_rainy(key) else "Sunny"
+    return "Rainy" if key == GameRules.weather_key(GameRules.Weather.RAINY) else "Sunny"
 
 func _unhandled_input(event: InputEvent) -> void:
     if event.is_action_pressed("toggle_bag"):

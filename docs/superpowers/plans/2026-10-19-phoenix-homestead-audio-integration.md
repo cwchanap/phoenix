@@ -57,16 +57,14 @@ Reviewer pass over the merged-test surface produced these adjustments, all kept 
 - **Detached-HUD guard:** the vacuous `assert_false(playing)` became `assert_engine_error_count(0)` — off-tree `play()` logs `Playback can only happen inside the scene tree` and `playing` alone can never fail there.
 - **Sound 0 = real mute:** `apply_settings()` sets `stream_paused` on both ambience players (River decodes nothing at level 0), and `render()` skips `play()` while muted since `play()` clears `stream_paused` and a paused stream reports `playing == false`. The sunny branch stops a muted-but-active rain via `or stream_paused`. Muting mid-rain pauses the live stream; unmuting resumes the same playback.
 - **Deduplication:** `sound_db` is computed once in `apply_settings()`; `_build_audio()` funnels all four players through `_add_audio_player()`; tests share `_restore_weather()` and `_players_with_stream()`; ambience assertions derive expected dB from `db_for_level(...) + GameHud.AMBIENCE_HEADROOM_DB` instead of literals.
-- **`GameRules.is_rainy()`** is the single rainy-key comparison now used by `GameHud.render()`, `_display_weather()`, `HomesteadAmbience.render()`, `FarmView.refresh()` and `MorningSummaryPanel.present()`.
+- ~~**`GameRules.is_rainy()`**~~ **reverted:** the shared helper and its `HomesteadAmbience`/`FarmView`/`MorningSummaryPanel`/`_display_weather` call-site migrations were cross-cutting cleanup outside this slice — the same resolution as HPA-462 PR #19 (`e3bead7`). The rainy-key comparison stays local in `GameHud`, preserving the one-runtime-file promise.
 - **No rain fade-in:** `rain-ambience.wav` opens at ≈-45 dBFS (first 10 ms peak -32.6 dBFS) — the soft onset is baked into the asset, so a code fade is unnecessary.
 - **Unmute starts idle Rain:** a muted rainy render leaves Rain never-started, and clearing `stream_paused` on an idle player starts nothing, so `apply_settings()` now plays it when Sound becomes positive over a rainy snapshot, in-tree and not already playing. The check runs after `stream_paused = false` so a mid-rain paused stream still resumes in place; covered by `test_hud_unmute_starts_rain_when_last_render_was_muted`.
 
 ## Expected final implementation diff
 
-- `scripts/ui/game_hud.gd` — primary runtime change
+- `scripts/ui/game_hud.gd` — primary runtime change (**the only runtime file**)
 - `tests/integration/test_gameplay_shell.gd`
 - `tests/integration/test_app_launch.gd`
-- `scripts/game/game_rules.gd` — `is_rainy()` helper (review follow-up)
-- `scripts/world/homestead_ambience.gd`, `scripts/world/farm_view.gd`, `scripts/ui/morning_summary_panel.gd` — one-line `is_rainy()` call-site migrations (review follow-up)
 
 Explicitly **unchanged**: `scripts/world/world_shell.gd`, `scenes/world/world.tscn`, `tests/integration/test_persistence_flow.gd`, audio source/import files and unrelated game logic.

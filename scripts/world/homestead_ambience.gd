@@ -41,7 +41,7 @@ func _ready() -> void:
     set_process(false)
 
 func render(snapshot: Dictionary) -> void:
-    _rain_falling = GameRules.is_rainy(snapshot["weather"])
+    _rain_falling = snapshot["weather"] == GameRules.weather_key(GameRules.Weather.RAINY)
     set_process(_rain_falling)
     queue_redraw()
 
