@@ -62,7 +62,7 @@ Asset-level full-clip `LOOP_FORWARD` has already been verified in `tests/headles
 
 ## Validation and mix risk
 
-Tests cannot prove listening quality. Run focused GUT integration tests, existing headless smokes and `./tools/verify-clean.sh` against committed HEAD; run `git diff --check`. During native play, compare sunny/rainy and Sound/Music changes; **at Sound 7 on a rainy day, farming action SFX must remain clearly audible over rain and river**. Record what was actually observed and tune the single headroom constant only if the mix is demonstrably too prominent. Do not claim listening evidence from static asset measurements.
+Run focused GUT integration tests, existing headless smokes and `./tools/verify-clean.sh` against committed HEAD; run `git diff --check`. Perceptual mix acceptance is the measurement-based imported-stream subordination review recorded in `assets/audio/README.md`: at equal gain both beds measure strictly below the music bed and the farming one-shots under unweighted and A-weighted RMS, and the runtime adds a further -12 dB headroom, so farming action SFX stays clearly audible over rain and river. The human native-listening gate was removed at owner direction (2026-10-20), matching the HPA-440 assets decision; tune the single headroom constant only if measured evidence requires it.
 
 ## Exclusions
 

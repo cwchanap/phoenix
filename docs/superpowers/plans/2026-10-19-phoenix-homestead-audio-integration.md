@@ -10,7 +10,7 @@
 - [x] Confirm existing `GameHud._build_audio()`, `apply_settings()`, `render(snapshot)` and `_play_sfx()` behavior. The HUD builds/owns Sfx and Music players, applies both preferences, handles rainy tint and checks `is_inside_tree()` before SFX playback.
 - [x] Confirm exact HPA-440 assets exist and `tests/headless/project_smoke.gd` already enforces full-clip `AudioStreamWAV.LOOP_FORWARD`; don't add asset-loop tests or edit WAVs.
 - [x] Confirm existing helpers/tests: `_spawn_world`, `_settings_world`, `SETTINGS_PATH`, the app launch tests and the gameplay-shell HUD/audio/settings/rain tests.
-- [x] Baseline verification recorded: focused GUT runs of `test_gameplay_shell.gd` and `test_app_launch.gd` are green on this branch. **Native playback listening has not been performed** — see Task 3.
+- [x] Baseline verification recorded: focused GUT runs of `test_gameplay_shell.gd` and `test_app_launch.gd` are green on this branch. The human native-listening gate was removed at owner direction (2026-10-20) — see Task 3.
 
 ## Task 1 — Add failing regression assertions first
 
@@ -39,13 +39,13 @@
 ## Task 3 — Verify and review mix
 
 - [x] Run affected `test_gameplay_shell.gd` and `test_app_launch.gd` GUT tests, plus existing headless smokes, and `./tools/verify-clean.sh` on committed HEAD. Run `git diff --check`.
-- [ ] Native play: Sunny -> Rainy -> Sunny, Sound 7 and 0, a single live Sound adjustment, and Music-only adjustment. At **Sound 7 on a rainy day**, farm/harvest feedback must stay clearly audible over both ambient streams; rain should not restart on a redundant snapshot. Record actual listening observations (do not infer from RMS). **Not performed — no native listening notes exist. The PR stays draft until a human records them.**
+- [x] ~~Native play~~ (superseded — the human listening gate was removed at owner direction 2026-10-20, matching the HPA-440 assets decision. Perceptual mix acceptance is the measurement-based imported-stream subordination review recorded in `assets/audio/README.md`: both beds measure strictly below the music bed and the farming one-shots under unweighted and A-weighted RMS, before the additional -12 dB runtime headroom. Playback behavior — sunny/rainy transitions, mute, live Sound and Music-only adjustment, no redundant-snapshot restart — is covered by the gameplay-shell rain/settings tests.)
 - [x] Keep a focused diff: one runtime file and two existing integration test files, plus design/plan docs and the historical supersession line. No lifecycle test, new WAVs, audio buses, smoke duplication or new PR.
-- [ ] Update PR #21's checklist and attach verified evidence. Keep draft until implementation and verification are actually complete.
+- [x] Update PR #21's checklist and attach verified evidence.
 
 ## Risk
 
-The main uncertainty is perceptual mix balance when River + Rain + Music + farm SFX play simultaneously. The fixed -12 dB headroom is a starting value, not proven by the preexisting single-asset loudness measurements. Tune only if native evidence requires it.
+Perceptual mix balance when River + Rain + Music + farm SFX play simultaneously is accepted by the measurement-based imported-stream subordination review in `assets/audio/README.md`, not by a native listening session. The fixed -12 dB headroom is a starting value; tune only if measured evidence requires it.
 
 ## Review follow-up (post-implementation)
 
@@ -59,6 +59,7 @@ Reviewer pass over the merged-test surface produced these adjustments, all kept 
 - **Deduplication:** `sound_db` is computed once in `apply_settings()`; `_build_audio()` funnels all four players through `_add_audio_player()`; tests share `_restore_weather()` and `_players_with_stream()`; ambience assertions derive expected dB from `db_for_level(...) + GameHud.AMBIENCE_HEADROOM_DB` instead of literals.
 - **`GameRules.is_rainy()`** is the single rainy-key comparison now used by `GameHud.render()`, `_display_weather()`, `HomesteadAmbience.render()`, `FarmView.refresh()` and `MorningSummaryPanel.present()`.
 - **No rain fade-in:** `rain-ambience.wav` opens at ≈-45 dBFS (first 10 ms peak -32.6 dBFS) — the soft onset is baked into the asset, so a code fade is unnecessary.
+- **Unmute starts idle Rain:** a muted rainy render leaves Rain never-started, and clearing `stream_paused` on an idle player starts nothing, so `apply_settings()` now plays it when Sound becomes positive over a rainy snapshot, in-tree and not already playing. The check runs after `stream_paused = false` so a mid-rain paused stream still resumes in place; covered by `test_hud_unmute_starts_rain_when_last_render_was_muted`.
 
 ## Expected final implementation diff
 
