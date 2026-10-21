@@ -98,8 +98,14 @@ func test_new_game_propagates_settings_and_tutorial_toggle_to_world_hud() -> voi
     assert_not_null(rain)
     if river != null and rain != null:
         # Startup Sound 10 keeps the ambience headroom on both players.
-        assert_eq(river.volume_db, -12.0)
-        assert_eq(rain.volume_db, -12.0)
+        var full_db := maxf(
+            hud._settings.db_for_level(10) + GameHud.AMBIENCE_HEADROOM_DB,
+            -80.0,
+        )
+        assert_eq(river.volume_db, full_db)
+        assert_eq(rain.volume_db, full_db)
+        assert_false(river.stream_paused)
+        assert_false(rain.stream_paused)
 
     var opening := hud.get_node("HudRoot/OnboardingOverlay/OpeningPanel") as Control
     var card := hud.get_node("HudRoot/OnboardingOverlay/TutorialCard") as Control
@@ -147,8 +153,30 @@ func test_settings_environment_path_is_loaded_without_using_save_override() -> v
     assert_not_null(rain)
     if river != null and rain != null:
         # Startup Sound 0 mutes both ambience players at the -80 dB floor.
-        assert_eq(river.volume_db, -80.0)
-        assert_eq(rain.volume_db, -80.0)
+        var muted_db := maxf(
+            hud._settings.db_for_level(0) + GameHud.AMBIENCE_HEADROOM_DB,
+            -80.0,
+        )
+        assert_eq(river.volume_db, muted_db)
+        assert_eq(rain.volume_db, muted_db)
+        assert_true(river.stream_paused)
+        # Under Sound 0 a rainy render must not start decoding the rain bed.
+        var rainy := world._session.snapshot()
+        rainy["weather"] = GameRules.weather_key(GameRules.Weather.RAINY)
+        hud.render(rainy)
+        assert_false(rain.playing)
+        assert_false(rain.stream_paused)
+        # From a non-muted volume, apply_settings must drive the floor back.
+        river.volume_db = -40.0
+        river.stream_paused = false
+        rain.volume_db = -40.0
+        rain.stream_paused = false
+        hud.apply_settings()
+        assert_eq(river.volume_db, muted_db)
+        assert_eq(rain.volume_db, muted_db)
+        # River keeps its running playback paused; idle Rain simply never ran.
+        assert_true(river.stream_paused)
+        assert_false(rain.stream_paused)
     assert_false((hud.get_node("HudRoot/OnboardingOverlay/TutorialCard") as Control).visible)
 
 func test_continue_restores_state_and_uses_authored_spawn() -> void:
