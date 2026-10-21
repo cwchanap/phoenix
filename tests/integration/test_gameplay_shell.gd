@@ -2353,6 +2353,27 @@ func test_game_hud_rain_playback_follows_world_refresh() -> void:
         assert_engine_error_count(0, "detached rainy render must not attempt playback")
 
 
+func test_hud_unmute_starts_rain_when_last_render_was_muted() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var rain := hud.get_node_or_null("RainAmbience") as AudioStreamPlayer
+    assert_not_null(rain)
+    if rain == null:
+        return
+
+    _restore_weather(world, GameRules.weather_key(GameRules.Weather.RAINY))
+    # A rainy render while Sound is muted leaves Rain idle; the later unmute
+    # must start it, because no refresh is guaranteed before the next command.
+    hud._settings.sound = 0
+    hud.apply_settings()
+    world._refresh_from_session()
+    assert_false(rain.playing)
+
+    hud._settings.sound = UiSettings.DEFAULT_SOUND
+    hud.apply_settings()
+    assert_true(rain.playing)
+
+
 func test_render_without_camera_keeps_rain_state() -> void:
     var ambience := HomesteadAmbience.new()
     add_child_autofree(ambience)

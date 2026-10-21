@@ -139,8 +139,19 @@ func apply_settings() -> void:
     _river_ambience_player.volume_db = ambience_db
     _rain_ambience_player.volume_db = ambience_db
     # Sound 0 is the project's -80 dB mute; pausing also stops the decode.
-    _river_ambience_player.stream_paused = _sound_muted()
-    _rain_ambience_player.stream_paused = _sound_muted()
+    var muted := _sound_muted()
+    _river_ambience_player.stream_paused = muted
+    _rain_ambience_player.stream_paused = muted
+    # A muted rainy render leaves Rain idle, and unpausing an idle player
+    # starts nothing; the unmute itself must start it or Rain stays silent
+    # until the next command-driven render.
+    if (
+        not muted
+        and is_inside_tree()
+        and not _rain_ambience_player.playing
+        and GameRules.is_rainy(_last_snapshot.get("weather"))
+    ):
+        _rain_ambience_player.play()
     _onboarding_overlay.set_tutorial_cards_enabled(_settings.tutorial_cards)
     _settings.apply_window(get_window())
 
