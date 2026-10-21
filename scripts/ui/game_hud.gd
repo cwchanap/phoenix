@@ -133,12 +133,19 @@ func apply_settings() -> void:
     if _settings == null or _music_player == null or _sfx_player == null:
         return
     _music_player.volume_db = _settings.db_for_level(_settings.music)
-    _sfx_player.volume_db = _settings.db_for_level(_settings.sound)
-    var ambience_db := maxf(_settings.db_for_level(_settings.sound) + AMBIENCE_HEADROOM_DB, -80.0)
+    var sound_db := _settings.db_for_level(_settings.sound)
+    _sfx_player.volume_db = sound_db
+    var ambience_db := maxf(sound_db + AMBIENCE_HEADROOM_DB, -80.0)
     _river_ambience_player.volume_db = ambience_db
     _rain_ambience_player.volume_db = ambience_db
+    # Sound 0 is the project's -80 dB mute; pausing also stops the decode.
+    _river_ambience_player.stream_paused = _sound_muted()
+    _rain_ambience_player.stream_paused = _sound_muted()
     _onboarding_overlay.set_tutorial_cards_enabled(_settings.tutorial_cards)
     _settings.apply_window(get_window())
+
+func _sound_muted() -> bool:
+    return _settings != null and _settings.sound == 0
 
 func render(snapshot: Dictionary) -> void:
     _last_snapshot = snapshot.duplicate(true)
@@ -148,14 +155,15 @@ func render(snapshot: Dictionary) -> void:
     _almanac_panel.present(snapshot)
     _calendar_panel.present(snapshot)
     _onboarding_overlay.render(snapshot)
-    var rainy: bool = snapshot["weather"] == GameRules.weather_key(GameRules.Weather.RAINY)
+    var rainy := GameRules.is_rainy(snapshot["weather"])
     _weather_tint.color = RAINY_TINT if rainy else SUNNY_TINT
     if rainy:
         # A detached World can still render (result teardown); playing
         # off-tree only logs errors, so Rain starts only inside the tree.
-        if is_inside_tree() and not _rain_ambience_player.playing:
+        # Sound 0 skips the stream instead of decoding it at -80 dB.
+        if is_inside_tree() and not _sound_muted() and not _rain_ambience_player.playing:
             _rain_ambience_player.play()
-    elif _rain_ambience_player.playing:
+    elif _rain_ambience_player.playing or _rain_ambience_player.stream_paused:
         _rain_ambience_player.stop()
     _time_value_label.text = GameRules.format_time(int(snapshot["time_minutes"]))
     _day_value_label.text = "%d" % int(snapshot["day"])
@@ -458,30 +466,25 @@ func _sfx_for_code(code: GameRules.CommandCode) -> AudioStream:
             return CANCEL_SFX
 
 func _build_audio() -> void:
-    _sfx_player = AudioStreamPlayer.new()
-    _sfx_player.name = "SfxPlayer"
-    _sfx_player.volume_db = -8.0
-    add_child(_sfx_player)
+    _sfx_player = _add_audio_player(&"SfxPlayer", null, -8.0)
+    _music_player = _add_audio_player(&"MusicPlayer", FARM_DAY_LOOP, -20.0, true)
+    _river_ambience_player = _add_audio_player(&"RiverAmbience", RIVER_AMBIENCE, -80.0, true)
+    _rain_ambience_player = _add_audio_player(&"RainAmbience", RAIN_AMBIENCE, -80.0)
 
-    _music_player = AudioStreamPlayer.new()
-    _music_player.name = "MusicPlayer"
-    _music_player.volume_db = -20.0
-    _music_player.stream = FARM_DAY_LOOP
-    add_child(_music_player)
-    _music_player.play()
-
-    _river_ambience_player = AudioStreamPlayer.new()
-    _river_ambience_player.name = "RiverAmbience"
-    _river_ambience_player.volume_db = -80.0
-    _river_ambience_player.stream = RIVER_AMBIENCE
-    add_child(_river_ambience_player)
-    _river_ambience_player.play()
-
-    _rain_ambience_player = AudioStreamPlayer.new()
-    _rain_ambience_player.name = "RainAmbience"
-    _rain_ambience_player.volume_db = -80.0
-    _rain_ambience_player.stream = RAIN_AMBIENCE
-    add_child(_rain_ambience_player)
+func _add_audio_player(
+    node_name: StringName,
+    stream: AudioStream,
+    volume_db: float,
+    playing := false,
+) -> AudioStreamPlayer:
+    var player := AudioStreamPlayer.new()
+    player.name = node_name
+    player.volume_db = volume_db
+    player.stream = stream
+    add_child(player)
+    if playing:
+        player.play()
+    return player
 
 func await_feedback_cue() -> void:
     # Lets a caller hold the world until the just-started feedback stream has
@@ -770,7 +773,7 @@ func _set_hud_chrome_visible(is_visible: bool) -> void:
         ($HudRoot.get_node(node_path) as Control).visible = is_visible
 
 func _display_weather(key: Variant) -> String:
-    return "Rainy" if key == GameRules.weather_key(GameRules.Weather.RAINY) else "Sunny"
+    return "Rainy" if GameRules.is_rainy(key) else "Sunny"
 
 func _unhandled_input(event: InputEvent) -> void:
     if event.is_action_pressed("toggle_bag"):

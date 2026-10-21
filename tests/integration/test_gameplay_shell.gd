@@ -46,6 +46,24 @@ func _settings_world() -> WorldShell:
 func _locked_world() -> WorldShell:
     return _spawn_world(false)
 
+func _restore_weather(world: WorldShell, weather_key: StringName) -> void:
+    var state := world._session.state()
+    state["weather"] = weather_key
+    var history: Array = state["weather_history"]
+    history[history.size() - 1] = weather_key
+    state["weather_history"] = history
+    assert_true(world._session.restore_state(state))
+
+func _players_with_stream(parent: Node, stream_path: String) -> Array:
+    return parent.get_children().filter(
+        func(child: Node) -> bool:
+            return (
+                child is AudioStreamPlayer
+                and (child as AudioStreamPlayer).stream != null
+                and (child as AudioStreamPlayer).stream.resource_path == stream_path
+            )
+    )
+
 func test_fresh_opening_blocks_world_input() -> void:
     var world := _locked_world()
     var opening := world.hud.get_node(
@@ -2173,8 +2191,12 @@ func test_settings_adjustment_persists_in_isolated_path_and_applies_audio() -> v
 
     assert_eq(hud._settings.sound, UiSettings.DEFAULT_SOUND + 1)
     # Sound 7 -> 8 keeps the ambience headroom on both original players.
-    assert_eq(river.volume_db, -20.0)
-    assert_eq(rain.volume_db, -20.0)
+    var expected_ambience_db := maxf(
+        hud._settings.db_for_level(UiSettings.DEFAULT_SOUND + 1) + GameHud.AMBIENCE_HEADROOM_DB,
+        -80.0,
+    )
+    assert_eq(river.volume_db, expected_ambience_db)
+    assert_eq(rain.volume_db, expected_ambience_db)
     assert_eq(hud.get_node("RiverAmbience"), river)
     assert_eq(hud.get_node("RainAmbience"), rain)
 
@@ -2261,13 +2283,7 @@ func test_rain_visibility_follows_rainy_and_sunny_snapshots() -> void:
 
 func test_refresh_from_session_renders_rainy_snapshot() -> void:
     var world := _world()
-    var state := world._session.state()
-    var rainy_key := GameRules.weather_key(GameRules.Weather.RAINY)
-    state["weather"] = rainy_key
-    var history: Array = state["weather_history"]
-    history[history.size() - 1] = rainy_key
-    state["weather_history"] = history
-    assert_true(world._session.restore_state(state))
+    _restore_weather(world, GameRules.weather_key(GameRules.Weather.RAINY))
 
     world._refresh_from_session()
     assert_true(world._homestead_ambience.is_rain_falling())
@@ -2285,50 +2301,48 @@ func test_game_hud_rain_playback_follows_world_refresh() -> void:
 
     var rainy_key := GameRules.weather_key(GameRules.Weather.RAINY)
     var sunny_key := GameRules.weather_key(GameRules.Weather.SUNNY)
-    var state := world._session.state()
-    state["weather"] = rainy_key
-    var history: Array = state["weather_history"]
-    history[history.size() - 1] = rainy_key
-    state["weather_history"] = history
-    assert_true(world._session.restore_state(state))
+    _restore_weather(world, rainy_key)
 
     world._refresh_from_session()
     assert_true(rain.playing)
     assert_true(river.playing)
+    var rain_playback := rain.get_stream_playback()
 
     world._refresh_from_session()
-    # A repeated rainy refresh must keep the same node playing, not replace it.
+    # A repeated rainy refresh must keep the same stream playing, not restart
+    # it: play() would hand back a new AudioStreamPlayback.
     assert_eq(hud.get_node("RainAmbience"), rain)
-    assert_true(rain.playing)
+    assert_same(rain.get_stream_playback(), rain_playback)
     assert_true(river.playing)
 
-    state = world._session.state()
-    state["weather"] = sunny_key
-    history = state["weather_history"]
-    history[history.size() - 1] = sunny_key
-    state["weather_history"] = history
-    assert_true(world._session.restore_state(state))
-
+    _restore_weather(world, sunny_key)
     world._refresh_from_session()
     assert_eq(hud.get_node("RainAmbience"), rain)
     assert_false(rain.playing)
     assert_true(river.playing)
 
-    state = world._session.state()
-    state["weather"] = rainy_key
-    history = state["weather_history"]
-    history[history.size() - 1] = rainy_key
-    state["weather_history"] = history
-    assert_true(world._session.restore_state(state))
-
+    _restore_weather(world, rainy_key)
     world._refresh_from_session()
     assert_eq(hud.get_node("RainAmbience"), rain)
     assert_true(rain.playing)
     assert_true(river.playing)
+    rain_playback = rain.get_stream_playback()
+
+    # Muting mid-rain pauses the live stream; unmuting resumes it in place.
+    hud._settings.sound = 0
+    hud.apply_settings()
+    assert_false(rain.playing)
+    assert_true(rain.stream_paused)
+    hud._settings.sound = UiSettings.DEFAULT_SOUND
+    hud.apply_settings()
+    assert_true(rain.playing)
+    assert_same(rain.get_stream_playback(), rain_playback)
+
     # Presenter renders fan out from a snapshot and must not mutate the session.
     assert_eq(world._session.snapshot()["weather"], rainy_key)
 
-    # Detached-HUD guard: a rainy render off-tree must not start playback.
+    # Detached-HUD guard: a rainy render off-tree must not reach play(), or
+    # the engine logs "Playback can only happen inside the scene tree".
     var detached := (load("res://scenes/ui/game_hud.tscn") as PackedScene).instantiate() as GameHud
     add_child_autofree(detached)
     var detached_rain := detached.get_node_or_null("RainAmbience") as AudioStreamPlayer
@@ -2336,7 +2350,7 @@ func test_game_hud_rain_playback_follows_world_refresh() -> void:
     if detached_rain != null:
         detached.get_parent().remove_child(detached)
         detached.render(world._session.snapshot())
-        assert_false(detached_rain.playing)
+        assert_engine_error_count(0, "detached rainy render must not attempt playback")
 
 
 func test_render_without_camera_keeps_rain_state() -> void:
@@ -2371,12 +2385,9 @@ func test_hud_audio_players_and_representative_feedback_streams() -> void:
 
     var river := world.hud.get_node_or_null("RiverAmbience") as AudioStreamPlayer
     var rain := world.hud.get_node_or_null("RainAmbience") as AudioStreamPlayer
-    var river_matches := world.hud.get_children().filter(
-        func(child: Node) -> bool: return child.name == &"RiverAmbience"
-    )
-    var rain_matches := world.hud.get_children().filter(
-        func(child: Node) -> bool: return child.name == &"RainAmbience"
-    )
+    # Godot renames a duplicate sibling, so count players by stream, not name.
+    var river_matches := _players_with_stream(world.hud, "res://assets/audio/river-ambience.wav")
+    var rain_matches := _players_with_stream(world.hud, "res://assets/audio/rain-ambience.wav")
     assert_eq(river_matches.size(), 1, "exactly one RiverAmbience HUD child")
     assert_eq(rain_matches.size(), 1, "exactly one RainAmbience HUD child")
     assert_not_null(river)
@@ -2386,8 +2397,12 @@ func test_hud_audio_players_and_representative_feedback_streams() -> void:
     assert_eq(river.stream.resource_path, "res://assets/audio/river-ambience.wav")
     assert_eq(rain.stream.resource_path, "res://assets/audio/rain-ambience.wav")
     assert_true(river.playing)
-    assert_eq(river.volume_db, -24.0)
-    assert_eq(rain.volume_db, -24.0)
+    var ambience_db := maxf(
+        world.hud._settings.db_for_level(UiSettings.DEFAULT_SOUND) + GameHud.AMBIENCE_HEADROOM_DB,
+        -80.0,
+    )
+    assert_eq(river.volume_db, ambience_db)
+    assert_eq(rain.volume_db, ambience_db)
 
     world.hud.show_feedback(GameRules.CommandCode.SOIL_TILLED)
     assert_eq(sfx.stream.resource_path, "res://assets/audio/farm-hoe.wav")
