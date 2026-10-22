@@ -17,7 +17,7 @@ Reuse verified seams:
 
 ## One clock owner, one session command
 
-Add `GameRules.REAL_SECONDS_PER_GAME_MINUTE := 0.7` as the initial tuning constant (960 game minutes / 0.7 = about **11.2 real minutes** without action costs). Do **not** add a timer node, autoload, time service, or save-schema field.
+Add `GameRules.REAL_SECONDS_PER_GAME_MINUTE := 0.7` as the initial tuning constant (960 game minutes × 0.7 seconds per minute = **672 seconds / 11.2 real minutes** without action costs). Do **not** add a timer node, autoload, time service, or save-schema field.
 
 In `GameSession`, add `advance_clock(minutes: int) -> bool`:
 - Reject nonpositive increments, pending summary or finale via `_active_day_failure()` and leave state unchanged.
