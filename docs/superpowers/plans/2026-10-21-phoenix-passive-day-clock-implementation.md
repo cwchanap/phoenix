@@ -8,7 +8,7 @@
 ## Task 0 — Baseline and reuse survey
 
 - [ ] Read `scripts/game/game_rules.gd` (clock/action/stamina constants), `scripts/game/game_session.gd` (active-day failure, action budgets, `sleep()`), `scripts/world/world_shell.gd` (`_process`, `_refresh_world_input_gate`, `_on_sleep_requested`), and `scripts/ui/game_hud.gd::has_blocking_modal()`.
-- [ ] Check existing tests: `tests/unit/test_game_rules.gd`, `tests/unit/test_game_session.gd`, `tests/integration/test_gameplay_shell.gd::_spawn_world`, `tests/e2e/gameplay_day_one_test.gd`, and any other World/AppRoot fixture. `tests/visual/ui_capture_host.gd` is HUD-only; leave it unchanged.
+- [ ] Check existing tests: `tests/unit/test_game_rules.gd`, `tests/unit/test_game_session.gd`, `tests/integration/test_gameplay_shell.gd` (**both** `_spawn_world` and `_configured_world`), AppRoot-backed `test_app_launch.gd`, `test_persistence_flow.gd`, `test_finale_cue.gd`, `tests/headless/world_shell_smoke.gd`, live-World `tests/visual/capture_homestead_ambience.gd`, and `tests/e2e/gameplay_day_one_test.gd`. The separate `tests/visual/ui_capture_host.gd` is HUD-only; leave it unchanged.
 - [ ] Record baseline GUT/headless verification if Godot is present. Never report unrun tests as passing.
 
 **Checkpoint:** confirm the feature adds no new owner: WorldShell runs the frame, GameSession changes gameplay state, HUD already owns the modal gate.
@@ -39,12 +39,13 @@
 
 ## Task 3 — Deflake real-world fixtures without changing visual goldens
 
-**Files:** existing World/AppRoot integration fixtures (only if they actually use live frames); `tests/e2e/gameplay_day_one_test.gd`; other actual GdUnit World constructors if found.
+**Files to survey explicitly:** `tests/integration/test_gameplay_shell.gd` (`_spawn_world` **and** `_configured_world` near line 2755); `tests/integration/test_app_launch.gd`; `tests/integration/test_persistence_flow.gd`; `tests/integration/test_finale_cue.gd`; `tests/headless/world_shell_smoke.gd`; `tests/visual/capture_homestead_ambience.gd`; `tests/e2e/gameplay_day_one_test.gd`. Check for additional World/AppRoot constructors in other GUT/GdUnit suites.
 
-- [ ] Survey the complete test suite for `WorldShell` creation through scene instantiation or `AppRoot`; introduce a fixture-local `clock_running = false` at the actual shared helper where possible. Preserve at least one explicit clock-enabled integration test.
-- [ ] E2E: in `_start_new_game()`, after new World exists, remotely call `game.set_property(WORLD, "clock_running", false)` before farming interactions. Do not change production default.
-- [ ] Do **not** edit `tests/visual/capture_ui_states.gd`, `UiCaptureHost`, `UiFixtureFactory` or goldens: they render a fixed HUD snapshot with no WorldShell/passive timer.
-- [ ] Do not globally disable processing or game pause because doing so would also disable movement, audio or action-hold semantics.
+- [ ] **Direct World constructors:** set `clock_running = false` **before** `add_child_autoqfree(world)` or `root.add_child(world)`. Cover the second gameplay-shell constructor, world-shell headless smoke and real-World homestead ambience capture, not just `_spawn_world`.
+- [ ] **AppRoot-path suites:** `test_app_launch.gd`, `test_persistence_flow.gd`, and `test_finale_cue.gd` create the World inside `AppRoot._launch()`. Pre-tree opt-out is not available from these callers: set `world.clock_running = false` **immediately after** `app.get_node("World")`, before any further awaited frames, ideally at the existing shared launch helpers. Do this for each newly created World, including New Game after Continue/result; audit blocked/terminal flows for existing implicit pauses.
+- [ ] **E2E:** in `_start_new_game()`, after the new World exists, remotely call `game.set_property(WORLD, "clock_running", false)` before farming interactions. This **cannot eliminate the interval before the remote call arrives**; on slow CI whole minutes can pass, so do **not** add exact-time E2E assertions for the opening state. Exercise exact tick behavior in pre-tree-disabled GUT Worlds that explicitly opt in instead.
+- [ ] **HUD-only goldens:** do **not** edit `tests/visual/capture_ui_states.gd`, `UiCaptureHost`, `UiFixtureFactory` or approved goldens: they render a fixed HUD snapshot with no WorldShell/passive timer. The *other* capture, `capture_homestead_ambience.gd`, does instantiate World and should be opted out before tree entry.
+- [ ] Do not globally disable processing or pause the SceneTree: it would also disable movement, audio or action-hold semantics. Preserve a dedicated clock-enabled integration test; disable only at each fixture.
 
 **Checkpoint:** regular gameplay/E2E timing checks remain repeatable.
 
@@ -52,13 +53,14 @@
 
 **Files:** `tests/unit/test_game_session.gd`, `tests/unit/test_game_rules.gd` if constants change
 
-- [ ] Build a deterministic sunny **mid-game full-effort workday** using existing `GameSession` operations and explicit `advance_clock(minutes)` entries standing in for real movement/social duration. No `await` or frame-count simulation in this balance test.
-- [ ] Document starting state and route (farm plot count, Efficient Can status, farming commands, travel/talk/shop minutes), resulting 22:00 proximity and remaining stamina. Set a **concrete, justified tolerance** after running the route; don't commit an arbitrary "close enough" assertion.
+- [ ] Build a deterministic sunny **mid-game full-effort workday** using existing `GameSession` commands and `advance_clock(minutes)` for **derived walking and other unblocked elapsed time only**, never invented travel/social minutes. Use actual `WorldContract` cells: bed `(12,7)`, farm `x=4..9, y=10..14`, shop `(17,9)`, shipping `(10,13)`, and villagers `(16,8)/(18,7)/(17,11)`, plus reachable interaction standing cells/waypoints that detour around authored collision footprints.
+- [ ] For each walk segment `start -> waypoint -> destination`, compute **projected** pixel distance from `WorldMath.grid_to_world()` and seconds as `segment_length_px / WorldContract.MOVE_SPEED` (**96 px/s**). Convert cumulative walking seconds to game minutes with `floori(total_unblocked_seconds / GameRules.REAL_SECONDS_PER_GAME_MINUTE)` and carry the fractional remainder between legs, rather than rounding each leg independently. Add a concise test comment/table with route waypoints, each segment's pixel length, summed travel seconds and resulting game minutes at the candidate rate. Count time in blocking shop/dialogue/pause panels as **zero** passive time; actual farming commands independently charge `ACTION_MINUTES`. No `await` or real-time sleeps in this balance test.
+- [ ] Document the starting state (farm plot count, Efficient Can status, ordered action route), resulting 22:00 proximity and remaining stamina. Set a **concrete, justified tolerance** after running the real-derived route; don't invent numbers to make the desired "both budgets near spent" gate pass.
 - [ ] Start at rate 0.7s/game-minute and existing action minutes; adjust only `REAL_SECONDS_PER_GAME_MINUTE` and, if the benchmark forces it, existing `ACTION_MINUTES` entries. Keep `ACTION_STAMINA`, Efficient Can cost, crop sale values and 20-pip HUD unchanged.
 - [ ] Re-run `test_representative_reinvestment_route_reaches_promising()` and `test_balance_gate_two_hundred_gold_buys_real_throughput_by_day_nine()`; verify the latter's ten-crop Day 1, six/ten Pumpkins and 840G/1400G outputs still fit. Explicitly record any re-pin if changing action minutes; do not silently loosen the budget guard.
 - [ ] Do not add a second economy simulation framework, crop balancing adjustments, or HPA-351 work to this PR.
 
-**Checkpoint:** representative route pins chosen numbers; existing day-one and 14-day economic routes still pass.
+**Checkpoint:** representative route pins measured, reproducible travel arithmetic and chosen balance numbers; existing day-one and 14-day economic routes still pass.
 
 ## Task 5 — Docs, final verification, and review follow-through
 
@@ -71,6 +73,6 @@
 
 ## Expected implementation diff
 
-`scripts/game/game_rules.gd`; `scripts/game/game_session.gd`; `scripts/world/world_shell.gd`; `tests/unit/test_game_session.gd`; `tests/integration/test_gameplay_shell.gd`; `tests/e2e/gameplay_day_one_test.gd`; `README.md`; `CLAUDE.md`. Touch other live World fixture files only when the actual fixture survey requires it.
+`scripts/game/game_rules.gd`; `scripts/game/game_session.gd`; `scripts/world/world_shell.gd`; `tests/unit/test_game_session.gd`; `tests/integration/test_gameplay_shell.gd`; `tests/e2e/gameplay_day_one_test.gd`; `README.md`; `CLAUDE.md`. Also survey `tests/integration/test_app_launch.gd`, `test_persistence_flow.gd`, `test_finale_cue.gd`, `tests/headless/world_shell_smoke.gd` and `tests/visual/capture_homestead_ambience.gd`; touch only those that need explicit opt-outs, and do not change HUD-only visual golden capture.
 
 **Explicitly out of scope:** new time service/timer/autoload, saved-state schema changes, visual re-blessing, stamina pips, passive crop growth, pass-out/food systems, HPA-351 economy, HPA-353 validator split, or HPA-264 action-selection redesign.
