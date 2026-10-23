@@ -71,6 +71,11 @@ not human-play evidence and not release acceptance.
   the flag flips, `_process` stops accruing, and resume adds no catch-up.
 - Residual gap: one unlocked-desktop check that a real defocus freezes the
   HUD clock and refocus adds no jump.
+- Follow-up (PR #22 review): the run above also exposed that
+  `_clock_window_focused` initialized `true` regardless of real window focus,
+  so this never-focused session still ticked. `WorldShell._ready()` now seeds
+  the flag from `get_window().has_focus()`; transition notifications still
+  own later updates.
 
 ## Rate status
 

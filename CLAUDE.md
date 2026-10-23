@@ -87,7 +87,8 @@ There is no JavaScript or Tauri runtime in the current checkout.
   success on the same cell within one hold.
 - `WorldShell` runs the HPA-263 passive day clock: `_process` calls
   `_advance_passive_clock(delta)` only while `clock_running` and the
-  window-focus flag hold, and the helper itself gates on
+  window-focus flag hold — the flag seeds from `Window.has_focus()` at
+  `_ready()` and tracks focus notifications — and the helper itself gates on
   `_world_input_enabled`, so every blocking modal and window focus-out pause
   the clock with no catch-up on resume. Whole minutes tick at
   `GameRules.REAL_SECONDS_PER_GAME_MINUTE` (0.5 s/min, the provisional
