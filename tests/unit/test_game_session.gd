@@ -2116,12 +2116,70 @@ func _benchmark_session(upgraded: bool) -> GameSession:
         assert_eq(int(session.snapshot()["money"]), 0)
     return session
 
+func _stand_for(target: Vector2i, facing: WorldMath.Facing) -> Vector2:
+    var offset: Vector2i = WorldMath.TARGET_OFFSETS[facing]
+    return Vector2(target - offset) + Vector2.ONE * 0.5
+
+func _benchmark_stand(cell: Vector2i) -> Vector2:
+    var facing := (
+        WorldMath.Facing.DOWN
+        if cell.y == WorldContract.FARM_PATCH.position.y
+        else WorldMath.Facing.UP
+    )
+    return _stand_for(cell, facing)
+
 func _run_benchmark_route(session: GameSession, crop_count: int) -> void:
     var cells := WorldContract.farm_cells()
     # Day 1: complete Plant + Water pairs cost 3 stamina base vs 2 upgraded.
+    # Day 1 walking model (anti-stranding): the upgraded route starts at the
+    # shop stand (18.5,10.5) after buying the can, the baseline at the bed
+    # stand (13.5,8.5); both finish at the bed stand for sleep. Stands are
+    # the walkable TARGET_OFFSETS diagonal cells: row y=10 is worked facing
+    # DOWN from (x-0.5,9.5), row y=11 facing UP from (x+1.5,12.5). Every leg
+    # keeps the 0.18 player half-extent clear of the house, stall, villager,
+    # shipping, market and workbench footprints.
+    #   upgraded legs: (18.5,10.5)->(3.5,9.5) 515.98px, 5x35.78px row-10
+    #     steps, ->(5.5,12.5) 192.00px, 3x35.78px row-11 steps, ->(13.5,8.5)
+    #     288.44px = 1282.65px = 13.36s -> 26min; 360+400+26 ends 13:06.
+    #   baseline legs: (13.5,8.5)->(3.5,9.5) 380.32px, 5x35.78px, ->(13.5,8.5)
+    #     202.39px = 761.59px = 7.93s -> 15min; 360+240+15 ends 10:15.
+    # Whole minutes consume travel seconds / REAL_SECONDS_PER_GAME_MINUTE and
+    # the sub-minute remainder carries across legs; blocked shop-panel time
+    # adds nothing and action minutes are charged separately.
+    var upgraded := bool(session.snapshot()["watering_can_upgraded"])
+    var origin: Vector2i = WorldContract.SHOP_CELL if upgraded else WorldContract.BED_CELL
+    var stands: Array[Vector2] = [_stand_for(origin, WorldMath.Facing.UP)]
     for index in crop_count:
-        assert_eq(session.plant(cells[index]), GameRules.CommandCode.CROP_PLANTED)
-        assert_eq(session.water(cells[index]), GameRules.CommandCode.CROP_WATERED)
+        stands.append(_benchmark_stand(cells[index]))
+    stands.append(_stand_for(WorldContract.BED_CELL, WorldMath.Facing.UP))
+    var travel_seconds := 0.0
+    var travel_minutes := 0
+    for index in crop_count + 1:
+        travel_seconds += (
+            WorldMath.grid_to_world(stands[index + 1]).distance_to(
+                WorldMath.grid_to_world(stands[index])
+            )
+            / WorldContract.MOVE_SPEED
+        )
+        var whole := floori(travel_seconds / GameRules.REAL_SECONDS_PER_GAME_MINUTE)
+        if whole > 0:
+            travel_seconds -= whole * GameRules.REAL_SECONDS_PER_GAME_MINUTE
+            travel_minutes += whole
+            assert_true(session.advance_clock(whole))
+        if index < crop_count:
+            assert_eq(session.plant(cells[index]), GameRules.CommandCode.CROP_PLANTED)
+            assert_eq(session.water(cells[index]), GameRules.CommandCode.CROP_WATERED)
+    var day_one := session.snapshot()
+    var action_minutes := (
+        GameRules.ACTION_MINUTES[GameRules.FarmingAction.SEEDS]
+        + GameRules.ACTION_MINUTES[GameRules.FarmingAction.WATERING_CAN]
+    ) * crop_count
+    assert_eq(travel_minutes, 26 if upgraded else 15)
+    assert_eq(
+        int(day_one["time_minutes"]),
+        GameRules.DAY_START_MINUTES + action_minutes + travel_minutes,
+    )
+    assert_lte(int(day_one["time_minutes"]), GameRules.ACTION_CUTOFF_MINUTES - 120)
     _sleep_and_ack(session)  # Night 1
     # Days 2..7: maintain the crops through their remaining sunny nights.
     for _night in 6:
