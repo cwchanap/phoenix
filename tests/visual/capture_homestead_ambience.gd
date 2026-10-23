@@ -41,6 +41,7 @@ func _capture(rainy: bool) -> Image:
     world.configure(state, null, UiSettings.new())
     var ambience := world.get_node("HomesteadAmbience") as HomesteadAmbience
     ambience.process_mode = Node.PROCESS_MODE_DISABLED
+    world.clock_running = false
     root.add_child(world)
     for _step in SETTLE_FRAMES:
         await process_frame

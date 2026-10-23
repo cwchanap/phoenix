@@ -230,6 +230,7 @@ func _run() -> void:
         _fail("world.tscn must load")
         return
     var world := packed.instantiate()
+    world.set("clock_running", false)
     root.add_child(world)
     await process_frame
 

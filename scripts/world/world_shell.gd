@@ -22,6 +22,9 @@ var _finale_in_progress := false
 var _action_hold_active := false
 var _action_hold_target: Variant = null
 var _action_hold_dwell := 0.0
+var clock_running := true
+var _clock_elapsed_seconds := 0.0
+var _clock_window_focused := true
 
 @onready var player: PlayerController = $Entities/Player as PlayerController
 @onready var farm_view: FarmView = $Entities as FarmView
@@ -103,6 +106,8 @@ func _ready() -> void:
     _refresh_from_session()
 
 func _process(delta: float) -> void:
+    if clock_running and _clock_window_focused:
+        _advance_passive_clock(delta)
     var target: Variant = player.current_target_cell()
 
     if not _world_input_enabled:
@@ -139,6 +144,17 @@ func _process(delta: float) -> void:
         hud.set_interaction_hint("Harvest Market — E")
     else:
         hud.set_interaction_hint("")
+
+func _advance_passive_clock(delta: float) -> void:
+    if not _world_input_enabled or delta <= 0.0:
+        return
+    _clock_elapsed_seconds += delta
+    var whole_minutes := floori(_clock_elapsed_seconds / GameRules.REAL_SECONDS_PER_GAME_MINUTE)
+    if whole_minutes <= 0:
+        return
+    _clock_elapsed_seconds -= whole_minutes * GameRules.REAL_SECONDS_PER_GAME_MINUTE
+    if _session.advance_clock(whole_minutes):
+        _refresh_from_session()
 
 func _refresh_from_session() -> void:
     var snapshot := _session.snapshot()
@@ -217,7 +233,10 @@ func use_selected_action() -> void:
 
 func _notification(what: int) -> void:
     if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+        _clock_window_focused = false
         _cancel_action_hold()
+    elif what == NOTIFICATION_APPLICATION_FOCUS_IN or what == NOTIFICATION_WM_WINDOW_FOCUS_IN:
+        _clock_window_focused = true
 
 func interact() -> void:
     if not _world_input_enabled:

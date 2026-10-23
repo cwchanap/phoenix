@@ -53,6 +53,7 @@ enum CommandCode {
 
 const DAY_START_MINUTES := 360
 const ACTION_CUTOFF_MINUTES := 1320
+const REAL_SECONDS_PER_GAME_MINUTE := 0.5
 const MAX_STAMINA := 20
 const MAX_DAY := 14
 const RAIN_CHANCE := 0.25
