@@ -115,11 +115,13 @@ func _await_world_teardown(app: AppRoot) -> void:
         await get_tree().process_frame
     fail_test("World was never torn down after the finale cue")
 
-func _launch_continued(repository: SaveRepository) -> AppRoot:
+func _launch_continued(repository: SaveRepository, stop_clock := false) -> AppRoot:
     var app := APP_SCENE.instantiate() as AppRoot
     app.configure(repository)
     add_child_autoqfree(app)
     (app.get_node("TitleScreen") as TitleScreen).continue_requested.emit()
+    if stop_clock:
+        (app.get_node("World") as WorldShell).clock_running = false
     await get_tree().process_frame
     return app
 
@@ -146,7 +148,7 @@ func test_market_and_bed_finalizations_save_once_and_reach_identical_result() ->
 
     _seed_slot(pre_final)
     var market_repository := CountingSaveRepository.new(TEST_PATH)
-    var market_app := await _launch_continued(market_repository)
+    var market_app := await _launch_continued(market_repository, true)
     var market_world := market_app.get_node("World") as WorldShell
     var finale_emits: Array = []
     market_world.finale_completed.connect(func(_state: Dictionary, save_error: int) -> void:
@@ -169,7 +171,7 @@ func test_market_and_bed_finalizations_save_once_and_reach_identical_result() ->
 
     _seed_slot(pre_final)
     var bed_repository := CountingSaveRepository.new(TEST_PATH)
-    var bed_app := await _launch_continued(bed_repository)
+    var bed_app := await _launch_continued(bed_repository, true)
     var bed_world := bed_app.get_node("World") as WorldShell
     _target_bed(bed_world)
     bed_world.hud.sleep_requested.emit()
