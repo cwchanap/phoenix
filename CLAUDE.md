@@ -165,8 +165,18 @@ HPA-597 is done: the blocking introduction with contextual dismissible help,
 the Day 14 harvest market, and the terminal result flow all shipped.
 HPA-263 makes the day clock a real constraint: it ticks passively during
 unblocked focused play at a provisional 0.5 s/min, pauses on modals and
-focus-out, and clamps at the 22:00 farming cutoff; the gameplay acceptance
-still awaits native human pace evidence before the rate is final.
+focus-out, and clamps at the 22:00 farming cutoff. An agent-operated
+native playtest (see below) observed ticking, modal freeze, the cutoff,
+and late interactions end to end; the rate stays provisional because
+human subjective pacing and an unlocked-desktop focus check remain open.
+- Native evidence:
+  `docs/superpowers/validation/2026-10-22-phoenix-passive-day-clock-native-playtest.md`
+  is agent-operated, not human, evidence. Its locked-session console could
+  not produce a real OS focus transition (`Window.has_focus()` never true),
+  so the focus-pause branch is covered only by the deterministic GUT
+  notification dispatch (`test_gameplay_shell.gd:2817-2825`); a human-run
+  defocus check on an unlocked desktop and a human subjective pace check
+  are still required before the 0.5 s/min rate is final.
 - HPA-598 owns serialization; HPA-594 defines no save schema.
 - HPA-599 owns balance/polish/export.
 - The starting-farm expansion replaced the HPA-590 `12x12` proof ground with
