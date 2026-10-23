@@ -2762,9 +2762,10 @@ func test_passive_clock_ticks_pauses_and_keeps_late_day_interactive() -> void:
     var card := overlay.get_node("TutorialCard") as Control
 
     # The fixture switch stays off: the world opens unblocked behind the
-    # non-blocking tutorial card, at 06:00, with an empty accumulator.
+    # non-blocking tutorial card, at 06:00, with an empty accumulator. The
+    # focus flag mirrors the real window state at _ready (false headless).
     assert_false(world.clock_running)
-    assert_true(world._clock_window_focused)
+    assert_eq(world._clock_window_focused, world.get_window().has_focus())
     assert_eq(world._clock_elapsed_seconds, 0.0)
     assert_true(world._world_input_enabled)
     assert_false(hud.has_blocking_modal())
