@@ -812,6 +812,14 @@ func acknowledge_morning_summary() -> GameRules.CommandCode:
     _pending_morning_summary = null
     return GameRules.CommandCode.DAY_STARTED
 
+func advance_clock(minutes: int) -> bool:
+    assert(minutes > 0)
+    if _active_day_failure() != -1:
+        return false
+    var previous := _time_minutes
+    _time_minutes = mini(_time_minutes + minutes, GameRules.ACTION_CUTOFF_MINUTES)
+    return _time_minutes > previous
+
 func acknowledge_intro() -> GameRules.CommandCode:
     if _intro_acknowledged:
         return GameRules.CommandCode.INTRO_ALREADY_ACKNOWLEDGED
