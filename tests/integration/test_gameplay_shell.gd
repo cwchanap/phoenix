@@ -25,6 +25,7 @@ func _spawn_world(acknowledge_intro: bool, settings: UiSettings = null) -> World
         return null
     if settings != null:
         world.configure(null, null, settings)
+    world.clock_running = false
     add_child_autoqfree(world)
     if acknowledge_intro:
         var accepted := InputEventAction.new()
@@ -2743,6 +2744,179 @@ func test_upgraded_watering_hold_costs_one_stamina_per_cell() -> void:
     assert_true(session.snapshot()["farm"][2]["crop"]["watered_today"])
     assert_eq(int(session.snapshot()["stamina"]), 17)
 
+## Passive day clock: the fixture keeps clock_running off so frames never
+## tick; the test drives _advance_passive_clock directly and toggles the
+## switch only for synchronous _process call-site checks.
+
+func test_passive_clock_ticks_pauses_and_keeps_late_day_interactive() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var session := world._session
+    var time_label := hud.get_node("HudRoot/TopBar/TimeValue") as Label
+    var feedback := hud.get_node("HudRoot/Feedback") as Label
+    var overlay := hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
+    var card := overlay.get_node("TutorialCard") as Control
+
+    # The fixture switch stays off: the world opens unblocked behind the
+    # non-blocking tutorial card, at 06:00, with an empty accumulator.
+    assert_false(world.clock_running)
+    assert_true(world._clock_window_focused)
+    assert_eq(world._clock_elapsed_seconds, 0.0)
+    assert_true(world._world_input_enabled)
+    assert_false(hud.has_blocking_modal())
+    assert_eq(int(session.snapshot()["time_minutes"]), GameRules.DAY_START_MINUTES)
+    assert_eq(time_label.text, "06:00")
+
+    # Nonpositive deltas no-op before the accumulator grows.
+    world._advance_passive_clock(0.0)
+    world._advance_passive_clock(-1.0)
+    assert_eq(world._clock_elapsed_seconds, 0.0)
+    assert_eq(int(session.snapshot()["time_minutes"]), 360)
+
+    # Fractional seconds accumulate; whole minutes tick once into the HUD.
+    world._advance_passive_clock(0.25)
+    assert_eq(world._clock_elapsed_seconds, 0.25)
+    assert_eq(int(session.snapshot()["time_minutes"]), 360)
+    assert_eq(time_label.text, "06:00")
+    world._advance_passive_clock(0.25)
+    assert_eq(world._clock_elapsed_seconds, 0.0)
+    assert_eq(int(session.snapshot()["time_minutes"]), 361)
+    assert_eq(time_label.text, "06:01")
+    world._advance_passive_clock(5.0)
+    assert_eq(int(session.snapshot()["time_minutes"]), 371)
+    assert_eq(time_label.text, "06:11")
+
+    # A blocking modal pauses the clock: no accumulator growth while gated
+    # and no banked catch-up after it closes.
+    hud.open_pause()
+    assert_false(world._world_input_enabled)
+    world._advance_passive_clock(3.0)
+    world._advance_passive_clock(1.5)
+    assert_eq(int(session.snapshot()["time_minutes"]), 371)
+    assert_eq(world._clock_elapsed_seconds, 0.0)
+    hud.close_pause()
+    assert_true(world._world_input_enabled)
+    world._advance_passive_clock(0.25)
+    assert_eq(int(session.snapshot()["time_minutes"]), 371)
+    assert_eq(world._clock_elapsed_seconds, 0.25)
+
+    # The tutorial card stays visible and non-blocking while time advances.
+    assert_true(card.visible)
+    world._advance_passive_clock(0.75)
+    assert_eq(int(session.snapshot()["time_minutes"]), 373)
+    assert_eq(time_label.text, "06:13")
+
+    # Focus gating lives only at the _process call site. Automatic processing
+    # is disabled so each _process invocation is fully controlled.
+    world.set_process(false)
+    world.clock_running = true
+    world.notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+    assert_false(world._clock_window_focused)
+    world._process(5.0)
+    assert_eq(int(session.snapshot()["time_minutes"]), 373)
+    assert_eq(world._clock_elapsed_seconds, 0.0)
+    world.notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
+    assert_true(world._clock_window_focused)
+    world._process(0.5)
+    assert_eq(int(session.snapshot()["time_minutes"]), 374)
+    assert_eq(time_label.text, "06:14")
+    world.clock_running = false
+    world._process(5.0)
+    assert_eq(int(session.snapshot()["time_minutes"]), 374)
+    world.set_process(true)
+
+    # With the switch off, real awaited frames can never advance the clock.
+    await get_tree().process_frame
+    await get_tree().process_frame
+    assert_eq(int(session.snapshot()["time_minutes"]), 374)
+    assert_eq(world._clock_elapsed_seconds, 0.0)
+
+    # One long drive clamps at the 22:00 cutoff; a further tick consumes its
+    # whole-minute seconds even though the session cannot advance.
+    world._advance_passive_clock(500.0)
+    assert_eq(
+        int(session.snapshot()["time_minutes"]),
+        GameRules.ACTION_CUTOFF_MINUTES,
+    )
+    assert_eq(time_label.text, "22:00")
+    world._advance_passive_clock(1.0)
+    assert_eq(
+        int(session.snapshot()["time_minutes"]),
+        GameRules.ACTION_CUTOFF_MINUTES,
+    )
+    assert_eq(world._clock_elapsed_seconds, 0.0)
+
+    # Past the cutoff the farm guard rejects work but the day stays live.
+    var cell: Vector2i = WorldContract.farm_cells()[0]
+    _set_target(world, cell)
+    world.use_selected_action()
+    assert_eq(feedback.text, "It is too late for that action.")
+    assert_false(world._session.snapshot()["farm"][0]["tilled"])
+    assert_eq(session.hoe(cell), GameRules.CommandCode.ACTION_TOO_LATE)
+    assert_true(world._world_input_enabled)
+
+    _set_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
+    world.interact()
+    assert_true(_panel(hud, "ShopPanel").visible)
+    hud.buy_requested.emit(GameRules.CropKind.TURNIP, 1)
+    assert_eq(
+        int(session.snapshot()["money"]),
+        GameRules.STARTING_MONEY - GameRules.seed_price(GameRules.CropKind.TURNIP),
+    )
+    var seeds: Dictionary = session.snapshot()["seeds"]
+    assert_eq(int(seeds[&"turnip"]), 4)
+    hud.close_shop()
+    assert_true(world._world_input_enabled)
+
+    _set_target(world, WorldContract.villager_cell(VillagerRules.VillagerId.RESIDENT))
+    world.interact()
+    assert_true(_panel(hud, "DialoguePanel").visible)
+    hud.close_dialogue()
+    assert_true(world._world_input_enabled)
+
+    _set_target(world, WorldContract.SHIPPING_CELL)
+    world.interact()
+    assert_true(_panel(hud, "ShippingPanel").visible)
+    hud.close_shipping()
+    assert_true(world._world_input_enabled)
+
+    _set_target(world, Vector2i(12, 9))
+    var moved_from := world.player.global_position
+    Input.action_press("move_right")
+    await get_tree().physics_frame
+    await get_tree().physics_frame
+    Input.action_release("move_right")
+    assert_gt(world.player.velocity.length(), 0.0)
+    assert_gt(world.player.global_position.x, moved_from.x)
+
+    _set_target(world, WorldContract.BED_CELL, WorldMath.Facing.UP)
+    world._on_sleep_requested()
+    assert_eq(int(session.snapshot()["day"]), 2)
+    assert_eq(
+        int(session.snapshot()["time_minutes"]),
+        GameRules.DAY_START_MINUTES,
+    )
+    assert_true(_panel(hud, "MorningSummaryPanel").visible)
+    assert_false(world._world_input_enabled)
+    world._advance_passive_clock(5.0)
+    assert_eq(
+        int(session.snapshot()["time_minutes"]),
+        GameRules.DAY_START_MINUTES,
+    )
+    hud.morning_summary_acknowledged.emit()
+    assert_true(world._world_input_enabled)
+    world._advance_passive_clock(0.5)
+    assert_eq(
+        int(session.snapshot()["time_minutes"]),
+        GameRules.DAY_START_MINUTES + 1,
+    )
+    assert_eq(time_label.text, "06:01")
+    _release_movement_actions()
+
 func _configured_world(initial_state: Variant, repository: SaveRepository) -> WorldShell:
     var packed := load("res://scenes/world/world.tscn") as PackedScene
     assert_not_null(packed)
@@ -2753,6 +2927,7 @@ func _configured_world(initial_state: Variant, repository: SaveRepository) -> Wo
     if world == null:
         return null
     world.configure(initial_state, repository)
+    world.clock_running = false
     add_child_autoqfree(world)
     var accepted := InputEventAction.new()
     accepted.action = &"ui_accept"
