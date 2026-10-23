@@ -85,8 +85,11 @@ renders.
    an action, then Space to use it: till soil with the hoe, plant the
    selected seed, water the crop, and harvest once it is mature.
 2. **Budget the day.** Each action costs clock minutes and stamina; the day
-   runs 06:00 to 22:00 and stamina caps at 20. Watering costs 2 stamina, or 1
-   with the Efficient Can upgrade. Rain waters every crop for
+   runs 06:00 to 22:00 and stamina caps at 20. The clock also advances
+   passively while the world accepts input — 0.5 real seconds per game
+   minute — so a focused day has a real-time budget, not only a stamina
+   one. Watering costs 2 stamina, or 1 with the Efficient Can upgrade. Rain
+   waters every crop for
    free, so the watering can is unneeded on rainy days.
 3. **Shop.** Face the shop cell and press E to open the seed shop: buy
    Turnip, Potato, or Pumpkin seeds with the day's money, or the 200G
@@ -98,6 +101,14 @@ renders.
    Sleeping pays out the pending shipment, grows watered crops, restores
    stamina, rolls tomorrow's weather, and advances the day — then a morning
    summary must be acknowledged before play resumes.
+
+Anything that blocks world input pauses the passive clock: opening a panel
+or dialogue, the sleep confirmation, Pause, the introduction, or the
+morning summary all stop it, and so does switching away from the game
+window. Resuming never banks the paused time — the clock picks up from
+where it stopped, with no catch-up. At 22:00 farming actions are refused
+as too late, but the day is not over: moving, talking to villagers,
+shopping, shipping crops, and sleeping all remain possible.
 
 The season runs 14 days and the HUD objective counts down to the Day 14
 harvest market. Only crops deposited in the shipping bin count toward the
@@ -181,6 +192,13 @@ project contract smoke, world-math smoke, and world-shell smoke in that
 order. There is no second JavaScript or desktop-shell runtime in the current
 checkout; historical behavior references remain in Git history and
 `docs/superpowers/`.
+
+Live-World fixtures opt out of passive ticking with
+`WorldShell.clock_running = false` — directly instantiated Worlds before
+they enter the tree, AppRoot-launched Worlds before the blocking gate is
+released — so test frames can never advance the clock nondeterministically;
+clock arithmetic is verified by driving `WorldShell._advance_passive_clock()`
+directly.
 
 Native macOS UI regression uses the same Godot capture harness:
 
