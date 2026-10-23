@@ -2140,12 +2140,15 @@ func _run_benchmark_route(session: GameSession, crop_count: int) -> void:
     # shipping, market and workbench footprints.
     #   upgraded legs: (18.5,10.5)->(3.5,9.5) 515.98px, 5x35.78px row-10
     #     steps, ->(5.5,12.5) 192.00px, 3x35.78px row-11 steps, ->(13.5,8.5)
-    #     288.44px = 1282.65px = 13.36s -> 26min; 360+400+26 ends 13:06.
+    #     288.44px = 1282.65px = 13.3609s -> 26min; 360+400+26 ends 13:06.
     #   baseline legs: (13.5,8.5)->(3.5,9.5) 380.32px, 5x35.78px, ->(13.5,8.5)
-    #     202.39px = 761.59px = 7.93s -> 15min; 360+240+15 ends 10:15.
+    #     202.39px = 761.59px = 7.9332s -> 15min; 360+240+15 ends 10:15.
     # Whole minutes consume travel seconds / REAL_SECONDS_PER_GAME_MINUTE and
     # the sub-minute remainder carries across legs; blocked shop-panel time
-    # adds nothing and action minutes are charged separately.
+    # adds nothing and action minutes are charged separately. The route
+    # second totals are the hand-checked pins: expected minutes floor them
+    # at the current rate, so retuning REAL_SECONDS_PER_GAME_MINUTE stays a
+    # one-constant change while the 20:00 gate still guards stranding.
     var upgraded := bool(session.snapshot()["watering_can_upgraded"])
     var origin: Vector2i = WorldContract.SHOP_CELL if upgraded else WorldContract.BED_CELL
     var stands: Array[Vector2] = [_stand_for(origin, WorldMath.Facing.UP)]
@@ -2174,10 +2177,13 @@ func _run_benchmark_route(session: GameSession, crop_count: int) -> void:
         GameRules.ACTION_MINUTES[GameRules.FarmingAction.SEEDS]
         + GameRules.ACTION_MINUTES[GameRules.FarmingAction.WATERING_CAN]
     ) * crop_count
-    assert_eq(travel_minutes, 26 if upgraded else 15)
+    var expected_travel := floori(
+        (13.3609 if upgraded else 7.9332) / GameRules.REAL_SECONDS_PER_GAME_MINUTE
+    )
+    assert_eq(travel_minutes, expected_travel)
     assert_eq(
         int(day_one["time_minutes"]),
-        GameRules.DAY_START_MINUTES + action_minutes + travel_minutes,
+        GameRules.DAY_START_MINUTES + action_minutes + expected_travel,
     )
     assert_lte(int(day_one["time_minutes"]), GameRules.ACTION_CUTOFF_MINUTES - 120)
     _sleep_and_ack(session)  # Night 1
