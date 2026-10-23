@@ -1635,11 +1635,56 @@ func test_pending_morning_summary_blocks_active_commands_without_mutation() -> v
     _assert_unchanged(session, before)
     assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_SUMMARY_PENDING)
     _assert_unchanged(session, before)
+    assert_false(session.advance_clock(1))
+    _assert_unchanged(session, before)
 
     assert_eq(session.acknowledge_morning_summary(), GameRules.CommandCode.DAY_STARTED)
     var before_duplicate_ack := session.snapshot()
     assert_eq(session.acknowledge_morning_summary(), GameRules.CommandCode.NO_DAY_SUMMARY)
     _assert_unchanged(session, before_duplicate_ack)
+
+func test_advance_clock_advances_whole_minutes_and_changes_only_time() -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    var before := session.snapshot()
+
+    assert_true(session.advance_clock(1))
+    var expected := before.duplicate(true)
+    expected["time_minutes"] = GameRules.DAY_START_MINUTES + 1
+    assert_eq(session.snapshot(), expected)
+
+    assert_true(session.advance_clock(119))
+    expected["time_minutes"] = GameRules.DAY_START_MINUTES + 120
+    assert_eq(session.snapshot(), expected)
+
+func test_advance_clock_reaches_cutoff_exactly_and_clamps_overshoot() -> void:
+    var exact := GameSession.new(func() -> float: return 0.9)
+    assert_true(
+        exact.advance_clock(
+            GameRules.ACTION_CUTOFF_MINUTES - GameRules.DAY_START_MINUTES
+        )
+    )
+    var at_cutoff := exact.snapshot()
+    assert_eq(int(at_cutoff["time_minutes"]), GameRules.ACTION_CUTOFF_MINUTES)
+    assert_eq(int(at_cutoff["day"]), 1)
+    assert_null(at_cutoff["pending_morning_summary"])
+
+    var overshoot := GameSession.new(func() -> float: return 0.9)
+    overshoot.set("_time_minutes", GameRules.ACTION_CUTOFF_MINUTES - 30)
+    assert_true(overshoot.advance_clock(60))
+    var clamped := overshoot.snapshot()
+    assert_eq(int(clamped["time_minutes"]), GameRules.ACTION_CUTOFF_MINUTES)
+    assert_eq(int(clamped["day"]), 1)
+    assert_null(clamped["pending_morning_summary"])
+
+func test_advance_clock_stays_at_cutoff_without_rollover() -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    session.set("_time_minutes", GameRules.ACTION_CUTOFF_MINUTES)
+    var before := session.snapshot()
+    assert_false(session.advance_clock(1))
+    _assert_unchanged(session, before)
+    assert_false(session.advance_clock(120))
+    _assert_unchanged(session, before)
+    assert_eq(int(session.snapshot()["day"]), 1)
 
 func _day14_session_from(state: Dictionary, session: GameSession = null) -> GameSession:
     if session == null:
@@ -1825,6 +1870,7 @@ func test_finale_blocks_every_ordinary_gameplay_command() -> void:
         session.sleep(WorldContract.BED_CELL),
         GameRules.CommandCode.FINALE_ALREADY_TRIGGERED,
     )
+    assert_false(session.advance_clock(1))
     _assert_unchanged(session, completed)
 
 func test_public_all_crop_lifecycles_are_successful() -> void:
