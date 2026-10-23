@@ -29,8 +29,9 @@ There is no JavaScript or Tauri runtime in the current checkout.
   world scene. Ground is an authored `TileMapLayer`; shell setup derives the
   collision geometry from `WorldContract` and `WorldMath`.
 - `scripts/game/game_rules.gd` is the closed rules/content source: crop
-  economy, action time/stamina budgets, day/stamina/weather constants, payout
-  math, and the `CommandCode` enum returned by every command. It is stateless.
+  economy, action time/stamina budgets, day/pacing/stamina/weather constants,
+  payout math, and the `CommandCode` enum returned by every command. It is
+  stateless.
 - VillagerRules owns frozen HPA-595 content and pure relationship policy.
 - `scripts/game/content_rules.gd` (`ContentRules`) owns the frozen HPA-597
   content policy: `TUTORIALS` is the one tutorial identity/copy/completion
@@ -38,7 +39,7 @@ There is no JavaScript or Tauri runtime in the current checkout.
   stateless.
 - `scripts/game/game_session.gd` is the only mutable gameplay authority. All
   commands go through it; existing farming/economy commands return `GameRules.CommandCode`;
-  social commands `talk_to`/`gift_crop` return one narrow result Dictionary local to those methods; views read the immutable `snapshot()` dictionaries and never session internals.
+  social commands `talk_to`/`gift_crop` return one narrow result Dictionary local to those methods; `advance_clock()` is the passive-clock command, returning bool and clamping at the cutoff with no commit; views read the immutable `snapshot()` dictionaries and never session internals.
 - Farming preview and every farming guard/budget check route through
   `GameSession._cost_for()`; rules-owned effective cost changes (HPA-460) land
   at that one seam, never at call sites. The 200G Efficient Can is bought once
@@ -84,6 +85,17 @@ There is no JavaScript or Tauri runtime in the current checkout.
   target works new cells one at a time; tool/seed/focus/modal/day changes
   cancel the hold immediately, and the rules themselves prevent a second
   success on the same cell within one hold.
+- `WorldShell` runs the HPA-263 passive day clock: `_process` calls
+  `_advance_passive_clock(delta)` only while `clock_running` and the
+  window-focus flag hold, and the helper itself gates on
+  `_world_input_enabled`, so every blocking modal and window focus-out pause
+  the clock with no catch-up on resume. Whole minutes tick at
+  `GameRules.REAL_SECONDS_PER_GAME_MINUTE` (0.5 s/min, the provisional
+  tuning constant) into `GameSession.advance_clock()`, which clamps at the
+  22:00 cutoff — farming is refused there while movement, talk, shop,
+  shipping, and sleep stay open. `clock_running` is the deterministic test
+  opt-out checked only at the `_process` call site; fixtures set it false so
+  frames never tick.
 - `scripts/player/player_controller.gd` owns input sampling for
   movement/facing/targeting only and a `CharacterBody2D`. `move_and_slide()`
   supplies Godot-native response against projected logical collision
@@ -151,6 +163,10 @@ into the shell. Day 14 is the terminal day of the season — no settlement or
 advance happens past it. HPA-594 now provides villagers and social behavior.
 HPA-597 is done: the blocking introduction with contextual dismissible help,
 the Day 14 harvest market, and the terminal result flow all shipped.
+HPA-263 makes the day clock a real constraint: it ticks passively during
+unblocked focused play at a provisional 0.5 s/min, pauses on modals and
+focus-out, and clamps at the 22:00 farming cutoff; the gameplay acceptance
+still awaits native human pace evidence before the rate is final.
 - HPA-598 owns serialization; HPA-594 defines no save schema.
 - HPA-599 owns balance/polish/export.
 - The starting-farm expansion replaced the HPA-590 `12x12` proof ground with
