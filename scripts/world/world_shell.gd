@@ -12,6 +12,8 @@ const FARM_ACTION_SUCCESS_CODES := [
 ]
 
 const ACTION_HOLD_DWELL_SECONDS := 0.15
+# A hitched or breakpoint-stalled frame must not bank game minutes.
+const CLOCK_DELTA_CLAMP := 0.1
 
 var _session: GameSession
 var _initial_state: Variant = null
@@ -110,7 +112,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
     if clock_running and _clock_window_focused:
-        _advance_passive_clock(delta)
+        _advance_passive_clock(minf(delta, CLOCK_DELTA_CLAMP))
     var target: Variant = player.current_target_cell()
 
     if not _world_input_enabled:
@@ -235,10 +237,18 @@ func use_selected_action() -> void:
     _attempt_selected_action(player.current_target_cell())
 
 func _notification(what: int) -> void:
-    if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+    # Focus-in is window-level only: application FOCUS_IN can arrive while
+    # the window is still hidden (e.g. Cmd+Tab back to a minimized macOS
+    # window), which would resume the clock over an invisible game. Any
+    # focus-out flavor pauses the clock and drops the held gesture —
+    # pausing on ambiguous focus loss is always safe.
+    if (
+        what == NOTIFICATION_APPLICATION_FOCUS_OUT
+        or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT
+    ):
         _clock_window_focused = false
         _cancel_action_hold()
-    elif what == NOTIFICATION_APPLICATION_FOCUS_IN or what == NOTIFICATION_WM_WINDOW_FOCUS_IN:
+    elif what == NOTIFICATION_WM_WINDOW_FOCUS_IN:
         _clock_window_focused = true
 
 func interact() -> void:

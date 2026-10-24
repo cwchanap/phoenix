@@ -229,8 +229,11 @@ func _run() -> void:
     if packed == null:
         _fail("world.tscn must load")
         return
-    var world := packed.instantiate()
-    world.set("clock_running", false)
+    var world := packed.instantiate() as WorldShell
+    if world == null:
+        _fail("world.tscn must instantiate as WorldShell")
+        return
+    world.clock_running = false
     root.add_child(world)
     await process_frame
 
