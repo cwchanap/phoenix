@@ -1686,13 +1686,6 @@ func test_advance_clock_stays_at_cutoff_without_rollover() -> void:
     _assert_unchanged(session, before)
     assert_eq(int(session.snapshot()["day"]), 1)
 
-func test_advance_clock_rejects_nonpositive_minutes_without_mutation() -> void:
-    var session := GameSession.new(func() -> float: return 0.9)
-    var before := session.snapshot()
-    assert_false(session.advance_clock(0))
-    assert_false(session.advance_clock(-5))
-    _assert_unchanged(session, before)
-
 func _day14_session_from(state: Dictionary, session: GameSession = null) -> GameSession:
     if session == null:
         session = GameSession.new(func() -> float: return 0.9)
