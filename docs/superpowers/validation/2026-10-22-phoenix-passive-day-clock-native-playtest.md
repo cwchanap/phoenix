@@ -66,16 +66,23 @@ not human-play evidence and not release acceptance.
   produced (`osascript` activate no-ops, `screencapture` fails). The
   `_clock_window_focused` branch was never exercised natively.
 - Deterministic GUT does cover the dispatch path:
-  `tests/integration/test_gameplay_shell.gd:2817-2825` sends real
-  `NOTIFICATION_APPLICATION_FOCUS_OUT`/`FOCUS_IN` notifications and asserts
-  the flag flips, `_process` stops accruing, and resume adds no catch-up.
+  `tests/integration/test_gameplay_shell.gd` sends real
+  `NOTIFICATION_WM_WINDOW_FOCUS_OUT`/`FOCUS_IN` notifications and asserts
+  the flag flips, `_process` stops accruing, a bare application FOCUS_IN
+  with the window still hidden does not resume the clock, and resume adds
+  no catch-up.
 - Residual gap: one unlocked-desktop check that a real defocus freezes the
   HUD clock and refocus adds no jump.
 - Follow-up (PR #22 review): the run above also exposed that
   `_clock_window_focused` initialized `true` regardless of real window focus,
   so this never-focused session still ticked. `WorldShell._ready()` now seeds
-  the flag from `get_window().has_focus()`; transition notifications still
-  own later updates.
+  the flag from `get_window().has_focus()`; window-level transition
+  notifications own later updates. That means this run's ticking, modal
+  freeze, cutoff, and late-interaction observations all exercised the
+  pre-seeding flag behavior — under the current code a session that never
+  has window focus cannot tick at all, so the observations are evidence
+  for the shared downstream path (accumulator, HUD render, cutoff, sleep)
+  but not for the focus-seeded gating itself.
 
 ## Rate status
 

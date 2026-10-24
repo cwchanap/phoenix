@@ -111,9 +111,10 @@ as too late, but the day is not over: moving, talking to villagers,
 shopping, shipping crops, and sleeping all remain possible. The 0.5 s/min
 rate is provisional tuning: an agent-operated native playtest
 (`docs/superpowers/validation/2026-10-22-phoenix-passive-day-clock-native-playtest.md`)
-observed the designed behavior end to end, but human subjective pacing and
-an unlocked-desktop window-focus check remain open before the rate is
-final.
+observed the designed behavior end to end on a build that predates the
+`Window.has_focus()` seeding, so its locked session exercised the
+pre-seeding flag only — human subjective pacing and an unlocked-desktop
+window-focus check remain open before the rate is final.
 
 The season runs 14 days and the HUD objective counts down to the Day 14
 harvest market. Only crops deposited in the shipping bin count toward the

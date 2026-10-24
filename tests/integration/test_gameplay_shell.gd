@@ -2669,6 +2669,9 @@ func test_hold_focus_loss_and_day_or_finale_gates_clear_the_gesture() -> void:
     var cells := WorldContract.farm_cells()
     await _place_target(world, cells[0])
 
+    # Either focus-out flavor drops the gesture; the clock's flag stays
+    # window-level (pinned in the passive-clock test), but a stale held
+    # press is always safe to cancel.
     _push_use_action(world, true)
     world.notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
     assert_false(world._action_hold_active)
@@ -2812,17 +2815,30 @@ func test_passive_clock_ticks_pauses_and_keeps_late_day_interactive() -> void:
     assert_eq(time_label.text, "06:13")
 
     # Focus gating lives only at the _process call site. Automatic processing
-    # is disabled so each _process invocation is fully controlled.
+    # is disabled so each _process invocation is fully controlled. Only the
+    # window-level notifications move the flag; an application FOCUS_IN with
+    # the window still hidden must not resume the clock.
     world.set_process(false)
     world.clock_running = true
-    world.notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+    world.notification(Node.NOTIFICATION_WM_WINDOW_FOCUS_OUT)
     assert_false(world._clock_window_focused)
     world._process(5.0)
     assert_eq(int(session.snapshot()["time_minutes"]), 373)
     assert_eq(world._clock_elapsed_seconds, 0.0)
     world.notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
+    assert_false(world._clock_window_focused)
+    world._process(5.0)
+    assert_eq(int(session.snapshot()["time_minutes"]), 373)
+    assert_eq(world._clock_elapsed_seconds, 0.0)
+    world.notification(Node.NOTIFICATION_WM_WINDOW_FOCUS_IN)
     assert_true(world._clock_window_focused)
-    world._process(0.5)
+    # A stalled frame credits only the clamped span; five normal frames then
+    # tick one whole minute.
+    world._process(20.0)
+    assert_eq(world._clock_elapsed_seconds, WorldShell.CLOCK_DELTA_CLAMP)
+    assert_eq(int(session.snapshot()["time_minutes"]), 373)
+    for _frame in 4:
+        world._process(0.1)
     assert_eq(int(session.snapshot()["time_minutes"]), 374)
     assert_eq(time_label.text, "06:14")
     world.clock_running = false

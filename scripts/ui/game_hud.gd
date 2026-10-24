@@ -160,11 +160,18 @@ func _sound_muted() -> bool:
 
 func render(snapshot: Dictionary) -> void:
     _last_snapshot = snapshot.duplicate(true)
-    _shop_panel.present(snapshot)
-    _shipping_panel.present(snapshot)
-    _bag_panel.present(snapshot)
-    _almanac_panel.present(snapshot)
-    _calendar_panel.present(snapshot)
+    # Hidden modals re-present through their open_*() paths, so a render —
+    # including each passive-clock tick — only pays for panels on screen.
+    if _shop_panel.visible:
+        _shop_panel.present(snapshot)
+    if _shipping_panel.visible:
+        _shipping_panel.present(snapshot)
+    if _bag_panel.visible:
+        _bag_panel.present(snapshot)
+    if _almanac_panel.visible:
+        _almanac_panel.present(snapshot)
+    if _calendar_panel.visible:
+        _calendar_panel.present(snapshot)
     _onboarding_overlay.render(snapshot)
     var rainy: bool = snapshot["weather"] == GameRules.weather_key(GameRules.Weather.RAINY)
     _weather_tint.color = RAINY_TINT if rainy else SUNNY_TINT

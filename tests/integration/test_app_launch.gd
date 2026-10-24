@@ -45,7 +45,7 @@ func test_settings_panel_shows_canonical_save_path_under_save_override() -> void
     (app.get_node("TitleScreen") as TitleScreen).new_game_requested.emit()
     await get_tree().process_frame
 
-    var world := app.get_node("World") as WorldShell
+    var world := _stop_world_clock(app)
     world.hud.open_pause()
     world.hud.open_settings()
     assert_eq(
@@ -73,6 +73,12 @@ func _spawn_app(
     add_child_autoqfree(app)
     return app
 
+func _stop_world_clock(app: AppRoot) -> WorldShell:
+    # Fixture opt-out: a live World must never tick between assertions.
+    var world := app.get_node("World") as WorldShell
+    world.clock_running = false
+    return world
+
 func test_new_game_propagates_settings_and_tutorial_toggle_to_world_hud() -> void:
     var settings := UiSettings.load(SETTINGS_PATH)
     assert_eq(settings.set_music(0), OK)
@@ -86,7 +92,7 @@ func test_new_game_propagates_settings_and_tutorial_toggle_to_world_hud() -> voi
     (app.get_node("TitleScreen") as TitleScreen).new_game_requested.emit()
     await get_tree().process_frame
 
-    var world := app.get_node("World") as WorldShell
+    var world := _stop_world_clock(app)
     var hud := world.hud
     assert_eq(world._settings, settings)
     assert_eq(hud._settings, settings)
@@ -143,7 +149,7 @@ func test_settings_environment_path_is_loaded_without_using_save_override() -> v
     (app.get_node("TitleScreen") as TitleScreen).new_game_requested.emit()
     await get_tree().process_frame
 
-    var world := app.get_node("World") as WorldShell
+    var world := _stop_world_clock(app)
     var hud := world.hud
     assert_eq(hud._settings._path, SETTINGS_PATH)
     assert_eq((hud.get_node("MusicPlayer") as AudioStreamPlayer).volume_db, -80.0)
@@ -195,7 +201,7 @@ func test_continue_restores_state_and_uses_authored_spawn() -> void:
     title.continue_requested.emit()
     await get_tree().process_frame
 
-    var world := app.get_node("World") as WorldShell
+    var world := _stop_world_clock(app)
     assert_eq(world._session.state(), saved_state)
     assert_true(
         WorldMath.world_to_grid(world.player.global_position).distance_to(
@@ -313,7 +319,7 @@ func test_result_screen_keyboard_enter_and_esc_drive_app_flow() -> void:
     _push_action(result, &"ui_accept")
     await get_tree().process_frame
     assert_false((app.get_node("ResultScreen") as ResultScreen).visible)
-    var world := app.get_node("World") as WorldShell
+    var world := _stop_world_clock(app)
     assert_not_null(world)
     assert_eq(world._session.state()["day"], 1)
 
@@ -360,7 +366,7 @@ func test_incompatible_slot_refuses_continue_but_new_game_still_launches() -> vo
 
     title.new_game_requested.emit()
     await get_tree().process_frame
-    var world := app.get_node("World") as WorldShell
+    var world := _stop_world_clock(app)
     assert_eq(world._session.state()["day"], 1)
 
     var still_incompatible := repository.load()
@@ -468,7 +474,7 @@ func test_new_game_keeps_valid_existing_slot_unchanged() -> void:
     title.new_game_requested.emit()
     await get_tree().process_frame
 
-    var world := app.get_node("World") as WorldShell
+    var world := _stop_world_clock(app)
     assert_eq(world._session.state()["day"], 1)
     var existing := repository.load()
     assert_eq(existing["status"], &"loaded")

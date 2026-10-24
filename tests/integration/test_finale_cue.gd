@@ -43,6 +43,7 @@ func test_market_interact_keeps_world_audible_until_cue_finishes() -> void:
     (app.get_node("TitleScreen") as TitleScreen).continue_requested.emit()
     await get_tree().process_frame
     var world := app.get_node("World") as WorldShell
+    world.clock_running = false
     var finale_emits: Array = []
     world.finale_completed.connect(func(_state: Dictionary, save_error: int) -> void:
         finale_emits.append(save_error)

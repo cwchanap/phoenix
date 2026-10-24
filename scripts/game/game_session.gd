@@ -813,7 +813,8 @@ func acknowledge_morning_summary() -> GameRules.CommandCode:
     return GameRules.CommandCode.DAY_STARTED
 
 func advance_clock(minutes: int) -> bool:
-    assert(minutes > 0)
+    if minutes <= 0:
+        return false
     if _active_day_failure() != -1:
         return false
     var previous := _time_minutes
