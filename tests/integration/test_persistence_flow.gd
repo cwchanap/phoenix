@@ -102,7 +102,7 @@ func _day14_pre_final_state() -> Dictionary:
     seeded["harvested"] = {&"turnip": 3, &"potato": 0, &"pumpkin": 0}
     seeded["pending_shipment"] = {&"turnip": 2, &"potato": 0, &"pumpkin": 0}
     seeded["shipped"] = {&"turnip": 1, &"potato": 0, &"pumpkin": 0}
-    assert_eq(GameSession.state_error(seeded), "")
+    assert_eq(SessionStateValidator.state_error(seeded), "")
     assert_true(session.restore_state(seeded))
     return session.state()
 
@@ -189,7 +189,7 @@ func test_market_and_bed_finalizations_save_once_and_reach_identical_result() ->
 
     var loaded := market_repository.load()
     assert_eq(loaded["status"], &"loaded")
-    assert_eq(GameSession.state_error(loaded["state"]), "")
+    assert_eq(SessionStateValidator.state_error(loaded["state"]), "")
     var canonical := GameSession.new(func() -> float: return 0.9)
     assert_true(canonical.restore_state(loaded["state"]))
     assert_eq(canonical.state(), market_state)
@@ -384,7 +384,7 @@ func test_sleep_writes_once_and_continue_restores_complete_morning() -> void:
     var saved_result := repository.load()
     assert_eq(saved_result["status"], &"loaded")
     var saved_state: Dictionary = saved_result["state"]
-    assert_eq(GameSession.state_error(saved_state), "")
+    assert_eq(SessionStateValidator.state_error(saved_state), "")
     assert_eq(int(saved_state["day"]), int(prepared["day"]) + 1)
 
     var canonical_saved := GameSession.new(func() -> float: return 0.9)

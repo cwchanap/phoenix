@@ -34,7 +34,7 @@ func _capture(rainy: bool) -> Image:
         history[history.size() - 1] = rainy_key
         state["weather_history"] = history
     var label := "rainy" if rainy else "sunny"
-    var error := GameSession.state_error(state)
+    var error := SessionStateValidator.state_error(state)
     assert(error == "", "invalid %s fixture state: %s" % [label, error])
 
     var world := WORLD_SCENE.instantiate() as WorldShell

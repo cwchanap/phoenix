@@ -226,7 +226,7 @@ func test_continue_with_completed_finale_shows_result_screen() -> void:
     seeded["finale_triggered"] = true
     assert_true(session.restore_state(seeded))
     var completed := session.state()
-    assert_eq(GameSession.state_error(completed), "")
+    assert_eq(SessionStateValidator.state_error(completed), "")
     var expected := ContentRules.build_harvest_result(completed)
     assert_eq(expected["shipped_count"], 9)
     assert_eq(expected["shipped_value"], 645)
@@ -371,7 +371,7 @@ func test_incompatible_slot_refuses_continue_but_new_game_still_launches() -> vo
 
     var still_incompatible := repository.load()
     assert_eq(still_incompatible["status"], &"loaded")
-    assert_ne(GameSession.state_error(still_incompatible["state"]), "")
+    assert_ne(SessionStateValidator.state_error(still_incompatible["state"]), "")
 
 func test_save_missing_ownership_disables_continue_and_refuses_launch() -> void:
     assert_eq(SaveFileCodec.SCHEMA_VERSION, 2)
@@ -383,7 +383,7 @@ func test_save_missing_ownership_disables_continue_and_refuses_launch() -> void:
     # The codec is field-blind, so the schema-2 slot still loads...
     var loaded := repository.load()
     assert_eq(loaded["status"], &"loaded")
-    assert_ne(GameSession.state_error(loaded["state"]), "")
+    assert_ne(SessionStateValidator.state_error(loaded["state"]), "")
 
     # ...and AppRoot classifies the rejection as incompatible, never as
     # the "Save unavailable" codec/I/O failure.
@@ -408,7 +408,7 @@ func test_nonboolean_ownership_takes_the_same_incompatible_path() -> void:
     assert_eq(repository.save(non_boolean), OK)
     var loaded := repository.load()
     assert_eq(loaded["status"], &"loaded")
-    assert_ne(GameSession.state_error(loaded["state"]), "")
+    assert_ne(SessionStateValidator.state_error(loaded["state"]), "")
 
     var app := _spawn_app(repository)
     if app == null:

@@ -295,7 +295,7 @@ func _seed_upgrade_save(path: String) -> void:
 		"growth": 0,
 		"watered_today": false,
 	}
-	assert_str(GameSession.state_error(seeded)).is_equal("")
+	assert_str(SessionStateValidator.state_error(seeded)).is_equal("")
 	assert_bool(session.restore_state(seeded)).is_true()
 	assert_int(SaveRepository.new(path).save(session.state())).is_equal(OK)
 
