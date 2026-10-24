@@ -38,7 +38,7 @@ func _load_title_state() -> void:
             _continue_state = null
             _title_screen.set_continue_state(false)
         &"loaded":
-            var error := GameSession.state_error(result["state"])
+            var error := SessionStateValidator.state_error(result["state"])
             if error == "":
                 _continue_state = result["state"].duplicate(true)
                 _title_screen.set_continue_state(true)

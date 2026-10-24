@@ -22,7 +22,7 @@ static func hud_state() -> Dictionary:
     state["tutorial"] = ContentRules.initial_tutorial_progress()
     state["shipped"] = {&"turnip": 0, &"potato": 0, &"pumpkin": 0}
     state["finale_triggered"] = false
-    var error := GameSession.state_error(state)
+    var error := SessionStateValidator.state_error(state)
     assert(error == "", "invalid HUD fixture state: %s" % error)
     return state
 
@@ -30,7 +30,7 @@ static func shop_state() -> Dictionary:
     var state := hud_state()
     state["money"] = 150
     state["seeds"] = {&"turnip": 3, &"potato": 0, &"pumpkin": 0}
-    var error := GameSession.state_error(state)
+    var error := SessionStateValidator.state_error(state)
     assert(error == "", "invalid shop fixture state: %s" % error)
     return state
 
@@ -42,7 +42,7 @@ static func shipping_state() -> Dictionary:
         state["weather_history"].append(GameRules.weather_key(GameRules.Weather.SUNNY))
     state["harvested"] = {&"turnip": 7, &"potato": 0, &"pumpkin": 0}
     state["pending_shipment"] = {&"turnip": 0, &"potato": 0, &"pumpkin": 0}
-    var error := GameSession.state_error(state)
+    var error := SessionStateValidator.state_error(state)
     assert(error == "", "invalid shipping fixture state: %s" % error)
     return state
 
@@ -51,13 +51,13 @@ static func bag_state() -> Dictionary:
     state["seeds"] = {&"turnip": 3, &"potato": 0, &"pumpkin": 0}
     state["harvested"] = {&"turnip": 7, &"potato": 2, &"pumpkin": 0}
     state["pending_shipment"] = {&"turnip": 4, &"potato": 0, &"pumpkin": 0}
-    var error := GameSession.state_error(state)
+    var error := SessionStateValidator.state_error(state)
     assert(error == "", "invalid bag fixture state: %s" % error)
     return state
 
 static func almanac_state() -> Dictionary:
     var state := hud_state()
-    var error := GameSession.state_error(state)
+    var error := SessionStateValidator.state_error(state)
     assert(error == "", "invalid almanac fixture state: %s" % error)
     return state
 
@@ -78,7 +78,7 @@ static func calendar_state() -> Dictionary:
         "watered_today": false,
     }
     state["farm"] = farm
-    var error := GameSession.state_error(state)
+    var error := SessionStateValidator.state_error(state)
     assert(error == "", "invalid calendar fixture state: %s" % error)
     return state
 
@@ -89,7 +89,7 @@ static func dialogue_state() -> Dictionary:
     relationships[&"shopkeeper"]["points"] = 13
     relationships[&"shopkeeper"]["talked_today"] = true
     state["relationships"] = relationships
-    var error := GameSession.state_error(state)
+    var error := SessionStateValidator.state_error(state)
     assert(error == "", "invalid dialogue fixture state: %s" % error)
     return state
 
@@ -131,7 +131,7 @@ static func morning_summary_state() -> Dictionary:
         "shipping_income": 70,
         "money_after_shipping": 220,
     }
-    var error := GameSession.state_error(state)
+    var error := SessionStateValidator.state_error(state)
     assert(error == "", "invalid morning summary fixture state: %s" % error)
     return state
 
@@ -141,14 +141,14 @@ static func sleep_state() -> Dictionary:
     state["weather_history"] = []
     for _day in GameRules.MAX_DAY:
         state["weather_history"].append(GameRules.weather_key(GameRules.Weather.SUNNY))
-    var error := GameSession.state_error(state)
+    var error := SessionStateValidator.state_error(state)
     assert(error == "", "invalid sleep fixture state: %s" % error)
     return state
 
 static func intro_state() -> Dictionary:
     var state := hud_state()
     state["intro_acknowledged"] = false
-    var error := GameSession.state_error(state)
+    var error := SessionStateValidator.state_error(state)
     assert(error == "", "invalid intro fixture state: %s" % error)
     return state
 
@@ -167,7 +167,7 @@ static func result_state() -> Dictionary:
     relationships[&"resident"]["points"] = VillagerRules.CLOSE_FRIEND_POINTS
     state["relationships"] = relationships
     state["finale_triggered"] = true
-    var error := GameSession.state_error(state)
+    var error := SessionStateValidator.state_error(state)
     assert(error == "", "invalid result fixture state: %s" % error)
     var result := ContentRules.build_harvest_result(state)
     assert(result["shipped_count"] == 9, "result fixture must ship nine crops")

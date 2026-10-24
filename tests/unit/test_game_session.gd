@@ -72,7 +72,7 @@ func _session_with_money(money: int) -> GameSession:
     var session := GameSession.new(func() -> float: return 0.9)
     var seeded := session.state()
     seeded["money"] = money
-    assert_eq(GameSession.state_error(seeded), "")
+    assert_eq(SessionStateValidator.state_error(seeded), "")
     assert_true(session.restore_state(seeded))
     return session
 
@@ -88,14 +88,14 @@ func _water_target_session(stamina: int, upgraded: bool, weather: StringName = &
     if upgraded:
         var funded := session.state()
         funded["money"] = GameRules.WATERING_CAN_UPGRADE_PRICE
-        assert_eq(GameSession.state_error(funded), "")
+        assert_eq(SessionStateValidator.state_error(funded), "")
         assert_true(session.restore_state(funded))
         _purchase_upgrade(session)
     var prepared := session.state()
     prepared["stamina"] = stamina
     prepared["weather"] = weather
     prepared["weather_history"] = [weather]
-    assert_eq(GameSession.state_error(prepared), "")
+    assert_eq(SessionStateValidator.state_error(prepared), "")
     assert_true(session.restore_state(prepared))
     return session
 
@@ -243,19 +243,19 @@ func test_state_is_deeply_isolated_and_excludes_derived_fields() -> void:
     assert_eq(session.snapshot()["relationships"][&"resident"]["level"], &"stranger")
 
 func test_state_error_returns_messages_for_missing_and_wrong_typed_fields() -> void:
-    assert_ne(GameSession.state_error({}), "")
+    assert_ne(SessionStateValidator.state_error({}), "")
 
     var bad_day := GameSession.new().state()
     bad_day["day"] = "two"
-    assert_ne(GameSession.state_error(bad_day), "")
+    assert_ne(SessionStateValidator.state_error(bad_day), "")
 
     var bad_counts := GameSession.new().state()
     bad_counts["seeds"] = []
-    assert_ne(GameSession.state_error(bad_counts), "")
+    assert_ne(SessionStateValidator.state_error(bad_counts), "")
 
     var bad_farm := GameSession.new().state()
     bad_farm["farm"] = "farm"
-    assert_ne(GameSession.state_error(bad_farm), "")
+    assert_ne(SessionStateValidator.state_error(bad_farm), "")
 
 func test_weather_history_starts_day_one_and_appends_on_sleep() -> void:
     var session := GameSession.new(func() -> float: return 0.0)
@@ -266,19 +266,19 @@ func test_weather_history_starts_day_one_and_appends_on_sleep() -> void:
 func test_weather_history_requires_one_entry_per_day() -> void:
     var state := GameSession.new().state()
     state["weather_history"] = []
-    assert_eq(GameSession.state_error(state), "weather_history must contain one entry per day")
+    assert_eq(SessionStateValidator.state_error(state), "weather_history must contain one entry per day")
 
 func test_weather_history_rejects_invalid_entry() -> void:
     var state := GameSession.new().state()
     state["day"] = 2
     state["weather_history"] = [&"sunny", &"stormy"]
-    assert_eq(GameSession.state_error(state), "weather_history[1] is unknown")
+    assert_eq(SessionStateValidator.state_error(state), "weather_history[1] is unknown")
 
 func test_weather_history_requires_final_entry_to_match_current_weather() -> void:
     var state := GameSession.new().state()
     state["weather_history"] = [&"rainy"]
     assert_eq(
-        GameSession.state_error(state),
+        SessionStateValidator.state_error(state),
         "weather_history final entry must match weather",
     )
 
@@ -293,7 +293,7 @@ func test_command_driven_state_restores_farm_and_does_not_alias_candidate() -> v
     var saved := original.state()
     var saved_before_command := saved.duplicate(true)
     var restored := GameSession.new(func() -> float: return 0.9)
-    assert_eq(GameSession.state_error(saved), "")
+    assert_eq(SessionStateValidator.state_error(saved), "")
     assert_true(restored.restore_state(saved))
     assert_eq(restored.state(), saved)
 
@@ -308,7 +308,7 @@ func test_command_driven_state_restores_farm_and_does_not_alias_candidate() -> v
 
 func test_state_error_rejects_invalid_current_rule_shapes() -> void:
     var valid := GameSession.new().state()
-    assert_eq(GameSession.state_error(valid), "")
+    assert_eq(SessionStateValidator.state_error(valid), "")
     var candidates: Array[Dictionary] = []
     var invalid: Dictionary = valid.duplicate(true)
 
@@ -415,11 +415,11 @@ func test_state_error_rejects_invalid_current_rule_shapes() -> void:
     candidates.append(invalid)
 
     for candidate in candidates:
-        assert_ne(GameSession.state_error(candidate), "")
+        assert_ne(SessionStateValidator.state_error(candidate), "")
 
 func test_state_error_rejects_invalid_onboarding_and_finale_shapes() -> void:
     var valid := GameSession.new().state()
-    assert_eq(GameSession.state_error(valid), "")
+    assert_eq(SessionStateValidator.state_error(valid), "")
     var candidates: Array[Dictionary] = []
     var invalid: Dictionary = valid.duplicate(true)
 
@@ -486,7 +486,7 @@ func test_state_error_rejects_invalid_onboarding_and_finale_shapes() -> void:
     invalid = final_day.duplicate(true)
     invalid["pending_morning_summary"] = null
     invalid["finale_triggered"] = true
-    assert_eq(GameSession.state_error(invalid), "")
+    assert_eq(SessionStateValidator.state_error(invalid), "")
 
     invalid = final_day.duplicate(true)
     invalid["finale_triggered"] = true
@@ -499,7 +499,7 @@ func test_state_error_rejects_invalid_onboarding_and_finale_shapes() -> void:
     candidates.append(invalid)
 
     for candidate in candidates:
-        assert_ne(GameSession.state_error(candidate), "")
+        assert_ne(SessionStateValidator.state_error(candidate), "")
 
 func test_schema_2_transport_stays_field_blind_and_session_rejects_sabotaged_ownership() -> void:
     assert_eq(SaveFileCodec.SCHEMA_VERSION, 2)
@@ -511,14 +511,14 @@ func test_schema_2_transport_stays_field_blind_and_session_rejects_sabotaged_own
     var decoded_missing := SaveFileCodec.decode(SaveFileCodec.encode(missing))
     assert_true(bool(decoded_missing["ok"]))
     assert_false(decoded_missing["state"].has("watering_can_upgraded"))
-    assert_ne(GameSession.state_error(decoded_missing["state"]), "")
+    assert_ne(SessionStateValidator.state_error(decoded_missing["state"]), "")
 
     # Non-boolean ownership rides the same decode-then-reject path.
     var non_boolean := GameSession.new(func() -> float: return 0.9).state()
     non_boolean["watering_can_upgraded"] = "yes"
     var decoded_non_boolean := SaveFileCodec.decode(SaveFileCodec.encode(non_boolean))
     assert_true(bool(decoded_non_boolean["ok"]))
-    assert_ne(GameSession.state_error(decoded_non_boolean["state"]), "")
+    assert_ne(SessionStateValidator.state_error(decoded_non_boolean["state"]), "")
 
 func test_acknowledge_intro_mutates_once_and_duplicate_is_noop() -> void:
     var session := GameSession.new()
@@ -783,7 +783,7 @@ func _talk_session(day: int, rainy: bool, shipped: Array[int]) -> GameSession:
         &"potato": shipped[GameRules.CropKind.POTATO],
         &"pumpkin": shipped[GameRules.CropKind.PUMPKIN],
     }
-    assert_eq(GameSession.state_error(state), "")
+    assert_eq(SessionStateValidator.state_error(state), "")
     assert_true(session.restore_state(state))
     return session
 
@@ -843,7 +843,7 @@ func test_only_settled_shipments_enable_shipping_flavor() -> void:
 func test_post_talk_points_select_the_friend_tier_literal() -> void:
     var state := _talk_session(1, false, [0, 0, 0]).state()
     state["relationships"][&"shopkeeper"]["points"] = 11
-    assert_eq(GameSession.state_error(state), "")
+    assert_eq(SessionStateValidator.state_error(state), "")
     var session := GameSession.new(func() -> float: return 0.9)
     assert_true(session.restore_state(state))
     var mira := VillagerRules.VillagerId.SHOPKEEPER
@@ -1369,7 +1369,7 @@ func test_buy_watering_can_upgrade_scales_with_funds_and_restores_ownership() ->
     assert_true(purchased["watering_can_upgraded"])
 
     var saved := session.state()
-    assert_eq(GameSession.state_error(saved), "")
+    assert_eq(SessionStateValidator.state_error(saved), "")
     var restored := GameSession.new(func() -> float: return 0.9)
     assert_true(restored.restore_state(saved))
     assert_eq(restored.snapshot(), purchased)
@@ -1697,7 +1697,7 @@ func _day14_session_from(state: Dictionary, session: GameSession = null) -> Game
     for field in state:
         seeded[field] = state[field]
     seeded["weather_history"][GameRules.MAX_DAY - 1] = seeded["weather"]
-    assert_eq(GameSession.state_error(seeded), "")
+    assert_eq(SessionStateValidator.state_error(seeded), "")
     assert_true(session.restore_state(seeded))
     var snapshot := session.snapshot()
     assert_eq(snapshot["day"], GameRules.MAX_DAY)
@@ -1752,7 +1752,7 @@ func test_day_fourteen_market_completes_the_canonical_terminal_state() -> void:
     assert_eq(state["shipped"], {&"turnip": 2, &"potato": 0, &"pumpkin": 0})
     assert_eq(state["pending_shipment"], {&"turnip": 0, &"potato": 0, &"pumpkin": 0})
     assert_eq(state["money"], GameRules.STARTING_MONEY + 35)
-    assert_eq(GameSession.state_error(state), "")
+    assert_eq(SessionStateValidator.state_error(state), "")
     var restored := GameSession.new(func() -> float: return 0.9)
     assert_true(restored.restore_state(state))
     assert_eq(restored.state(), state)
@@ -2109,7 +2109,7 @@ func _benchmark_session(upgraded: bool) -> GameSession:
     seeded["selected_seed"] = &"pumpkin"
     for index in 10:
         seeded["farm"][index]["tilled"] = true
-    assert_eq(GameSession.state_error(seeded), "")
+    assert_eq(SessionStateValidator.state_error(seeded), "")
     assert_true(session.restore_state(seeded))
     if upgraded:
         _purchase_upgrade(session)

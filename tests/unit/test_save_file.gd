@@ -13,7 +13,7 @@ func test_codec_round_trip_restores_canonical_state() -> void:
     var original := _state_with_pending_summary()
     var decoded := SaveFileCodec.decode(SaveFileCodec.encode(original))
     assert_true(decoded["ok"])
-    assert_eq(GameSession.state_error(decoded["state"]), "")
+    assert_eq(SessionStateValidator.state_error(decoded["state"]), "")
     assert_true(decoded["state"]["farm"][0]["cell"] is Vector2i)
 
     # Raw decoded JSON keeps ordinary identifiers as String/untyped containers.
@@ -39,7 +39,7 @@ func test_round_trip_preserves_a_change_outside_the_old_farm_footprint() -> void
 
     var decoded := SaveFileCodec.decode(SaveFileCodec.encode(session.state()))
     assert_true(decoded["ok"])
-    assert_eq(GameSession.state_error(decoded["state"]), "")
+    assert_eq(SessionStateValidator.state_error(decoded["state"]), "")
     var restored := GameSession.new(func() -> float: return 0.9)
     assert_true(restored.restore_state(decoded["state"]))
     # CROP_PRESENT proves the decoded save carried the tilled, planted cell.

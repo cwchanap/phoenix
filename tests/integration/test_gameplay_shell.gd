@@ -2986,7 +2986,7 @@ func test_overnight_save_restores_upgrade_and_efficient_watering() -> void:
     var loaded := repository.load()
     assert_eq(loaded["status"], &"loaded")
     var saved_state: Dictionary = loaded["state"]
-    assert_eq(GameSession.state_error(saved_state), "")
+    assert_eq(SessionStateValidator.state_error(saved_state), "")
     assert_true(bool(saved_state["watering_can_upgraded"]))
 
     var restored := GameSession.new(func() -> float: return 0.9)

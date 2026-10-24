@@ -21,7 +21,7 @@ func _day14_pre_final_state() -> Dictionary:
     seeded["harvested"] = {&"turnip": 3, &"potato": 0, &"pumpkin": 0}
     seeded["pending_shipment"] = {&"turnip": 2, &"potato": 0, &"pumpkin": 0}
     seeded["shipped"] = {&"turnip": 1, &"potato": 0, &"pumpkin": 0}
-    assert_eq(GameSession.state_error(seeded), "")
+    assert_eq(SessionStateValidator.state_error(seeded), "")
     assert_true(session.restore_state(seeded))
     return session.state()
 

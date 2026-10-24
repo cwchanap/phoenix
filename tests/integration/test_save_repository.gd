@@ -20,7 +20,7 @@ func test_missing_then_save_replace_load_and_restore() -> void:
     assert_eq(repository.save(first), OK)
     var first_loaded := repository.load()
     assert_eq(first_loaded["status"], &"loaded")
-    assert_eq(GameSession.state_error(first_loaded["state"]), "")
+    assert_eq(SessionStateValidator.state_error(first_loaded["state"]), "")
 
     var second_session := GameSession.new(func() -> float: return 0.9)
     assert_eq(second_session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
