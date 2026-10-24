@@ -116,7 +116,7 @@ There is no JavaScript or Tauri runtime in the current checkout.
 - `scripts/ui/ui_settings.gd` owns the separate preference file and its
   Music/Sound `0..10`, Window `1x/2x/3x/4x/FULL`, and Tutorial Cards `ON/OFF`
   settings; UI preferences never enter farm state.
-- GameSession.state()/state_error()/restore_state() own mutable-state export, all persisted-state validation, and canonical restore; snapshot() remains the view read model.
+- GameSession.state()/restore_state() own mutable-state export and canonical restore; SessionStateValidator.state_error() owns all persisted-state validation; snapshot() remains the view read model.
 - WorldShell remains the only live production session holder and synchronously writes once after successful overnight advancement.
 - Player position/facing/camera/UI state remain transient/authored.
 - HPA-599 delivered the release closeout: truthful farm preview/target tint
