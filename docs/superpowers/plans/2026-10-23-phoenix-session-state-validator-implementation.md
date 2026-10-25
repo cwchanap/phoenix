@@ -11,7 +11,7 @@
 
 - [x] Before editing, use `rg -n 'GameSession\.state_error|state_error\(|_named_dictionary_value\(' scripts tests` and confirm the current census: **49 test calls in 10 files**, plus the two production calls to `GameSession.state_error` in `GameSession.restore_state()` and `AppRoot._load_title_state()`. Re-enumerate if main changed; never rely solely on the ticket's estimate.
 - [x] Check all three non-validator uses of `_named_dictionary_value` in `GameSession`: `restore_state()` tutorial loop (line 308), `_counts_array()` (line 1253), and `_relationship_array()` (line 1280) at the reviewed base. The existing validation helpers also call it. Record unexpected references before editing.
-- [x] If the local Godot runtime is available, run the current clean verifier to establish a baseline; record the result. Do not conflate a missing local runtime with a passing test.
+- [x] If the local Godot runtime is available, run the current clean verifier to establish a baseline; record the result. Do not conflate a missing local runtime with a passing test. **Baseline:** `./tools/verify-clean.sh` passed against the pinned base `8fe134e` itself — 248/248 GUT (4,159 asserts), all three headless smokes, audio check clean, so no pre-existing failures. The run was captured post-hoc during review in a clean `git worktree` at the base commit (`git archive HEAD` of an immutable SHA with the unchanged verifier script), not before editing; it is the same baseline this step prescribes.
 
 **Checkpoint:** exact callers and any pre-existing failures documented; scope is still a pure move.
 
