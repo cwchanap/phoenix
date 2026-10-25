@@ -96,38 +96,33 @@ func restore_state(candidate: Dictionary) -> bool:
     if SessionStateValidator.state_error(candidate) != "":
         return false
 
-    _day = int(candidate["day"])
-    _time_minutes = int(candidate["time_minutes"])
-    _stamina = int(candidate["stamina"])
-    _weather = GameRules.WEATHER_KEYS.find(StringName(candidate["weather"]))
-    _weather_history = []
+    var weather_history: Array[StringName] = []
     for weather_value in candidate["weather_history"]:
         var weather_key := StringName(weather_value)
         var weather_index := GameRules.WEATHER_KEYS.find(weather_key)
-        _weather_history.append(GameRules.WEATHER_KEYS[weather_index])
-    _selected_action = GameRules.ACTION_KEYS.find(StringName(candidate["selected_action"]))
-    _selected_seed = GameRules.CROP_KEYS.find(StringName(candidate["selected_seed"]))
-    _money = int(candidate["money"])
-    _seed_counts = _counts_array(candidate["seeds"])
-    _harvested_counts = _counts_array(candidate["harvested"])
-    _pending_shipment_counts = _counts_array(candidate["pending_shipment"])
-    _intro_acknowledged = bool(candidate["intro_acknowledged"])
-    _tutorial_progress = {}
+        weather_history.append(GameRules.WEATHER_KEYS[weather_index])
+    var tutorial_progress := {}
     for id in ContentRules.tutorial_keys():
         var field := SessionStateValidator.named_dictionary_value(candidate["tutorial"], id, "tutorial %s" % id)
-        _tutorial_progress[id] = bool(field["value"])
-    _shipped_counts = _counts_array(candidate["shipped"])
-    _finale_triggered = bool(candidate["finale_triggered"])
-    _watering_can_upgraded = bool(candidate["watering_can_upgraded"])
-    _farm = _farm_array(candidate["farm"])
-    _relationships = _relationship_array(candidate["relationships"])
-    _pending_morning_summary = (
-        candidate["pending_morning_summary"].duplicate(true)
-        if candidate["pending_morning_summary"] != null
-        else null
-    )
-    if _pending_morning_summary != null:
-        var summary: Dictionary = _pending_morning_summary
+        if not bool(field["ok"]):
+            push_error(String(field["error"]))
+            return false
+        tutorial_progress[id] = bool(field["value"])
+    var seed_counts: Variant = _counts_array(candidate["seeds"])
+    var harvested_counts: Variant = _counts_array(candidate["harvested"])
+    var pending_shipment_counts: Variant = _counts_array(candidate["pending_shipment"])
+    var shipped_counts: Variant = _counts_array(candidate["shipped"])
+    var farm: Variant = _farm_array(candidate["farm"])
+    var relationships: Variant = _relationship_array(candidate["relationships"])
+    if (
+        seed_counts == null or harvested_counts == null
+        or pending_shipment_counts == null or shipped_counts == null
+        or farm == null or relationships == null
+    ):
+        return false
+    var pending_morning_summary: Variant = null
+    if candidate["pending_morning_summary"] != null:
+        var summary: Dictionary = candidate["pending_morning_summary"].duplicate(true)
         var next_weather := StringName(summary["next_weather"])
         summary["next_weather"] = GameRules.WEATHER_KEYS[
             GameRules.WEATHER_KEYS.find(next_weather)
@@ -137,6 +132,27 @@ func restore_state(candidate: Dictionary) -> bool:
             var line: Dictionary = line_value
             var crop := StringName(line["crop"])
             line["crop"] = GameRules.CROP_KEYS[GameRules.CROP_KEYS.find(crop)]
+        pending_morning_summary = summary
+
+    _day = int(candidate["day"])
+    _time_minutes = int(candidate["time_minutes"])
+    _stamina = int(candidate["stamina"])
+    _weather = GameRules.WEATHER_KEYS.find(StringName(candidate["weather"]))
+    _weather_history = weather_history
+    _selected_action = GameRules.ACTION_KEYS.find(StringName(candidate["selected_action"]))
+    _selected_seed = GameRules.CROP_KEYS.find(StringName(candidate["selected_seed"]))
+    _money = int(candidate["money"])
+    _seed_counts = seed_counts
+    _harvested_counts = harvested_counts
+    _pending_shipment_counts = pending_shipment_counts
+    _intro_acknowledged = bool(candidate["intro_acknowledged"])
+    _tutorial_progress = tutorial_progress
+    _shipped_counts = shipped_counts
+    _finale_triggered = bool(candidate["finale_triggered"])
+    _watering_can_upgraded = bool(candidate["watering_can_upgraded"])
+    _farm = farm
+    _relationships = relationships
+    _pending_morning_summary = pending_morning_summary
     return true
 
 func select_action(action: GameRules.FarmingAction) -> GameRules.CommandCode:
@@ -669,25 +685,40 @@ func _commit_budget(budget: Dictionary) -> void:
     _time_minutes = int(budget["time_minutes"])
     _stamina = int(budget["stamina"])
 
-static func _counts_array(value: Dictionary) -> Array[int]:
+static func _counts_array(value: Dictionary) -> Variant:
     var result: Array[int] = []
     for kind in range(GameRules.CropKind.size()):
         var key := GameRules.crop_key(kind)
         var count_field := SessionStateValidator.named_dictionary_value(value, key, "crop count %s" % key)
+        if not bool(count_field["ok"]):
+            push_error(String(count_field["error"]))
+            return null
         result.append(int(count_field["value"]))
     return result
 
-static func _farm_array(value: Array) -> Array[Dictionary]:
+static func _farm_array(value: Array) -> Variant:
     var result: Array[Dictionary] = []
     for index in value.size():
+        if not (value[index] is Dictionary):
+            push_error("restored farm[%d] is not a dictionary" % index)
+            return null
         var source: Dictionary = value[index]
+        if not source.has_all(["cell", "tilled", "crop"]):
+            push_error("restored farm[%d] is missing fields" % index)
+            return null
         var tile: Dictionary = {
             "cell": source["cell"],
             "tilled": source["tilled"],
             "crop": null,
         }
         if source["crop"] != null:
+            if not (source["crop"] is Dictionary):
+                push_error("restored farm[%d] crop is not a dictionary" % index)
+                return null
             var source_crop: Dictionary = source["crop"]
+            if not source_crop.has_all(["kind", "growth", "watered_today"]):
+                push_error("restored farm[%d] crop is missing fields" % index)
+                return null
             tile["crop"] = {
                 "kind": GameRules.CROP_KEYS.find(StringName(source_crop["kind"])),
                 "growth": int(source_crop["growth"]),
@@ -696,7 +727,7 @@ static func _farm_array(value: Array) -> Array[Dictionary]:
         result.append(tile)
     return result
 
-static func _relationship_array(value: Dictionary) -> Array[Dictionary]:
+static func _relationship_array(value: Dictionary) -> Variant:
     var result: Array[Dictionary] = []
     for id in range(VillagerRules.VillagerId.size()):
         var key := VillagerRules.villager_key(id)
@@ -705,7 +736,18 @@ static func _relationship_array(value: Dictionary) -> Array[Dictionary]:
             key,
             "relationship %s" % key,
         )
+        if not bool(relationship_field["ok"]):
+            push_error(String(relationship_field["error"]))
+            return null
+        if not (relationship_field["value"] is Dictionary):
+            push_error("restored relationship %s is not a dictionary" % key)
+            return null
         var source: Dictionary = relationship_field["value"]
+        if not source.has_all(
+            ["points", "talked_today", "gifted_today", "close_friend_dialogue_seen"]
+        ):
+            push_error("restored relationship %s is missing fields" % key)
+            return null
         result.append({
             "points": int(source["points"]),
             "talked_today": source["talked_today"],
