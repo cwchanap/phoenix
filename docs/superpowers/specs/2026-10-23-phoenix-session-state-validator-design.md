@@ -7,7 +7,7 @@
 
 ## Problem and existing seams
 
-`scripts/game/game_session.gd` is 1,328 lines at the reviewed base. Persisted-state validation occupies two disconnected blocks: `static func state_error(candidate: Variant) -> String` (lines 95–284) and its static validators (`_field` through `_morning_summary_state_error`, lines 831–1216). This makes changes to gameplay and state restoration harder to navigate.
+`scripts/game/game_session.gd` is 1,328 lines at the reviewed base. Persisted-state validation occupies two disconnected blocks: `static func state_error(candidate: Variant) -> String` (lines 95–284) and its static validators (`_field` through `_morning_summary_state_error`, lines 831–1215). This makes changes to gameplay and state restoration harder to navigate.
 
 - `GameSession.state()` exports the save model; `snapshot()` supplies the view read model; `restore_state(candidate: Dictionary) -> bool` validates before mutating and then canonicalizes restored dictionaries/keys.
 - `AppRoot._load_title_state()` at `scripts/app/app_root.gd:41` calls `GameSession.state_error(result["state"])` to determine whether Continue is enabled.
