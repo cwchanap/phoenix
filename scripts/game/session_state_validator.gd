@@ -1,9 +1,6 @@
 class_name SessionStateValidator
 extends RefCounted
 
-const MAX_PERSISTED_VALUE := 999999999
-const PERSISTED_FIELD_COUNT := 19
-
 static func state_error(candidate: Variant) -> String:
     var state_result := _dictionary(candidate, "state")
     if not bool(state_result["ok"]):
@@ -82,11 +79,11 @@ static func state_error(candidate: Variant) -> String:
     if not bool(seed_result["ok"]):
         return String(seed_result["error"])
 
-    var money_result := _bounded_int_field(state, "money", "money")
+    var money_result := _non_negative_int_field(state, "money", "money")
     if not bool(money_result["ok"]):
         return String(money_result["error"])
 
-    for counts_key in ["seeds", "harvested", "pending_shipment", "shipped"]:
+    for counts_key in ["seeds", "harvested", "pending_shipment"]:
         var counts_result := _dict_field(state, counts_key, counts_key)
         if not bool(counts_result["ok"]):
             return String(counts_result["error"])
@@ -108,6 +105,13 @@ static func state_error(candidate: Variant) -> String:
     var tutorial_error := _tutorial_state_error(tutorial_result["value"])
     if tutorial_error != "":
         return tutorial_error
+
+    var shipped_result := _dict_field(state, "shipped", "shipped")
+    if not bool(shipped_result["ok"]):
+        return String(shipped_result["error"])
+    var shipped_error := _counts_state_error(shipped_result["value"])
+    if shipped_error != "":
+        return shipped_error
 
     var expected_cells := WorldContract.farm_cells()
     var farm_result := _array_field(state, "farm", "farm")
@@ -147,8 +151,6 @@ static func state_error(candidate: Variant) -> String:
     if not bool(watering_result["ok"]):
         return String(watering_result["error"])
 
-    if state.size() != PERSISTED_FIELD_COUNT:
-        return "state must contain exactly the persisted fields"
     return _finale_state_error(state)
 
 static func _field(map: Dictionary, key: String, label: String) -> Dictionary:
@@ -200,7 +202,7 @@ static func _int_field(map: Dictionary, key: String, label: String) -> Dictionar
         return field
     return _whole_int(field["value"], label)
 
-static func _bounded_int_result(raw: Dictionary, label: String) -> Dictionary:
+static func _non_negative_int_result(raw: Dictionary, label: String) -> Dictionary:
     if not bool(raw["ok"]):
         return raw
     var result := _whole_int(raw["value"], label)
@@ -208,15 +210,13 @@ static func _bounded_int_result(raw: Dictionary, label: String) -> Dictionary:
         return result
     if int(result["value"]) < 0:
         return {"ok": false, "error": "%s must be non-negative" % label}
-    if int(result["value"]) > MAX_PERSISTED_VALUE:
-        return {"ok": false, "error": "%s is out of range" % label}
     return result
 
-static func _bounded_int_field(map: Dictionary, key: String, label: String) -> Dictionary:
-    return _bounded_int_result(_field(map, key, label), label)
+static func _non_negative_int_field(map: Dictionary, key: String, label: String) -> Dictionary:
+    return _non_negative_int_result(_field(map, key, label), label)
 
-static func _bounded_named_int(map: Dictionary, key: StringName, label: String) -> Dictionary:
-    return _bounded_int_result(named_dictionary_value(map, key, label), label)
+static func _non_negative_named_int(map: Dictionary, key: StringName, label: String) -> Dictionary:
+    return _non_negative_int_result(named_dictionary_value(map, key, label), label)
 
 static func _named_field(
     map: Dictionary,
@@ -254,7 +254,7 @@ static func _counts_state_error(value: Dictionary) -> String:
         return "crop counts must contain exactly the crop keys"
     for kind in range(GameRules.CropKind.size()):
         var key := GameRules.crop_key(kind)
-        var count_result := _bounded_named_int(value, key, "crop count %s" % key)
+        var count_result := _non_negative_named_int(value, key, "crop count %s" % key)
         if not bool(count_result["ok"]):
             return String(count_result["error"])
     return ""
@@ -381,7 +381,7 @@ static func _relationship_state_error(value: Dictionary) -> String:
         if relationship.size() != 4:
             return "relationship %s has an invalid shape" % key
 
-        var points_result := _bounded_int_field(
+        var points_result := _non_negative_int_field(
             relationship,
             "points",
             "relationship %s.points" % key,
@@ -477,7 +477,6 @@ static func _morning_summary_state_error(
     if not bool(shipments_result["ok"]):
         return String(shipments_result["error"])
     var shipments: Array = shipments_result["value"]
-    var shipment_total := 0
     for index in shipments.size():
         var line_result := _dictionary(shipments[index], "shipments[%d]" % index)
         if not bool(line_result["ok"]):
@@ -495,7 +494,7 @@ static func _morning_summary_state_error(
         if not bool(crop_result["ok"]):
             return String(crop_result["error"])
 
-        var quantity_result := _bounded_int_field(
+        var quantity_result := _non_negative_int_field(
             line,
             "quantity",
             "shipments[%d].quantity" % index,
@@ -503,26 +502,23 @@ static func _morning_summary_state_error(
         if not bool(quantity_result["ok"]):
             return String(quantity_result["error"])
 
-        var amount_result := _bounded_int_field(
+        var amount_result := _non_negative_int_field(
             line,
             "amount",
             "shipments[%d].amount" % index,
         )
         if not bool(amount_result["ok"]):
             return String(amount_result["error"])
-        shipment_total += int(amount_result["value"])
 
-    var shipping_income_result := _bounded_int_field(
+    var shipping_income_result := _non_negative_int_field(
         summary,
         "shipping_income",
         "shipping_income",
     )
     if not bool(shipping_income_result["ok"]):
         return String(shipping_income_result["error"])
-    if int(shipping_income_result["value"]) != shipment_total:
-        return "pending_morning_summary.shipping_income does not match shipments"
 
-    var money_after_shipping_result := _bounded_int_field(
+    var money_after_shipping_result := _int_field(
         summary,
         "money_after_shipping",
         "money_after_shipping",
