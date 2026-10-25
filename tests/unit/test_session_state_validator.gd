@@ -254,67 +254,52 @@ func test_state_error_rejects_out_of_int64_range_floats_on_every_platform() -> v
         "crop count turnip is out of range",
     )
 
-func test_state_error_caps_unbounded_persisted_values() -> void:
-    var over_cap := GameSession.new().state()
-    over_cap["money"] = SessionStateValidator.MAX_PERSISTED_VALUE + 1
-    assert_eq(SessionStateValidator.state_error(over_cap), "money is out of range")
+func test_state_error_accepts_large_persisted_values() -> void:
+    var large := GameSession.new().state()
+    large["money"] = 9223372036854775807
+    large["shipped"]["turnip"] = 1000000000
+    large["relationships"]["resident"]["points"] = 1000000000
+    assert_eq(SessionStateValidator.state_error(large), "")
+    assert_true(GameSession.new().restore_state(large))
 
-    over_cap = GameSession.new().state()
-    over_cap["shipped"]["turnip"] = SessionStateValidator.MAX_PERSISTED_VALUE + 1
-    assert_eq(
-        SessionStateValidator.state_error(over_cap),
-        "crop count turnip is out of range",
-    )
-
-    over_cap = GameSession.new().state()
-    over_cap["relationships"]["resident"]["points"] = (
-        SessionStateValidator.MAX_PERSISTED_VALUE + 1
-    )
-    assert_eq(
-        SessionStateValidator.state_error(over_cap),
-        "relationship resident.points is out of range",
-    )
-
-    var at_cap := GameSession.new().state()
-    at_cap["money"] = SessionStateValidator.MAX_PERSISTED_VALUE
-    assert_eq(SessionStateValidator.state_error(at_cap), "")
-
-func test_state_error_rejects_unknown_top_level_fields() -> void:
+func test_state_error_tolerates_unknown_top_level_fields() -> void:
     var extra := GameSession.new().state()
     extra["unexpected_field"] = 1
-    assert_eq(
-        SessionStateValidator.state_error(extra),
-        "state must contain exactly the persisted fields",
-    )
-    assert_false(GameSession.new().restore_state(extra))
+    assert_eq(SessionStateValidator.state_error(extra), "")
+    assert_true(GameSession.new().restore_state(extra))
 
-func test_state_error_prefers_missing_field_errors_over_unknown_field_errors() -> void:
+func test_state_error_reports_missing_fields_despite_unknown_fields() -> void:
     var drifted := GameSession.new().state()
     drifted.erase("day")
     drifted["unexpected_field"] = 1
     assert_eq(SessionStateValidator.state_error(drifted), "day is missing")
 
-func test_state_error_cross_checks_shipping_income_against_shipments() -> void:
-    var with_summary := _session_with_morning_summary().state()
-    assert_eq(SessionStateValidator.state_error(with_summary), "")
+    drifted = GameSession.new().state()
+    drifted.erase("finale_triggered")
+    drifted["unexpected_field"] = 1
+    assert_eq(SessionStateValidator.state_error(drifted), "finale_triggered is missing")
 
-    var mismatched := with_summary.duplicate(true)
-    mismatched["pending_morning_summary"]["shipping_income"] += 1
+func test_state_error_requires_non_negative_shipping_income() -> void:
+    var invalid := _session_with_morning_summary().state()
+    invalid["pending_morning_summary"]["shipping_income"] = -1
     assert_eq(
-        SessionStateValidator.state_error(mismatched),
-        "pending_morning_summary.shipping_income does not match shipments",
+        SessionStateValidator.state_error(invalid),
+        "shipping_income must be non-negative",
     )
 
-    var padded := with_summary.duplicate(true)
-    padded["pending_morning_summary"]["shipments"].append({
-        "crop": &"turnip",
-        "quantity": 1,
-        "amount": 1,
-    })
-    assert_eq(
-        SessionStateValidator.state_error(padded),
-        "pending_morning_summary.shipping_income does not match shipments",
-    )
+func test_restored_state_remains_valid_after_pending_shipment_payout() -> void:
+    var restored := GameSession.new().state()
+    restored["money"] = 999999999
+    restored["pending_shipment"][&"turnip"] = 1
+    assert_eq(SessionStateValidator.state_error(restored), "")
+
+    var session := GameSession.new(func() -> float: return 0.9)
+    assert_true(session.restore_state(restored))
+    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+
+    var after := session.state()
+    assert_eq(int(after["money"]), 1000000034)
+    assert_eq(SessionStateValidator.state_error(after), "")
 
 func test_named_dictionary_value_reads_stringname_and_string_keys() -> void:
     var by_name := SessionStateValidator.named_dictionary_value(
