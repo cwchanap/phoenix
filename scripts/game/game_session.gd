@@ -699,26 +699,14 @@ static func _counts_array(value: Dictionary) -> Variant:
 static func _farm_array(value: Array) -> Variant:
     var result: Array[Dictionary] = []
     for index in value.size():
-        if not (value[index] is Dictionary):
-            push_error("restored farm[%d] is not a dictionary" % index)
-            return null
         var source: Dictionary = value[index]
-        if not source.has_all(["cell", "tilled", "crop"]):
-            push_error("restored farm[%d] is missing fields" % index)
-            return null
         var tile: Dictionary = {
             "cell": source["cell"],
             "tilled": source["tilled"],
             "crop": null,
         }
         if source["crop"] != null:
-            if not (source["crop"] is Dictionary):
-                push_error("restored farm[%d] crop is not a dictionary" % index)
-                return null
             var source_crop: Dictionary = source["crop"]
-            if not source_crop.has_all(["kind", "growth", "watered_today"]):
-                push_error("restored farm[%d] crop is missing fields" % index)
-                return null
             tile["crop"] = {
                 "kind": GameRules.CROP_KEYS.find(StringName(source_crop["kind"])),
                 "growth": int(source_crop["growth"]),
@@ -739,15 +727,7 @@ static func _relationship_array(value: Dictionary) -> Variant:
         if not bool(relationship_field["ok"]):
             push_error(String(relationship_field["error"]))
             return null
-        if not (relationship_field["value"] is Dictionary):
-            push_error("restored relationship %s is not a dictionary" % key)
-            return null
         var source: Dictionary = relationship_field["value"]
-        if not source.has_all(
-            ["points", "talked_today", "gifted_today", "close_friend_dialogue_seen"]
-        ):
-            push_error("restored relationship %s is missing fields" % key)
-            return null
         result.append({
             "points": int(source["points"]),
             "talked_today": source["talked_today"],
