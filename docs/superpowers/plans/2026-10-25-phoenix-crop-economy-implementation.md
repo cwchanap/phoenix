@@ -58,7 +58,7 @@ No service, registry, metric helper in production code, game-state field, screen
 
 - [ ] Run `./tools/verify-clean.sh` (headless import, GUT unit/integration, project/world smokes).
 - [ ] Run `GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/gdunit -c` and `GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/e2e -c` after the normal bootstrap if required.
-- [ ] Inspect the Algebra/Almanac, Bag/Shipping, and relevant morning/finale panels in native play or current visual capture. No art or layout redesign.
+- [ ] Inspect the Almanac, Bag/Shipping, and relevant morning/finale panels in native play or current visual capture. No art or layout redesign.
 - [ ] On native macOS run `./tools/verify-visual.sh`. If specific production golden images change solely because displayed price values changed, inspect then manually update **only those files** with the documented `--update-goldens` workflow; re-run comparison. Do not regenerate the whole baseline or bless goldens on Linux/CI.
 - [ ] If CI or local verification fails, separate pre-existing failures from regressions and record the exact command/output. Do not mark a checkbox complete without evidence.
 - [ ] Update the draft PR's description with before/after balance table, actual test results, affected golden filenames, evidence, and any accepted deviation. Move it to Ready for Review only once implementation and native visual acceptance are complete.
