@@ -77,6 +77,41 @@ func test_fresh_opening_blocks_world_input() -> void:
     assert_false(action_button.disabled)
     assert_eq(action_button.focus_mode, Control.FOCUS_NONE)
 
+func test_action_labels_start_centered_and_stay_centered_through_target_changes() -> void:
+    var hud_scene := load("res://scenes/ui/game_hud.tscn") as PackedScene
+    assert_not_null(hud_scene)
+    if hud_scene == null:
+        return
+    var hud := hud_scene.instantiate() as GameHud
+    add_child_autoqfree(hud)
+
+    for action in 4:
+        var button := hud.get_node("HudRoot/Action_%d" % action) as Button
+        var name_label := button.get_node("Name") as Label
+        assert_eq(name_label.horizontal_alignment, HORIZONTAL_ALIGNMENT_CENTER)
+        assert_false(button.button_pressed)
+
+    # The initial null setter is intentionally a no-op; construction must have
+    # already applied the neutral indicator presentation.
+    hud.set_target_action(null)
+    for action in 4:
+        var name_label := hud.get_node("HudRoot/Action_%d/Name" % action) as Label
+        assert_eq(name_label.horizontal_alignment, HORIZONTAL_ALIGNMENT_CENTER)
+
+    hud.set_target_action(GameRules.FarmingAction.WATERING_CAN)
+    for action in 4:
+        var button := hud.get_node("HudRoot/Action_%d" % action) as Button
+        var name_label := button.get_node("Name") as Label
+        assert_eq(button.button_pressed, action == GameRules.FarmingAction.WATERING_CAN)
+        assert_eq(name_label.horizontal_alignment, HORIZONTAL_ALIGNMENT_CENTER)
+
+    hud.set_target_action(null)
+    for action in 4:
+        var button := hud.get_node("HudRoot/Action_%d" % action) as Button
+        var name_label := button.get_node("Name") as Label
+        assert_false(button.button_pressed)
+        assert_eq(name_label.horizontal_alignment, HORIZONTAL_ALIGNMENT_CENTER)
+
 func test_start_releases_gate_and_tutorial_card_guides_first_actions() -> void:
     var world := _world()
     if world == null:

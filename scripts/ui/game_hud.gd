@@ -560,6 +560,7 @@ func _build_always_visible_hud() -> void:
 
     _style_authored_tree(_root)
     _apply_authored_hud_style()
+    _refresh_target_action()
     _feedback_panel.visible = false
     _feedback.visible = false
 
