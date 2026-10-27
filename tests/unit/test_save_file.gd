@@ -10,6 +10,7 @@ func _state_with_pending_summary() -> Dictionary:
     return session.state()
 
 func test_codec_round_trip_restores_canonical_state() -> void:
+    assert_eq(SaveFileCodec.SCHEMA_VERSION, 3)
     var original := _state_with_pending_summary()
     var decoded := SaveFileCodec.decode(SaveFileCodec.encode(original))
     assert_true(decoded["ok"])
@@ -51,20 +52,44 @@ func test_decode_rejects_malformed_json_wrong_schema_and_bad_vector_marker() -> 
     assert_false(SaveFileCodec.decode('{"schema_version":"1","state":{}}')["ok"])
     assert_false(SaveFileCodec.decode('{"schema_version":true,"state":{}}')["ok"])
     assert_false(SaveFileCodec.decode('{"schema_version":1.5,"state":{}}')["ok"])
-    assert_false(SaveFileCodec.decode('{"schema_version":3,"state":{}}')["ok"])
-    var legacy := SaveFileCodec.decode('{"schema_version":1,"state":{}}')
+    assert_eq(SaveFileCodec.SCHEMA_VERSION, 3)
+    var legacy := SaveFileCodec.decode(JSON.stringify({
+        "schema_version": SaveFileCodec.SCHEMA_VERSION - 1,
+        "state": {},
+    }))
     assert_false(legacy["ok"])
     assert_eq(legacy["error"], "Unsupported save schema")
-    assert_false(SaveFileCodec.decode('{"schema_version":1,"state":5}')["ok"])
-    assert_false(SaveFileCodec.decode(
-        '{"schema_version":1,"state":{"__phoenix_type":"Vector2i","x":1}}'
-    )["ok"])
-    assert_false(SaveFileCodec.decode(
-        '{"schema_version":1,"state":{"__phoenix_type":"Unknown","x":1,"y":2}}'
-    )["ok"])
-    assert_false(SaveFileCodec.decode(
-        '{"schema_version":1,"state":{"nested":{"__phoenix_type":"Unknown"}}}'
-    )["ok"])
+    var future := SaveFileCodec.decode(JSON.stringify({
+        "schema_version": SaveFileCodec.SCHEMA_VERSION + 1,
+        "state": {},
+    }))
+    assert_false(future["ok"])
+    assert_eq(future["error"], "Unsupported save schema")
+
+    var non_object_state := SaveFileCodec.decode(JSON.stringify({
+        "schema_version": SaveFileCodec.SCHEMA_VERSION,
+        "state": 5,
+    }))
+    assert_false(non_object_state["ok"])
+    assert_eq(non_object_state["error"], "Save state must be an object")
+    var bad_vector := SaveFileCodec.decode(JSON.stringify({
+        "schema_version": SaveFileCodec.SCHEMA_VERSION,
+        "state": {"__phoenix_type": "Vector2i", "x": 1},
+    }))
+    assert_false(bad_vector["ok"])
+    assert_eq(bad_vector["error"], "Vector2i marker must contain exactly x and y")
+    var unknown_marker := SaveFileCodec.decode(JSON.stringify({
+        "schema_version": SaveFileCodec.SCHEMA_VERSION,
+        "state": {"__phoenix_type": "Unknown", "x": 1, "y": 2},
+    }))
+    assert_false(unknown_marker["ok"])
+    assert_eq(unknown_marker["error"], "Unknown save type marker")
+    var nested_unknown_marker := SaveFileCodec.decode(JSON.stringify({
+        "schema_version": SaveFileCodec.SCHEMA_VERSION,
+        "state": {"nested": {"__phoenix_type": "Unknown"}},
+    }))
+    assert_false(nested_unknown_marker["ok"])
+    assert_eq(nested_unknown_marker["error"], "Unknown save type marker")
 
 func test_decoded_state_is_deeply_isolated_from_original() -> void:
     var original := _state_with_pending_summary()

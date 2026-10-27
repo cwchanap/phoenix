@@ -5,7 +5,6 @@ enum CropKind { TURNIP, POTATO, PUMPKIN }
 enum FarmingAction { HOE, SEEDS, WATERING_CAN, HANDS }
 enum Weather { SUNNY, RAINY }
 enum CommandCode {
-    ACTION_SELECTED,
     SEED_SELECTED,
     SOIL_TILLED,
     CROP_PLANTED,
@@ -61,7 +60,6 @@ const STARTING_MONEY := 150
 const WATERING_CAN_UPGRADE_PRICE := 200
 
 const CROP_KEYS: Array[StringName] = [&"turnip", &"potato", &"pumpkin"]
-const ACTION_KEYS: Array[StringName] = [&"hoe", &"seeds", &"watering_can", &"hands"]
 const WEATHER_KEYS: Array[StringName] = [&"sunny", &"rainy"]
 const CROP_DISPLAY_NAMES: Array[String] = ["Turnip", "Potato", "Pumpkin"]
 const GROWTH_NIGHTS: Array[int] = [3, 5, 7]
@@ -75,9 +73,6 @@ static func starting_seed_counts() -> Array[int]:
 
 static func crop_key(kind: CropKind) -> StringName:
     return CROP_KEYS[kind]
-
-static func action_key(action: FarmingAction) -> StringName:
-    return ACTION_KEYS[action]
 
 static func weather_key(weather: Weather) -> StringName:
     return WEATHER_KEYS[weather]

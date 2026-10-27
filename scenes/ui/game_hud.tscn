@@ -605,24 +605,13 @@ offset_bottom = 31.0
 mouse_filter = 2
 text = "SPACE"
 
-[node name="TillIcon" type="TextureRect" parent="HudRoot/Hotbar"]
+[node name="TillLabel" type="Label" parent="HudRoot/Hotbar"]
 layout_mode = 0
 offset_left = 534.0
 offset_top = 13.0
-offset_right = 548.0
-offset_bottom = 27.0
-mouse_filter = 2
-texture = ExtResource("10_hoe")
-expand_mode = 1
-stretch_mode = 5
-
-[node name="TillLabel" type="Label" parent="HudRoot/Hotbar"]
-layout_mode = 0
-offset_left = 553.0
-offset_top = 13.0
 offset_right = 624.0
 offset_bottom = 29.0
-text = "TILL"
+text = "WORK"
 
 [node name="InteractKey" type="Button" parent="HudRoot/Hotbar"]
 layout_mode = 0
@@ -700,25 +689,6 @@ mouse_filter = 2
 texture = ExtResource("10_hoe")
 expand_mode = 1
 stretch_mode = 5
-
-[node name="Key" type="Label" parent="HudRoot/Action_0"]
-
-visible = false
-layout_mode = 0
-offset_left = 31.0
-offset_top = 4.0
-offset_right = 47.0
-offset_bottom = 16.0
-text = "1"
-
-[node name="Keycap" type="Button" parent="HudRoot/Action_0"]
-layout_mode = 0
-offset_left = 4.0
-offset_top = 3.0
-offset_right = 24.0
-offset_bottom = 20.0
-mouse_filter = 2
-text = "1"
 
 [node name="Name" type="Label" parent="HudRoot/Action_0"]
 
@@ -803,25 +773,6 @@ texture = ExtResource("12_water")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Key" type="Label" parent="HudRoot/Action_2"]
-
-visible = false
-layout_mode = 0
-offset_left = 31.0
-offset_top = 4.0
-offset_right = 47.0
-offset_bottom = 16.0
-text = "3"
-
-[node name="Keycap" type="Button" parent="HudRoot/Action_2"]
-layout_mode = 0
-offset_left = 4.0
-offset_top = 3.0
-offset_right = 24.0
-offset_bottom = 20.0
-mouse_filter = 2
-text = "3"
-
 [node name="Name" type="Label" parent="HudRoot/Action_2"]
 
 layout_mode = 0
@@ -849,25 +800,6 @@ mouse_filter = 2
 texture = ExtResource("13_hands")
 expand_mode = 1
 stretch_mode = 5
-
-[node name="Key" type="Label" parent="HudRoot/Action_3"]
-
-visible = false
-layout_mode = 0
-offset_left = 31.0
-offset_top = 4.0
-offset_right = 47.0
-offset_bottom = 16.0
-text = "4"
-
-[node name="Keycap" type="Button" parent="HudRoot/Action_3"]
-layout_mode = 0
-offset_left = 4.0
-offset_top = 3.0
-offset_right = 24.0
-offset_bottom = 20.0
-mouse_filter = 2
-text = "4"
 
 [node name="Name" type="Label" parent="HudRoot/Action_3"]
 

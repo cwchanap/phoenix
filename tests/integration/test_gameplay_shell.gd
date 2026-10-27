@@ -74,7 +74,8 @@ func test_fresh_opening_blocks_world_input() -> void:
     assert_false(world._world_input_enabled)
     assert_false(world._session.state()["intro_acknowledged"])
     var action_button := world.hud.get_node("HudRoot/Action_1") as Button
-    assert_true(action_button.disabled)
+    assert_false(action_button.disabled)
+    assert_eq(action_button.focus_mode, Control.FOCUS_NONE)
 
 func test_start_releases_gate_and_tutorial_card_guides_first_actions() -> void:
     var world := _world()
@@ -86,15 +87,11 @@ func test_start_releases_gate_and_tutorial_card_guides_first_actions() -> void:
     assert_true(card.visible)
     assert_eq((card.get_node("Title") as Label).text, "PREPARE THE FIELD")
 
-    var selected: Array[int] = []
-    world.hud.select_action_requested.connect(func(action: int) -> void:
-        selected.append(action)
-    )
-
     var hoe_button := world.hud.get_node("HudRoot/Action_0") as Button
     assert_false(hoe_button.disabled)
+    var before_button_press := world._session.snapshot()
     hoe_button.pressed.emit()
-    assert_eq(selected, [GameRules.FarmingAction.HOE])
+    assert_eq(world._session.snapshot(), before_button_press)
     assert_true(world._world_input_enabled)
 
     var dismiss := card.get_node("Dismiss") as Button
@@ -104,28 +101,32 @@ func test_start_releases_gate_and_tutorial_card_guides_first_actions() -> void:
 
     var cell: Vector2i = WorldContract.farm_cells()[0]
     await _place_target(world, cell)
-    world.use_selected_action()
+    world._process(0.0)
+    assert_true(hoe_button.button_pressed)
+    world.use_target_action()
     assert_true(world._session.snapshot()["tutorial"][&"farm_basics"])
+    world._process(0.0)
+    assert_true((world.hud.get_node("HudRoot/Action_1") as Button).button_pressed)
     assert_true(card.visible)
     assert_eq((card.get_node("Title") as Label).text, "PLANT A SEED")
 
-func test_repeated_seed_slot_cycles_selected_seed() -> void:
+func test_every_seed_cycle_press_advances_selected_seed() -> void:
     var world := _world()
     var badge := world.hud.get_node("HudRoot/Action_1/Badge") as Label
     # Starting seeds are [3, 0, 0]; the badge must track the selected seed, not
     # always Turnip, or cycling `2` shows the wrong quantity.
-    world.select_action_slot(2)
-    assert_eq(world._session.snapshot()["selected_seed"], &"turnip")
-    assert_eq(badge.text, "×3")
-    world.select_action_slot(2)
+    world.cycle_seed()
     assert_eq(world._session.snapshot()["selected_seed"], &"potato")
     assert_eq(badge.text, "×0")
-    world.select_action_slot(2)
+    world.cycle_seed()
     assert_eq(world._session.snapshot()["selected_seed"], &"pumpkin")
     assert_eq(badge.text, "×0")
-    world.select_action_slot(2)
+    world.cycle_seed()
     assert_eq(world._session.snapshot()["selected_seed"], &"turnip")
     assert_eq(badge.text, "×3")
+    world.cycle_seed()
+    assert_eq(world._session.snapshot()["selected_seed"], &"potato")
+    assert_eq(badge.text, "×0")
 
 func test_settings_change_keeps_tutorial_card_hidden_under_open_modal() -> void:
     var world := _world()
@@ -1032,8 +1033,7 @@ func test_opening_shop_immediately_blocks_movement_and_world_commands() -> void:
     assert_false(world._world_input_enabled)
     assert_eq(player.velocity, Vector2.ZERO)
     var before := world._session.snapshot()
-    world.select_action_slot(1)
-    world.use_selected_action()
+    world.use_target_action()
     world.interact()
     assert_eq(world._session.snapshot(), before)
     hud.close_shop()
@@ -1371,9 +1371,9 @@ func test_blocked_routing_leaves_session_snapshot_unchanged() -> void:
     await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
     world.interact()
     var before := world._session.snapshot()
-    world.select_action_slot(2)
+    world.cycle_seed()
     world.hud.select_seed_requested.emit(GameRules.CropKind.POTATO)
-    world.use_selected_action()
+    world.use_target_action()
     world.interact()
     assert_eq(world._session.snapshot(), before)
 
@@ -1393,8 +1393,8 @@ func test_modal_gates_toggle_buttons_so_hud_matches_session_after_close() -> voi
 
     hud.open_shop()
 
-    # While gated, toggles are unclickable, so their local state cannot drift.
-    assert_true(action_button.disabled)
+    # The target indicator stays enabled and read-only; seed buttons remain gated.
+    assert_false(action_button.disabled)
     assert_true(potato_button.disabled)
     var before := world._session.snapshot()
 
@@ -1404,10 +1404,8 @@ func test_modal_gates_toggle_buttons_so_hud_matches_session_after_close() -> voi
 
     var snapshot := world._session.snapshot()
     assert_eq(snapshot, before)
-    assert_eq(
-        action_button.button_pressed,
-        GameRules.action_key(GameRules.FarmingAction.SEEDS) == snapshot["selected_action"],
-    )
+    action_button.pressed.emit()
+    assert_eq(world._session.snapshot(), before)
     assert_eq(
         potato_button.button_pressed,
         GameRules.crop_key(GameRules.CropKind.POTATO) == snapshot["selected_seed"],
@@ -1465,14 +1463,10 @@ func test_farm_preview_uses_green_red_reason_and_non_farm_gold() -> void:
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_VALID)
     assert_eq(hint.text, "Space — Till soil · 3 stamina")
 
-    world.use_selected_action()
-    world._process(0.0)
-    assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_INVALID)
-    assert_eq(hint.text, "Soil is already tilled.")
-
-    world.select_action_slot(2)
+    world.use_target_action()
     world._process(0.0)
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_VALID)
+    assert_eq(hint.text, "Space — Plant Turnip · 1 stamina")
 
     await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
     world._process(0.0)
@@ -1501,21 +1495,46 @@ func test_farming_hint_copy_is_action_specific_from_structured_preview() -> void
     world._process(0.0)
     assert_eq(hint.text, "Space — Till soil · 3 stamina")
 
-    world.use_selected_action()
-    world.select_action_slot(2)
+    world.use_target_action()
     world._process(0.0)
     assert_eq(hint.text, "Space — Plant Turnip · 1 stamina")
 
-    world.use_selected_action()
-    world.select_action_slot(3)
+    world.use_target_action()
     world._process(0.0)
     assert_eq(hint.text, "Space — Water Turnip · 2 stamina")
 
     _grow_mature_turnip(world, cells[1])
-    world.select_action_slot(4)
     await _place_target(world, cells[1])
     world._process(0.0)
     assert_eq(hint.text, "Space — Harvest Turnip · 1 stamina")
+
+func test_target_hint_explains_empty_seed_rain_and_already_watered_blocks() -> void:
+    var world := _world()
+    var cells := WorldContract.farm_cells()
+    var hint := world.hud.get_node("HudRoot/InteractionHint") as Label
+    var session := world._session
+
+    assert_eq(session.hoe(cells[0]), GameRules.CommandCode.SOIL_TILLED)
+    assert_eq(session.plant(cells[0]), GameRules.CommandCode.CROP_PLANTED)
+    assert_eq(session.water(cells[0]), GameRules.CommandCode.CROP_WATERED)
+    await _place_target(world, cells[0])
+    world._process(0.0)
+    assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_INVALID)
+    assert_eq(hint.text, "Crop is already watered.")
+    assert_true((world.hud.get_node("HudRoot/Action_2") as Button).button_pressed)
+
+    _restore_weather(world, &"rainy")
+    world._process(0.0)
+    assert_eq(hint.text, "Rain is watering the crops.")
+
+    _restore_weather(world, &"sunny")
+    assert_eq(session.hoe(cells[1]), GameRules.CommandCode.SOIL_TILLED)
+    assert_eq(session.select_seed(GameRules.CropKind.POTATO), GameRules.CommandCode.SEED_SELECTED)
+    await _place_target(world, cells[1])
+    world._process(0.0)
+    assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_INVALID)
+    assert_eq(hint.text, "No selected seeds.")
+    assert_true((world.hud.get_node("HudRoot/Action_1") as Button).button_pressed)
 
 func _readiness_sparkle(world: WorldShell, cell: Vector2i) -> Sprite2D:
     var crop_root := world.farm_view.get_node(
@@ -1541,19 +1560,21 @@ func test_readiness_sparkle_contract_is_peak_frame_at_documented_offset() -> voi
     assert_eq(sparkle.offset, FarmView.SPARKLE_CROP_OFFSET)
     assert_false(sparkle.visible)
 
-func test_mature_crop_cue_shows_only_while_targeted_regardless_of_tool() -> void:
+func test_mature_crop_cue_targets_harvest() -> void:
     var world := _world()
     var cells := WorldContract.farm_cells()
     _grow_mature_turnip(world, cells[0])
     var sparkle := _readiness_sparkle(world, cells[0])
     assert_false(sparkle.visible)
 
-    # Non-Hands tool on a mature crop: the Hoe preview is invalid (CROP_PRESENT)
-    # yet readiness must still show.
-    world.select_action_slot(1)
     await _place_target(world, cells[0])
     world._process(0.0)
-    assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_INVALID)
+    assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_VALID)
+    assert_eq(
+        (world.hud.get_node("HudRoot/InteractionHint") as Label).text,
+        "Space — Harvest Turnip · 1 stamina",
+    )
+    assert_true((world.hud.get_node("HudRoot/Action_3") as Button).button_pressed)
     assert_true(sparkle.visible)
     assert_eq(_visible_readiness_cue_count(world), 1)
 
@@ -1601,7 +1622,7 @@ func test_successful_till_spawns_transient_tool_and_soil_effects() -> void:
         return
     var cell: Vector2i = WorldContract.farm_cells()[0]
     await _place_target(world, cell)
-    world.use_selected_action()
+    world.use_target_action()
     # Observe the real transient nodes immediately after dispatch.
     var impact := effects.get_node_or_null(_fx_name("SoilFx", cell)) as Sprite2D
     assert_not_null(impact, "cell-centered soil impact spawns at the captured cell")
@@ -1626,7 +1647,7 @@ func test_tool_redispatch_inside_tool_motion_stays_error_free() -> void:
     var world := _world()
     var cells: Array = WorldContract.farm_cells()
     await _place_target(world, cells[0])
-    world.use_selected_action()
+    world.use_target_action()
     assert_not_null(world.player.get_node_or_null("ToolFx"))
     # Re-dispatch inside the 150 ms tool motion: the replacement frees the
     # old overlay while its tween's trailing release is still pending.
@@ -1636,7 +1657,7 @@ func test_tool_redispatch_inside_tool_motion_stays_error_free() -> void:
         Vector2(cells[1] - offset) + Vector2.ONE * 0.5
     )
     world.player.facing = WorldMath.Facing.DOWN
-    world.use_selected_action()
+    world.use_target_action()
     var replacement := world.player.get_node_or_null("ToolFx") as Sprite2D
     assert_not_null(replacement, "second dispatch replaces the tool overlay")
     if replacement != null:
@@ -1664,7 +1685,7 @@ func test_tool_overlay_follows_hpa458_facing_table() -> void:
         var entry: Array = cases[index]
         var cell: Vector2i = cells[index]
         await _place_target(world, cell, entry[0])
-        world.use_selected_action()
+        world.use_target_action()
         var tool := world.player.get_node_or_null("ToolFx") as Sprite2D
         assert_not_null(tool, "tool overlay for facing %s" % [entry[0]])
         if tool != null:
@@ -1682,10 +1703,9 @@ func test_plant_and_water_spawn_their_distinct_cell_effects() -> void:
         return
     var cell: Vector2i = WorldContract.farm_cells()[0]
     await _place_target(world, cell)
-    world.use_selected_action()
+    world.use_target_action()
     await _await_effects_settled()
-    world.select_action_slot(2)
-    world.use_selected_action()
+    world.use_target_action()
     var seed_fx := effects.get_node_or_null(_fx_name("SeedFx", cell)) as Sprite2D
     assert_not_null(seed_fx, "plant spawns the seed drop at the captured cell")
     if seed_fx != null:
@@ -1694,9 +1714,8 @@ func test_plant_and_water_spawn_their_distinct_cell_effects() -> void:
     await _await_effects_settled()
     assert_null(effects.get_node_or_null(_fx_name("SeedFx", cell)))
 
-    world.select_action_slot(3)
     await _place_target(world, cell, WorldMath.Facing.RIGHT)
-    world.use_selected_action()
+    world.use_target_action()
     var can := world.player.get_node_or_null("ToolFx") as Sprite2D
     assert_not_null(can, "water spawns the can overlay")
     if can != null:
@@ -1724,11 +1743,10 @@ func test_harvest_effect_keeps_premutation_crop_kind_under_entities() -> void:
     var cell: Vector2i = cells[1]
     var index := cells.find(cell)
     _grow_mature_turnip(world, cell)
-    world.select_action_slot(4)
-    assert_eq(world._session.preview_selected_action(cell)["crop"], GameRules.CropKind.TURNIP)
+    assert_eq(world._session.preview_target_action(cell)["crop"], GameRules.CropKind.TURNIP)
     var rest_children := world.farm_view.get_child_count()
     await _place_target(world, cell)
-    world.use_selected_action()
+    world.use_target_action()
     assert_null(world._session.snapshot()["farm"][index]["crop"], "session refresh removed the crop")
     var pop := world.farm_view.get_node_or_null(_fx_name("HarvestPop", cell)) as Node2D
     assert_not_null(pop, "harvest pop stays under the Entities Y-sort owner")
@@ -1745,7 +1763,7 @@ func test_harvest_effect_keeps_premutation_crop_kind_under_entities() -> void:
     assert_null(world.farm_view.get_node_or_null(_fx_name("HarvestPop", cell)), "pop frees")
     assert_eq(world.farm_view.get_child_count(), rest_children, "rest-state Entities list restored")
 
-func test_invalid_farming_commands_spawn_no_effects() -> void:
+func test_blocked_farming_commands_spawn_no_effects() -> void:
     var world := _world()
     var effects := _farm_effects(world)
     assert_not_null(effects)
@@ -1753,17 +1771,21 @@ func test_invalid_farming_commands_spawn_no_effects() -> void:
         return
     var cell: Vector2i = WorldContract.farm_cells()[0]
     await _place_target(world, cell)
-    world.use_selected_action()
+    world.use_target_action()
     await _await_effects_settled()
     assert_eq(effects.get_child_count(), 0)
 
-    world.use_selected_action()
-    assert_eq(world._session.preview_selected_action(cell)["code"], GameRules.CommandCode.ALREADY_TILLED)
+    world.use_target_action()
+    await _await_effects_settled()
+    assert_eq(effects.get_child_count(), 0)
+    world.use_target_action()
+    await _await_effects_settled()
+    assert_eq(world._session.preview_target_action(cell)["code"], GameRules.CommandCode.ALREADY_WATERED)
     assert_eq(effects.get_child_count(), 0, "blocked till spawns no effect")
     assert_null(world.player.get_node_or_null("ToolFx"))
 
     await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
-    world.use_selected_action()
+    world.use_target_action()
     assert_eq(effects.get_child_count(), 0, "non-farm target spawns no effect")
     assert_null(world.player.get_node_or_null("ToolFx"))
 
@@ -1783,9 +1805,9 @@ func test_farming_success_codes_resolve_to_four_distinct_streams() -> void:
     assert_ne(plant, harvest)
     assert_ne(water, harvest)
     assert_eq(
-        hud._sfx_for_code(GameRules.CommandCode.ACTION_SELECTED),
         hud._sfx_for_code(GameRules.CommandCode.SEED_SELECTED),
-        "selection keeps the shared ACTION_SFX",
+        GameHud.ACTION_SFX,
+        "seed cycling keeps the selection cue",
     )
     assert_eq(
         hud._sfx_for_code(GameRules.CommandCode.ALREADY_TILLED),
@@ -1810,8 +1832,8 @@ func test_villager_interaction_opens_dialogue_and_gates_world_input() -> void:
     assert_eq((panel.get_node("Panel/Name") as Label).text, "June")
 
     var before := world._session.snapshot()
-    world.select_action_slot(2)
-    world.use_selected_action()
+    world.cycle_seed()
+    world.use_target_action()
     world.interact()
     assert_eq(world._session.snapshot(), before)
 
@@ -2479,7 +2501,7 @@ func _set_target(
     world.player.velocity = Vector2.ZERO
 
 func _hold_preview(world: WorldShell, target: Variant) -> Dictionary:
-    return world._session.preview_selected_action(target)
+    return world._session.preview_target_action(target)
 
 func test_hold_fresh_press_attempts_once_and_release_clears_gesture() -> void:
     var world := _world()
@@ -2526,7 +2548,8 @@ func test_hold_same_cell_never_repeats_and_new_target_needs_dwell() -> void:
     assert_true(world._session.snapshot()["farm"][0]["tilled"])
 
     var worked_preview := _hold_preview(world, first)
-    assert_eq(worked_preview["code"], GameRules.CommandCode.ALREADY_TILLED)
+    assert_eq(worked_preview["action"], GameRules.FarmingAction.SEEDS)
+    assert_eq(worked_preview["code"], GameRules.CommandCode.CROP_PLANTED)
     for _poll in 10:
         assert_false(world._advance_action_hold(0.05, first, worked_preview))
     assert_false(world._session.snapshot()["farm"][1]["tilled"])
@@ -2576,11 +2599,12 @@ func test_hold_invalid_and_nonfarm_targets_never_dispatch_or_restart_feedback() 
     assert_eq(feedback.text, "Soil tilled.")
     assert_eq(sfx.stream.resource_path, "res://assets/audio/farm-hoe.wav")
 
-    # Invalid farm target: crop already planted while the Hoe is selected.
+    # Invalid farm target: watering is blocked because the crop is already watered.
     assert_eq(world._session.hoe(cells[1]), GameRules.CommandCode.SOIL_TILLED)
     assert_eq(world._session.plant(cells[1]), GameRules.CommandCode.CROP_PLANTED)
+    assert_eq(world._session.water(cells[1]), GameRules.CommandCode.CROP_WATERED)
     var invalid_preview := _hold_preview(world, cells[1])
-    assert_eq(invalid_preview["code"], GameRules.CommandCode.CROP_PRESENT)
+    assert_eq(invalid_preview["code"], GameRules.CommandCode.ALREADY_WATERED)
     # Non-farm target alongside it.
     _set_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
     var shop_preview := _hold_preview(world, WorldContract.SHOP_CELL)
@@ -2605,47 +2629,110 @@ func test_hold_invalid_and_nonfarm_targets_never_dispatch_or_restart_feedback() 
     assert_true(world._advance_action_hold(0.01, cells[2], _hold_preview(world, cells[2])))
     assert_true(world._session.snapshot()["farm"][2]["tilled"])
 
-func test_hold_tool_and_seed_selection_cancel_the_gesture() -> void:
+func test_hold_seed_selection_cancels_the_gesture() -> void:
     var world := _world()
     var hud := _hud(world)
     var cells := WorldContract.farm_cells()
     await _place_target(world, cells[0])
 
-    # Tool selection through the slot route.
     _push_use_action(world, true)
     assert_true(world._action_hold_active)
-    world.select_action_slot(2)
+    assert_eq(world._action_hold_action, GameRules.FarmingAction.HOE)
+    world.cycle_seed()
     assert_false(world._action_hold_active)
+    assert_null(world._action_hold_action)
+    assert_eq(world._session.snapshot()["selected_seed"], &"potato")
     _set_target(world, cells[1])
     assert_false(world._advance_action_hold(1.0, cells[1], _hold_preview(world, cells[1])))
     assert_null(world._session.snapshot()["farm"][1]["crop"])
 
-    # Fresh press plants; the HUD seed-request route clears the new gesture.
-    # The row cell is tilled at session level so the press can plant it.
     assert_eq(world._session.hoe(cells[1]), GameRules.CommandCode.SOIL_TILLED)
     _push_use_action(world, true)
-    assert_not_null(world._session.snapshot()["farm"][1]["crop"])
     assert_true(world._action_hold_active)
-    hud.select_seed_requested.emit(GameRules.CropKind.POTATO)
+    assert_eq(world._action_hold_action, GameRules.FarmingAction.SEEDS)
+    assert_null(world._session.snapshot()["farm"][1]["crop"])
+    hud.select_seed_requested.emit(GameRules.CropKind.TURNIP)
     assert_false(world._action_hold_active)
+    assert_null(world._action_hold_action)
     _set_target(world, cells[2])
     assert_false(world._advance_action_hold(1.0, cells[2], _hold_preview(world, cells[2])))
     assert_null(world._session.snapshot()["farm"][2]["crop"])
 
-    # Fresh press arms again (the potato attempt fails but the gesture is
-    # live); a seed cycle through the slot route clears it.
-    _push_use_action(world, true)
-    assert_true(world._action_hold_active)
-    world.select_action_slot(2)
-    assert_false(world._action_hold_active)
+func test_hold_action_lock_requires_fresh_gestures_for_each_farm_stage() -> void:
+    var world := _world()
+    var session := world._session
+    var cells := WorldContract.farm_cells()
+    await _place_target(world, cells[0])
 
-    # ...and the HUD action-request route clears a fresh gesture too.
     _push_use_action(world, true)
-    assert_true(world._action_hold_active)
-    hud.select_action_requested.emit(GameRules.FarmingAction.HOE)
-    assert_false(world._action_hold_active)
+    assert_eq(world._action_hold_action, GameRules.FarmingAction.HOE)
+    for cell in [cells[1], cells[2]]:
+        _set_target(world, cell)
+        assert_false(world._advance_action_hold(0.0, cell, _hold_preview(world, cell)))
+        assert_true(world._advance_action_hold(0.15, cell, _hold_preview(world, cell)))
+    for index in 3:
+        assert_true(session.snapshot()["farm"][index]["tilled"])
+        assert_null(session.snapshot()["farm"][index]["crop"])
+    assert_false(world._advance_action_hold(1.0, cells[2], _hold_preview(world, cells[2])))
+    _push_use_action(world, false)
+
+    await _place_target(world, cells[0])
+    _push_use_action(world, true)
+    assert_eq(world._action_hold_action, GameRules.FarmingAction.SEEDS)
+    for cell in [cells[1], cells[2]]:
+        _set_target(world, cell)
+        assert_false(world._advance_action_hold(0.0, cell, _hold_preview(world, cell)))
+        assert_true(world._advance_action_hold(0.15, cell, _hold_preview(world, cell)))
+    for index in 3:
+        assert_not_null(session.snapshot()["farm"][index]["crop"])
+        assert_false(session.snapshot()["farm"][index]["crop"]["watered_today"])
+    _push_use_action(world, false)
+
+    await _place_target(world, cells[0])
+    _push_use_action(world, true)
+    assert_eq(world._action_hold_action, GameRules.FarmingAction.WATERING_CAN)
+    for cell in [cells[1], cells[2]]:
+        _set_target(world, cell)
+        assert_false(world._advance_action_hold(0.0, cell, _hold_preview(world, cell)))
+        assert_true(world._advance_action_hold(0.15, cell, _hold_preview(world, cell)))
+    for index in 3:
+        assert_true(session.snapshot()["farm"][index]["crop"]["watered_today"])
+    _push_use_action(world, false)
+
+func test_hold_off_farm_and_blocked_farm_bind_their_first_resolved_action() -> void:
+    var world := _world()
+    var session := world._session
+    var cells := WorldContract.farm_cells()
+    await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
+
+    _push_use_action(world, true)
+    assert_null(world._action_hold_action)
     _set_target(world, cells[0])
-    assert_false(world._advance_action_hold(1.0, cells[0], _hold_preview(world, cells[0])))
+    var hoe_preview := _hold_preview(world, cells[0])
+    assert_false(world._advance_action_hold(0.0, cells[0], hoe_preview))
+    assert_eq(world._action_hold_action, GameRules.FarmingAction.HOE)
+    assert_true(world._advance_action_hold(0.15, cells[0], hoe_preview))
+    assert_true(session.snapshot()["farm"][0]["tilled"])
+    var plant_preview := _hold_preview(world, cells[0])
+    assert_eq(plant_preview["action"], GameRules.FarmingAction.SEEDS)
+    assert_false(world._advance_action_hold(1.0, cells[0], plant_preview))
+    assert_null(session.snapshot()["farm"][0]["crop"])
+    _push_use_action(world, false)
+
+    assert_eq(session.hoe(cells[1]), GameRules.CommandCode.SOIL_TILLED)
+    assert_eq(session.plant(cells[1]), GameRules.CommandCode.CROP_PLANTED)
+    assert_eq(session.water(cells[1]), GameRules.CommandCode.CROP_WATERED)
+    await _place_target(world, cells[1])
+    var blocked_water := _hold_preview(world, cells[1])
+    assert_eq(blocked_water["code"], GameRules.CommandCode.ALREADY_WATERED)
+    _push_use_action(world, true)
+    assert_eq(world._action_hold_action, GameRules.FarmingAction.WATERING_CAN)
+    _set_target(world, cells[2])
+    var hoe_on_next_cell := _hold_preview(world, cells[2])
+    assert_false(world._advance_action_hold(0.0, cells[2], hoe_on_next_cell))
+    assert_false(world._advance_action_hold(0.15, cells[2], hoe_on_next_cell))
+    assert_false(session.snapshot()["farm"][2]["tilled"])
+    _push_use_action(world, false)
 
 func test_hold_blocking_modal_cancels_and_closing_does_not_resume() -> void:
     var world := _world()
@@ -2728,7 +2815,6 @@ func test_upgraded_watering_hold_costs_one_stamina_per_cell() -> void:
     assert_true(session.snapshot()["watering_can_upgraded"])
 
     await _place_target(world, cells[0])
-    world.select_action_slot(3)
     world._process(0.0)
     var hint := hud.get_node("HudRoot/InteractionHint") as Label
     assert_eq(hint.text, "Space — Water Turnip · 1 stamina")
@@ -2870,7 +2956,7 @@ func test_passive_clock_ticks_pauses_and_keeps_late_day_interactive() -> void:
     # Past the cutoff the farm guard rejects work but the day stays live.
     var cell: Vector2i = WorldContract.farm_cells()[0]
     _set_target(world, cell)
-    world.use_selected_action()
+    world.use_target_action()
     assert_eq(feedback.text, "It is too late for that action.")
     assert_false(world._session.snapshot()["farm"][0]["tilled"])
     assert_eq(session.hoe(cell), GameRules.CommandCode.ACTION_TOO_LATE)
@@ -2997,11 +3083,7 @@ func test_overnight_save_restores_upgrade_and_efficient_watering() -> void:
         restored.acknowledge_morning_summary(),
         GameRules.CommandCode.DAY_STARTED,
     )
-    assert_eq(
-        restored.select_action(GameRules.FarmingAction.WATERING_CAN),
-        GameRules.CommandCode.ACTION_SELECTED,
-    )
-    var preview := restored.preview_selected_action(cell)
+    var preview := restored.preview_target_action(cell)
     assert_eq(preview["code"], GameRules.CommandCode.CROP_WATERED)
     assert_eq(preview["cost"], {"minutes": 20, "stamina": 1})
     assert_eq(int(restored.snapshot()["stamina"]), GameRules.MAX_STAMINA)

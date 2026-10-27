@@ -840,10 +840,7 @@ func _run() -> void:
         {"action": "move_left", "physical": 65},
         {"action": "move_down", "physical": 83},
         {"action": "move_right", "physical": 68},
-        {"action": "select_hoe", "physical": 49},
         {"action": "select_seeds", "physical": 50},
-        {"action": "select_water", "physical": 51},
-        {"action": "select_hands", "physical": 52},
         {"action": "use_action", "physical": 32},
         {"action": "interact", "physical": 69},
     ]:
@@ -854,6 +851,9 @@ func _run() -> void:
             if event is InputEventKey and event.physical_keycode == entry.physical:
                 has_key = true
         if not _expect(has_key, "%s physical key" % entry.action):
+            return
+    for removed_action in ["select_hoe", "select_water", "select_hands"]:
+        if not _expect(not InputMap.has_action(removed_action), "%s is retired" % removed_action):
             return
 
     _acknowledge_intro(world)

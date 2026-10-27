@@ -1,7 +1,6 @@
 class_name GameHud
 extends CanvasLayer
 
-signal select_action_requested(action: int)
 signal select_seed_requested(kind: int)
 signal buy_requested(kind: int, quantity: int)
 signal upgrade_requested
@@ -90,7 +89,7 @@ var _last_snapshot: Dictionary = {}
 var _finale_in_progress := false
 var _primary_modals: Array[Control] = []
 var _esc_close_order: Array[Dictionary] = []
-var _selected_action: StringName = GameRules.action_key(GameRules.FarmingAction.HOE)
+var _target_action: Variant = null
 var _selected_seed: StringName = GameRules.crop_key(GameRules.CropKind.TURNIP)
 
 func _ready() -> void:
@@ -196,9 +195,7 @@ func render(snapshot: Dictionary) -> void:
     for index in _stamina_pips.size():
         _stamina_pips[index].color = UiStyle.GREEN if index < int(snapshot["stamina"]) else Color("22301c")
 
-    _selected_action = snapshot["selected_action"]
     _selected_seed = snapshot["selected_seed"]
-    _refresh_action_selection()
     _refresh_seed_selection()
     ($HudRoot.get_node("Action_2/Icon") as TextureRect).texture = (
         WATERING_CAN_EFFICIENT_ICON
@@ -347,10 +344,14 @@ func farming_preview_text(preview: Dictionary) -> String:
         int(preview["cost"]["stamina"]),
     ]
 
+func set_target_action(action: Variant) -> void:
+    if action == _target_action:
+        return
+    _target_action = action
+    _refresh_target_action()
+
 func feedback_text(code: GameRules.CommandCode) -> String:
     match code:
-        GameRules.CommandCode.ACTION_SELECTED:
-            return "Action selected."
         GameRules.CommandCode.SEED_SELECTED:
             return "Seed selected."
         GameRules.CommandCode.SOIL_TILLED:
@@ -453,7 +454,6 @@ func show_feedback(code: GameRules.CommandCode) -> void:
 
 func _sfx_for_code(code: GameRules.CommandCode) -> AudioStream:
     match code:
-        GameRules.CommandCode.ACTION_SELECTED, \
         GameRules.CommandCode.SEED_SELECTED:
             return ACTION_SFX
         GameRules.CommandCode.SOIL_TILLED:
@@ -548,7 +548,8 @@ func _build_always_visible_hud() -> void:
     for action in 4:
         var action_button := $HudRoot.get_node("Action_%d" % action) as Button
         action_button.toggle_mode = true
-        action_button.pressed.connect(_on_action_button_pressed.bind(action))
+        action_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        action_button.focus_mode = Control.FOCUS_NONE
         _action_buttons.append(action_button)
     for kind in range(GameRules.CropKind.size()):
         var seed_button := $HudRoot.get_node("Seed_%d" % kind) as Button
@@ -599,10 +600,13 @@ func _apply_authored_hud_style() -> void:
     UiStyle.button($HudRoot/Hotbar/InteractKey as Button, 9)
     for action in _action_buttons.size():
         UiStyle.button(_action_buttons[action], 8)
-        var keycap := _action_buttons[action].get_node("Keycap") as Button
-        UiStyle.button(keycap, 8)
-        keycap.add_theme_stylebox_override("normal", UiStyle.panel(UiStyle.INSET, UiStyle.BORDER_LIGHT, 1))
-        UiStyle.text(_action_buttons[action].get_node("Key") as Label, 8, UiStyle.GOLD, 700)
+        var keycap := _action_buttons[action].get_node_or_null("Keycap") as Button
+        if keycap != null:
+            UiStyle.button(keycap, 8)
+            keycap.add_theme_stylebox_override("normal", UiStyle.panel(UiStyle.INSET, UiStyle.BORDER_LIGHT, 1))
+        var key := _action_buttons[action].get_node_or_null("Key") as Label
+        if key != null:
+            UiStyle.text(key, 8, UiStyle.GOLD, 700)
         UiStyle.text(_action_buttons[action].get_node("Name") as Label, 8, UiStyle.TEXT, 600)
     UiStyle.text(_seed_action_badge, 8, UiStyle.GOLD, 700)
     for seed in _seed_buttons.size():
@@ -695,15 +699,12 @@ func _on_settings_changed(_error: int) -> void:
     # (e.g. Settings) is open; re-reconcile so the card stays hidden under it.
     _reconcile_modal_presentation()
 
-func _on_action_button_pressed(action: int) -> void:
-    select_action_requested.emit(action)
-
 func _on_seed_button_pressed(kind: int) -> void:
     select_seed_requested.emit(kind)
 
-func _refresh_action_selection() -> void:
+func _refresh_target_action() -> void:
     for action in _action_buttons.size():
-        var selected: bool = GameRules.ACTION_KEYS[action] == _selected_action
+        var selected: bool = _target_action != null and int(_target_action) == action
         _action_buttons[action].button_pressed = selected
         _action_buttons[action].modulate = Color(1.0, 0.9, 0.45) if selected else Color.WHITE
         var name_label := _action_buttons[action].get_node("Name") as Label
@@ -719,8 +720,6 @@ func _refresh_seed_selection() -> void:
 
 func _update_toggle_enabled() -> void:
     var blocked := has_blocking_modal()
-    for button in _action_buttons:
-        button.disabled = blocked
     for button in _seed_buttons:
         button.disabled = blocked
 

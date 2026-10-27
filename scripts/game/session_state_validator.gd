@@ -61,15 +61,6 @@ static func state_error(candidate: Variant) -> String:
         ):
             return "weather_history final entry must match weather"
 
-    var action_result := _named_field(
-        state,
-        "selected_action",
-        GameRules.ACTION_KEYS,
-        "selected_action",
-    )
-    if not bool(action_result["ok"]):
-        return String(action_result["error"])
-
     var seed_result := _named_field(
         state,
         "selected_seed",

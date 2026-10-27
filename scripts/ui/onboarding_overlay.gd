@@ -109,10 +109,7 @@ func _render_tutorial(prompt: Dictionary) -> void:
         _tutorial_card.visible = false
         return
     _tutorial_title.text = String(prompt["title"]).to_upper()
-    if _current_prompt_id == &"farm_basics":
-        _tutorial_body.text = "Green diamond means the action can run, red means it cannot. Press 1, then Space."
-    else:
-        _tutorial_body.text = String(prompt["body"])
+    _tutorial_body.text = String(prompt["body"])
     _tutorial_card.visible = true
 
 func _on_dismiss_pressed() -> void:

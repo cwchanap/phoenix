@@ -8,19 +8,19 @@ const TUTORIALS: Array[Dictionary] = [
     {
         "id": &"farm_basics",
         "title": "Prepare the field",
-        "body": "Face a farm diamond. Green means the selected action can run; red means it cannot. Press 1 for Hoe, then Space.",
+        "body": "Face a farm diamond. Green means ready; red means blocked. Press Space to till.",
         "completed_by": GameRules.CommandCode.SOIL_TILLED,
     },
     {
         "id": &"plant",
         "title": "Plant a seed",
-        "body": "With tilled soil targeted, press 2 for Seeds, then Space.",
+        "body": "Face tilled soil and press Space to plant the selected seed.",
         "completed_by": GameRules.CommandCode.CROP_PLANTED,
     },
     {
         "id": &"water",
         "title": "Water the crop",
-        "body": "On sunny days, press 3 for Water, then Space on a planted crop.",
+        "body": "On sunny days, press Space on a growing crop to water it.",
         "completed_by": GameRules.CommandCode.CROP_WATERED,
     },
     {
@@ -44,7 +44,7 @@ const TUTORIALS: Array[Dictionary] = [
     {
         "id": &"harvest",
         "title": "Harvest",
-        "body": "A fully grown crop is ready. Press 4 for Hands, then Space.",
+        "body": "A fully grown crop is ready. Press Space to harvest it.",
         "completed_by": GameRules.CommandCode.CROP_HARVESTED,
     },
     {

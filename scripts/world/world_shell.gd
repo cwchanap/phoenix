@@ -24,6 +24,7 @@ var _finale_in_progress := false
 var _action_hold_active := false
 var _action_hold_target: Variant = null
 var _action_hold_dwell := 0.0
+var _action_hold_action: Variant = null
 var clock_running := true
 var _clock_elapsed_seconds := 0.0
 var _clock_window_focused := true
@@ -97,7 +98,6 @@ func _ready() -> void:
     for index in perimeter_rects.size():
         _fill_collision(static_collision, perimeter_names[index], perimeter_rects[index])
 
-    hud.select_action_requested.connect(_on_select_action_requested)
     hud.select_seed_requested.connect(_on_select_seed_requested)
     hud.buy_requested.connect(_on_buy_requested)
     hud.upgrade_requested.connect(_on_upgrade_requested)
@@ -118,10 +118,12 @@ func _process(delta: float) -> void:
     if not _world_input_enabled:
         player.set_target_tint(PlayerController.TargetTint.NEUTRAL)
         farm_view.set_target_cell(null)
+        hud.set_target_action(null)
         hud.set_interaction_hint("")
         return
 
-    var preview: Dictionary = _session.preview_selected_action(target)
+    var preview: Dictionary = _session.preview_target_action(target)
+    hud.set_target_action(preview["action"])
     if _advance_action_hold(delta, target, preview):
         return
     farm_view.set_target_cell(target)
@@ -176,34 +178,23 @@ func _refresh_world_input_gate() -> void:
     _world_input_enabled = not _finale_in_progress and not hud.has_blocking_modal()
     if not _world_input_enabled:
         _cancel_action_hold()
+        hud.set_target_action(null)
     player.set_input_enabled(_world_input_enabled)
 
-func select_action_slot(slot: int) -> void:
+func cycle_seed() -> void:
     if not _world_input_enabled:
         return
     _cancel_action_hold()
-    match slot:
-        1:
-            _finish_command(_session.select_action(GameRules.FarmingAction.HOE))
-        2:
-            var snapshot := _session.snapshot()
-            if snapshot["selected_action"] == GameRules.action_key(GameRules.FarmingAction.SEEDS):
-                var current := GameRules.CROP_KEYS.find(StringName(snapshot["selected_seed"]))
-                _finish_command(_session.select_seed((current + 1) % GameRules.CropKind.size()))
-            else:
-                _finish_command(_session.select_action(GameRules.FarmingAction.SEEDS))
-        3:
-            _finish_command(_session.select_action(GameRules.FarmingAction.WATERING_CAN))
-        4:
-            _finish_command(_session.select_action(GameRules.FarmingAction.HANDS))
+    var current := GameRules.CROP_KEYS.find(StringName(_session.snapshot()["selected_seed"]))
+    _finish_command(_session.select_seed((current + 1) % GameRules.CropKind.size()))
 
-func _attempt_selected_action(target_cell: Variant) -> void:
+func _attempt_target_action(target_cell: Variant) -> void:
     # Capture the presentation facts that mutation could destroy (notably the
     # harvest crop kind) before dispatching the authoritative command.
     var facing := player.facing
     var player_position := player.global_position
-    var preview := _session.preview_selected_action(target_cell)
-    var code := _session.apply_selected_action(target_cell)
+    var preview := _session.preview_target_action(target_cell)
+    var code := _session.apply_target_action(target_cell)
     _finish_command(code)
     if FARM_ACTION_SUCCESS_CODES.has(code):
         _farm_effects.play_success(code, preview, target_cell, facing, player_position)
@@ -212,6 +203,7 @@ func _cancel_action_hold() -> void:
     _action_hold_active = false
     _action_hold_target = null
     _action_hold_dwell = 0.0
+    _action_hold_action = null
 
 func _advance_action_hold(delta: float, target: Variant, preview: Dictionary) -> bool:
     if not _action_hold_active:
@@ -219,22 +211,26 @@ func _advance_action_hold(delta: float, target: Variant, preview: Dictionary) ->
     if target != _action_hold_target:
         _action_hold_target = target
         _action_hold_dwell = 0.0
+        if _action_hold_action == null and preview["action"] != null:
+            _action_hold_action = preview["action"]
         return false
+    if _action_hold_action == null and preview["action"] != null:
+        _action_hold_action = preview["action"]
     _action_hold_dwell += delta
     if _action_hold_dwell < ACTION_HOLD_DWELL_SECONDS:
         return false
     if not FARM_ACTION_SUCCESS_CODES.has(preview["code"]):
         return false
-    # With tool/seed fixed for the hold, the just-worked cell is rules-
-    # ineligible for the same action, so no success-cell set is tracked.
-    _attempt_selected_action(target)
+    if preview["action"] != _action_hold_action:
+        return false
+    _attempt_target_action(target)
     return true
 
-func use_selected_action() -> void:
+func use_target_action() -> void:
     if not _world_input_enabled:
         return
     # One-shot wrapper: it never starts or advances hold state.
-    _attempt_selected_action(player.current_target_cell())
+    _attempt_target_action(player.current_target_cell())
 
 func _notification(what: int) -> void:
     # Focus-in is window-level only: application FOCUS_IN can arrive while
@@ -270,14 +266,8 @@ func interact() -> void:
         hud.show_feedback(GameRules.CommandCode.NOTHING_TO_INTERACT)
 
 func _unhandled_input(event: InputEvent) -> void:
-    if event.is_action_pressed("select_hoe"):
-        select_action_slot(1)
-    elif event.is_action_pressed("select_seeds"):
-        select_action_slot(2)
-    elif event.is_action_pressed("select_water"):
-        select_action_slot(3)
-    elif event.is_action_pressed("select_hands"):
-        select_action_slot(4)
+    if event.is_action_pressed("select_seeds"):
+        cycle_seed()
     elif event.is_action_pressed("use_action"):
         # Hold-to-work start: return before touching hold state while gated;
         # otherwise reset and dispatch exactly once on the fresh press.
@@ -287,17 +277,14 @@ func _unhandled_input(event: InputEvent) -> void:
         _action_hold_active = true
         _action_hold_target = player.current_target_cell()
         _action_hold_dwell = 0.0
-        _attempt_selected_action(_action_hold_target)
+        _action_hold_action = _session.preview_target_action(
+            _action_hold_target
+        )["action"]
+        _attempt_target_action(_action_hold_target)
     elif event.is_action_released("use_action"):
         _cancel_action_hold()
     elif event.is_action_pressed("interact"):
         interact()
-
-func _on_select_action_requested(action: int) -> void:
-    if not _world_input_enabled:
-        return
-    _cancel_action_hold()
-    _finish_command(_session.select_action(action))
 
 func _on_select_seed_requested(kind: int) -> void:
     if not _world_input_enabled:
