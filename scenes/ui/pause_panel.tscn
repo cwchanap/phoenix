@@ -247,7 +247,7 @@ offset_left = 128.0
 offset_top = 97.0
 offset_right = 256.0
 offset_bottom = 120.0
-text = "Space works the faced farm tile"
+text = "Space works target tile"
 
 [node name="InteractKey" type="Panel" parent="Frame"]
 layout_mode = 0

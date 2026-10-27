@@ -403,7 +403,7 @@ func test_tutorials_complete_only_on_authoritative_successes() -> void:
     )
     assert_eq(
         session.preview_target_action(FARM_CELL)["action"],
-        GameRules.FarmingAction.WATER,
+        GameRules.FarmingAction.WATERING_CAN,
     )
     assert_eq(
         session.select_seed(GameRules.CropKind.POTATO),

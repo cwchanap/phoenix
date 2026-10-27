@@ -1781,7 +1781,8 @@ func test_blocked_farming_commands_spawn_no_effects() -> void:
     world.use_target_action()
     await _await_effects_settled()
     assert_eq(world._session.preview_target_action(cell)["code"], GameRules.CommandCode.ALREADY_WATERED)
-    assert_eq(effects.get_child_count(), 0, "blocked till spawns no effect")
+    world.use_target_action()
+    assert_eq(effects.get_child_count(), 0, "blocked watering spawns no effect")
     assert_null(world.player.get_node_or_null("ToolFx"))
 
     await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
