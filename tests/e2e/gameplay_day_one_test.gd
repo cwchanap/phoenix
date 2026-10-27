@@ -91,10 +91,9 @@ func _crop_path(cell: Vector2i) -> String:
 	return WORLD + "/Entities/FarmCrop_%d_%d" % [cell.x, cell.y]
 
 
-func _use_action(game, button: String, feedback: String) -> void:
-	assert_bool(await game.click_node(HUD + "/" + button)).is_true()
-	# use_selected_action returns void; transport errors surface via is_failure().
-	await game.call_method(WORLD, "use_selected_action")
+func _use_action(game, feedback: String) -> void:
+	# use_target_action returns void; transport errors surface via is_failure().
+	await game.call_method(WORLD, "use_target_action")
 	if is_failure():
 		return
 	assert_bool(
@@ -115,16 +114,16 @@ func test_day_one_farming_loop_and_sleep() -> void:
 	var crop_path := WORLD + "/Entities/FarmCrop_%d_%d" % [farm_cell.x, farm_cell.y]
 	await _stand_at_target(game, farm_cell, UP)
 	assert_bool(await game.get_property(soil_path, "visible")).is_false()
-	await _use_action(game, "Action_0", "Soil tilled.")
+	await _use_action(game, "Soil tilled.")
 	assert_bool(await game.get_property(soil_path, "visible")).is_true()
 	assert_bool(
 		await game.get_property(crop_path + "/Sprite2D", "visible")
 	).is_false()
-	await _use_action(game, "Action_1", "Crop planted.")
+	await _use_action(game, "Crop planted.")
 	assert_bool(
 		await game.get_property(crop_path + "/Sprite2D", "visible")
 	).is_true()
-	await _use_action(game, "Action_2", "Crop watered.")
+	await _use_action(game, "Crop watered.")
 	if is_failure():
 		return
 	await _assert_stamina(game, 14)
@@ -160,9 +159,8 @@ func test_day_one_farming_loop_and_sleep() -> void:
 	await _assert_stamina(game, 20)
 
 
-# Critical held-row flow: one real held gesture works a three-cell row
-# (till -> plant -> water) with exactly one operation per cell. Tool change
-# mid-hold cancels the gesture and needs a fresh press. Stamina math:
+# Critical held-row flow: each real held gesture works one stage across a
+# three-cell row. Stamina math:
 # 3 x (3 + 1 + 2) = 18 of 20; all three starter seeds are spent.
 func test_day_one_held_row_works_three_cells() -> void:
 	var game = await _start_new_game()
@@ -177,8 +175,7 @@ func test_day_one_held_row_works_three_cells() -> void:
 	# Generous multiple of the dwell: CI/xvfb jitter margin, not gameplay timing.
 	var hold_wait := WorldShell.ACTION_HOLD_DWELL_SECONDS * 4.0
 
-	# Hoe + real held gesture: the first target applies on the press itself.
-	assert_bool(await game.click_node(HUD + "/Action_0")).is_true()
+	# The first target applies on the press itself; this gesture stays Hoe-locked.
 	await _stand_at_target(game, cells[0], UP)
 	assert_bool(await game.input_action("use_action", true)).is_true()
 	assert_bool(
@@ -188,20 +185,19 @@ func test_day_one_held_row_works_three_cells() -> void:
 		await _stand_at_target(game, cell, UP)
 		assert_bool(await game.wait_seconds(hold_wait)).is_true()
 		assert_bool(await game.get_property(_soil_path(cell), "visible")).is_true()
+		assert_bool(
+			await game.get_property(_crop_path(cell) + "/Sprite2D", "visible")
+		).is_false()
+	for cell in cells:
+		assert_bool(
+			await game.get_property(_crop_path(cell) + "/Sprite2D", "visible")
+		).is_false()
+	assert_bool(await game.input_action("use_action", false)).is_true()
 	if is_failure():
 		return
 
-	# Seeds selected while Space stays down: the canceled gesture must not
-	# plant the tilled, unplanted first cell until a fresh press.
-	assert_bool(await game.click_node(HUD + "/Action_1")).is_true()
+	# A fresh gesture plants the row.
 	await _stand_at_target(game, cells[0], UP)
-	assert_bool(await game.wait_seconds(hold_wait)).is_true()
-	assert_bool(
-		await game.get_property(_crop_path(cells[0]) + "/Sprite2D", "visible")
-	).is_false()
-
-	# Fresh held gesture plants the row; release at the end.
-	assert_bool(await game.input_action("use_action", false)).is_true()
 	assert_bool(await game.input_action("use_action", true)).is_true()
 	assert_bool(
 		await game.wait_for_property(
@@ -219,7 +215,6 @@ func test_day_one_held_row_works_three_cells() -> void:
 		return
 
 	# One more fresh held gesture waters the row.
-	assert_bool(await game.click_node(HUD + "/Action_2")).is_true()
 	await _stand_at_target(game, cells[2], UP)
 	assert_bool(await game.input_action("use_action", true)).is_true()
 	for cell in [cells[1], cells[0]]:
@@ -281,7 +276,7 @@ func test_shop_purchase_updates_money() -> void:
 	).is_true()
 
 
-# One valid schema-2 save seeded before launch: 255G, unowned efficient can,
+# One valid schema-3 save seeded before launch: 255G, unowned efficient can,
 # intro acknowledged, and one tilled/planted/unwatered Turnip on the first
 # contract farm cell.
 func _seed_upgrade_save(path: String) -> void:
@@ -374,7 +369,6 @@ func test_continue_seeded_save_buys_upgrade_and_waters_with_one_stamina() -> voi
 	# Primary feedback: the Water preview reads 1 stamina. Secondary: the
 	# Action_2 icon swapped to the efficient-can glint.
 	await _stand_at_target(game, WorldContract.farm_cells()[0], UP)
-	assert_bool(await game.click_node(HUD + "/Action_2")).is_true()
 	assert_bool(
 		await game.wait_for_property(
 			HUD + "/InteractionHint", "text", "Space — Water Turnip · 1 stamina", 5.0
@@ -385,7 +379,7 @@ func test_continue_seeded_save_buys_upgrade_and_waters_with_one_stamina() -> voi
 	).is_equal("res://assets/ui/icons/watering-can-efficient.png")
 
 	# One real watering succeeds and spends exactly one pip (20 -> 19).
-	await _use_action(game, "Action_2", "Crop watered.")
+	await _use_action(game, "Crop watered.")
 	if is_failure():
 		return
 	await _assert_stamina(game, 19)

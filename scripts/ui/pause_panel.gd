@@ -53,10 +53,7 @@ func _apply_style() -> void:
 		"Frame/MoveKeys/A",
 		"Frame/MoveKeys/S",
 		"Frame/MoveKeys/D",
-		"Frame/ActionKeys/One",
 		"Frame/ActionKeys/Two",
-		"Frame/ActionKeys/Three",
-		"Frame/ActionKeys/Four",
 		"Frame/SpaceKey",
 		"Frame/InteractKey",
 	]:
@@ -76,10 +73,7 @@ func _apply_style() -> void:
 		"Frame/MoveKeys/A/Label",
 		"Frame/MoveKeys/S/Label",
 		"Frame/MoveKeys/D/Label",
-		"Frame/ActionKeys/One/Label",
 		"Frame/ActionKeys/Two/Label",
-		"Frame/ActionKeys/Three/Label",
-		"Frame/ActionKeys/Four/Label",
 		"Frame/SpaceKey/Label",
 		"Frame/InteractKey/Label",
 	]:

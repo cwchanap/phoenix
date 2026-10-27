@@ -12,7 +12,6 @@ static func hud_state() -> Dictionary:
         GameRules.weather_key(GameRules.Weather.SUNNY),
         GameRules.weather_key(GameRules.Weather.SUNNY),
     ]
-    state["selected_action"] = GameRules.action_key(GameRules.FarmingAction.HOE)
     state["selected_seed"] = GameRules.crop_key(GameRules.CropKind.TURNIP)
     state["money"] = 150
     state["seeds"] = {&"turnip": 3, &"potato": 0, &"pumpkin": 0}

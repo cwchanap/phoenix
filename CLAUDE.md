@@ -4,14 +4,15 @@
 
 Phoenix is a Godot 4.7.1 project using the standard non-.NET editor and
 statically typed GDScript. Open the repository in Godot and run
-`scenes/app/app.tscn`; WASD moves, `1`/`2`/`3`/`4` select the farming
-action, Space uses it, and E interacts with the shop, bed, or shipping bin.
+`scenes/app/app.tscn`; WASD moves, `2` cycles the selected seed, Space
+automatically tills, plants, waters, or harvests the faced farm cell, and E
+interacts with the shop, bed, or shipping bin.
 There is no JavaScript or Tauri runtime in the current checkout.
 
 - E interacts with villagers as well as shop/bed/shipping.
 - I/B/C open and close Bag, Almanac, and Calendar while the world is available;
   each panel gates movement and closes on its matching key.
-- Repeated `2` cycles the selected seed after the initial Seeds selection; M
+- Every `2` press advances the selected seed; M
   chooses the maximum quantity in Shop or Shipping; O opens Settings from
   Pause only.
 
@@ -81,10 +82,11 @@ There is no JavaScript or Tauri runtime in the current checkout.
   session commands, refreshes `FarmView`/`GameHud` from snapshots, and gates
   world input while a modal blocks. Do not create a second session holder.
 - Hold-to-work is transient `WorldShell` state (`ACTION_HOLD_DWELL_SECONDS`,
-  0.15s): a fresh press fires the target once and dwelling on an eligible
-  target works new cells one at a time; tool/seed/focus/modal/day changes
-  cancel the hold immediately, and the rules themselves prevent a second
-  success on the same cell within one hold.
+  0.15s): a fresh press fires the target once and dwelling on eligible cells
+  works one at a time. Each gesture locks the action from its starting farm
+  tile, or from the first farm tile reached while walking in; release before
+  using a newly resolved action on that same hold. Seed/focus/modal/day changes
+  cancel the hold immediately.
 - `WorldShell` runs the HPA-263 passive day clock: `_process` calls
   `_advance_passive_clock(minf(delta, CLOCK_DELTA_CLAMP))` only while
   `clock_running` and the window-focus flag hold — the flag seeds from
@@ -110,7 +112,7 @@ There is no JavaScript or Tauri runtime in the current checkout.
 - Completed-run Continue routes straight to `ResultScreen`; the AppRoot
   result teardown removes the live World with `remove_child()` then
   `queue_free()` before presenting it.
-- scripts/persistence/save_file.gd owns schema-v2 JSON transport only; older
+- scripts/persistence/save_file.gd owns schema-v3 JSON transport only; older
   saves are intentionally incompatible and there is no migration.
 - scripts/persistence/save_repository.gd writes user://phoenix-save.json with FileAccess.
 - `scripts/ui/ui_settings.gd` owns the separate preference file and its

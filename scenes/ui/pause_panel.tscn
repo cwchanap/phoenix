@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://scripts/ui/pause_panel.gd" id="1_pause"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/controls.png" id="2_controls"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/movement.png" id="3_movement"]
-[ext_resource type="Texture2D" path="res://assets/ui/icons/hoe.png" id="4_hoe"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/seeds.png" id="4_seeds"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/dialogue.png" id="5_dialogue"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/bag.png" id="6_bag"]
 
@@ -173,28 +173,9 @@ offset_right = 102.0
 offset_bottom = 92.0
 mouse_filter = 2
 
-[node name="One" type="Panel" parent="Frame/ActionKeys"]
-layout_mode = 0
-offset_right = 19.0
-offset_bottom = 19.0
-mouse_filter = 2
-
-[node name="Label" type="Label" parent="Frame/ActionKeys/One"]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-text = "1"
-horizontal_alignment = 1
-vertical_alignment = 1
-
 [node name="Two" type="Panel" parent="Frame/ActionKeys"]
 layout_mode = 0
-offset_left = 22.0
-offset_right = 41.0
+offset_right = 19.0
 offset_bottom = 19.0
 mouse_filter = 2
 
@@ -210,44 +191,6 @@ text = "2"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="Three" type="Panel" parent="Frame/ActionKeys"]
-layout_mode = 0
-offset_left = 44.0
-offset_right = 63.0
-offset_bottom = 19.0
-mouse_filter = 2
-
-[node name="Label" type="Label" parent="Frame/ActionKeys/Three"]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-text = "3"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Four" type="Panel" parent="Frame/ActionKeys"]
-layout_mode = 0
-offset_left = 66.0
-offset_right = 85.0
-offset_bottom = 19.0
-mouse_filter = 2
-
-[node name="Label" type="Label" parent="Frame/ActionKeys/Four"]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-text = "4"
-horizontal_alignment = 1
-vertical_alignment = 1
-
 [node name="ActionIcon" type="TextureRect" parent="Frame"]
 layout_mode = 0
 offset_left = 106.0
@@ -255,7 +198,7 @@ offset_top = 76.0
 offset_right = 122.0
 offset_bottom = 92.0
 mouse_filter = 2
-texture = ExtResource("4_hoe")
+texture = ExtResource("4_seeds")
 expand_mode = 1
 stretch_mode = 5
 
@@ -265,7 +208,7 @@ offset_left = 128.0
 offset_top = 72.0
 offset_right = 256.0
 offset_bottom = 94.0
-text = "Hoe · Seeds · Water · Hands"
+text = "Cycle the selected seed"
 
 [node name="SpaceKey" type="Panel" parent="Frame"]
 layout_mode = 0
@@ -294,7 +237,7 @@ offset_top = 98.0
 offset_right = 122.0
 offset_bottom = 114.0
 mouse_filter = 2
-texture = ExtResource("4_hoe")
+texture = ExtResource("2_controls")
 expand_mode = 1
 stretch_mode = 5
 
@@ -304,7 +247,7 @@ offset_left = 128.0
 offset_top = 97.0
 offset_right = 256.0
 offset_bottom = 120.0
-text = "Use the selected action"
+text = "Space works the faced farm tile"
 
 [node name="InteractKey" type="Panel" parent="Frame"]
 layout_mode = 0

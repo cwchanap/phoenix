@@ -23,14 +23,14 @@ godot --path .
 ## Player contract
 
 Phoenix opens on a title screen. New Game starts a fresh run without deleting
-the current slot. Continue is enabled only for a schema-2 save accepted by
+the current slot. Continue is enabled only for a schema-3 save accepted by
 current GameSession rules at user://phoenix-save.json. Successful sleep
 advances gameplay first, then synchronously writes the completed next-morning
 state and pending morning summary. Continue restores gameplay at the authored
 spawn. Invalid/incompatible loads and save failures never block New Game or
 roll back an already completed day.
 
-Farm saves use schema 2 and have no migration path; older schema versions are
+Farm saves use schema 3 and have no migration path; older schema versions are
 rejected. UI preferences are stored separately in
 user://phoenix-settings.cfg.
 
@@ -44,15 +44,15 @@ there is no post-game or free play.
 | Input | Action |
 | --- | --- |
 | WASD | Move; facing selects the adjacent target cell |
-| `1` / `2` / `3` / `4` | Select Hoe / Seeds / Watering can / Hands |
-| Space | Use the selected action on the targeted farm cell |
+| `2` | Cycle the selected seed (Turnip → Potato → Pumpkin → Turnip) |
+| Space | Automatically till, plant, water, or harvest the faced farm cell |
 | E | Interact with the targeted shop, bed, or shipping-bin cell |
 | Esc | Close the open modal |
 | `I` / `B` / `C` | Open or close Bag / Almanac / Calendar when the world is available |
 | `M` | Select the maximum quantity in Shop or Shipping |
 | `O` | Open Settings from Pause |
 
-Pressing `2` again while Seeds is selected cycles Turnip, Potato, and Pumpkin.
+Every `2` press advances the selected seed, including the first press.
 Bag, Almanac, and Calendar each gate movement and close with the same key.
 Settings edits Music and Sound from `0..10`, Window at `1x`, `2x`, `3x`, `4x`,
 or `FULL`, and Tutorial Cards `ON` or `OFF`; `O` is handled only by Pause.
@@ -61,8 +61,8 @@ The target diamond is hidden when the faced cell is outside the map. Facing
 the shop cell `(17,9)`, bed cell `(12,7)`, or shipping cell `(10,13)` from an
 adjacent tile shows a contextual interaction hint (for example `Shop — E`).
 
-- Green farm target = selected action can run.
-- Red farm target = selected action is blocked; the hint explains why.
+- Green farm target = its next action can run.
+- Red farm target = its next action is blocked; the hint explains why.
 - Gold target = neutral/non-farm interaction targeting.
 - Esc opens Controls when no blocking/closable UI owns the event.
 - Phoenix includes lightweight placeholder music/SFX.
@@ -81,9 +81,10 @@ The social commands `talk_to` and `gift_crop` instead return a narrow result
 dictionary (lines, points gained, gift reaction) that the dialogue panel
 renders.
 
-1. **Farm.** Face a cell in the `6x5` farm patch and press `1`–`4` to select
-   an action, then Space to use it: till soil with the hoe, plant the
-   selected seed, water the crop, and harvest once it is mature.
+1. **Farm.** Face a cell in the `6x5` farm patch and press Space to do its next
+   action: till bare soil, plant the selected seed, water growing crops, or
+   harvest mature crops. Hold Space to sweep across cells with one action;
+   release before working the next stage.
 2. **Budget the day.** Each action costs clock minutes and stamina; the day
    runs 06:00 to 22:00 and stamina caps at 20. The clock also advances
    passively while the world accepts input — 0.5 real seconds per game

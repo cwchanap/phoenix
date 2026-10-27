@@ -6,7 +6,6 @@ var _time_minutes: int = GameRules.DAY_START_MINUTES
 var _stamina: int = GameRules.MAX_STAMINA
 var _weather: GameRules.Weather = GameRules.Weather.SUNNY
 var _weather_history: Array[StringName] = [GameRules.weather_key(GameRules.Weather.SUNNY)]
-var _selected_action: GameRules.FarmingAction = GameRules.FarmingAction.HOE
 var _selected_seed: GameRules.CropKind = GameRules.CropKind.TURNIP
 var _money: int = GameRules.STARTING_MONEY
 var _seed_counts: Array[int] = GameRules.starting_seed_counts()
@@ -44,7 +43,6 @@ func state() -> Dictionary:
         "stamina": _stamina,
         "weather": GameRules.weather_key(_weather),
         "weather_history": _weather_history.duplicate(),
-        "selected_action": GameRules.action_key(_selected_action),
         "selected_seed": GameRules.crop_key(_selected_seed),
         "money": _money,
         "seeds": _counts_snapshot(_seed_counts),
@@ -69,7 +67,6 @@ func snapshot() -> Dictionary:
         "max_stamina": GameRules.MAX_STAMINA,
         "weather": state_result["weather"],
         "weather_history": state_result["weather_history"],
-        "selected_action": state_result["selected_action"],
         "selected_seed": state_result["selected_seed"],
         "money": state_result["money"],
         "seeds": state_result["seeds"],
@@ -139,7 +136,6 @@ func restore_state(candidate: Dictionary) -> bool:
     _stamina = int(candidate["stamina"])
     _weather = GameRules.WEATHER_KEYS.find(StringName(candidate["weather"]))
     _weather_history = weather_history
-    _selected_action = GameRules.ACTION_KEYS.find(StringName(candidate["selected_action"]))
     _selected_seed = GameRules.CROP_KEYS.find(StringName(candidate["selected_seed"]))
     _money = int(candidate["money"])
     _seed_counts = seed_counts
@@ -155,13 +151,6 @@ func restore_state(candidate: Dictionary) -> bool:
     _pending_morning_summary = pending_morning_summary
     return true
 
-func select_action(action: GameRules.FarmingAction) -> GameRules.CommandCode:
-    var active_failure := _active_day_failure()
-    if active_failure != -1:
-        return active_failure
-    _selected_action = action
-    return GameRules.CommandCode.ACTION_SELECTED
-
 func select_seed(kind: GameRules.CropKind) -> GameRules.CommandCode:
     var active_failure := _active_day_failure()
     if active_failure != -1:
@@ -169,11 +158,14 @@ func select_seed(kind: GameRules.CropKind) -> GameRules.CommandCode:
     _selected_seed = kind
     return GameRules.CommandCode.SEED_SELECTED
 
-func apply_selected_action(target_cell: Variant) -> GameRules.CommandCode:
+func apply_target_action(target_cell: Variant) -> GameRules.CommandCode:
     var active_failure := _active_day_failure()
     if active_failure != -1:
         return active_failure
-    match _selected_action:
+    var action: Variant = _action_for_target(target_cell)
+    if action == null:
+        return _target_failure(target_cell)
+    match action:
         GameRules.FarmingAction.HOE:
             return hoe(target_cell)
         GameRules.FarmingAction.SEEDS:
@@ -185,13 +177,27 @@ func apply_selected_action(target_cell: Variant) -> GameRules.CommandCode:
     assert(false, "unsupported farming action")
     return GameRules.CommandCode.NO_TARGET
 
-func preview_selected_action(target_cell: Variant) -> Dictionary:
-    var failure := _selected_action_failure(target_cell)
+func preview_target_action(target_cell: Variant) -> Dictionary:
+    var action: Variant = _action_for_target(target_cell)
+    var failure := _active_day_failure()
+    if failure == -1:
+        if action == null:
+            failure = _target_failure(target_cell)
+        else:
+            match action:
+                GameRules.FarmingAction.HOE:
+                    failure = _hoe_failure(target_cell)
+                GameRules.FarmingAction.SEEDS:
+                    failure = _plant_failure(target_cell)
+                GameRules.FarmingAction.WATERING_CAN:
+                    failure = _water_failure(target_cell)
+                GameRules.FarmingAction.HANDS:
+                    failure = _harvest_failure(target_cell)
     var code := GameRules.CommandCode.NO_TARGET
     if failure != -1:
         code = failure
     else:
-        match _selected_action:
+        match action:
             GameRules.FarmingAction.HOE:
                 code = GameRules.CommandCode.SOIL_TILLED
             GameRules.FarmingAction.SEEDS:
@@ -202,13 +208,28 @@ func preview_selected_action(target_cell: Variant) -> Dictionary:
                 code = GameRules.CommandCode.CROP_HARVESTED
     return {
         "code": code,
-        "action": _selected_action,
-        "crop": _preview_crop(target_cell),
-        "cost": _cost_for(_selected_action),
+        "action": action,
+        "crop": null if action == null else _preview_crop(target_cell, action),
+        "cost": {} if action == null else _cost_for(action),
     }
 
-func _preview_crop(target_cell: Variant) -> Variant:
-    match _selected_action:
+func _action_for_target(target_cell: Variant) -> Variant:
+    var index := _farm_index(target_cell)
+    if index == -1:
+        return null
+    var tile: Dictionary = _farm[index]
+    if tile["crop"] == null:
+        return GameRules.FarmingAction.SEEDS if bool(tile["tilled"]) else GameRules.FarmingAction.HOE
+    var crop: Dictionary = tile["crop"]
+    var kind: GameRules.CropKind = crop["kind"]
+    return (
+        GameRules.FarmingAction.HANDS
+        if GameRules.is_mature(kind, int(crop["growth"]))
+        else GameRules.FarmingAction.WATERING_CAN
+    )
+
+func _preview_crop(target_cell: Variant, action: GameRules.FarmingAction) -> Variant:
+    match action:
         GameRules.FarmingAction.SEEDS:
             return _selected_seed
         GameRules.FarmingAction.WATERING_CAN, \
@@ -309,19 +330,6 @@ func _harvest_failure(target_cell: Variant) -> int:
         _cost_for(GameRules.FarmingAction.HANDS),
     )
     return -1 if bool(budget["ok"]) else int(budget["code"])
-
-func _selected_action_failure(target_cell: Variant) -> int:
-    match _selected_action:
-        GameRules.FarmingAction.HOE:
-            return _hoe_failure(target_cell)
-        GameRules.FarmingAction.SEEDS:
-            return _plant_failure(target_cell)
-        GameRules.FarmingAction.WATERING_CAN:
-            return _water_failure(target_cell)
-        GameRules.FarmingAction.HANDS:
-            return _harvest_failure(target_cell)
-    assert(false, "unsupported farming action")
-    return GameRules.CommandCode.NO_TARGET
 
 func hoe(target_cell: Variant) -> GameRules.CommandCode:
     var failure := _hoe_failure(target_cell)

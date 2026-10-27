@@ -34,7 +34,7 @@ func test_tutorial_table_is_exact_and_unique() -> void:
 func test_farm_basics_copy_pins_green_red_target_preview() -> void:
     assert_eq(
         String(ContentRules.TUTORIALS[0]["body"]),
-        "Face a farm diamond. Green means the selected action can run; red means it cannot. Press 1 for Hoe, then Space.",
+        "Face a farm diamond. Green means ready; red means blocked. Press Space to till.",
     )
 
 func test_tutorial_helpers_derive_from_the_table() -> void:
@@ -52,7 +52,7 @@ func test_tutorial_helpers_derive_from_the_table() -> void:
     for id in expected_ids:
         assert_true(progress.has(id))
         assert_false(progress[id])
-    assert_eq(ContentRules.tutorial_for_code(GameRules.CommandCode.ACTION_SELECTED), &"")
+    assert_eq(ContentRules.tutorial_for_code(GameRules.CommandCode.SEED_SELECTED), &"")
 
 func test_watering_can_codes_complete_no_tutorial() -> void:
     assert_eq(

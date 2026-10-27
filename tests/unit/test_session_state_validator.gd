@@ -70,7 +70,7 @@ func test_state_error_rejects_invalid_current_rule_shapes() -> void:
         invalid[field][&"turnip"] = -1
         candidates.append(invalid)
 
-    for field in ["selected_seed", "selected_action", "weather"]:
+    for field in ["selected_seed", "weather"]:
         invalid = valid.duplicate(true)
         invalid[field] = &"unknown"
         candidates.append(invalid)

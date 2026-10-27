@@ -54,6 +54,7 @@ func _ready() -> void:
     add_child(_hud)
     _hud.configure(UiSettings.new())
     _hud.render(_state)
+    _hud.set_target_action(GameRules.FarmingAction.HOE)
     _hud.set_interaction_hint("E SHOP")
     _hud.show_feedback(GameRules.CommandCode.SOIL_TILLED)
 
