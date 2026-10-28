@@ -255,7 +255,7 @@ offset_left = 69.0
 offset_top = 27.0
 offset_right = 107.0
 offset_bottom = 43.0
-text = "40"
+text = "30"
 
 [node name="Each" type="Label" parent="Frame/Body/Row_1"]
 layout_mode = 0

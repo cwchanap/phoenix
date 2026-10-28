@@ -5,6 +5,7 @@ const HUD_SCENE := preload("res://scenes/ui/game_hud.tscn")
 const TITLE_SCENE := preload("res://scenes/ui/title_screen.tscn")
 const RESULT_SCENE := preload("res://scenes/ui/result_screen.tscn")
 const CAPTURE_SETTLE_FRAMES := 2
+const CAPTURE_BLANK_FRAME_RETRIES := 30
 
 var _state: Dictionary = {}
 var _state_name := "01-hud"
@@ -104,7 +105,29 @@ func capture_root() -> Image:
     for _step in CAPTURE_SETTLE_FRAMES:
         await get_tree().process_frame
     var image := get_viewport().get_texture().get_image()
+    var retries := 0
+    while _is_uniform_frame(image) and retries < CAPTURE_BLANK_FRAME_RETRIES:
+        retries += 1
+        await get_tree().process_frame
+        image = get_viewport().get_texture().get_image()
+    if _is_uniform_frame(image):
+        push_error(
+            "viewport capture stayed a uniform frame after %d extra frames" % retries
+        )
+        return null
     return image
+
+static func _is_uniform_frame(image: Image) -> bool:
+    if image == null or image.is_empty():
+        return true
+    var first := image.get_pixel(0, 0)
+    var step_x := maxi(1, image.get_width() / 32)
+    var step_y := maxi(1, image.get_height() / 24)
+    for y in range(0, image.get_height(), step_y):
+        for x in range(0, image.get_width(), step_x):
+            if image.get_pixel(x, y) != first:
+                return false
+    return true
 
 static func evidence_2x(source: Image) -> Image:
     var result := source.duplicate()

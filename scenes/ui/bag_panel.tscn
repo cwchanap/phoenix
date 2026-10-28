@@ -703,7 +703,7 @@ offset_left = 10.0
 offset_top = 138.0
 offset_right = 178.0
 offset_bottom = 176.0
-text = "Cheapest and fastest. 3 nights of watering, then harvest."
+text = "Cheapest and fastest; the latest safe planting. 3 nights of watering, then harvest."
 autowrap_mode = 2
 
 [node name="Growth" type="Control" parent="Frame/Body/Detail"]

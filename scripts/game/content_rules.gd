@@ -116,7 +116,7 @@ static func _tutorial_relevant(id: StringName, snapshot: Dictionary) -> bool:
         &"buy_seeds":
             return (
                 int(snapshot["day"]) >= 2
-                and int(snapshot["money"]) >= GameRules.seed_price(GameRules.CropKind.TURNIP)
+                and int(snapshot["money"]) >= int(GameRules.SEED_PRICES.min())
             )
         &"harvest":
             return _has_mature_crop(snapshot["farm"])

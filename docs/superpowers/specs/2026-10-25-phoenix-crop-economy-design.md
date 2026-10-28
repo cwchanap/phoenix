@@ -1,6 +1,6 @@
 # HPA-351 — Crop economy: distinct crop niches (design specification)
 
-**Status:** Revised proposal / planning only; no runtime implementation in this draft PR  
+**Status:** Implemented on this PR — Potato seed 40G → 30G, niche-ranking test, fixture re-pins, and Shop/Almanac golden re-bless all landed together  
 **Linear:** https://linear.app/cwchanap/issue/HPA-351/economy-give-each-crop-a-distinct-niche  
 **Repository:** `cwchanap/phoenix`  
 **Prerequisites:** HPA-263 and HPA-353 completed; HPA-264 merged. Rebase the planning branch onto current `main` before implementation.  
@@ -46,7 +46,7 @@ The comparison deliberately excludes one-time hoeing on an already prepared tile
 | Potato | **0.300** | 3.750 | 6.429 |
 | Pumpkin | 0.143 | **4.375** | **7.778** |
 
-Each lead is strict. The discounted Potato seed increases separation between Potato and Turnip on seed-capital return without crowding Pumpkin on stamina efficiency.
+Each lead is strict under all-sunny manual watering. The discounted Potato seed increases separation between Potato and Turnip on seed-capital return, but it also narrows Pumpkin's stamina-efficiency lead over Potato — normal can 4.375 vs 3.750 (was 4.375 vs 2.917), Efficient Can 7.778 vs 6.429 (was 7.778 vs 5.000). The lead survives; the margin is intentionally thinner. Rainy days water for free and can reorder the stamina ranking, so the table defines the all-sunny baseline only.
 
 ## Player impact and constraints
 
