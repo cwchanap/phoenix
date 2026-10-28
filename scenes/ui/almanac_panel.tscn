@@ -427,7 +427,7 @@ offset_left = 10.0
 offset_top = 195.0
 offset_right = 54.0
 offset_bottom = 219.0
-text = "40G"
+text = "30G"
 
 [node name="SellCaption" type="Label" parent="Frame/Body/Card_1"]
 layout_mode = 0
@@ -459,7 +459,7 @@ offset_left = 118.0
 offset_top = 195.0
 offset_right = 164.0
 offset_bottom = 219.0
-text = "+35"
+text = "+45"
 
 [node name="Card_2" type="Panel" parent="Frame/Body"]
 layout_mode = 0

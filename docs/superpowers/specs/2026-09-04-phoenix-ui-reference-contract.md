@@ -95,7 +95,7 @@ All farm-state fixtures must satisfy `GameSession.state_error(state) == ""` befo
 | 02 | Seed Shop | money `150`; Turnip selected; quantity `5`; price `20`; live total `100`; seed holdings `3/0/0`. |
 | 03 | Shipping Bin | Day `14`; harvested `7/0/0`; Turnip selected; quantity `7`; selected deposit value `245`; pending starts `0/0/0`. |
 | 04 | Bag | seeds `3/0/0`; harvested `7/2/0` (total 9); pending `4/0/0` (`140G`); Seeds shelf + Turnip selected; detail `3 nights`, `20G`, `35G`, June favourite. |
-| 05 | Almanac | Turnip/June `3,20,35,+15`; Potato/Mira `5,40,75,+35`; Pumpkin/Rowan `7,70,140,+70`. |
+| 05 | Almanac | Turnip/June `3,20,35,+15`; Potato/Mira `5,30,75,+45`; Pumpkin/Rowan `7,70,140,+70`. |
 | 06 | Calendar | Day `3`; market in `11`; history `[sunny,rainy,sunny]`; Turnip growth `0` gives earliest Day 6; Pumpkin growth `1` gives earliest Day 9; no future-weather icons; Day 14 Market. |
 | 07 | Dialogue | Mira; `13` points / Friend; talked today; presentation +1; harvested Turnip `7`, Potato `2`, Pumpkin `0`; Potato selected/favourite `+5`; normal `+3`; dialogue `Your fields are starting to look dependable.` |
 | 08 | Morning Summary | current Day `4`; completed `3`; next `4`; crops advanced `2`; next weather Rainy; Turnip x2 `70G`; income `70`; money after `220`; stamina `20 FULL`; save `SAVED`. |

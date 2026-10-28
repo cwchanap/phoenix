@@ -154,9 +154,9 @@ func _update_detail() -> void:
         "%s seeds" % name if _shelf == 0 else name
     )
     var growth := GameRules.growth_nights(kind)
-    var description := "Cheapest and fastest. %d nights of watering, then harvest." % growth
+    var description := "Cheapest and fastest; the latest safe planting. %d nights of watering, then harvest." % growth
     if kind == GameRules.CropKind.POTATO:
-        description = "A dependable middle crop. %d nights of watering, then harvest." % growth
+        description = "Best return per seed coin per night. %d nights of watering, then harvest." % growth
     elif kind == GameRules.CropKind.PUMPKIN:
         description = "Slow and valuable. %d nights of watering, then harvest." % growth
     if _shelf == 1:

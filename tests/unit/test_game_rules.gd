@@ -36,59 +36,92 @@ func test_crop_table_is_closed_and_exact() -> void:
     assert_eq(GameRules.sale_value(GameRules.CropKind.PUMPKIN), 140)
 
 func test_crop_niches_have_distinct_leaders() -> void:
-    var kinds: Array = [
-        GameRules.CropKind.TURNIP,
-        GameRules.CropKind.POTATO,
-        GameRules.CropKind.PUMPKIN,
-    ]
-    var seed_prices := {}
-    var profits := {}
-    var nights := {}
-    for kind in kinds:
-        var seed: int = GameRules.seed_price(kind)
-        var sale: int = GameRules.sale_value(kind)
-        seed_prices[kind] = seed
-        profits[kind] = sale - seed
-        nights[kind] = GameRules.growth_nights(kind)
+    var prices: Array[int] = []
+    var profits: Array[int] = []
+    var nights: Array[int] = []
+    for kind in range(GameRules.CropKind.size()):
+        var price: int = GameRules.seed_price(kind)
+        prices.append(price)
+        nights.append(GameRules.growth_nights(kind))
+        profits.append(GameRules.sale_value(kind) - price)
+        assert_gt(
+            profits[kind],
+            0,
+            "%s must stay profitable or no niche can justify planting it"
+                % GameRules.crop_display_name(kind),
+        )
 
     # Turnip is the speed niche: strictly shortest nights, so the latest
     # still-harvestable planting day strictly leads the other crops.
-    var latest_plant_days := {}
-    for kind in kinds:
-        var latest := 0
-        for day in range(1, GameRules.MAX_DAY + 1):
-            if GameRules.earliest_ready_day(kind, 0, day) != -1:
-                latest = day
-        latest_plant_days[kind] = latest
-    assert_lt(latest_plant_days[GameRules.CropKind.POTATO], latest_plant_days[GameRules.CropKind.TURNIP])
-    assert_lt(latest_plant_days[GameRules.CropKind.PUMPKIN], latest_plant_days[GameRules.CropKind.TURNIP])
+    assert_lt(
+        nights[GameRules.CropKind.TURNIP],
+        mini(nights[GameRules.CropKind.POTATO], nights[GameRules.CropKind.PUMPKIN]),
+        "Turnip must have the strictly shortest growth nights",
+    )
+    var latest_plant_days: Array[int] = []
+    for kind in range(GameRules.CropKind.size()):
+        var latest: int = GameRules.MAX_DAY - nights[kind]
+        assert_eq(
+            GameRules.earliest_ready_day(kind, 0, latest),
+            GameRules.MAX_DAY,
+            "%s planted on its latest safe day must mature for the market"
+                % GameRules.crop_display_name(kind),
+        )
+        assert_eq(
+            GameRules.earliest_ready_day(kind, 0, latest + 1),
+            -1,
+            "%s planted one day later must miss the market" % GameRules.crop_display_name(kind),
+        )
+        latest_plant_days.append(latest)
+    assert_gt(
+        latest_plant_days[GameRules.CropKind.TURNIP],
+        latest_plant_days[GameRules.CropKind.POTATO],
+        "Turnip must be plantable later than Potato",
+    )
+    assert_gt(
+        latest_plant_days[GameRules.CropKind.TURNIP],
+        latest_plant_days[GameRules.CropKind.PUMPKIN],
+        "Turnip must be plantable later than Pumpkin",
+    )
 
     # Potato is the capital niche: strictly best profit per seed per night,
     # compared with exact integer cross-products (no float drift).
     assert_gt(
-        profits[GameRules.CropKind.POTATO] * seed_prices[GameRules.CropKind.TURNIP] * nights[GameRules.CropKind.TURNIP],
-        profits[GameRules.CropKind.TURNIP] * seed_prices[GameRules.CropKind.POTATO] * nights[GameRules.CropKind.POTATO],
+        profits[GameRules.CropKind.POTATO] * prices[GameRules.CropKind.TURNIP] * nights[GameRules.CropKind.TURNIP],
+        profits[GameRules.CropKind.TURNIP] * prices[GameRules.CropKind.POTATO] * nights[GameRules.CropKind.POTATO],
+        "Potato must beat Turnip on profit per seed-G per night",
     )
     assert_gt(
-        profits[GameRules.CropKind.POTATO] * seed_prices[GameRules.CropKind.PUMPKIN] * nights[GameRules.CropKind.PUMPKIN],
-        profits[GameRules.CropKind.PUMPKIN] * seed_prices[GameRules.CropKind.POTATO] * nights[GameRules.CropKind.POTATO],
+        profits[GameRules.CropKind.POTATO] * prices[GameRules.CropKind.PUMPKIN] * nights[GameRules.CropKind.PUMPKIN],
+        profits[GameRules.CropKind.PUMPKIN] * prices[GameRules.CropKind.POTATO] * nights[GameRules.CropKind.POTATO],
+        "Potato must beat Pumpkin on profit per seed-G per night",
     )
 
     # Pumpkin is the tending niche: strictly best profit per tending stamina
     # for both watering-can states, with costs taken from the rules.
     for upgraded in [false, true]:
-        var tending_stamina := {}
-        for kind in kinds:
-            tending_stamina[kind] = int(GameRules.effective_action_cost(GameRules.FarmingAction.SEEDS, upgraded)["stamina"]) \
-                + nights[kind] * int(GameRules.effective_action_cost(GameRules.FarmingAction.WATERING_CAN, upgraded)["stamina"]) \
-                + int(GameRules.effective_action_cost(GameRules.FarmingAction.HANDS, upgraded)["stamina"])
+        var mode := "efficient can" if upgraded else "normal can"
+        var plant_stamina := int(
+            GameRules.effective_action_cost(GameRules.FarmingAction.SEEDS, upgraded)["stamina"]
+        )
+        var water_stamina := int(
+            GameRules.effective_action_cost(GameRules.FarmingAction.WATERING_CAN, upgraded)["stamina"]
+        )
+        var harvest_stamina := int(
+            GameRules.effective_action_cost(GameRules.FarmingAction.HANDS, upgraded)["stamina"]
+        )
+        var tending_stamina: Array[int] = []
+        for kind in range(GameRules.CropKind.size()):
+            tending_stamina.append(plant_stamina + nights[kind] * water_stamina + harvest_stamina)
         assert_gt(
             profits[GameRules.CropKind.PUMPKIN] * tending_stamina[GameRules.CropKind.TURNIP],
             profits[GameRules.CropKind.TURNIP] * tending_stamina[GameRules.CropKind.PUMPKIN],
+            "Pumpkin must beat Turnip on profit per tending stamina (%s)" % mode,
         )
         assert_gt(
             profits[GameRules.CropKind.PUMPKIN] * tending_stamina[GameRules.CropKind.POTATO],
             profits[GameRules.CropKind.POTATO] * tending_stamina[GameRules.CropKind.PUMPKIN],
+            "Pumpkin must beat Potato on profit per tending stamina (%s)" % mode,
         )
 
 func test_weather_keys_are_closed_and_exact() -> void:
