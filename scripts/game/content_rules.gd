@@ -14,7 +14,7 @@ const TUTORIALS: Array[Dictionary] = [
     {
         "id": &"plant",
         "title": "Plant a seed",
-        "body": "Face tilled soil and press Space to plant the selected seed.",
+        "body": "Face tilled soil and press Space to plant the selected seed. Press 2 to change seeds.",
         "completed_by": GameRules.CommandCode.CROP_PLANTED,
     },
     {

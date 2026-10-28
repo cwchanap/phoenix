@@ -1,6 +1,13 @@
 class_name GameSession
 extends RefCounted
 
+const FARMING_ACTION_CODES := {
+    GameRules.FarmingAction.HOE: GameRules.CommandCode.SOIL_TILLED,
+    GameRules.FarmingAction.SEEDS: GameRules.CommandCode.CROP_PLANTED,
+    GameRules.FarmingAction.WATERING_CAN: GameRules.CommandCode.CROP_WATERED,
+    GameRules.FarmingAction.HANDS: GameRules.CommandCode.CROP_HARVESTED,
+}
+
 var _day: int = 1
 var _time_minutes: int = GameRules.DAY_START_MINUTES
 var _stamina: int = GameRules.MAX_STAMINA
@@ -17,6 +24,7 @@ var _tutorial_progress: Dictionary = ContentRules.initial_tutorial_progress()
 var _finale_triggered := false
 var _watering_can_upgraded := false
 var _farm: Array[Dictionary] = []
+var _farm_index_by_cell: Dictionary = {}
 var _relationships: Array[Dictionary] = []
 var _pending_morning_summary: Variant = null
 var _weather_roll: Callable
@@ -25,6 +33,7 @@ func _init(weather_roll: Callable = Callable()) -> void:
     _weather_roll = weather_roll if weather_roll.is_valid() else Callable(self, "_default_weather_roll")
     for cell in WorldContract.farm_cells():
         _farm.append({"cell": cell, "tilled": false, "crop": null})
+    _rebuild_farm_index()
     for _id in VillagerRules.VillagerId.size():
         _relationships.append({
             "points": 0,
@@ -147,9 +156,13 @@ func restore_state(candidate: Dictionary) -> bool:
     _finale_triggered = bool(candidate["finale_triggered"])
     _watering_can_upgraded = bool(candidate["watering_can_upgraded"])
     _farm = farm
+    _rebuild_farm_index()
     _relationships = relationships
     _pending_morning_summary = pending_morning_summary
     return true
+
+func selected_seed() -> GameRules.CropKind:
+    return _selected_seed
 
 func select_seed(kind: GameRules.CropKind) -> GameRules.CommandCode:
     var active_failure := _active_day_failure()
@@ -165,17 +178,14 @@ func apply_target_action(target_cell: Variant) -> GameRules.CommandCode:
     var action: Variant = _action_for_target(target_cell)
     if action == null:
         return _target_failure(target_cell)
-    match action:
-        GameRules.FarmingAction.HOE:
-            return hoe(target_cell)
-        GameRules.FarmingAction.SEEDS:
-            return plant(target_cell)
-        GameRules.FarmingAction.WATERING_CAN:
-            return water(target_cell)
-        GameRules.FarmingAction.HANDS:
-            return harvest(target_cell)
-    assert(false, "unsupported farming action")
-    return GameRules.CommandCode.NO_TARGET
+    var commands := {
+        GameRules.FarmingAction.HOE: hoe,
+        GameRules.FarmingAction.SEEDS: plant,
+        GameRules.FarmingAction.WATERING_CAN: water,
+        GameRules.FarmingAction.HANDS: harvest,
+    }
+    assert(commands.has(action), "unsupported farming action")
+    return (commands[action] as Callable).call(target_cell)
 
 func preview_target_action(target_cell: Variant) -> Dictionary:
     var action: Variant = _action_for_target(target_cell)
@@ -184,28 +194,12 @@ func preview_target_action(target_cell: Variant) -> Dictionary:
         if action == null:
             failure = _target_failure(target_cell)
         else:
-            match action:
-                GameRules.FarmingAction.HOE:
-                    failure = _hoe_failure(target_cell)
-                GameRules.FarmingAction.SEEDS:
-                    failure = _plant_failure(target_cell)
-                GameRules.FarmingAction.WATERING_CAN:
-                    failure = _water_failure(target_cell)
-                GameRules.FarmingAction.HANDS:
-                    failure = _harvest_failure(target_cell)
+            failure = _failure_for(action, target_cell)
     var code := GameRules.CommandCode.NO_TARGET
     if failure != -1:
         code = failure
     else:
-        match action:
-            GameRules.FarmingAction.HOE:
-                code = GameRules.CommandCode.SOIL_TILLED
-            GameRules.FarmingAction.SEEDS:
-                code = GameRules.CommandCode.CROP_PLANTED
-            GameRules.FarmingAction.WATERING_CAN:
-                code = GameRules.CommandCode.CROP_WATERED
-            GameRules.FarmingAction.HANDS:
-                code = GameRules.CommandCode.CROP_HARVESTED
+        code = FARMING_ACTION_CODES[action]
     return {
         "code": code,
         "action": action,
@@ -227,6 +221,19 @@ func _action_for_target(target_cell: Variant) -> Variant:
         if GameRules.is_mature(kind, int(crop["growth"]))
         else GameRules.FarmingAction.WATERING_CAN
     )
+
+func _failure_for(action: GameRules.FarmingAction, target_cell: Variant) -> int:
+    match action:
+        GameRules.FarmingAction.HOE:
+            return _hoe_failure(target_cell)
+        GameRules.FarmingAction.SEEDS:
+            return _plant_failure(target_cell)
+        GameRules.FarmingAction.WATERING_CAN:
+            return _water_failure(target_cell)
+        GameRules.FarmingAction.HANDS:
+            return _harvest_failure(target_cell)
+    assert(false, "unsupported farming action")
+    return GameRules.CommandCode.NO_TARGET
 
 func _preview_crop(target_cell: Variant, action: GameRules.FarmingAction) -> Variant:
     match action:
@@ -675,13 +682,15 @@ func _target_failure(target_cell: Variant) -> int:
         return GameRules.CommandCode.NOT_FARM_CELL
     return -1
 
+func _rebuild_farm_index() -> void:
+    _farm_index_by_cell.clear()
+    for index in _farm.size():
+        _farm_index_by_cell[_farm[index]["cell"]] = index
+
 func _farm_index(target_cell: Variant) -> int:
     if not (target_cell is Vector2i):
         return -1
-    for index in _farm.size():
-        if _farm[index]["cell"] == target_cell:
-            return index
-    return -1
+    return int(_farm_index_by_cell.get(target_cell, -1))
 
 func _commit(code: GameRules.CommandCode) -> GameRules.CommandCode:
     var tutorial_id := ContentRules.tutorial_for_code(code)

@@ -554,6 +554,7 @@ func _build_always_visible_hud() -> void:
     for kind in range(GameRules.CropKind.size()):
         var seed_button := $HudRoot.get_node("Seed_%d" % kind) as Button
         seed_button.toggle_mode = true
+        seed_button.focus_mode = Control.FOCUS_NONE
         seed_button.pressed.connect(_on_seed_button_pressed.bind(kind))
         _seed_buttons.append(seed_button)
         _seed_count_labels.append(seed_button.get_node("Count") as Label)
@@ -601,14 +602,11 @@ func _apply_authored_hud_style() -> void:
     UiStyle.button($HudRoot/Hotbar/InteractKey as Button, 9)
     for action in _action_buttons.size():
         UiStyle.button(_action_buttons[action], 8)
-        var keycap := _action_buttons[action].get_node_or_null("Keycap") as Button
-        if keycap != null:
-            UiStyle.button(keycap, 8)
-            keycap.add_theme_stylebox_override("normal", UiStyle.panel(UiStyle.INSET, UiStyle.BORDER_LIGHT, 1))
-        var key := _action_buttons[action].get_node_or_null("Key") as Label
-        if key != null:
-            UiStyle.text(key, 8, UiStyle.GOLD, 700)
         UiStyle.text(_action_buttons[action].get_node("Name") as Label, 8, UiStyle.TEXT, 600)
+    var keycap := _action_buttons[1].get_node("Keycap") as Button
+    UiStyle.button(keycap, 8)
+    keycap.add_theme_stylebox_override("normal", UiStyle.panel(UiStyle.INSET, UiStyle.BORDER_LIGHT, 1))
+    UiStyle.text(_action_buttons[1].get_node("Key") as Label, 8, UiStyle.GOLD, 700)
     UiStyle.text(_seed_action_badge, 8, UiStyle.GOLD, 700)
     for seed in _seed_buttons.size():
         UiStyle.button(_seed_buttons[seed], 8)

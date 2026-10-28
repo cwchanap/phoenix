@@ -118,7 +118,6 @@ func _process(delta: float) -> void:
     if not _world_input_enabled:
         player.set_target_tint(PlayerController.TargetTint.NEUTRAL)
         farm_view.set_target_cell(null)
-        hud.set_target_action(null)
         hud.set_interaction_hint("")
         return
 
@@ -127,6 +126,18 @@ func _process(delta: float) -> void:
     if _advance_action_hold(delta, target, preview):
         return
     farm_view.set_target_cell(target)
+    # A held gesture is bound to one action: a farm tile resolving a
+    # different action shows neutral rather than advertising work the
+    # hold will never do.
+    if (
+        _action_hold_active
+        and _action_hold_action != null
+        and preview["action"] != null
+        and preview["action"] != _action_hold_action
+    ):
+        player.set_target_tint(PlayerController.TargetTint.NEUTRAL)
+        hud.set_interaction_hint("")
+        return
     if FARM_ACTION_SUCCESS_CODES.has(preview["code"]):
         player.set_target_tint(PlayerController.TargetTint.VALID)
         hud.set_interaction_hint(hud.farming_preview_text(preview))
@@ -185,15 +196,13 @@ func cycle_seed() -> void:
     if not _world_input_enabled:
         return
     _cancel_action_hold()
-    var current := GameRules.CROP_KEYS.find(StringName(_session.snapshot()["selected_seed"]))
-    _finish_command(_session.select_seed((current + 1) % GameRules.CropKind.size()))
+    _finish_command(_session.select_seed((_session.selected_seed() + 1) % GameRules.CropKind.size()))
 
-func _attempt_target_action(target_cell: Variant) -> void:
+func _attempt_target_action(target_cell: Variant, preview: Dictionary) -> void:
     # Capture the presentation facts that mutation could destroy (notably the
     # harvest crop kind) before dispatching the authoritative command.
     var facing := player.facing
     var player_position := player.global_position
-    var preview := _session.preview_target_action(target_cell)
     var code := _session.apply_target_action(target_cell)
     _finish_command(code)
     if FARM_ACTION_SUCCESS_CODES.has(code):
@@ -211,11 +220,11 @@ func _advance_action_hold(delta: float, target: Variant, preview: Dictionary) ->
     if target != _action_hold_target:
         _action_hold_target = target
         _action_hold_dwell = 0.0
+        # Off-farm presses bind on the first farm tile reached (even if
+        # blocked); farm presses already carry the lock from the press.
         if _action_hold_action == null and preview["action"] != null:
             _action_hold_action = preview["action"]
         return false
-    if _action_hold_action == null and preview["action"] != null:
-        _action_hold_action = preview["action"]
     _action_hold_dwell += delta
     if _action_hold_dwell < ACTION_HOLD_DWELL_SECONDS:
         return false
@@ -223,14 +232,15 @@ func _advance_action_hold(delta: float, target: Variant, preview: Dictionary) ->
         return false
     if preview["action"] != _action_hold_action:
         return false
-    _attempt_target_action(target)
+    _attempt_target_action(target, preview)
     return true
 
 func use_target_action() -> void:
     if not _world_input_enabled:
         return
     # One-shot wrapper: it never starts or advances hold state.
-    _attempt_target_action(player.current_target_cell())
+    var target: Variant = player.current_target_cell()
+    _attempt_target_action(target, _session.preview_target_action(target))
 
 func _notification(what: int) -> void:
     # Focus-in is window-level only: application FOCUS_IN can arrive while
@@ -277,10 +287,9 @@ func _unhandled_input(event: InputEvent) -> void:
         _action_hold_active = true
         _action_hold_target = player.current_target_cell()
         _action_hold_dwell = 0.0
-        _action_hold_action = _session.preview_target_action(
-            _action_hold_target
-        )["action"]
-        _attempt_target_action(_action_hold_target)
+        var press_preview := _session.preview_target_action(_action_hold_target)
+        _action_hold_action = press_preview["action"]
+        _attempt_target_action(_action_hold_target, press_preview)
     elif event.is_action_released("use_action"):
         _cancel_action_hold()
     elif event.is_action_pressed("interact"):
