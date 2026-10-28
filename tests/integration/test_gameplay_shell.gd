@@ -76,6 +76,9 @@ func test_fresh_opening_blocks_world_input() -> void:
     var action_button := world.hud.get_node("HudRoot/Action_1") as Button
     assert_false(action_button.disabled)
     assert_eq(action_button.focus_mode, Control.FOCUS_NONE)
+    for kind in range(GameRules.CropKind.size()):
+        var seed_button := world.hud.get_node("HudRoot/Seed_%d" % kind) as Button
+        assert_eq(seed_button.focus_mode, Control.FOCUS_NONE)
 
 func test_action_labels_start_centered_and_stay_centered_through_target_changes() -> void:
     var hud_scene := load("res://scenes/ui/game_hud.tscn") as PackedScene
@@ -2679,7 +2682,12 @@ func test_hold_seed_selection_cancels_the_gesture() -> void:
     assert_null(world._action_hold_action)
     assert_eq(world._session.snapshot()["selected_seed"], &"potato")
     _set_target(world, cells[1])
-    assert_false(world._advance_action_hold(1.0, cells[1], _hold_preview(world, cells[1])))
+    var cells1_preview := _hold_preview(world, cells[1])
+    assert_false(world._advance_action_hold(0.5, cells[1], cells1_preview))
+    # A live hold would dispatch on the second same-target dwell; a
+    # cancelled gesture must leave the tile untilled.
+    assert_false(world._advance_action_hold(0.5, cells[1], cells1_preview))
+    assert_false(world._session.snapshot()["farm"][1]["tilled"])
     assert_null(world._session.snapshot()["farm"][1]["crop"])
 
     assert_eq(world._session.hoe(cells[1]), GameRules.CommandCode.SOIL_TILLED)
@@ -2690,9 +2698,48 @@ func test_hold_seed_selection_cancels_the_gesture() -> void:
     hud.select_seed_requested.emit(GameRules.CropKind.TURNIP)
     assert_false(world._action_hold_active)
     assert_null(world._action_hold_action)
+    var cells1_plant := _hold_preview(world, cells[1])
+    assert_eq(cells1_plant["action"], GameRules.FarmingAction.SEEDS)
+    assert_false(world._advance_action_hold(0.5, cells[1], cells1_plant))
+    assert_false(world._advance_action_hold(0.5, cells[1], cells1_plant))
+    assert_null(world._session.snapshot()["farm"][1]["crop"])
     _set_target(world, cells[2])
     assert_false(world._advance_action_hold(1.0, cells[2], _hold_preview(world, cells[2])))
     assert_null(world._session.snapshot()["farm"][2]["crop"])
+
+func test_hold_locked_action_shows_mismatched_farm_tile_as_neutral() -> void:
+    var world := _world()
+    var hint := world.hud.get_node("HudRoot/InteractionHint") as Label
+    var cells := WorldContract.farm_cells()
+    assert_eq(world._session.hoe(cells[1]), GameRules.CommandCode.SOIL_TILLED)
+    await _place_target(world, cells[0])
+
+    _push_use_action(world, true)
+    assert_eq(world._action_hold_action, GameRules.FarmingAction.HOE)
+
+    # The tilled neighbour previews Seeds, but a Hoe-locked hold can never
+    # plant it: the tile must read neutral with no action hint, not green.
+    _set_target(world, cells[1])
+    world._process(0.0)
+    assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_NEUTRAL)
+    assert_eq(hint.text, "")
+
+    # A blocked tile matching the lock still explains itself.
+    assert_eq(world._session.plant(cells[1]), GameRules.CommandCode.CROP_PLANTED)
+    assert_eq(world._session.water(cells[1]), GameRules.CommandCode.CROP_WATERED)
+    _push_use_action(world, false)
+    _push_use_action(world, true)
+    assert_eq(world._action_hold_action, GameRules.FarmingAction.WATERING_CAN)
+    world._process(0.0)
+    assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_INVALID)
+    assert_eq(hint.text, "Crop is already watered.")
+
+    # A non-farm cell keeps the usual interaction hints during a hold.
+    _set_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
+    world._process(0.0)
+    assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_NEUTRAL)
+    assert_eq(hint.text, "Shop — E")
+    _push_use_action(world, false)
 
 func test_hold_action_lock_requires_fresh_gestures_for_each_farm_stage() -> void:
     var world := _world()
