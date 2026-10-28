@@ -26,7 +26,7 @@ func test_crop_table_is_closed_and_exact() -> void:
     assert_eq(GameRules.crop_key(GameRules.CropKind.POTATO), &"potato")
     assert_eq(GameRules.crop_display_name(GameRules.CropKind.POTATO), "Potato")
     assert_eq(GameRules.growth_nights(GameRules.CropKind.POTATO), 5)
-    assert_eq(GameRules.seed_price(GameRules.CropKind.POTATO), 40)
+    assert_eq(GameRules.seed_price(GameRules.CropKind.POTATO), 30)
     assert_eq(GameRules.sale_value(GameRules.CropKind.POTATO), 75)
 
     assert_eq(GameRules.crop_key(GameRules.CropKind.PUMPKIN), &"pumpkin")
@@ -34,6 +34,62 @@ func test_crop_table_is_closed_and_exact() -> void:
     assert_eq(GameRules.growth_nights(GameRules.CropKind.PUMPKIN), 7)
     assert_eq(GameRules.seed_price(GameRules.CropKind.PUMPKIN), 70)
     assert_eq(GameRules.sale_value(GameRules.CropKind.PUMPKIN), 140)
+
+func test_crop_niches_have_distinct_leaders() -> void:
+    var kinds: Array = [
+        GameRules.CropKind.TURNIP,
+        GameRules.CropKind.POTATO,
+        GameRules.CropKind.PUMPKIN,
+    ]
+    var seed_prices := {}
+    var profits := {}
+    var nights := {}
+    for kind in kinds:
+        var seed: int = GameRules.seed_price(kind)
+        var sale: int = GameRules.sale_value(kind)
+        seed_prices[kind] = seed
+        profits[kind] = sale - seed
+        nights[kind] = GameRules.growth_nights(kind)
+
+    # Turnip is the speed niche: strictly shortest nights, so the latest
+    # still-harvestable planting day strictly leads the other crops.
+    var latest_plant_days := {}
+    for kind in kinds:
+        var latest := 0
+        for day in range(1, GameRules.MAX_DAY + 1):
+            if GameRules.earliest_ready_day(kind, 0, day) != -1:
+                latest = day
+        latest_plant_days[kind] = latest
+    assert_lt(latest_plant_days[GameRules.CropKind.POTATO], latest_plant_days[GameRules.CropKind.TURNIP])
+    assert_lt(latest_plant_days[GameRules.CropKind.PUMPKIN], latest_plant_days[GameRules.CropKind.TURNIP])
+
+    # Potato is the capital niche: strictly best profit per seed per night,
+    # compared with exact integer cross-products (no float drift).
+    assert_gt(
+        profits[GameRules.CropKind.POTATO] * seed_prices[GameRules.CropKind.TURNIP] * nights[GameRules.CropKind.TURNIP],
+        profits[GameRules.CropKind.TURNIP] * seed_prices[GameRules.CropKind.POTATO] * nights[GameRules.CropKind.POTATO],
+    )
+    assert_gt(
+        profits[GameRules.CropKind.POTATO] * seed_prices[GameRules.CropKind.PUMPKIN] * nights[GameRules.CropKind.PUMPKIN],
+        profits[GameRules.CropKind.PUMPKIN] * seed_prices[GameRules.CropKind.POTATO] * nights[GameRules.CropKind.POTATO],
+    )
+
+    # Pumpkin is the tending niche: strictly best profit per tending stamina
+    # for both watering-can states, with costs taken from the rules.
+    for upgraded in [false, true]:
+        var tending_stamina := {}
+        for kind in kinds:
+            tending_stamina[kind] = int(GameRules.effective_action_cost(GameRules.FarmingAction.SEEDS, upgraded)["stamina"]) \
+                + nights[kind] * int(GameRules.effective_action_cost(GameRules.FarmingAction.WATERING_CAN, upgraded)["stamina"]) \
+                + int(GameRules.effective_action_cost(GameRules.FarmingAction.HANDS, upgraded)["stamina"])
+        assert_gt(
+            profits[GameRules.CropKind.PUMPKIN] * tending_stamina[GameRules.CropKind.TURNIP],
+            profits[GameRules.CropKind.TURNIP] * tending_stamina[GameRules.CropKind.PUMPKIN],
+        )
+        assert_gt(
+            profits[GameRules.CropKind.PUMPKIN] * tending_stamina[GameRules.CropKind.POTATO],
+            profits[GameRules.CropKind.POTATO] * tending_stamina[GameRules.CropKind.PUMPKIN],
+        )
 
 func test_weather_keys_are_closed_and_exact() -> void:
     var weather_cases: Array = [
