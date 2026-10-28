@@ -85,8 +85,10 @@ There is no JavaScript or Tauri runtime in the current checkout.
   0.15s): a fresh press fires the target once and dwelling on eligible cells
   works one at a time. Each gesture locks the action from its starting farm
   tile, or from the first farm tile reached while walking in; release before
-  using a newly resolved action on that same hold. Seed/focus/modal/day changes
-  cancel the hold immediately.
+  using a newly resolved action on that same hold. While a gesture is locked,
+  a farm tile resolving a different action previews neutral with no hint —
+  the preview must never advertise work the hold will not do.
+  Seed/focus/modal/day changes cancel the hold immediately.
 - `WorldShell` runs the HPA-263 passive day clock: `_process` calls
   `_advance_passive_clock(minf(delta, CLOCK_DELTA_CLAMP))` only while
   `clock_running` and the window-focus flag hold — the flag seeds from
