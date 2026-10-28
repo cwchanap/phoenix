@@ -1,65 +1,69 @@
-# HPA-351 — Crop-economy niches: design specification
+# HPA-351 — Crop economy: distinct crop niches (design specification)
 
-**Status:** Proposed / planning only (no runtime changes in this PR)
-**Linear:** https://linear.app/cwchanap/issue/HPA-351/economy-give-each-crop-a-distinct-niche
-**Repository:** `cwchanap/phoenix`
-**Prerequisite:** HPA-263 (Done); do not duplicate HPA-264's separate work.
+**Status:** Revised proposal / planning only; no runtime implementation in this draft PR  
+**Linear:** https://linear.app/cwchanap/issue/HPA-351/economy-give-each-crop-a-distinct-niche  
+**Repository:** `cwchanap/phoenix`  
+**Prerequisites:** HPA-263 and HPA-353 completed; HPA-264 merged. Rebase the planning branch onto current `main` before implementation.  
+**Decision:** Accept PR #25 design review #2: discount Potato seed **40G → 30G** instead of changing Potato/Pumpkin sale values. This supersedes the earlier 95G/150G sale-price proposal.
 
-## Problem and desired player decision
+## Player problem and intended decision
 
-Current `GameRules` crop constants produce a dominated middle option. Turnip has the shortest growth cycle and quickest capital recovery; Pumpkin has the highest profit per unit of watering stamina. Potato wins neither. Keep the exact three-crop, 14-day game and make each choice distinct using *only sale-price tuning*:
+Currently Turnip yields a quick return and can be grown late in the 14-day season; Pumpkin returns the most net profit per tending stamina. Potato leads neither useful economic measure. Fix the dominated middle choice by adjusting **one existing seed-price constant**, not by adding another system.
 
-- **Turnip:** fastest cash-back cycle and latest viable planting (3 growth nights, Day 11).
-- **Potato:** highest profit relative to seed cost *per growth night*.
-- **Pumpkin:** highest net profit per tending stamina in both base- and upgraded-watering scenarios.
+Each crop should win one distinct primary axis:
 
-This is a small economy decision, not a new progression system or a change to time/stamina rules.
+- **Turnip:** fastest harvest (3 nights), earliest cash-back **in time**, and latest viable planting on Day 11. It is the only crop newly plantable on Days 10–11 that can mature for the Day 14 market. **Do not claim that Turnip has the best normalized return on seed money**: Potato owns that axis under the new price.
+- **Potato:** best net return relative to seed capital *per growth night* (0.300) and a practical cash-tight seed purchase (30G). Longer growing time is the trade-off.
+- **Pumpkin:** best net profit per tending stamina, both with a normal watering can and the Efficient Can. Seven nights of care and 70G of upfront seed capital remain its trade-offs.
 
-## Existing code contracts (initially checked on main, 2026-10-25; rechecked 2026-10-27)
+## Verified current ownership (main, review #2)
 
-- `scripts/game/game_rules.gd` owns `GROWTH_NIGHTS=[3,5,7]`, `SEED_PRICES=[20,40,70]`, `SALE_VALUES=[35,75,140]`, and the effective action-cost seam. `shipment_payout()` derives settlement amounts from `sale_value()`.
-- `scripts/game/content_rules.gd` derives finale shipped value from `GameRules.sale_value()`. Its `PROMISING_SHIPPED_VALUE=150` and `HEART_SHIPPED_VALUE=300` thresholds remain unchanged; Heart also requires a close friend.
-- `scripts/ui/almanac_panel.gd` already derives crop prices, sale values and margins from `GameRules`; `scripts/ui/bag_panel.gd` likewise shows sale-derived payout.
-- `tests/unit/test_game_rules.gd` pins exact sale values and an itemized mixed shipment. `tests/unit/test_game_session.gd` pins the Potato reinvestment example and Pumpkin-based Efficient Can benchmark. `tests/integration/test_gameplay_shell.gd` pins several displayed values.
-- HPA-264 PR #24 has since landed on `main`: it changed farming-action selection and bumped the save format to schema v3. HPA-351 must not alter the resulting commands, saves, or UI action selection. Rebase this planning branch onto the updated `main` before implementing.
+- `scripts/game/game_rules.gd` owns `GROWTH_NIGHTS=[3,5,7]`, `SEED_PRICES=[20,40,70]`, `SALE_VALUES=[35,75,140]`, and all effective action-cost calculations. Purchase code calls `seed_price()`; shipment settlement calls `sale_value()`.
+- `scripts/ui/shop_panel.gd` and `scripts/ui/almanac_panel.gd` render seed prices from `GameRules`; Almanac margin is also derived from `sale_value() - seed_price()`. No new rendering logic is needed.
+- `scripts/game/content_rules.gd` scores shipped crops using sale values and the existing 150G Promising / 300G Heart thresholds. No scoring change is needed. `tests/unit/test_content_rules.gd` uses **two Potatoes = exactly 150G** and **four Potatoes = exactly 300G** to pin inclusive tier boundaries; preserve these exact boundary fixtures.
+- HPA-264 landed on `main`, replacing manual farming-tool selection and introducing **save schema v3**. This economy ticket does not modify controls, persistence or save schema. Compatible v3 saves remain valid; older v2 saves remain unsupported.
 
 ## Proposed constants
 
-| Crop | Seed | Grow (watered nights) | Sale before → after | Net profit after | Latest planting for Day 14 |
+| Crop | Seed before → after | Sale unchanged | Grow (watered nights) | Net profit after | Latest planting for Day 14 |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Turnip | 20G | 3 | 35G → **35G** | 15G | Day 11 |
-| Potato | 40G | 5 | 75G → **95G** | 55G | Day 9 |
-| Pumpkin | 70G | 7 | 140G → **150G** | 80G | Day 7 |
+| Turnip | 20G → 20G | 35G | 3 | 15G | Day 11 |
+| Potato | **40G → 30G** | 75G | 5 | 45G | Day 9 |
+| Pumpkin | 70G → 70G | 140G | 7 | 70G | Day 7 |
 
-**Metric definitions:** `profit = sale - seed`; `cash_return_per_night = profit / (seed_cost * growth_nights)`; `tending_stamina = 1 plant + growth_nights * watering_stamina + 1 harvest`; `profit_per_stamina = profit / tending_stamina`. As in the Linear issue, the comparative stamina metric excludes the one-time cost of hoeing and transit; it compares the recurring crop cycle on prepared soil. The daily passive clock is an independent constraint, not part of these three headline metrics.
+Metric formulas (evaluate using actual `GameRules` costs, not duplicated constants):
 
-| Crop | Return on seed cash / night | Profit / stamina (base 2-stamina water) | Profit / stamina (Efficient Can 1-stamina water) |
+- `profit = sale_value - seed_price`
+- `return_on_seed_per_night = profit / (seed_price * growth_nights)`
+- `tending_stamina = effective_action_cost(SEEDS, upgraded).stamina + growth_nights * effective_action_cost(WATERING_CAN, upgraded).stamina + effective_action_cost(HANDS, upgraded).stamina`
+- `profit_per_stamina = profit / tending_stamina`
+
+The comparison deliberately excludes one-time hoeing on an already prepared tile; harvested tiles stay tilled. Walking and the passive day clock are separate constraints, not part of the defined *tending-stamina* metric.
+
+| Crop | Return / seed-G / night | Profit / stamina, normal can | Profit / stamina, Efficient Can |
 | --- | ---: | ---: | ---: |
 | Turnip | 0.250 | 1.875 | 3.000 |
-| Potato | **0.275** | 4.583 | 7.857 |
-| Pumpkin | 0.163 | **5.000** | **8.889** |
+| Potato | **0.300** | 3.750 | 6.429 |
+| Pumpkin | 0.143 | **4.375** | **7.778** |
 
-Thus each crop strictly wins a distinct *binding* axis: growth time, seed-cash return per growth night, and profit per tending stamina. Prices and progression stay straightforward.
+Each lead is strict. The discounted Potato seed increases separation between Potato and Turnip on seed-capital return without crowding Pumpkin on stamina efficiency.
 
-## Player-facing behavior and implications
+## Player impact and constraints
 
-1. **No new mechanics:** retain all seeds, growth nights, seasons, watering stamina, rainy weather, shops, inventories and existing interaction input.
-2. **Updated displayed prices:** Potato sale 95G, margin +55G; Pumpkin sale 150G, margin +80G. Shops' *seed purchase prices* stay unchanged. Derived Bag, shipping, morning-settlement, Almanac and finale displays update through existing code.
-3. **Threshold side effect is intentional to review:** One shipped Pumpkin now reaches the 150G Promising value threshold by itself, whereas it formerly yielded 140G. A 300G Pumpkin pair reaches the Heart *value* bar only; a close friend remains mandatory. Keep current tiers unless a native playtest demonstrates a concrete issue.
-4. **No save schema change:** `SaveFileCodec.SCHEMA_VERSION` is **3** on current `main` (HPA-264 intentionally rejects older v2 saves). Saves contain crop counts and balances, not a persisted copy of sale-price constants. Compatible schema-v3 saves remain readable; future shipment settlements and result calculations use the newly tuned values. Do not add migration, versioning, or compatibility code.
-5. **No art or audio:** the existing Almanac asset and layout are reused. Update native production visual goldens *only for actually changed captured states* after inspecting diffs; likely Almanac and other screens showing prices, but do not auto-bless wholesale.
+1. **Purchasing:** Potato seeds cost 30G. At 150G, five Potato seeds are affordable instead of three; the trade-off is that they take five nights and cannot be started as late as Turnips. Include this in the native playtest.
+2. **Display:** The Shop row shows 30G instead of 40G; the Almanac shows 30G seed and **+45G** margin instead of +35G. Everything renders from existing `GameRules` calls. Inspect native captures `02-seed-shop` and `05-almanac`; other goldens should stay byte-identical unless evidence shows otherwise.
+3. **Unchanged payouts:** Mixed shipment of 2 Turnips + Potato + Pumpkin is still **285G**. Bag/Shipping values, shipment settlement, morning summaries, Result/Heart fixtures (including **645G**), and both finale thresholds remain unchanged. A single Pumpkin still sells for 140G and **does not** reach the 150G Promising value threshold without a friendship.
+4. **Unchanged benchmark:** Efficient Can test still proves six vs ten Pumpkins, **840G vs 1400G shipped**, **1040G vs 1400G final cash**, **+560G shipped / +360G final cash**. Five Turnips still produce **175G** and `promising_farmer`.
+5. **Persistence:** No state or `SaveFileCodec` changes; existing supported schema-v3 saves remain valid and future seed purchases use the new price. No backward-compatibility work.
+6. **Assets:** No new sprites, audio, UI widgets or systems. Re-bless only native visual goldens actually changed after visual inspection.
 
-## Acceptance criteria
+## Acceptance
 
-- One small pure-rules test computes each metric using `GameRules` and asserts strict winners: Turnip for shortest growth / latest planting, Potato for seed-cash return per night, Pumpkin for stamina efficiency both with and without Efficient Can.
-- Existing exact-value assertions are reconciled without weakening guard tests. Mixed shipment `2 turnips + 1 potato + 1 pumpkin` now pays **315G** (70+95+150).
-- Potato reinvestment settlement becomes 205G after one Potato (150−40+95), then 165G after buying another 40G seed.
-- The Pumpkin throughput benchmark keeps **6 vs 10 crops**. Shipped value becomes **900G vs 1,500G**; final money **1,100G vs 1,500G** (200G initial balance, upgraded route spends 200G); uplift **+600G shipped, +400G final money**.
-- The Turnip-only five-crop Promising route remains **175G / promising_farmer** unchanged.
-- Explicitly pin the result of **one shipped Pumpkin, no friendships**: 150G shipped and `promising_farmer`. Keep the 150G Promising and 300G Heart thresholds unchanged; the Heart tier still requires a close friend.
-- Update stale Potato fixture comments in `tests/unit/test_content_rules.gd`: two Potatoes become **190G** (not 150G), four become **380G** (not 300G); existing valid tier assertions stay in place. Check the displayed Almanac/Bag values; no change to their computation code is anticipated.
-- Existing clean verifier, GdUnit4, E2E and macOS visual regression run after implementation. Record actual results and review any changed visual capture before blessing.
+- Add **one** pure `test_game_rules.gd` niche-ranking test deriving every action cost via `effective_action_cost()`. Assert Turnip has the shortest growth and latest safe planting, Potato uniquely leads seed-money return per night, and Pumpkin uniquely leads net profit per tending stamina for upgraded and regular watering.
+- The test fails against `SEED_PRICES=[20,40,70]` and passes after **only** `SEED_PRICES=[20,30,70]` is changed.
+- Update affected exact tests: Potato seed constant 30; two-Potato purchase leaves **90G**; Potato shipment/reinvestment money becomes **195G**, then **165G**. Preserve the exact 150G/300G tier boundary fixtures.
+- Re-run existing shipment, Can, Turnip-only finale and UI regression suites without modifying their payout expectations. Native visual acceptance evaluates the changed Shop and Almanac screenshots; no blanket re-blessing.
 
-## Deliberately excluded
+## Non-goals
 
-No new crops, regrowth, plot-balance mechanics, watering rules, price volatility, season systems, alternate scoring, art, or SFX. No refactor outside the files directly affected by changed constants/expectations. **One HPA-351 issue → one PR** (the current draft is the planning phase of that eventual implementation PR).
+No sale-value changes, price volatility, new crops, plot mechanics, stamina/time/season retuning, result threshold adjustment, extra testing framework, save migration, input changes, new art or sound. **One ticket, one PR**: implement on this same draft PR after the design is reviewed.
