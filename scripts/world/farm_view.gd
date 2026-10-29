@@ -6,7 +6,7 @@ const SHADOW_TEXTURE: Texture2D = preload("res://assets/sprites/proof-shadow.png
 const SOIL_TEXTURE: Texture2D = preload("res://assets/sprites/proof-soil.png")
 const SPARKLE_TEXTURE: Texture2D = preload("res://assets/sprites/polish/harvest-sparkle.png")
 const SPARKLE_CROP_OFFSET := Vector2(0, -44)
-const DRY_CROP_TINT := Color("c89b72")
+const DRY_CROP_TINT := Color("c87c56")
 
 var _farm_soil: Node2D
 var _soil_sprites: Dictionary = {}

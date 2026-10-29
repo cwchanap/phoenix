@@ -412,7 +412,8 @@ func test_dry_crop_tint_tracks_weather_and_crop_state() -> void:
     state["farm"] = farm
     assert_true(session.restore_state(state))
     farm_view.refresh(session.snapshot())
-    assert_ne(crop.self_modulate, Color.WHITE)
+    assert_eq(FarmView.DRY_CROP_TINT, Color("c87c56"))
+    assert_eq(crop.self_modulate, FarmView.DRY_CROP_TINT)
     assert_eq(crop.modulate, Color.WHITE)
 
     _restore_weather(world, &"rainy")
@@ -422,7 +423,7 @@ func test_dry_crop_tint_tracks_weather_and_crop_state() -> void:
 
     _restore_weather(world, &"sunny")
     farm_view.refresh(session.snapshot())
-    assert_ne(crop.self_modulate, Color.WHITE)
+    assert_eq(crop.self_modulate, FarmView.DRY_CROP_TINT)
     assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
     farm_view.refresh(session.snapshot())
     assert_eq(crop.self_modulate, Color.WHITE)

@@ -233,7 +233,7 @@ func test_continue_restores_one_dry_night_and_wither_summary() -> void:
         return
     var encoded_save := JSON.parse_string(save_file.get_as_text()) as Dictionary
     save_file.close()
-    assert_eq(encoded_save["schema_version"], 4)
+    assert_eq(encoded_save["schema_version"], 4.0)
     var loaded := repository.load()
     assert_eq(loaded["status"], &"loaded")
     assert_eq(loaded["state"]["pending_morning_summary"]["crops_withered"], 1)
