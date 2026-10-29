@@ -10,7 +10,15 @@ Missing one sunny night of watering gives a visible warning and one chance to re
 
 This increases the stakes of daily watering without new farming commands, weather systems, or mechanics beyond the existing 14-day loop. The effective daily budget and the Efficient Can are unchanged.
 
-## Existing code seams (checked on `main`, 2026-10-27)
+## Current economy and test baseline (after HPA-351)
+
+HPA-351 was merged as [PR #25](https://github.com/cwchanap/phoenix/pull/25), after this planning branch was created. The accepted change was **Potato seed 40G → 30G**, *not* the originally proposed Potato/Pumpkin sale-price increase. Current `GameRules.SEED_PRICES = [20, 30, 70]`, `SALE_VALUES = [35, 75, 140]` and `GROWTH_NIGHTS = [3, 5, 7]`; do not change any of these in HPA-352.
+
+The merged behavior retains the exact existing payout / finale tests: two Turnips + Potato + Pumpkin pay **285G**, the five-Turnip Promising route ships **175G**, and Efficient Can Pumpkin throughput is **6 vs 10 harvested**, **840G vs 1,400G shipped**, and **1,040G vs 1,400G final money (+360G)**. Withering does not alter these continuously watered routes. The HPA-351 regression suite additionally checks the Potter seed price/UI and the Almanac, Bag and Shop data; retain all those assertions. Preserve `ContentRules` shipped-value thresholds (**150G Promising / 300G Heart**) and the new crop-niche tests.
+
+Latest `main` also hardens `tests/visual/ui_capture_host.gd` against intermittently blank frames, and re-blesses production goldens `02-seed-shop`, `04-bag`, and `05-almanac`. Use those merged images and capture guard as the visual baseline. HPA-352 should only touch the morning-summary scene and its own crop warning visuals.
+
+## Existing code seams (checked on `main`, 2026-10-28, commit `f3c059bc507de04a04730453ae6071fcb70c5ba0`)
 
 - `scripts/game/game_session.gd` is the only mutable farm authority. `plant()` creates a crop with `kind`, `growth` and `watered_today`; `water()` updates it; `sleep()` processes the **completed day's** water/rain state and constructs the pending morning summary. `state()` / `snapshot()` expose copies, and `_farm_array()` reconstructs validated save state.
 - `scripts/game/session_state_validator.gd` owns persisted validation. `_farm_state_error()` requires exactly three crop fields; `_morning_summary_state_error()` requires eight summary fields.
@@ -53,7 +61,7 @@ One `dry_nights: int` field per **living crop**, initialized to 0 on planting:
 1. GUT unit tests: first dry night stores 1 and keeps growth unchanged; exactly the second removes one crop but leaves tilled soil; watering and rain independently break the streak; mature crop stays; multiple simultaneous withers are counted once each; Day-14 finale doesn't advance/wither.
 2. State validator tests: missing/wrong-type/negative `dry_nights` and `crops_withered` are rejected; v4 encode → decode → restore preserves a one-night warning and a pending positive wither summary; v3 rejected explicitly.
 3. FarmView integration test checks tint and neutral reset after water/rain/maturity/absence. MorningSummaryPanel test checks a single conditional warning for 0/1/multiple withers, without affecting existing rows.
-4. Existing five-Turnip Promising route and Efficient Can throughput benchmark pass with no numerical changes; both water through maturity. Keep exact existing balance and shipping expectations (HPA-351 price changes remain in separate open PR #25).
+4. Existing five-Turnip Promising route and Efficient Can throughput benchmark pass with no numerical changes; both water through maturity. Keep the merged HPA-351 economy and its tests as the baseline (Potato seed 30G; sale values unchanged); no further balance tuning or fixture re-pin is part of HPA-352.
 5. Run `./tools/verify-clean.sh`, GdUnit4 and E2E; inspect a native screen capture with a wither count and normal summary, then `./tools/verify-visual.sh` on macOS. Do not blindly re-bless goldens; default normal-day captures should remain unchanged.
 
 ## Boundaries
