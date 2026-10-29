@@ -492,6 +492,9 @@ func test_shop_keyboard_rows_update_quantity_max_and_enter_request() -> void:
     hud.render(snapshot)
     hud.open_shop()
     var panel := _panel(hud, "ShopPanel")
+    assert_eq((panel.get_node("Frame/Body/Row_0/Price") as Label).text, "20")
+    assert_eq((panel.get_node("Frame/Body/Row_1/Price") as Label).text, "30")
+    assert_eq((panel.get_node("Frame/Body/Row_2/Price") as Label).text, "70")
     assert_true(panel.has_method("selected_kind"))
     assert_true(panel.has_method("selected_quantity"))
     assert_eq(int(panel.call("selected_kind")), GameRules.CropKind.TURNIP)
@@ -903,6 +906,21 @@ func test_read_only_panels_render_rules_and_only_known_calendar_weather() -> voi
     assert_eq((bag.get_node("Frame/Body/Detail/Title") as Label).text, "Turnip seeds")
     assert_eq((bag.get_node("Frame/Body/Detail/Economy") as Label).text, "20G buy · 35G sell")
     assert_eq((bag.get_node("Frame/Body/Detail/Favourite") as Label).text, "June's favourite")
+    var description := bag.get_node("Frame/Body/Detail/Description") as Label
+    await get_tree().process_frame
+    assert_eq(description.text, "Cheapest and fastest; the latest safe planting.")
+    assert_lte(description.get_line_count(), 2)
+    await _press_panel_action("move_right")
+    assert_eq(bag.selected_kind(), GameRules.CropKind.POTATO)
+    assert_eq(description.text, "Best return per seed coin per night.")
+    assert_lte(description.get_line_count(), 2)
+    await _press_panel_action("move_right")
+    assert_eq(bag.selected_kind(), GameRules.CropKind.PUMPKIN)
+    assert_eq(
+        description.text,
+        "Best profit per stamina of tending in a sunny season.",
+    )
+    assert_lte(description.get_line_count(), 2)
     await _press_panel_action("move_down")
     await _press_panel_action("move_down")
     assert_eq((bag.get_node("Frame/Body/Left/Shelf_2/PayoutValue") as Label).text, "140G")
@@ -974,7 +992,9 @@ func test_read_only_panels_render_rules_and_only_known_calendar_weather() -> voi
     hud.open_almanac()
     var almanac := _panel(hud, "AlmanacPanel")
     assert_eq((almanac.get_node("Frame/Body/Card_0/Name") as Label).text, "Turnip")
+    assert_eq((almanac.get_node("Frame/Body/Card_1/SeedValue") as Label).text, "30G")
     assert_eq((almanac.get_node("Frame/Body/Card_1/SellValue") as Label).text, "75G")
+    assert_eq((almanac.get_node("Frame/Body/Card_1/MarginValue") as Label).text, "+45")
     assert_eq((almanac.get_node("Frame/Body/Card_2/MarginValue") as Label).text, "+70")
     hud.close_almanac()
 

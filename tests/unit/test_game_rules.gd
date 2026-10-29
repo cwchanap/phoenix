@@ -26,7 +26,7 @@ func test_crop_table_is_closed_and_exact() -> void:
     assert_eq(GameRules.crop_key(GameRules.CropKind.POTATO), &"potato")
     assert_eq(GameRules.crop_display_name(GameRules.CropKind.POTATO), "Potato")
     assert_eq(GameRules.growth_nights(GameRules.CropKind.POTATO), 5)
-    assert_eq(GameRules.seed_price(GameRules.CropKind.POTATO), 40)
+    assert_eq(GameRules.seed_price(GameRules.CropKind.POTATO), 30)
     assert_eq(GameRules.sale_value(GameRules.CropKind.POTATO), 75)
 
     assert_eq(GameRules.crop_key(GameRules.CropKind.PUMPKIN), &"pumpkin")
@@ -34,6 +34,95 @@ func test_crop_table_is_closed_and_exact() -> void:
     assert_eq(GameRules.growth_nights(GameRules.CropKind.PUMPKIN), 7)
     assert_eq(GameRules.seed_price(GameRules.CropKind.PUMPKIN), 70)
     assert_eq(GameRules.sale_value(GameRules.CropKind.PUMPKIN), 140)
+
+func test_crop_niches_have_distinct_leaders() -> void:
+    var prices: Array[int] = []
+    var profits: Array[int] = []
+    var nights: Array[int] = []
+    for kind in range(GameRules.CropKind.size()):
+        var price: int = GameRules.seed_price(kind)
+        prices.append(price)
+        nights.append(GameRules.growth_nights(kind))
+        profits.append(GameRules.sale_value(kind) - price)
+        assert_gt(
+            profits[kind],
+            0,
+            "%s must stay profitable or no niche can justify planting it"
+                % GameRules.crop_display_name(kind),
+        )
+
+    # Turnip is the speed niche: strictly shortest nights, so the latest
+    # still-harvestable planting day strictly leads the other crops.
+    assert_lt(
+        nights[GameRules.CropKind.TURNIP],
+        mini(nights[GameRules.CropKind.POTATO], nights[GameRules.CropKind.PUMPKIN]),
+        "Turnip must have the strictly shortest growth nights",
+    )
+    var latest_plant_days: Array[int] = []
+    for kind in range(GameRules.CropKind.size()):
+        var latest: int = GameRules.MAX_DAY - nights[kind]
+        assert_eq(
+            GameRules.earliest_ready_day(kind, 0, latest),
+            GameRules.MAX_DAY,
+            "%s planted on its latest safe day must mature for the market"
+                % GameRules.crop_display_name(kind),
+        )
+        assert_eq(
+            GameRules.earliest_ready_day(kind, 0, latest + 1),
+            -1,
+            "%s planted one day later must miss the market" % GameRules.crop_display_name(kind),
+        )
+        latest_plant_days.append(latest)
+    assert_gt(
+        latest_plant_days[GameRules.CropKind.TURNIP],
+        latest_plant_days[GameRules.CropKind.POTATO],
+        "Turnip must be plantable later than Potato",
+    )
+    assert_gt(
+        latest_plant_days[GameRules.CropKind.TURNIP],
+        latest_plant_days[GameRules.CropKind.PUMPKIN],
+        "Turnip must be plantable later than Pumpkin",
+    )
+
+    # Potato is the capital niche: strictly best profit per seed per night,
+    # compared with exact integer cross-products (no float drift).
+    assert_gt(
+        profits[GameRules.CropKind.POTATO] * prices[GameRules.CropKind.TURNIP] * nights[GameRules.CropKind.TURNIP],
+        profits[GameRules.CropKind.TURNIP] * prices[GameRules.CropKind.POTATO] * nights[GameRules.CropKind.POTATO],
+        "Potato must beat Turnip on profit per seed-G per night",
+    )
+    assert_gt(
+        profits[GameRules.CropKind.POTATO] * prices[GameRules.CropKind.PUMPKIN] * nights[GameRules.CropKind.PUMPKIN],
+        profits[GameRules.CropKind.PUMPKIN] * prices[GameRules.CropKind.POTATO] * nights[GameRules.CropKind.POTATO],
+        "Potato must beat Pumpkin on profit per seed-G per night",
+    )
+
+    # Pumpkin is the tending niche: strictly best profit per tending stamina
+    # for both watering-can states, with costs taken from the rules.
+    for upgraded in [false, true]:
+        var mode := "efficient can" if upgraded else "normal can"
+        var plant_stamina := int(
+            GameRules.effective_action_cost(GameRules.FarmingAction.SEEDS, upgraded)["stamina"]
+        )
+        var water_stamina := int(
+            GameRules.effective_action_cost(GameRules.FarmingAction.WATERING_CAN, upgraded)["stamina"]
+        )
+        var harvest_stamina := int(
+            GameRules.effective_action_cost(GameRules.FarmingAction.HANDS, upgraded)["stamina"]
+        )
+        var tending_stamina: Array[int] = []
+        for kind in range(GameRules.CropKind.size()):
+            tending_stamina.append(plant_stamina + nights[kind] * water_stamina + harvest_stamina)
+        assert_gt(
+            profits[GameRules.CropKind.PUMPKIN] * tending_stamina[GameRules.CropKind.TURNIP],
+            profits[GameRules.CropKind.TURNIP] * tending_stamina[GameRules.CropKind.PUMPKIN],
+            "Pumpkin must beat Turnip on profit per tending stamina (%s)" % mode,
+        )
+        assert_gt(
+            profits[GameRules.CropKind.PUMPKIN] * tending_stamina[GameRules.CropKind.POTATO],
+            profits[GameRules.CropKind.POTATO] * tending_stamina[GameRules.CropKind.PUMPKIN],
+            "Pumpkin must beat Potato on profit per tending stamina (%s)" % mode,
+        )
 
 func test_weather_keys_are_closed_and_exact() -> void:
     var weather_cases: Array = [

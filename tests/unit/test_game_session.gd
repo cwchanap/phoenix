@@ -1091,7 +1091,7 @@ func test_buy_seeds_validates_target_quantity_and_funds_atomically() -> void:
         GameRules.CommandCode.SEEDS_PURCHASED,
     )
     var purchased := session.snapshot()
-    assert_eq(purchased["money"], 70)
+    assert_eq(purchased["money"], 90)
     assert_eq(purchased["seeds"][&"potato"], 2)
     assert_eq(purchased["time_minutes"], GameRules.DAY_START_MINUTES)
     assert_eq(purchased["stamina"], GameRules.MAX_STAMINA)
@@ -1691,13 +1691,13 @@ func test_public_potato_loop_reinvests_shipping_income() -> void:
     assert_eq(session.acknowledge_morning_summary(), GameRules.CommandCode.DAY_STARTED)
 
     var after_shipping := session.snapshot()
-    assert_eq(after_shipping["money"], 185)
+    assert_eq(after_shipping["money"], 195)
     assert_eq(
         session.buy_seeds(GameRules.CropKind.POTATO, 1, WorldContract.SHOP_CELL),
         GameRules.CommandCode.SEEDS_PURCHASED,
     )
     var reinvested := session.snapshot()
-    assert_eq(reinvested["money"], 145)
+    assert_eq(reinvested["money"], 165)
     assert_eq(reinvested["seeds"][&"potato"], 1)
 
 func test_representative_reinvestment_route_reaches_promising() -> void:
