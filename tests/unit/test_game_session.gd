@@ -274,9 +274,29 @@ func test_command_driven_state_restores_farm_and_does_not_alias_candidate() -> v
     assert_eq(saved, saved_before_command)
     assert_false(saved["farm"][0]["crop"]["watered_today"])
 
-func test_schema_3_transport_stays_field_blind_and_session_rejects_sabotaged_ownership() -> void:
-    assert_eq(SaveFileCodec.SCHEMA_VERSION, 3)
+func test_restore_rejects_malformed_dry_nights_and_wither_count_atomically() -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    var before := session.snapshot()
+    var invalid_crop := session.state()
+    invalid_crop["farm"][0]["tilled"] = true
+    invalid_crop["farm"][0]["crop"] = {
+        "kind": &"turnip",
+        "growth": 0,
+        "dry_nights": 2,
+        "watered_today": false,
+    }
+    assert_false(session.restore_state(invalid_crop))
+    assert_eq(session.snapshot(), before)
 
+    var with_summary := GameSession.new(func() -> float: return 0.9)
+    _plant_turnip(with_summary)
+    assert_eq(with_summary.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+    var invalid_summary := with_summary.state()
+    invalid_summary["pending_morning_summary"]["crops_withered"] = WorldContract.farm_cells().size() + 1
+    assert_false(session.restore_state(invalid_summary))
+    assert_eq(session.snapshot(), before)
+
+func test_transport_stays_field_blind_and_session_rejects_sabotaged_ownership() -> void:
     var legacy := SaveFileCodec.decode(JSON.stringify({
         "schema_version": SaveFileCodec.SCHEMA_VERSION - 1,
         "state": GameSession.new().state(),
@@ -780,6 +800,7 @@ func test_turnip_actions_commit_atomically() -> void:
     assert_eq(snapshot["farm"][0]["crop"], {
         "kind": &"turnip",
         "growth": 0,
+        "dry_nights": 0,
         "watered_today": true,
     })
 
@@ -1247,21 +1268,56 @@ func test_watered_sunny_crop_advances_once_and_resets_watered_flag() -> void:
     assert_eq(snapshot["farm"][0]["crop"]["growth"], 1)
     assert_false(snapshot["farm"][0]["crop"]["watered_today"])
     assert_eq(snapshot["pending_morning_summary"]["crops_advanced"], 1)
+    assert_eq(snapshot["pending_morning_summary"].get("crops_withered", -1), 0)
     assert_eq(snapshot["pending_morning_summary"]["stamina_restored"], 6)
     assert_eq(snapshot["pending_morning_summary"]["next_weather"], &"sunny")
 
-func test_unwatered_sunny_crop_does_not_advance() -> void:
+func test_two_unwatered_sunny_nights_wither_crop_but_keep_soil() -> void:
     var session := GameSession.new(func() -> float: return 0.9)
     _plant_turnip(session)
     assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
 
     var snapshot := session.snapshot()
+    assert_eq(snapshot["day"], 2)
     assert_eq(snapshot["farm"][0]["crop"]["growth"], 0)
+    assert_eq(snapshot["farm"][0]["crop"].get("dry_nights", -1), 1)
     assert_false(snapshot["farm"][0]["crop"]["watered_today"])
     assert_eq(snapshot["pending_morning_summary"]["crops_advanced"], 0)
+    assert_eq(snapshot["pending_morning_summary"].get("crops_withered", -1), 0)
 
-func test_rainy_completed_day_advances_each_planted_crop() -> void:
-    var rolls := [0.1, 0.9]
+    assert_eq(session.acknowledge_morning_summary(), GameRules.CommandCode.DAY_STARTED)
+    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+
+    snapshot = session.snapshot()
+    assert_true(snapshot["farm"][0]["tilled"])
+    assert_null(snapshot["farm"][0]["crop"])
+    assert_eq(snapshot["pending_morning_summary"]["crops_advanced"], 0)
+    assert_eq(snapshot["pending_morning_summary"].get("crops_withered", -1), 1)
+
+func test_successful_water_resets_dry_streak_before_growth_resumes() -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    _plant_turnip(session)
+    _sleep_and_ack(session)
+    assert_eq(session.snapshot()["farm"][0]["crop"].get("dry_nights", -1), 1)
+
+    assert_eq(session.water(FARM_CELL), GameRules.CommandCode.CROP_WATERED)
+    assert_eq(session.snapshot()["farm"][0]["crop"].get("dry_nights", -1), 0)
+    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+    var watered := session.snapshot()
+    assert_eq(watered["farm"][0]["crop"]["growth"], 1)
+    assert_eq(watered["farm"][0]["crop"].get("dry_nights", -1), 0)
+    assert_eq(watered["pending_morning_summary"].get("crops_withered", -1), 0)
+
+    assert_eq(session.acknowledge_morning_summary(), GameRules.CommandCode.DAY_STARTED)
+    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+    var missed_again := session.snapshot()
+    assert_not_null(missed_again["farm"][0]["crop"])
+    assert_eq(missed_again["farm"][0]["crop"].get("dry_nights", -1), 1)
+    assert_eq(missed_again["pending_morning_summary"]["crops_advanced"], 0)
+    assert_eq(missed_again["pending_morning_summary"].get("crops_withered", -1), 0)
+
+func test_rain_resets_dry_streak_and_following_sunny_night_is_first_warning() -> void:
+    var rolls := [0.1, 0.9, 0.9]
     var roll_index := [0]
     var session := GameSession.new(func() -> float:
         var roll: float = rolls[roll_index[0]]
@@ -1271,8 +1327,12 @@ func test_rainy_completed_day_advances_each_planted_crop() -> void:
     _plant_turnip(session, FARM_CELL)
     _plant_turnip(session, SECOND_FARM_CELL)
     assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+    var first_dry_night := session.snapshot()
+    assert_eq(first_dry_night["weather"], &"rainy")
+    for crop_index in 2:
+        assert_eq(first_dry_night["farm"][crop_index]["crop"].get("dry_nights", -1), 1)
+    assert_eq(first_dry_night["pending_morning_summary"].get("crops_withered", -1), 0)
     assert_eq(session.acknowledge_morning_summary(), GameRules.CommandCode.DAY_STARTED)
-    assert_eq(session.snapshot()["weather"], &"rainy")
 
     var before_rain_water := session.snapshot()
     assert_eq(session.water(FARM_CELL), GameRules.CommandCode.RAIN_WATERS_CROPS)
@@ -1280,12 +1340,52 @@ func test_rainy_completed_day_advances_each_planted_crop() -> void:
     assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
 
     var snapshot := session.snapshot()
+    assert_eq(snapshot["weather"], &"sunny")
     assert_eq(snapshot["farm"][0]["crop"]["growth"], 1)
     assert_eq(snapshot["farm"][1]["crop"]["growth"], 1)
+    assert_eq(snapshot["farm"][0]["crop"].get("dry_nights", -1), 0)
+    assert_eq(snapshot["farm"][1]["crop"].get("dry_nights", -1), 0)
     assert_false(snapshot["farm"][0]["crop"]["watered_today"])
     assert_false(snapshot["farm"][1]["crop"]["watered_today"])
     assert_eq(snapshot["pending_morning_summary"]["crops_advanced"], 2)
+    assert_eq(snapshot["pending_morning_summary"].get("crops_withered", -1), 0)
     assert_eq(snapshot["pending_morning_summary"]["next_weather"], &"sunny")
+
+    assert_eq(session.acknowledge_morning_summary(), GameRules.CommandCode.DAY_STARTED)
+    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+    snapshot = session.snapshot()
+    assert_eq(snapshot["farm"][0]["crop"].get("dry_nights", -1), 1)
+    assert_eq(snapshot["farm"][1]["crop"].get("dry_nights", -1), 1)
+    assert_eq(snapshot["pending_morning_summary"]["crops_advanced"], 0)
+    assert_eq(snapshot["pending_morning_summary"].get("crops_withered", -1), 0)
+
+func test_mature_crop_survives_two_sunny_dry_nights_and_stays_harvestable() -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    _mature_turnip(session)
+
+    for _night in 2:
+        assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+        var snapshot := session.snapshot()
+        assert_eq(snapshot["farm"][0]["crop"]["growth"], GameRules.growth_nights(GameRules.CropKind.TURNIP))
+        assert_eq(snapshot["farm"][0]["crop"].get("dry_nights", -1), 0)
+        assert_eq(snapshot["pending_morning_summary"].get("crops_withered", -1), 0)
+        assert_eq(session.acknowledge_morning_summary(), GameRules.CommandCode.DAY_STARTED)
+
+    assert_eq(session.harvest(FARM_CELL), GameRules.CommandCode.CROP_HARVESTED)
+
+func test_two_crops_wither_in_one_transition_and_count_separately_from_growth() -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    _plant_turnip(session, FARM_CELL)
+    _plant_turnip(session, SECOND_FARM_CELL)
+    _sleep_and_ack(session)
+
+    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+    var snapshot := session.snapshot()
+    for crop_index in 2:
+        assert_true(snapshot["farm"][crop_index]["tilled"])
+        assert_null(snapshot["farm"][crop_index]["crop"])
+    assert_eq(snapshot["pending_morning_summary"]["crops_advanced"], 0)
+    assert_eq(snapshot["pending_morning_summary"].get("crops_withered", -1), 2)
 
 func test_sleep_wrong_target_preserves_snapshot_and_does_not_consume_weather() -> void:
     var weather_calls := [0]
@@ -1540,13 +1640,18 @@ func test_day_fourteen_bed_completes_without_overnight_progression() -> void:
         return 0.9
     )
     var state := _day14_pre_final_state()
-    state["weather"] = &"rainy"
+    state["weather"] = &"sunny"
     state["time_minutes"] = 1200
     state["stamina"] = 5
     _day14_session_from(state, session)
     var seeded := session.state()
     seeded["farm"][0]["tilled"] = true
-    seeded["farm"][0]["crop"] = {"kind": &"turnip", "growth": 1, "watered_today": true}
+    seeded["farm"][0]["crop"] = {
+        "kind": &"turnip",
+        "growth": 0,
+        "dry_nights": 1,
+        "watered_today": false,
+    }
     seeded["relationships"][&"resident"]["talked_today"] = true
     seeded["relationships"][&"resident"]["gifted_today"] = true
     assert_true(session.restore_state(seeded))
@@ -1557,7 +1662,7 @@ func test_day_fourteen_bed_completes_without_overnight_progression() -> void:
     var after := session.snapshot()
     assert_eq(after["day"], GameRules.MAX_DAY)
     assert_null(after["pending_morning_summary"])
-    assert_eq(after["weather"], &"rainy")
+    assert_eq(after["weather"], &"sunny")
     assert_eq(after["time_minutes"], 1200)
     assert_eq(after["stamina"], 5)
     assert_eq(after["farm"], before["farm"])

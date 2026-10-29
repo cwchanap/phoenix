@@ -10,7 +10,7 @@ func _state_with_pending_summary() -> Dictionary:
     return session.state()
 
 func test_codec_round_trip_restores_canonical_state() -> void:
-    assert_eq(SaveFileCodec.SCHEMA_VERSION, 3)
+    assert_eq(SaveFileCodec.SCHEMA_VERSION, 4)
     var original := _state_with_pending_summary()
     var decoded := SaveFileCodec.decode(SaveFileCodec.encode(original))
     assert_true(decoded["ok"])
@@ -30,6 +30,34 @@ func test_codec_round_trip_restores_canonical_state() -> void:
     assert_eq(restored.state()["weather_history"], [&"sunny", &"sunny"])
     assert_true(restored.state()["weather_history"][0] is StringName)
     assert_true(restored.state()["seeds"].keys()[0] is StringName)
+
+func test_codec_round_trip_preserves_dry_streak_and_wither_summary() -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    var cells := WorldContract.farm_cells()
+    assert_eq(session.hoe(cells[0]), GameRules.CommandCode.SOIL_TILLED)
+    assert_eq(session.plant(cells[0]), GameRules.CommandCode.CROP_PLANTED)
+    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+    assert_eq(session.acknowledge_morning_summary(), GameRules.CommandCode.DAY_STARTED)
+
+    # Plant a second crop after the first missed night so only the older crop withers.
+    assert_eq(session.hoe(cells[1]), GameRules.CommandCode.SOIL_TILLED)
+    assert_eq(session.plant(cells[1]), GameRules.CommandCode.CROP_PLANTED)
+    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+
+    var original := session.state()
+    assert_null(original["farm"][0]["crop"])
+    assert_eq(original["farm"][1]["crop"].get("dry_nights", -1), 1)
+    assert_eq(original["pending_morning_summary"].get("crops_withered", -1), 1)
+
+    var decoded := SaveFileCodec.decode(SaveFileCodec.encode(original))
+    assert_true(decoded["ok"])
+    assert_eq(SessionStateValidator.state_error(decoded["state"]), "")
+    assert_eq(decoded["state"]["farm"][1]["crop"].get("dry_nights", -1), 1)
+    assert_eq(decoded["state"]["pending_morning_summary"].get("crops_withered", -1), 1)
+
+    var restored := GameSession.new(func() -> float: return 0.9)
+    assert_true(restored.restore_state(decoded["state"]))
+    assert_eq(restored.state(), original)
 
 func test_round_trip_preserves_a_change_outside_the_old_farm_footprint() -> void:
     var session := GameSession.new(func() -> float: return 0.9)
@@ -52,7 +80,12 @@ func test_decode_rejects_malformed_json_wrong_schema_and_bad_vector_marker() -> 
     assert_false(SaveFileCodec.decode('{"schema_version":"1","state":{}}')["ok"])
     assert_false(SaveFileCodec.decode('{"schema_version":true,"state":{}}')["ok"])
     assert_false(SaveFileCodec.decode('{"schema_version":1.5,"state":{}}')["ok"])
-    assert_eq(SaveFileCodec.SCHEMA_VERSION, 3)
+    var schema_three := SaveFileCodec.decode(JSON.stringify({
+        "schema_version": 3,
+        "state": GameSession.new().state(),
+    }))
+    assert_false(schema_three["ok"])
+    assert_eq(schema_three.get("error", ""), "Unsupported save schema")
     var legacy := SaveFileCodec.decode(JSON.stringify({
         "schema_version": SaveFileCodec.SCHEMA_VERSION - 1,
         "state": {},

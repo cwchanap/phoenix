@@ -407,13 +407,12 @@ func test_schema_2_save_is_unavailable_and_new_game_still_launches() -> void:
     assert_eq(_stop_world_clock(app)._session.state()["day"], 1)
 
 func test_save_missing_ownership_disables_continue_and_refuses_launch() -> void:
-    assert_eq(SaveFileCodec.SCHEMA_VERSION, 3)
     var repository := SaveRepository.new(TEST_PATH)
     var missing := GameSession.new(func() -> float: return 0.9).state()
     missing.erase("watering_can_upgraded")
     assert_eq(repository.save(missing), OK)
 
-    # The codec is field-blind, so the schema-3 slot still loads...
+    # The codec is field-blind, so the schema-4 slot still loads...
     var loaded := repository.load()
     assert_eq(loaded["status"], &"loaded")
     assert_ne(SessionStateValidator.state_error(loaded["state"]), "")

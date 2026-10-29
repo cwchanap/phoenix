@@ -68,12 +68,14 @@ static func calendar_state() -> Dictionary:
     farm[0]["crop"] = {
         "kind": GameRules.crop_key(GameRules.CropKind.TURNIP),
         "growth": 0,
+        "dry_nights": 0,
         "watered_today": false,
     }
     farm[1]["tilled"] = true
     farm[1]["crop"] = {
         "kind": GameRules.crop_key(GameRules.CropKind.PUMPKIN),
         "growth": 1,
+        "dry_nights": 0,
         "watered_today": false,
     }
     state["farm"] = farm
@@ -124,6 +126,7 @@ static func morning_summary_state() -> Dictionary:
         "completed_day": 3,
         "next_day": 4,
         "crops_advanced": 2,
+        "crops_withered": 0,
         "next_weather": GameRules.weather_key(GameRules.Weather.RAINY),
         "stamina_restored": GameRules.MAX_STAMINA,
         "shipments": [{"crop": &"turnip", "quantity": 2, "amount": 70}],

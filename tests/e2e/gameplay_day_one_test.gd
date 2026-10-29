@@ -276,7 +276,7 @@ func test_shop_purchase_updates_money() -> void:
 	).is_true()
 
 
-# One valid schema-3 save seeded before launch: 255G, unowned efficient can,
+# One valid schema-4 save seeded before launch: 255G, unowned efficient can,
 # intro acknowledged, and one tilled/planted/unwatered Turnip on the first
 # contract farm cell.
 func _seed_upgrade_save(path: String) -> void:
@@ -288,6 +288,7 @@ func _seed_upgrade_save(path: String) -> void:
 	seeded["farm"][0]["crop"] = {
 		"kind": &"turnip",
 		"growth": 0,
+		"dry_nights": 0,
 		"watered_today": false,
 	}
 	assert_str(SessionStateValidator.state_error(seeded)).is_equal("")
