@@ -98,17 +98,25 @@ func test_state_error_rejects_invalid_current_rule_shapes() -> void:
     invalid["farm"][0]["crop"] = {
         "kind": &"turnip",
         "growth": 0,
+        "dry_nights": 0,
         "watered_today": false,
     }
-    candidates.append(invalid)
+    assert_eq(
+        SessionStateValidator.state_error(invalid),
+        "farm[0] cannot contain a crop on untilled soil",
+    )
     invalid = valid.duplicate(true)
     invalid["farm"][0]["tilled"] = true
     invalid["farm"][0]["crop"] = {
         "kind": &"turnip",
         "growth": GameRules.growth_nights(GameRules.CropKind.TURNIP) + 1,
+        "dry_nights": 0,
         "watered_today": false,
     }
-    candidates.append(invalid)
+    assert_eq(
+        SessionStateValidator.state_error(invalid),
+        "farm[0].crop.growth is out of range",
+    )
 
     invalid = valid.duplicate(true)
     invalid["relationships"].erase(&"resident")
@@ -153,6 +161,83 @@ func test_state_error_rejects_invalid_current_rule_shapes() -> void:
 
     for candidate in candidates:
         assert_ne(SessionStateValidator.state_error(candidate), "")
+
+func test_state_error_validates_dry_nights_shape_and_range() -> void:
+    var valid := GameSession.new().state()
+    valid["farm"][0]["tilled"] = true
+    valid["farm"][0]["crop"] = {
+        "kind": &"turnip",
+        "growth": 0,
+        "dry_nights": 0,
+        "watered_today": false,
+    }
+    assert_eq(SessionStateValidator.state_error(valid), "")
+
+    var one_dry_night := valid.duplicate(true)
+    one_dry_night["farm"][0]["crop"]["dry_nights"] = 1
+    assert_eq(SessionStateValidator.state_error(one_dry_night), "")
+
+    var invalid := valid.duplicate(true)
+    invalid["farm"][0]["crop"].erase("dry_nights")
+    assert_eq(
+        SessionStateValidator.state_error(invalid),
+        "farm[0].crop.dry_nights is missing",
+    )
+
+    invalid = valid.duplicate(true)
+    invalid["farm"][0]["crop"]["dry_nights"] = 0.5
+    assert_eq(
+        SessionStateValidator.state_error(invalid),
+        "farm[0].crop.dry_nights must be an integer",
+    )
+
+    invalid = valid.duplicate(true)
+    invalid["farm"][0]["crop"]["dry_nights"] = -1
+    assert_eq(
+        SessionStateValidator.state_error(invalid),
+        "farm[0].crop.dry_nights must be non-negative",
+    )
+
+    invalid = valid.duplicate(true)
+    invalid["farm"][0]["crop"]["dry_nights"] = 2
+    assert_eq(
+        SessionStateValidator.state_error(invalid),
+        "farm[0].crop.dry_nights is out of range",
+    )
+
+func test_state_error_validates_crops_withered_shape_and_range() -> void:
+    var valid := _session_with_morning_summary().state()
+    assert_eq(valid["pending_morning_summary"].get("crops_withered", -1), 0)
+    assert_eq(SessionStateValidator.state_error(valid), "")
+
+    var max_count := valid.duplicate(true)
+    max_count["pending_morning_summary"]["crops_withered"] = WorldContract.farm_cells().size()
+    assert_eq(SessionStateValidator.state_error(max_count), "")
+
+    var invalid := valid.duplicate(true)
+    invalid["pending_morning_summary"].erase("crops_withered")
+    assert_eq(SessionStateValidator.state_error(invalid), "crops_withered is missing")
+
+    invalid = valid.duplicate(true)
+    invalid["pending_morning_summary"]["crops_withered"] = "zero"
+    assert_eq(
+        SessionStateValidator.state_error(invalid),
+        "crops_withered must be an integer",
+    )
+
+    invalid = valid.duplicate(true)
+    invalid["pending_morning_summary"]["crops_withered"] = -1
+    assert_eq(
+        SessionStateValidator.state_error(invalid),
+        "crops_withered is out of range",
+    )
+
+    invalid = valid.duplicate(true)
+    invalid["pending_morning_summary"]["crops_withered"] = WorldContract.farm_cells().size() + 1
+    assert_eq(
+        SessionStateValidator.state_error(invalid),
+        "crops_withered is out of range",
+    )
 
 func test_state_error_rejects_invalid_onboarding_and_finale_shapes() -> void:
     var valid := GameSession.new().state()

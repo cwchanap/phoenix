@@ -769,18 +769,21 @@ func test_calendar_readiness_preserves_mixed_crop_kinds_per_day() -> void:
     farm[0]["crop"] = {
         "kind": &"turnip",
         "growth": 0,
+        "dry_nights": 0,
         "watered_today": false,
     }
     farm[1]["tilled"] = true
     farm[1]["crop"] = {
         "kind": &"potato",
         "growth": 2,
+        "dry_nights": 0,
         "watered_today": false,
     }
     farm[2]["tilled"] = true
     farm[2]["crop"] = {
         "kind": &"turnip",
         "growth": 0,
+        "dry_nights": 0,
         "watered_today": false,
     }
     state["farm"] = farm
@@ -816,12 +819,14 @@ func test_calendar_day14_current_market_readiness_has_separate_authored_markers(
     farm[0]["crop"] = {
         "kind": &"turnip",
         "growth": GameRules.growth_nights(GameRules.CropKind.TURNIP),
+        "dry_nights": 0,
         "watered_today": false,
     }
     farm[1]["tilled"] = true
     farm[1]["crop"] = {
         "kind": &"pumpkin",
         "growth": GameRules.growth_nights(GameRules.CropKind.PUMPKIN),
+        "dry_nights": 0,
         "watered_today": false,
     }
     state["farm"] = farm
@@ -887,12 +892,14 @@ func test_read_only_panels_render_rules_and_only_known_calendar_weather() -> voi
     farm[0]["crop"] = {
         "kind": GameRules.crop_key(GameRules.CropKind.TURNIP),
         "growth": 0,
+        "dry_nights": 0,
         "watered_today": false,
     }
     farm[1]["tilled"] = true
     farm[1]["crop"] = {
         "kind": GameRules.crop_key(GameRules.CropKind.PUMPKIN),
         "growth": 1,
+        "dry_nights": 0,
         "watered_today": false,
     }
     state["farm"] = farm
@@ -1327,6 +1334,7 @@ func test_task8_fixture_values_render_in_authored_social_and_morning_nodes() -> 
         "completed_day": 3,
         "next_day": 4,
         "crops_advanced": 2,
+        "crops_withered": 0,
         "next_weather": GameRules.weather_key(GameRules.Weather.RAINY),
         "stamina_restored": GameRules.MAX_STAMINA,
         "shipments": [{"crop": &"turnip", "quantity": 2, "amount": 70}],
