@@ -43,6 +43,15 @@ func present(summary: Dictionary) -> void:
     ($Frame/Card_3/Value as Label).text = "+%d" % income
     ($Frame/Card_3/Caption as Label).text = "SHIPPED"
 
+    var crops_withered := int(summary.get("crops_withered", 0))
+    var withered_warning := $Frame/WitheredWarning as Label
+    withered_warning.visible = crops_withered > 0
+    if withered_warning.visible:
+        withered_warning.text = "%d CROP%s WITHERED" % [
+            crops_withered,
+            "" if crops_withered == 1 else "S",
+        ]
+
     var shipments: Array = summary.get("shipments", [])
     assert(shipments.size() <= _compact_rows.size(), "morning summary has too many shipment lines")
     var normal_row := $Frame/ShipmentRow as Panel
@@ -169,6 +178,7 @@ func _apply_authored_style() -> void:
         )
         UiStyle.text(caption, 8, UiStyle.MUTED, 700)
     UiStyle.text($Frame/SectionTitle as Label, 8, UiStyle.MUTED, 700, true)
+    UiStyle.text($Frame/WitheredWarning as Label, 8, UiStyle.RED, 700, true)
     UiStyle.text($Frame/ShipmentRow/Name as Label, 10, UiStyle.CREAM, 800)
     UiStyle.text($Frame/ShipmentRow/Amount as Label, 12, UiStyle.GREEN, 800)
     for row in _compact_rows:

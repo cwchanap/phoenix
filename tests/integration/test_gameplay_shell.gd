@@ -386,6 +386,73 @@ func test_farm_view_refresh_uses_snapshot_presentation_state() -> void:
     assert_true(crop.visible)
     assert_eq(crop.frame, 0)
 
+func test_dry_crop_tint_tracks_weather_and_crop_state() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var session := world._session
+    var farm_view := world.farm_view
+    var cell := WorldContract.farm_cells()[0]
+    var crop := farm_view.get_node("FarmCrop_%d_%d/Sprite2D" % [cell.x, cell.y]) as Sprite2D
+    var sparkle := _readiness_sparkle(world, cell)
+
+    var state := session.state()
+    var weather_history: Array = state["weather_history"]
+    weather_history[weather_history.size() - 1] = &"sunny"
+    state["weather_history"] = weather_history
+    state["weather"] = &"sunny"
+    var farm: Array = state["farm"]
+    farm[0]["tilled"] = true
+    farm[0]["crop"] = {
+        "kind": &"turnip",
+        "growth": 0,
+        "dry_nights": 1,
+        "watered_today": false,
+    }
+    state["farm"] = farm
+    assert_true(session.restore_state(state))
+    farm_view.refresh(session.snapshot())
+    assert_ne(crop.self_modulate, Color.WHITE)
+    assert_eq(crop.modulate, Color.WHITE)
+
+    _restore_weather(world, &"rainy")
+    farm_view.refresh(session.snapshot())
+    assert_eq(crop.self_modulate, Color.WHITE)
+    assert_eq(session.snapshot()["farm"][0]["crop"]["dry_nights"], 1)
+
+    _restore_weather(world, &"sunny")
+    farm_view.refresh(session.snapshot())
+    assert_ne(crop.self_modulate, Color.WHITE)
+    assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    farm_view.refresh(session.snapshot())
+    assert_eq(crop.self_modulate, Color.WHITE)
+    assert_eq(session.snapshot()["farm"][0]["crop"]["dry_nights"], 0)
+
+    # Restored mature crops can have a dry counter, but must not show the warning tint.
+    state = session.state()
+    farm = state["farm"]
+    var crop_data: Dictionary = farm[0]["crop"]
+    crop_data["growth"] = GameRules.growth_nights(GameRules.CropKind.TURNIP)
+    crop_data["dry_nights"] = 1
+    crop_data["watered_today"] = false
+    farm[0]["crop"] = crop_data
+    state["farm"] = farm
+    assert_true(session.restore_state(state))
+    farm_view.set_target_cell(cell)
+    farm_view.refresh(session.snapshot())
+    assert_eq(crop.self_modulate, Color.WHITE)
+    assert_eq(crop.modulate, Color.WHITE)
+    assert_true(sparkle.visible)
+    assert_eq(sparkle.modulate, Color.WHITE)
+
+    assert_eq(session.harvest(cell), GameRules.CommandCode.CROP_HARVESTED)
+    farm_view.refresh(session.snapshot())
+    assert_false(crop.visible)
+    assert_eq(crop.self_modulate, Color.WHITE)
+    assert_eq(session.plant(cell), GameRules.CommandCode.CROP_PLANTED)
+    farm_view.refresh(session.snapshot())
+    assert_eq(crop.self_modulate, Color.WHITE)
+
 func test_set_input_enabled_false_zeros_and_stops_player_movement() -> void:
     _release_movement_actions()
     var world := _world()
@@ -1343,6 +1410,8 @@ func test_task8_fixture_values_render_in_authored_social_and_morning_nodes() -> 
     }
     hud.render(summary_snapshot)
     var summary := _panel(hud, "MorningSummaryPanel")
+    var withered_warning := summary.get_node("Frame/WitheredWarning") as Label
+    assert_false(withered_warning.visible)
     assert_eq((summary.get_node("Frame/Header/CompletedDay") as Label).text, "3")
     assert_eq((summary.get_node("Frame/Header/NextDay") as Label).text, "4")
     assert_eq((summary.get_node("Frame/Card_0/Value") as Label).text, "+2")
@@ -1353,6 +1422,20 @@ func test_task8_fixture_values_render_in_authored_social_and_morning_nodes() -> 
     assert_eq((summary.get_node("Frame/ShipmentRow/Amount") as Label).text, "70G")
     assert_false((summary.get_node("Frame/CompactShipmentRows") as Control).visible)
     assert_eq((summary.get_node("Frame/MoneyRow/Amount") as Label).text, "220G")
+
+    summary_snapshot["pending_morning_summary"]["crops_withered"] = 1
+    hud.render(summary_snapshot)
+    assert_true(withered_warning.visible)
+    assert_eq(withered_warning.text, "1 CROP WITHERED")
+
+    summary_snapshot["pending_morning_summary"]["crops_withered"] = 2
+    hud.render(summary_snapshot)
+    assert_true(withered_warning.visible)
+    assert_eq(withered_warning.text, "2 CROPS WITHERED")
+
+    summary_snapshot["pending_morning_summary"]["crops_withered"] = 0
+    hud.render(summary_snapshot)
+    assert_false(withered_warning.visible)
 
     summary_snapshot["pending_morning_summary"]["shipments"] = [
         {"crop": &"turnip", "quantity": 2, "amount": 70},

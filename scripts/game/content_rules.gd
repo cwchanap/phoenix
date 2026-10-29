@@ -20,7 +20,7 @@ const TUTORIALS: Array[Dictionary] = [
     {
         "id": &"water",
         "title": "Water the crop",
-        "body": "On sunny days, press Space on a growing crop to water it.",
+        "body": "On sunny days, press Space on a growing crop to water it. Two dry nights in a row and it withers.",
         "completed_by": GameRules.CommandCode.CROP_WATERED,
     },
     {

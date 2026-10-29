@@ -272,6 +272,16 @@ offset_right = 200.0
 offset_bottom = 192.0
 text = "THE BIN PAID OUT"
 
+[node name="WitheredWarning" type="Label" parent="Frame"]
+visible = false
+layout_mode = 0
+offset_left = 205.0
+offset_top = 178.0
+offset_right = 414.0
+offset_bottom = 192.0
+text = "1 CROP WITHERED"
+horizontal_alignment = 2
+
 [node name="ShipmentRow" type="Panel" parent="Frame"]
 layout_mode = 0
 offset_left = 14.0

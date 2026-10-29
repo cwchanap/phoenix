@@ -6,6 +6,7 @@ const SHADOW_TEXTURE: Texture2D = preload("res://assets/sprites/proof-shadow.png
 const SOIL_TEXTURE: Texture2D = preload("res://assets/sprites/proof-soil.png")
 const SPARKLE_TEXTURE: Texture2D = preload("res://assets/sprites/polish/harvest-sparkle.png")
 const SPARKLE_CROP_OFFSET := Vector2(0, -44)
+const DRY_CROP_TINT := Color("c89b72")
 
 var _farm_soil: Node2D
 var _soil_sprites: Dictionary = {}
@@ -81,6 +82,7 @@ func refresh(snapshot: Dictionary) -> void:
         crop.visible = tilled and crop_data != null
         (_crop_shadows[cell] as Sprite2D).visible = crop.visible
         if not tilled:
+            crop.self_modulate = Color.WHITE
             continue
 
         soil.frame = 1 if rainy or (crop_data != null and bool(crop_data["watered_today"])) else 0
@@ -89,6 +91,14 @@ func refresh(snapshot: Dictionary) -> void:
             var kind: GameRules.CropKind = _crop_kind(crop_data["kind"])
             mature = GameRules.is_mature(kind, int(crop_data["growth"]))
             crop.frame = int(kind) * 4 + GameRules.visual_stage(kind, int(crop_data["growth"]))
+        crop.self_modulate = (
+            DRY_CROP_TINT
+            if crop_data != null
+            and int(crop_data["dry_nights"]) > 0
+            and not rainy
+            and not mature
+            else Color.WHITE
+        )
         _crop_mature[cell] = mature
     _update_readiness_cue()
 
