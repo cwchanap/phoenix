@@ -906,6 +906,13 @@ func test_read_only_panels_render_rules_and_only_known_calendar_weather() -> voi
     assert_eq((bag.get_node("Frame/Body/Detail/Title") as Label).text, "Turnip seeds")
     assert_eq((bag.get_node("Frame/Body/Detail/Economy") as Label).text, "20G buy · 35G sell")
     assert_eq((bag.get_node("Frame/Body/Detail/Favourite") as Label).text, "June's favourite")
+    await _press_panel_action("move_right")
+    await _press_panel_action("move_right")
+    assert_eq(bag.selected_kind(), GameRules.CropKind.PUMPKIN)
+    assert_eq(
+        (bag.get_node("Frame/Body/Detail/Description") as Label).text,
+        "Best profit per stamina of tending in a sunny season. 7 nights of watering, then harvest.",
+    )
     await _press_panel_action("move_down")
     await _press_panel_action("move_down")
     assert_eq((bag.get_node("Frame/Body/Left/Shelf_2/PayoutValue") as Label).text, "140G")
