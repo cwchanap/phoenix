@@ -7,10 +7,14 @@
 
 ## 0. Baseline and integration boundary
 
-- [ ] Pin the base `main` SHA and record a clean `./tools/verify-clean.sh` baseline. Record actual results in this PR instead of asserting tests have run during planning.
+- [ ] Base implementation on latest `main` at `f3c059bc507de04a04730453ae6071fcb70c5ba0` (the merged HPA-351 tip observed 2026-10-28) or its current descendant. After syncing this branch, pin the actual implementation-base SHA and run `./tools/verify-clean.sh` before changing gameplay code. Record actual results in this PR; no baseline was executed during this planning update.
 - [ ] Confirm the base includes HPA-353's `SessionStateValidator` extraction, HPA-263's passive clock and HPA-264's target-driven Space input (present on `main` when designed).
-- [ ] Keep this branch independent of HPA-351's open crop-balance PR #25; avoid changing `GameRules` pricing or expectations. Reconcile any merge conflicts if #25 lands before implementation.
+- [ ] HPA-351 PR #25 **has merged into `main`**. Preserve `GameRules.SEED_PRICES = [20, 30, 70]`, `SALE_VALUES = [35, 75, 140]`, `GROWTH_NIGHTS = [3, 5, 7]`, and its new crop-niche/UI tests. Never revert the merged 30G Potato price or restore superseded 95G/150G sale prices. No new balance change in HPA-352.
 - [ ] Reuse the current `GameSession` overnight loop, `_farm_snapshot()`/`_farm_array()` restore path, `SessionStateValidator`, `FarmView.refresh()`, and authored `MorningSummaryPanel`. No new service or abstraction.
+
+### Merge verification note (2026-10-28)
+
+The prior planning branch base was `05f938352a4314019cc9be8247a932d89d358eb5`. The latest main tip is `f3c059bc507de04a04730453ae6071fcb70c5ba0`, thirteen commits ahead (HPA-351). This review checked remote source and PR metadata but **did not run code or tests**. HPA-351's merged PR reports a green baseline of 264 GUT tests, 12 GdUnit4 tests, 7 E2E tests and 14 visual states. Treat those as prior evidence, not as new HPA-352 verification.
 
 ## 1. Rules and persistence — small, test-first change
 
@@ -44,8 +48,8 @@
 
 - [ ] Run `./tools/verify-clean.sh` (import, GUT, headless smokes, audio checks), and record exact totals and commit SHA.
 - [ ] Run `GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/gdunit -c` and the same command with `tests/e2e`. Investigate failing existing tests rather than deleting or loosening them.
-- [ ] Confirm the canonical five-Turnip / 175G Promising test and Efficient Can reinvestment/throughput tests still pass. As those routes water consistently, they should need no changed economics or expected values.
-- [ ] On native macOS, manually observe a sun-dry → watered recovery, a sun-dry → sun-dry wither, rainy recovery and a mature harvest wait. Capture a positive-wither summary at the 640×360 viewport, inspect width/alignment and both single/multi-shipment variants. Run `./tools/verify-visual.sh`; inspect any diffs and re-bless only genuinely intended production goldens. Do not touch design-reference images.
+- [ ] Retain merged HPA-351's exact economic regression numbers: mixed shipment **285G**; canonical five-Turnip / **175G** Promising route; Efficient Can Pumpkin throughput **6 vs 10 crops**, **840G vs 1,400G shipped**, and **1,040G vs 1,400G cash (+360G)**. Both water through maturity and should still pass without changes. Preserve the crop-niche test and inclusive shipped-value thresholds (150G/300G).
+- [ ] On native macOS, manually observe a sun-dry → watered recovery, a sun-dry → sun-dry wither, rainy recovery and a mature harvest wait. Capture a positive-wither summary at the 640×360 viewport, inspect width/alignment and both single/multi-shipment variants. Run `./tools/verify-visual.sh` using the merged HPA-351 golden baseline (`02-seed-shop`, `04-bag`, `05-almanac`) and the newer `ui_capture_host.gd` nonblank-frame guard; inspect any diffs and re-bless only genuinely intended production goldens. Do not touch design-reference images.
 - [ ] Verify a freshly saved v4 run can Continue after one dry night and after a wither summary, and that a v3 save is refused cleanly. Update the one current-version note in `CLAUDE.md` (and README only if it documents an explicit version or contradicts this behavior).
 - [ ] Check `git diff --check` and confirm no art/SFX, pricing, legacy migration, or framework files were introduced. Document actual verification outcomes and remaining limits in this PR before marking it ready for review.
 
@@ -63,6 +67,6 @@
 
 ## Not part of this PR
 
-No new crop mechanics, fertilizer/sprinkler systems, deceased-crop assets, art/SFX generation, save migrations, unrelated refactors or multiple PRs for HPA-352. HPA-539 (walk-cycle art) and HPA-546 (walk-cycle integration) stay separate, as does HPA-351 crop balance.
+No new crop mechanics, fertilizer/sprinkler systems, deceased-crop assets, art/SFX generation, save migrations, unrelated refactors or multiple PRs for HPA-352. HPA-539 (walk-cycle art) and HPA-546 (walk-cycle integration) stay separate; HPA-351 crop balance has already merged and must not be reverted.
 
 **Implementation has not started in this planning commit.** Checkboxes are intentionally unchecked until verified against an implementation commit.
