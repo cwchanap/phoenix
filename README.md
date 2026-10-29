@@ -23,14 +23,14 @@ godot --path .
 ## Player contract
 
 Phoenix opens on a title screen. New Game starts a fresh run without deleting
-the current slot. Continue is enabled only for a schema-3 save accepted by
+the current slot. Continue is enabled only for a schema-4 save accepted by
 current GameSession rules at user://phoenix-save.json. Successful sleep
 advances gameplay first, then synchronously writes the completed next-morning
 state and pending morning summary. Continue restores gameplay at the authored
 spawn. Invalid/incompatible loads and save failures never block New Game or
 roll back an already completed day.
 
-Farm saves use schema 3 and have no migration path; older schema versions are
+Farm saves use schema 4 and have no migration path; older schema versions are
 rejected. UI preferences are stored separately in
 user://phoenix-settings.cfg.
 
@@ -99,9 +99,11 @@ renders.
 4. **Ship.** Face the shipping cell and press E to open the bin: deposit
    harvested crops into the pending shipment.
 5. **Sleep.** Face the bed cell and press E to open a sleep confirmation.
-   Sleeping pays out the pending shipment, grows watered crops, restores
-   stamina, rolls tomorrow's weather, and advances the day — then a morning
-   summary must be acknowledged before play resumes.
+   Sleeping pays out the pending shipment and grows watered crops. An
+   immature crop withers after two consecutive nights without watering or
+   rain; mature crops stay harvestable. Sleep restores stamina, rolls
+   tomorrow's weather, and advances the day — then a morning summary must be
+   acknowledged before play resumes.
 
 Anything that blocks world input pauses the passive clock: opening a panel
 or dialogue, the sleep confirmation, Pause, the introduction, or the

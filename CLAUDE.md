@@ -30,9 +30,9 @@ There is no JavaScript or Tauri runtime in the current checkout.
   world scene. Ground is an authored `TileMapLayer`; shell setup derives the
   collision geometry from `WorldContract` and `WorldMath`.
 - `scripts/game/game_rules.gd` is the closed rules/content source: crop
-  economy, action time/stamina budgets, day/pacing/stamina/weather constants,
-  payout math, and the `CommandCode` enum returned by every command. It is
-  stateless.
+  economy, action time/stamina budgets, day/pacing/stamina/weather constants
+  including `DRY_NIGHTS_TO_WITHER`, payout math, and the `CommandCode` enum
+  returned by every command. It is stateless.
 - VillagerRules owns frozen HPA-595 content and pure relationship policy.
 - `scripts/game/content_rules.gd` (`ContentRules`) owns the frozen HPA-597
   content policy: `TUTORIALS` is the one tutorial identity/copy/completion
@@ -114,7 +114,7 @@ There is no JavaScript or Tauri runtime in the current checkout.
 - Completed-run Continue routes straight to `ResultScreen`; the AppRoot
   result teardown removes the live World with `remove_child()` then
   `queue_free()` before presenting it.
-- scripts/persistence/save_file.gd owns schema-v3 JSON transport only; older
+- scripts/persistence/save_file.gd owns schema-v4 JSON transport only; older
   saves are intentionally incompatible and there is no migration.
 - scripts/persistence/save_repository.gd writes user://phoenix-save.json with FileAccess.
 - `scripts/ui/ui_settings.gd` owns the separate preference file and its

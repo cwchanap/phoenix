@@ -315,7 +315,7 @@ static func _farm_state_error(value: Array, expected_cells: Array[Vector2i]) -> 
         if not bool(crop_result["ok"]):
             return String(crop_result["error"])
         var crop: Dictionary = crop_result["value"]
-        if crop.size() != 3:
+        if crop.size() != 4:
             return "farm[%d].crop has an invalid shape" % index
 
         var kind_result := _named_field(
@@ -338,6 +338,16 @@ static func _farm_state_error(value: Array, expected_cells: Array[Vector2i]) -> 
         var growth := int(growth_result["value"])
         if growth < 0 or growth > GameRules.growth_nights(kind):
             return "farm[%d].crop.growth is out of range" % index
+
+        var dry_nights_result := _non_negative_int_field(
+            crop,
+            "dry_nights",
+            "farm[%d].crop.dry_nights" % index,
+        )
+        if not bool(dry_nights_result["ok"]):
+            return String(dry_nights_result["error"])
+        if int(dry_nights_result["value"]) >= GameRules.DRY_NIGHTS_TO_WITHER:
+            return "farm[%d].crop.dry_nights is out of range" % index
 
         var watered_result := _bool_field(
             crop,
@@ -401,7 +411,7 @@ static func _morning_summary_state_error(
     if not bool(summary_result["ok"]):
         return String(summary_result["error"])
     var summary: Dictionary = summary_result["value"]
-    if summary.size() != 8:
+    if summary.size() != 9:
         return "pending_morning_summary has an invalid shape"
 
     var completed_day_result := _int_field(
@@ -439,6 +449,19 @@ static func _morning_summary_state_error(
         or int(crops_advanced_result["value"]) > farm_cell_count
     ):
         return "crops_advanced is out of range"
+
+    var crops_withered_result := _int_field(
+        summary,
+        "crops_withered",
+        "crops_withered",
+    )
+    if not bool(crops_withered_result["ok"]):
+        return String(crops_withered_result["error"])
+    if (
+        int(crops_withered_result["value"]) < 0
+        or int(crops_withered_result["value"]) > farm_cell_count
+    ):
+        return "crops_withered is out of range"
 
     var next_weather_result := _named_field(
         summary,

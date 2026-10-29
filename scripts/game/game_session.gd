@@ -376,6 +376,7 @@ func plant(target_cell: Variant) -> GameRules.CommandCode:
     tile["crop"] = {
         "kind": _selected_seed,
         "growth": 0,
+        "dry_nights": 0,
         "watered_today": false,
     }
     _farm[index] = tile
@@ -399,6 +400,7 @@ func water(target_cell: Variant) -> GameRules.CommandCode:
         return budget["code"]
 
     var crop: Dictionary = tile["crop"]
+    crop["dry_nights"] = 0
     crop["watered_today"] = true
     tile["crop"] = crop
     _farm[index] = tile
@@ -586,16 +588,26 @@ func sleep(target_cell: Variant) -> GameRules.CommandCode:
     var next_weather := GameRules.weather_from_roll(float(_weather_roll.call()))
 
     var crops_advanced := 0
+    var crops_withered := 0
     for index in _farm.size():
         var tile: Dictionary = _farm[index]
         if tile["crop"] == null:
             continue
         var crop: Dictionary = tile["crop"]
         var kind: GameRules.CropKind = crop["kind"]
-        var watered := bool(crop["watered_today"]) or completed_weather == GameRules.Weather.RAINY
-        if watered and not GameRules.is_mature(kind, int(crop["growth"])):
-            crop["growth"] = int(crop["growth"]) + 1
-            crops_advanced += 1
+        if not GameRules.is_mature(kind, int(crop["growth"])):
+            var watered := bool(crop["watered_today"]) or completed_weather == GameRules.Weather.RAINY
+            if watered:
+                crop["growth"] = int(crop["growth"]) + 1
+                crop["dry_nights"] = 0
+                crops_advanced += 1
+            else:
+                crop["dry_nights"] = int(crop["dry_nights"]) + 1
+                if int(crop["dry_nights"]) >= GameRules.DRY_NIGHTS_TO_WITHER:
+                    tile["crop"] = null
+                    _farm[index] = tile
+                    crops_withered += 1
+                    continue
         crop["watered_today"] = false
         tile["crop"] = crop
         _farm[index] = tile
@@ -610,6 +622,7 @@ func sleep(target_cell: Variant) -> GameRules.CommandCode:
         "completed_day": completed_day,
         "next_day": _day,
         "crops_advanced": crops_advanced,
+        "crops_withered": crops_withered,
         "next_weather": GameRules.weather_key(next_weather),
         "stamina_restored": stamina_restored,
         "shipments": payout["lines"].duplicate(true),
@@ -727,6 +740,7 @@ static func _farm_array(value: Array) -> Variant:
             tile["crop"] = {
                 "kind": GameRules.CROP_KEYS.find(StringName(source_crop["kind"])),
                 "growth": int(source_crop["growth"]),
+                "dry_nights": int(source_crop["dry_nights"]),
                 "watered_today": source_crop["watered_today"],
             }
         result.append(tile)
@@ -784,6 +798,7 @@ func _farm_snapshot() -> Array[Dictionary]:
             entry["crop"] = {
                 "kind": GameRules.crop_key(crop["kind"]),
                 "growth": crop["growth"],
+                "dry_nights": crop["dry_nights"],
                 "watered_today": crop["watered_today"],
             }
         result.append(entry)
