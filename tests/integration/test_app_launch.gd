@@ -209,6 +209,49 @@ func test_continue_restores_state_and_uses_authored_spawn() -> void:
         ) <= 0.0001
     )
 
+func test_continue_restores_one_dry_night_and_wither_summary() -> void:
+    var repository := SaveRepository.new(TEST_PATH)
+    var session := GameSession.new(func() -> float: return 0.9)
+    var cells := WorldContract.farm_cells()
+    assert_eq(session.hoe(cells[0]), GameRules.CommandCode.SOIL_TILLED)
+    assert_eq(session.plant(cells[0]), GameRules.CommandCode.CROP_PLANTED)
+    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+    assert_eq(session.acknowledge_morning_summary(), GameRules.CommandCode.DAY_STARTED)
+    assert_eq(session.hoe(cells[1]), GameRules.CommandCode.SOIL_TILLED)
+    assert_eq(session.plant(cells[1]), GameRules.CommandCode.CROP_PLANTED)
+    assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+
+    var saved_state := session.state()
+    assert_null(saved_state["farm"][0]["crop"])
+    assert_eq(saved_state["farm"][1]["crop"]["dry_nights"], 1)
+    assert_eq(saved_state["pending_morning_summary"]["crops_withered"], 1)
+    assert_eq(SaveFileCodec.SCHEMA_VERSION, 4)
+    assert_eq(repository.save(saved_state), OK)
+    var save_file := FileAccess.open(TEST_PATH, FileAccess.READ)
+    assert_not_null(save_file)
+    if save_file == null:
+        return
+    var encoded_save := JSON.parse_string(save_file.get_as_text()) as Dictionary
+    save_file.close()
+    assert_eq(encoded_save["schema_version"], 4)
+    var loaded := repository.load()
+    assert_eq(loaded["status"], &"loaded")
+    assert_eq(loaded["state"]["pending_morning_summary"]["crops_withered"], 1)
+
+    var app := _spawn_app(repository)
+    if app == null:
+        return
+    var title := app.get_node("TitleScreen") as TitleScreen
+    assert_false((title.get_node("Panel/Continue") as Button).disabled)
+    title.continue_requested.emit()
+    await get_tree().process_frame
+
+    var restored := _stop_world_clock(app)._session.state()
+    assert_eq(restored, saved_state)
+    assert_null(restored["farm"][0]["crop"])
+    assert_eq(restored["farm"][1]["crop"]["dry_nights"], 1)
+    assert_eq(restored["pending_morning_summary"]["crops_withered"], 1)
+
 func test_continue_with_completed_finale_shows_result_screen() -> void:
     var repository := SaveRepository.new(TEST_PATH)
     var session := GameSession.new(func() -> float: return 0.9)
@@ -373,7 +416,7 @@ func test_incompatible_slot_refuses_continue_but_new_game_still_launches() -> vo
     assert_eq(still_incompatible["status"], &"loaded")
     assert_ne(SessionStateValidator.state_error(still_incompatible["state"]), "")
 
-func test_schema_2_save_is_unavailable_and_new_game_still_launches() -> void:
+func test_schema_3_save_is_unavailable_and_new_game_still_launches() -> void:
     var file := FileAccess.open(TEST_PATH, FileAccess.WRITE)
     assert_not_null(file)
     if file == null:
