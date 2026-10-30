@@ -1,6 +1,6 @@
 # HPA-352 — Two-night crop withering: implementation plan
 
-**Status:** Implemented at `f63ee16` on this same PR; checkboxes below are marked against delivered work, and the verification record is at the bottom.
+**Status:** Implemented at `822fd25` on this same PR; checkboxes below are marked against delivered work, and the verification record is at the bottom.
 **Design:** [2026-10-27-phoenix-two-dry-nights-design.md](../specs/2026-10-27-phoenix-two-dry-nights-design.md)
 **Issue:** https://linear.app/cwchanap/issue/HPA-352/daily-pacing-wither-crops-left-dry-for-two-nights
 **Working branch:** `agent/hpa-352-two-dry-nights-plan`
@@ -103,12 +103,12 @@ The dispositions below were recorded during design/plan review, before implement
 
 **Post-delivery review disposition (2026-10-29):** a subsequent implementation review proposed the stricter alternative the earlier note assumed unavailable — reject `dry_nights > 0` on a mature or `watered_today` crop in `SessionStateValidator._farm_state_error()` outright. That was accepted, so the tint maturity guard and the `f63ee16` `sleep()` normalization were removed; the same review's Day-14 tint bound, restored rainy Day-14 oracle, and pinned `state_error()` messages landed alongside.
 
-## Delivery record (HEAD `f63ee16`)
+## Delivery record (HEAD `822fd25`)
 
-Implementation landed on this branch in `acfc1d0`–`f63ee16` (test-first rules/state, persistence, presentation, save/Continue coverage, tint contrast, mature-crop dry-streak normalization). Recorded verification:
+Implementation landed on this branch in `acfc1d0`–`822fd25` (test-first rules/state, persistence, presentation, save/Continue coverage, tint contrast, validator-owned dry-streak invariant, Day-14 warning bound). Recorded verification:
 
-- `./tools/verify-clean.sh` at `f63ee16`: **274/274 GUT tests, 4,548 assertions**, plus the project/world-math/world-shell smokes and audio-source checks. An earlier run at `1503fc3` passed 272/272 GUT (4,508 assertions) after the presentation task.
-- `GdUnit4 tests/gdunit` **12/12** and `tests/e2e` **7/7**, both run at `8601901` — before the `f0b70de` tint adjustment and the `f63ee16` rules-only mature-crop normalization. Those two follow-ups carry focused GUT/integration coverage rather than full lane reruns.
-- Native `./tools/verify-visual.sh` at `f0b70de`: all **14 states, zero differing pixels** — after the tint adjustment, before the final rules-only commit. No goldens re-blessed.
+- `./tools/verify-clean.sh` at `822fd25`: **274/274 GUT tests, 4,546 assertions**, plus the project/world-math/world-shell smokes and audio-source checks. Earlier runs at `f63ee16` (274/274, 4,548 assertions) and `1503fc3` (272/272, 4,508 assertions) preceded the post-delivery review changes.
+- `GdUnit4 tests/gdunit` **12/12** and `tests/e2e` **7/7**, both re-run at `822fd25`. The e2e lane flaked once on `test_day_one_held_row_works_three_cells` (a dwell-timing property wait outside this diff's scope) and passed clean on the immediate re-run; the previously recorded runs at `8601901` predated the `f0b70de`/`f63ee16` follow-ups.
+- Native `./tools/verify-visual.sh` at `f0b70de`: all **14 states, zero differing pixels** — after the tint adjustment, before the final rules-only commit. The post-delivery changes alter the tint predicate and validation only, and no golden state renders a dry crop; no goldens re-blessed.
 - Native 2× inspection at the authored 640×360 viewport confirmed dry-crop tint legibility under the weather overlay, unchanged mature sparkle, tutorial wrapping, and the warning label's fit/reset with zero, one, and several shipment rows including the maximum-count case.
 - `git diff --check` clean; no art/SFX, pricing, migration, or framework files were added. Remaining limits (hosted CI, release export) are unchanged from the PR body.

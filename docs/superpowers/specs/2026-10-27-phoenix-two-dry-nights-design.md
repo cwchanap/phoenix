@@ -1,6 +1,6 @@
 # HPA-352 — Two dry nights wither a growing crop: design
 
-**Status:** Implemented on this same PR at `f63ee16`; the text below remains the design of record.
+**Status:** Implemented on this same PR at `822fd25`; the text below remains the design of record.
 **Linear:** https://linear.app/cwchanap/issue/HPA-352/daily-pacing-wither-crops-left-dry-for-two-nights
 **Prerequisites:** HPA-353 (validator extraction) and HPA-263 (passive day clock), both Done.
 
