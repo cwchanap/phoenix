@@ -75,4 +75,3 @@ Hashes (SHA-256):
 | `tests/visual/hpa-539/contact-sheet.png` | `ea35ad49e2d85918bb1d6817bc6d85d3f61e1252e3f1d498a43ff6be8c3fa2f8` |
 
 Playback, in-world motion acceptance, and subjective timing have not been tested here because this ticket does not change the live player.
-
