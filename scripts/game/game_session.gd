@@ -608,8 +608,6 @@ func sleep(target_cell: Variant) -> GameRules.CommandCode:
                     _farm[index] = tile
                     crops_withered += 1
                     continue
-        else:
-            crop["dry_nights"] = 0
         crop["watered_today"] = false
         tile["crop"] = crop
         _farm[index] = tile

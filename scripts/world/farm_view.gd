@@ -96,7 +96,7 @@ func refresh(snapshot: Dictionary) -> void:
             if crop_data != null
             and int(crop_data["dry_nights"]) > 0
             and not rainy
-            and not mature
+            and int(snapshot["day"]) < GameRules.MAX_DAY
             else Color.WHITE
         )
         _crop_mature[cell] = mature

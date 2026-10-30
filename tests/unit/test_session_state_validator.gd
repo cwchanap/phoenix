@@ -178,6 +178,22 @@ func test_state_error_validates_dry_nights_shape_and_range() -> void:
     assert_eq(SessionStateValidator.state_error(one_dry_night), "")
 
     var invalid := valid.duplicate(true)
+    invalid["farm"][0]["crop"]["dry_nights"] = 1
+    invalid["farm"][0]["crop"]["watered_today"] = true
+    assert_eq(
+        SessionStateValidator.state_error(invalid),
+        "farm[0].crop.dry_nights must be zero on a mature or watered crop",
+    )
+
+    invalid = valid.duplicate(true)
+    invalid["farm"][0]["crop"]["growth"] = GameRules.growth_nights(GameRules.CropKind.TURNIP)
+    invalid["farm"][0]["crop"]["dry_nights"] = 1
+    assert_eq(
+        SessionStateValidator.state_error(invalid),
+        "farm[0].crop.dry_nights must be zero on a mature or watered crop",
+    )
+
+    invalid = valid.duplicate(true)
     invalid["farm"][0]["crop"].erase("dry_nights")
     assert_ne(SessionStateValidator.state_error(invalid), "")
 
