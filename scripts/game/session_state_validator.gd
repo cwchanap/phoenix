@@ -356,6 +356,14 @@ static func _farm_state_error(value: Array, expected_cells: Array[Vector2i]) -> 
         )
         if not bool(watered_result["ok"]):
             return String(watered_result["error"])
+        if (
+            int(dry_nights_result["value"]) > 0
+            and (
+                bool(watered_result["value"])
+                or GameRules.is_mature(kind, growth)
+            )
+        ):
+            return "farm[%d].crop.dry_nights must be zero on a mature or watered crop" % index
         if not bool(tilled_result["value"]):
             return "farm[%d] cannot contain a crop on untilled soil" % index
     return ""

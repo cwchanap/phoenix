@@ -429,13 +429,20 @@ func test_dry_crop_tint_tracks_weather_and_crop_state() -> void:
     assert_eq(crop.self_modulate, Color.WHITE)
     assert_eq(session.snapshot()["farm"][0]["crop"]["dry_nights"], 0)
 
-    # Restored mature crops can have a dry counter, but must not show the warning tint.
+    # A dry counter on a mature crop cannot be produced by play; the validator
+    # rejects the restored state outright rather than the view masking it.
     state = session.state()
     farm = state["farm"]
     var crop_data: Dictionary = farm[0]["crop"]
     crop_data["growth"] = GameRules.growth_nights(GameRules.CropKind.TURNIP)
     crop_data["dry_nights"] = 1
     crop_data["watered_today"] = false
+    farm[0]["crop"] = crop_data
+    state["farm"] = farm
+    assert_ne(SessionStateValidator.state_error(state), "")
+    assert_false(session.restore_state(state))
+
+    crop_data["dry_nights"] = 0
     farm[0]["crop"] = crop_data
     state["farm"] = farm
     assert_true(session.restore_state(state))
@@ -451,6 +458,22 @@ func test_dry_crop_tint_tracks_weather_and_crop_state() -> void:
     assert_false(crop.visible)
     assert_eq(crop.self_modulate, Color.WHITE)
     assert_eq(session.plant(cell), GameRules.CommandCode.CROP_PLANTED)
+    farm_view.refresh(session.snapshot())
+    assert_eq(crop.self_modulate, Color.WHITE)
+
+    # No night follows Day 14, so a dry streak cannot wither and must not warn.
+    state = session.state()
+    farm = state["farm"]
+    crop_data = farm[0]["crop"]
+    crop_data["dry_nights"] = 1
+    farm[0]["crop"] = crop_data
+    state["farm"] = farm
+    state["day"] = GameRules.MAX_DAY
+    weather_history = []
+    for _i in GameRules.MAX_DAY:
+        weather_history.append(&"sunny")
+    state["weather_history"] = weather_history
+    assert_true(session.restore_state(state))
     farm_view.refresh(session.snapshot())
     assert_eq(crop.self_modulate, Color.WHITE)
 
