@@ -1,18 +1,18 @@
 # HPA-352 — Two-night crop withering: implementation plan
 
-**Status:** Planning only; follow this checklist by extending the **same** draft PR.
+**Status:** Implemented at `f63ee16` on this same PR; checkboxes below are marked against delivered work, and the verification record is at the bottom.
 **Design:** [2026-10-27-phoenix-two-dry-nights-design.md](../specs/2026-10-27-phoenix-two-dry-nights-design.md)
 **Issue:** https://linear.app/cwchanap/issue/HPA-352/daily-pacing-wither-crops-left-dry-for-two-nights
 **Working branch:** `agent/hpa-352-two-dry-nights-plan`
 
 ## 0. Baseline and integration boundary
 
-- [ ] Base implementation on latest `main` at `f3c059bc507de04a04730453ae6071fcb70c5ba0` (the merged HPA-351 tip observed 2026-10-28) or its current descendant. After syncing this branch, pin the actual implementation-base SHA and run `./tools/verify-clean.sh` before changing gameplay code. Record actual results in this PR; no baseline was executed during this planning update.
-- [ ] Confirm the base includes HPA-353's `SessionStateValidator` extraction, HPA-263's passive clock and HPA-264's target-driven Space input (present on `main` when designed).
-- [ ] HPA-351 PR #25 **has merged into `main`**. Preserve `GameRules.SEED_PRICES = [20, 30, 70]`, `SALE_VALUES = [35, 75, 140]`, `GROWTH_NIGHTS = [3, 5, 7]`, and its new crop-niche/UI tests. Never revert the merged 30G Potato price or restore superseded 95G/150G sale prices. No new balance change in HPA-352.
-- [ ] Reuse the current `GameSession` overnight loop, `_farm_snapshot()`/`_farm_array()` restore path, `SessionStateValidator`, `FarmView.refresh()`, and authored `MorningSummaryPanel`. No new service or abstraction.
+- [x] Base implementation on latest `main` at `f3c059bc507de04a04730453ae6071fcb70c5ba0` (the merged HPA-351 tip observed 2026-10-28) or its current descendant. The implementation merge-base is exactly `f3c059b`. No separate pre-implementation `./tools/verify-clean.sh` baseline run was recorded; the recorded clean-verifier runs on this branch are listed in the delivery record below.
+- [x] Confirm the base includes HPA-353's `SessionStateValidator` extraction, HPA-263's passive clock and HPA-264's target-driven Space input (present on `main` when designed).
+- [x] HPA-351 PR #25 **has merged into `main`**. Preserve `GameRules.SEED_PRICES = [20, 30, 70]`, `SALE_VALUES = [35, 75, 140]`, `GROWTH_NIGHTS = [3, 5, 7]`, and its new crop-niche/UI tests. Never revert the merged 30G Potato price or restore superseded 95G/150G sale prices. No new balance change in HPA-352.
+- [x] Reuse the current `GameSession` overnight loop, `_farm_snapshot()`/`_farm_array()` restore path, `SessionStateValidator`, `FarmView.refresh()`, and authored `MorningSummaryPanel`. No new service or abstraction.
 
-### Merge verification note (2026-10-28)
+### Merge verification note (2026-10-28, pre-implementation)
 
 The prior planning branch base was `05f938352a4314019cc9be8247a932d89d358eb5`. The latest main tip is `f3c059bc507de04a04730453ae6071fcb70c5ba0`, thirteen commits ahead (HPA-351). This review checked remote source and PR metadata but **did not run code or tests**. HPA-351's merged PR reports a green baseline of 264 GUT tests, 12 GdUnit4 tests, 7 E2E tests and 14 visual states. Treat those as prior evidence, not as new HPA-352 verification.
 
@@ -20,16 +20,16 @@ The prior planning branch base was `05f938352a4314019cc9be8247a932d89d358eb5`. T
 
 **Files:** `scripts/game/game_rules.gd`; `scripts/game/game_session.gd`; `scripts/game/session_state_validator.gd`; `scripts/persistence/save_file.gd`.
 
-- [ ] Extend existing GUT tests in `tests/unit/test_game_session.gd` (start with `test_unwatered_sunny_crop_does_not_advance` and `test_rainy_completed_day_advances_each_planted_crop`); add only the new cases those tests cannot cleanly express:
+- [x] Extend existing GUT tests in `tests/unit/test_game_session.gd` (start with `test_unwatered_sunny_crop_does_not_advance` and `test_rainy_completed_day_advances_each_planted_crop`); add only the new cases those tests cannot cleanly express:
   - Plant a Turnip and sleep in sunny weather without watering: day-2 crop remains, growth 0, `dry_nights == 1`, `crops_withered == 0`. After acknowledging the summary and sleeping sunny again: crop is null, soil remains tilled, `crops_withered == 1`, `crops_advanced == 0`.
   - Plant / dry once / water on the following day: `dry_nights` becomes 0 **at successful water()**, and growth resumes overnight; a subsequent missed night gives only the first warning.
   - Plant / dry once / next day rainy / sleep: rain resets the streak and advances growth even without manual watering; next sunny missed night counts as first, not second. Use deterministic weather rolls; distinguish completed-day weather from next-day weather.
   - Mature a crop through watering, then skip at least two sunny nights; it remains harvestable. Wither two cells in one transition and verify count 2. Verify Day-14 `sleep()` takes the existing finale route without a wither transition.
-- [ ] Add **one** shared pacing constant `GameRules.DRY_NIGHTS_TO_WITHER := 2` beside the existing day/weather/growth constants. Initialize `dry_nights = 0` in `plant()` and reset it to 0 on successful `water()` only. In `sleep()`, test maturity first; for immature crops reuse the existing water/rain decision: advance and reset on wet nights, increment on dry, remove the crop with `tile["crop"] = null` at `dry_nights >= GameRules.DRY_NIGHTS_TO_WITHER`; retain the tilled soil. Reset `watered_today` on remaining crops. Count withers independently of growth. Keep the overnight rule inline; no new helper/service.
-- [ ] Persist/read the field in `_farm_snapshot()` and `_farm_array()`. Add `crops_withered` (including 0) in the same existing summary dictionary; `state()` and `snapshot()` already carry that summary.
-- [ ] Update `_farm_state_error()` crop shape 3 → 4 and validate integer `dry_nights` in `0 <= dry_nights < GameRules.DRY_NIGHTS_TO_WITHER` (currently 0..1). Update `_morning_summary_state_error()` shape 8 → 9 and validate `crops_withered` within 0..farm-cell count, using the existing `crops_advanced` range-check pattern. Use existing field helpers and preserve unrelated validation.
-- [ ] Add direct missing, noninteger, negative and too-large cases to `tests/unit/test_session_state_validator.gd` for both new fields. Repair the existing hand-built crop/summary fixtures listed in **Known fixture and documentation repairs** below.
-- [ ] Increase `SaveFileCodec.SCHEMA_VERSION` from 3 to 4, with **no migration**. Retain **one** hardcoded version pin in `test_save_file.gd:13` (update it to 4); remove the three redundant `== 3` asserts listed below rather than repinning. Keep the field-blind codec and its existing `SCHEMA_VERSION ± 1` unsupported-schema checks. Add/adjust codec round-trip assertions: dry streak and pending positive wither summary survive encode/decode/restore; an explicit old schema 3 returns `Unsupported save schema`. Verify malformed states are rejected atomically.
+- [x] Add **one** shared pacing constant `GameRules.DRY_NIGHTS_TO_WITHER := 2` beside the existing day/weather/growth constants. Initialize `dry_nights = 0` in `plant()` and reset it to 0 on successful `water()` only. In `sleep()`, test maturity first; for immature crops reuse the existing water/rain decision: advance and reset on wet nights, increment on dry, remove the crop with `tile["crop"] = null` at `dry_nights >= GameRules.DRY_NIGHTS_TO_WITHER`; retain the tilled soil. Reset `watered_today` on remaining crops. Count withers independently of growth. Keep the overnight rule inline; no new helper/service.
+- [x] Persist/read the field in `_farm_snapshot()` and `_farm_array()`. Add `crops_withered` (including 0) in the same existing summary dictionary; `state()` and `snapshot()` already carry that summary.
+- [x] Update `_farm_state_error()` crop shape 3 → 4 and validate integer `dry_nights` in `0 <= dry_nights < GameRules.DRY_NIGHTS_TO_WITHER` (currently 0..1). Update `_morning_summary_state_error()` shape 8 → 9 and validate `crops_withered` within 0..farm-cell count, using the existing `crops_advanced` range-check pattern. Use existing field helpers and preserve unrelated validation.
+- [x] Add direct missing, noninteger, negative and too-large cases to `tests/unit/test_session_state_validator.gd` for both new fields. Repair the existing hand-built crop/summary fixtures listed in **Known fixture and documentation repairs** below.
+- [x] Increase `SaveFileCodec.SCHEMA_VERSION` from 3 to 4, with **no migration**. Retain **one** hardcoded version pin in `test_save_file.gd:13` (update it to 4); remove the three redundant `== 3` asserts listed below rather than repinning. Keep the field-blind codec and its existing `SCHEMA_VERSION ± 1` unsupported-schema checks. Add/adjust codec round-trip assertions: dry streak and pending positive wither summary survive encode/decode/restore; an explicit old schema 3 returns `Unsupported save schema`. Verify malformed states are rejected atomically.
 
 ### Measured fixture and documentation repair inventory (against `main` at `f3c059b`)
 
@@ -52,28 +52,30 @@ The [follow-up review](https://github.com/cwchanap/phoenix/pull/26#issuecomment-
 
 Do **not** rely only on red GUT tests: invalid-state candidates can silently pass for the wrong reason, and visual/E2E fixtures live in separate lanes.
 
+All repairs above were applied in the implementation commits.
+
 **Checkpoint:** run the **entire** `./tools/verify-clean.sh` GUT/smoke gate plus both `GdUnit4 tests/gdunit` and `tests/e2e` suites after rules, validator, and fixture changes. Record actual totals, and do not suppress existing assertions. No crop price, tool cost, weather probability, or save architecture changes.
 
 ## 2. Farm warning and report line
 
 **Files:** `scripts/world/farm_view.gd`; `scripts/ui/morning_summary_panel.gd`; `scenes/ui/morning_summary_panel.tscn`; `scripts/game/content_rules.gd`.
 
-- [ ] Add one named muted/dry tint constant in `FarmView`. On **every** `refresh(snapshot)` set the crop sprite's **`self_modulate`** (not inherited `modulate`, which would tint its child `ReadinessSparkle`). Tint when `dry_nights > 0` and `!rainy` and crop is **immature**; successful water already clears the counter, so no extra `watered_today` predicate/test. Keep the cheap maturity guard: the range-only validator permits a hand-built/restored *mature* crop with `dry_nights == 1`, even though real overnight growth cannot create it. Reset tint to neutral on water/rain/maturity/replant/removal; do not modify shadow, soil, or readiness-sparkle rendering.
-- [ ] Add one hidden, right-aligned `Frame/WitheredWarning` Label in the existing horizontal row of `Frame/SectionTitle`; reuse `UiStyle.text(..., color = UiStyle.RED)` instead of introducing another warning color. No fifth summary card, modal, or scroll area.
-- [ ] In `MorningSummaryPanel.present()`, compute the summary count and only show the line when positive; support singular/plural text. Repeated `present()` calls must hide a stale warning when the next summary has zero withers.
-- [ ] Extend `tests/integration/test_gameplay_shell.gd` or a focused view/panel test to assert `self_modulate` tint/neutral state, unchanged mature `ReadinessSparkle`, and zero/one/many warning text and visibility. Ensure a rain day hides crop tint; the persisted counter still resets only overnight.
-- [ ] Append **one short sentence** to the existing `water` tutorial's `ContentRules.TUTORIALS` body, e.g. `Two dry nights in a row and it withers.` Do not add a new tutorial/modal. Update the README Sleep rules text as listed above. Check added tutorial text fits the authored viewport during native verification.
+- [x] Add one named muted/dry tint constant in `FarmView`. On **every** `refresh(snapshot)` set the crop sprite's **`self_modulate`** (not inherited `modulate`, which would tint its child `ReadinessSparkle`). Tint when `dry_nights > 0` and `!rainy` and crop is **immature**; successful water already clears the counter, so no extra `watered_today` predicate/test. Keep the cheap maturity guard: the range-only validator permits a hand-built/restored *mature* crop with `dry_nights == 1`, even though real overnight growth cannot create it. Reset tint to neutral on water/rain/maturity/replant/removal; do not modify shadow, soil, or readiness-sparkle rendering.
+- [x] Add one hidden, right-aligned `Frame/WitheredWarning` Label in the existing horizontal row of `Frame/SectionTitle`; reuse `UiStyle.text(..., color = UiStyle.RED)` instead of introducing another warning color. No fifth summary card, modal, or scroll area.
+- [x] In `MorningSummaryPanel.present()`, compute the summary count and only show the line when positive; support singular/plural text. Repeated `present()` calls must hide a stale warning when the next summary has zero withers.
+- [x] Extend `tests/integration/test_gameplay_shell.gd` or a focused view/panel test to assert `self_modulate` tint/neutral state, unchanged mature `ReadinessSparkle`, and zero/one/many warning text and visibility. Ensure a rain day hides crop tint; the persisted counter still resets only overnight.
+- [x] Append **one short sentence** to the existing `water` tutorial's `ContentRules.TUTORIALS` body, e.g. `Two dry nights in a row and it withers.` Do not add a new tutorial/modal. Update the README Sleep rules text as listed above. Check added tutorial text fits the authored viewport during native verification.
 
 **Checkpoint:** one dry-night warning is visible, a following sunny dry night removes the crop, and the morning warning is readable without overlapping shipping rows at the 640×360 authored viewport.
 
 ## 3. Regression and native visual checks
 
-- [ ] Run `./tools/verify-clean.sh` (import, GUT, headless smokes, audio checks), and record exact totals and commit SHA.
-- [ ] Run `GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/gdunit -c` and the same command with `tests/e2e`. Investigate failing existing tests rather than deleting or loosening them.
-- [ ] Retain merged HPA-351's exact economic regression numbers: mixed shipment **285G**; canonical five-Turnip / **175G** Promising route; Efficient Can Pumpkin throughput **6 vs 10 crops**, **840G vs 1,400G shipped**, and **1,040G vs 1,400G cash (+360G)**. Both water through maturity and should still pass without changes. Preserve the crop-niche test and inclusive shipped-value thresholds (150G/300G).
-- [ ] On native macOS, focus manual inspection on the **two things automated tests cannot establish**: (1) muted crop tint is legible at 2× under the weather overlay, without altering sparkle appearance; (2) the morning wither warning fits and resets correctly with **zero, one, and several shipment rows**, with no overlap at 640×360. Also check the updated water-tutorial copy wraps cleanly. The sunny/rain/water/mature/Continue state transitions are covered by deterministic tests; do not duplicate them as a manual playtest checklist. Run `./tools/verify-visual.sh` against the merged HPA-351 goldens and newer nonblank-frame guard, inspect real diffs, and re-bless only genuinely intended changes; do not touch reference images.
-- [ ] Cover freshly saved v4 Continue after one dry night and a wither summary, plus clean v3 refusal, with existing and focused **automated** save/launch tests. Confirm **both** README schema-3 references and the schema-v3 architecture note in `CLAUDE.md` are updated to v4 and README explains two-night withering.
-- [ ] Check `git diff --check` and confirm no art/SFX, pricing, legacy migration, or framework files were introduced. Document actual verification outcomes and remaining limits in this PR before marking it ready for review.
+- [x] Run `./tools/verify-clean.sh` (import, GUT, headless smokes, audio checks), and record exact totals and commit SHA.
+- [x] Run `GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/gdunit -c` and the same command with `tests/e2e`. Investigate failing existing tests rather than deleting or loosening them.
+- [x] Retain merged HPA-351's exact economic regression numbers: mixed shipment **285G**; canonical five-Turnip / **175G** Promising route; Efficient Can Pumpkin throughput **6 vs 10 crops**, **840G vs 1,400G shipped**, and **1,040G vs 1,400G cash (+360G)**. Both water through maturity and should still pass without changes. Preserve the crop-niche test and inclusive shipped-value thresholds (150G/300G).
+- [x] On native macOS, focus manual inspection on the **two things automated tests cannot establish**: (1) muted crop tint is legible at 2× under the weather overlay, without altering sparkle appearance; (2) the morning wither warning fits and resets correctly with **zero, one, and several shipment rows**, with no overlap at 640×360. Also check the updated water-tutorial copy wraps cleanly. The sunny/rain/water/mature/Continue state transitions are covered by deterministic tests; do not duplicate them as a manual playtest checklist. Run `./tools/verify-visual.sh` against the merged HPA-351 goldens and newer nonblank-frame guard, inspect real diffs, and re-bless only genuinely intended changes; do not touch reference images.
+- [x] Cover freshly saved v4 Continue after one dry night and a wither summary, plus clean v3 refusal, with existing and focused **automated** save/launch tests. Confirm **both** README schema-3 references and the schema-v3 architecture note in `CLAUDE.md` are updated to v4 and README explains two-night withering.
+- [x] Check `git diff --check` and confirm no art/SFX, pricing, legacy migration, or framework files were introduced. Document actual verification outcomes and remaining limits in this PR before marking it ready for review.
 
 ## Reviewable file scope
 
@@ -91,8 +93,20 @@ Do **not** rely only on red GUT tests: invalid-state candidates can silently pas
 
 No new crop mechanics, fertilizer/sprinkler systems, deceased-crop assets, art/SFX generation, save migrations, unrelated refactors or multiple PRs for HPA-352. HPA-539 (walk-cycle art) and HPA-546 (walk-cycle integration) stay separate; HPA-351 crop balance has already merged and must not be reverted.
 
+## Pre-implementation review notes (2026-10-28)
+
+The dispositions below were recorded during design/plan review, before implementation began; they shaped the checklist above and are kept for history.
+
 **Latest review disposition:** Review [#5692806467](https://github.com/cwchanap/phoenix/pull/26#pullrequestreview-5692806467) confirmed missing fixture and README references (added above) and a redundant tint condition (removed). The Day-14 finale already returns before overnight summary creation, so no special summary handling is needed. No additional mechanism is introduced.
 
 **Follow-up review disposition:** [Review comment #6488811859](https://github.com/cwchanap/phoenix/pull/26#issuecomment-6488811859) identifies additional fixture consumers (including silent validator coverage loss), one shared threshold, player-facing explanation, and targeted visual verification; these are incorporated above. `self_modulate` and `UiStyle.RED` are reused. **Declined only** removing the immature tint check: the proposed range validator accepts a structurally valid, manually constructed mature crop with a nonzero dry counter, so leaving one guard ensures mature crops never appear warned after restore. No added framework or new standalone UI.
 
-**Implementation has not started in this planning commit.** Checkboxes are intentionally unchecked until verified against an implementation commit.
+## Delivery record (HEAD `f63ee16`)
+
+Implementation landed on this branch in `acfc1d0`–`f63ee16` (test-first rules/state, persistence, presentation, save/Continue coverage, tint contrast, mature-crop dry-streak normalization). Recorded verification:
+
+- `./tools/verify-clean.sh` at `f63ee16`: **274/274 GUT tests, 4,548 assertions**, plus the project/world-math/world-shell smokes and audio-source checks. An earlier run at `1503fc3` passed 272/272 GUT (4,508 assertions) after the presentation task.
+- `GdUnit4 tests/gdunit` **12/12** and `tests/e2e` **7/7**, both run at `8601901` — before the `f0b70de` tint adjustment and the `f63ee16` rules-only mature-crop normalization. Those two follow-ups carry focused GUT/integration coverage rather than full lane reruns.
+- Native `./tools/verify-visual.sh` at `f0b70de`: all **14 states, zero differing pixels** — after the tint adjustment, before the final rules-only commit. No goldens re-blessed.
+- Native 2× inspection at the authored 640×360 viewport confirmed dry-crop tint legibility under the weather overlay, unchanged mature sparkle, tutorial wrapping, and the warning label's fit/reset with zero, one, and several shipment rows including the maximum-count case.
+- `git diff --check` clean; no art/SFX, pricing, migration, or framework files were added. Remaining limits (hosted CI, release export) are unchanged from the PR body.
