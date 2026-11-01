@@ -70,10 +70,13 @@ func _ready() -> void:
         push_error("AppRoot supplied invalid restored state")
         _session = GameSession.new()
 
-    get_window().min_size = UiSettings.MIN_WINDOW_SIZE
+    var window := get_window()
+    window.min_size = UiSettings.min_window_size(
+        DisplayServer.screen_get_usable_rect(window.current_screen).size
+    )
     # Focus notifications only fire on transitions; a world that enters the
     # tree already unfocused must not tick until its first focus-in.
-    _clock_window_focused = get_window().has_focus()
+    _clock_window_focused = window.has_focus()
     hud.configure(_settings)
 
     var static_collision := get_node("StaticCollision") as StaticBody2D

@@ -118,6 +118,11 @@ static func windowed_size(usable: Vector2i) -> Vector2i:
     var fit := 0.9 * minf(float(usable.x) / WINDOW_SIZE.x, float(usable.y) / WINDOW_SIZE.y)
     return Vector2i((Vector2(WINDOW_SIZE) * fit).round())
 
+## MIN_WINDOW_SIZE, lowered to the fitted window on a screen too small to
+## hold it, so the minimum never forces the window past the screen.
+static func min_window_size(usable: Vector2i) -> Vector2i:
+    return MIN_WINDOW_SIZE.min(windowed_size(usable))
+
 static func _read_level(value: Variant, fallback: int) -> int:
     if value is int:
         return clampi(value, 0, 10)
