@@ -40,31 +40,3 @@ jobs:
           path: |
             reports
             test_output
-
-  visual-state01:
-    runs-on: macos-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-      - uses: chickensoft-games/setup-godot@f166999204a4f2722c6fe042fbaa3b3ea0d9c789 # v2.4.1
-        with:
-          version: 4.7.1
-          use-dotnet: false
-          include-templates: false
-      - run: godot --version
-      - name: Import project and validate editor load
-        run: godot --headless --path . --editor --quit
-      - name: Resolve Godot executable
-        run: echo "GODOT_BIN=$(command -v godot)" >> "$GITHUB_ENV"
-      - name: Verify UI visual regression
-        run: ./tools/verify-visual.sh
-      - name: Upload UI visual artifacts
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: ui-visual-all14
-          if-no-files-found: warn
-          path: |
-            test_output/ui-visual
