@@ -1,9 +1,8 @@
-[gd_scene load_steps=7 format=4]
+[gd_scene load_steps=6 format=4]
 
 [ext_resource type="Script" path="res://scripts/ui/onboarding_overlay.gd" id="1_onboarding"]
 [ext_resource type="Texture2D" path="res://assets/ui/backgrounds/intro.png" id="2_intro"]
 [ext_resource type="Texture2D" path="res://assets/ui/portraits/mira.png" id="3_mira"]
-[ext_resource type="Texture2D" path="res://assets/ui/icons/tutorial.png" id="4_tutorial"]
 
 [sub_resource type="Gradient" id="Gradient_intro_shade"]
 offsets = PackedFloat32Array(0, 0.55, 1)
@@ -147,57 +146,3 @@ offset_top = 13.0
 offset_right = 338.0
 offset_bottom = 27.0
 text = "BEGIN DAY 1"
-
-[node name="TutorialCard" type="Panel" parent="."]
-layout_mode = 0
-offset_left = 10.0
-offset_top = 228.0
-offset_right = 292.0
-offset_bottom = 284.0
-mouse_filter = 0
-
-[node name="Accent" type="ColorRect" parent="TutorialCard"]
-layout_mode = 0
-offset_left = 0.0
-offset_top = 0.0
-offset_right = 3.0
-offset_bottom = 57.0
-mouse_filter = 2
-color = Color(1, 0.901961, 0.45098, 1)
-
-[node name="TutorialIcon" type="TextureRect" parent="TutorialCard"]
-layout_mode = 0
-offset_left = 12.0
-offset_top = 13.0
-offset_right = 32.0
-offset_bottom = 33.0
-mouse_filter = 2
-texture = ExtResource("4_tutorial")
-expand_mode = 1
-stretch_mode = 5
-
-[node name="Title" type="Label" parent="TutorialCard"]
-
-layout_mode = 0
-offset_left = 35.0
-offset_top = 7.0
-offset_right = 210.0
-offset_bottom = 23.0
-text = ""
-
-[node name="Body" type="Label" parent="TutorialCard"]
-
-layout_mode = 0
-offset_left = 35.0
-offset_top = 24.0
-offset_right = 242.0
-offset_bottom = 50.0
-text = ""
-
-[node name="Dismiss" type="Button" parent="TutorialCard"]
-layout_mode = 0
-offset_left = 247.0
-offset_top = 8.0
-offset_right = 272.0
-offset_bottom = 25.0
-text = "TAB"

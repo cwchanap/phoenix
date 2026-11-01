@@ -73,47 +73,25 @@ func test_fresh_opening_blocks_world_input() -> void:
     assert_true(opening.visible)
     assert_false(world._world_input_enabled)
     assert_false(world._session.state()["intro_acknowledged"])
-    var action_button := world.hud.get_node("HudRoot/Action_1") as Button
-    assert_false(action_button.disabled)
-    assert_eq(action_button.focus_mode, Control.FOCUS_NONE)
-    for kind in range(GameRules.CropKind.size()):
-        var seed_button := world.hud.get_node("HudRoot/Seed_%d" % kind) as Button
-        assert_eq(seed_button.focus_mode, Control.FOCUS_NONE)
+    assert_eq(world.hud.prompt_text(), "")
 
-func test_action_labels_start_centered_and_stay_centered_through_target_changes() -> void:
-    var hud_scene := load("res://scenes/ui/game_hud.tscn") as PackedScene
-    assert_not_null(hud_scene)
-    if hud_scene == null:
-        return
-    var hud := hud_scene.instantiate() as GameHud
-    add_child_autoqfree(hud)
-
-    for action in 4:
-        var button := hud.get_node("HudRoot/Action_%d" % action) as Button
-        var name_label := button.get_node("Name") as Label
-        assert_eq(name_label.horizontal_alignment, HORIZONTAL_ALIGNMENT_CENTER)
-        assert_false(button.button_pressed)
-
-    # The initial null setter is intentionally a no-op; construction must have
-    # already applied the neutral indicator presentation.
-    hud.set_target_action(null)
-    for action in 4:
-        var name_label := hud.get_node("HudRoot/Action_%d/Name" % action) as Label
-        assert_eq(name_label.horizontal_alignment, HORIZONTAL_ALIGNMENT_CENTER)
-
-    hud.set_target_action(GameRules.FarmingAction.WATERING_CAN)
-    for action in 4:
-        var button := hud.get_node("HudRoot/Action_%d" % action) as Button
-        var name_label := button.get_node("Name") as Label
-        assert_eq(button.button_pressed, action == GameRules.FarmingAction.WATERING_CAN)
-        assert_eq(name_label.horizontal_alignment, HORIZONTAL_ALIGNMENT_CENTER)
-
-    hud.set_target_action(null)
-    for action in 4:
-        var button := hud.get_node("HudRoot/Action_%d" % action) as Button
-        var name_label := button.get_node("Name") as Label
-        assert_false(button.button_pressed)
-        assert_eq(name_label.horizontal_alignment, HORIZONTAL_ALIGNMENT_CENTER)
+func test_hud_draws_natively_with_the_prompt_above_the_target_cell() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var hud_root := hud.get_node("HudRoot") as Control
+    assert_eq(hud_root.size, Vector2(UiSettings.WINDOW_SIZE))
+    assert_eq(hud_root.scale, Vector2.ONE)
+    var cell: Vector2i = WorldContract.farm_cells()[0]
+    await _place_target(world, cell)
+    world._process(0.0)
+    var prompt := _chrome(hud).get_node("Prompt") as Control
+    assert_true(prompt.visible)
+    var centre := world.get_viewport().get_canvas_transform() * _cell_center(cell)
+    assert_eq(prompt.position, centre - Vector2(0, HudChrome.PROMPT_LIFT))
+    assert_eq(hud.prompt_icon(), hud.action_icon(GameRules.FarmingAction.HOE))
+    var bubble := prompt.get_node("Bubble") as Control
+    assert_almost_eq(bubble.position.x + bubble.size.x / 2.0, 0.0, 0.5, "bubble centres on the cell")
+    assert_almost_eq(bubble.position.y + bubble.size.y, -HudChrome.POINTER_SIZE, 0.5)
 
 func test_start_releases_gate_and_tutorial_card_guides_first_actions() -> void:
     var world := _world()
@@ -123,16 +101,10 @@ func test_start_releases_gate_and_tutorial_card_guides_first_actions() -> void:
     var card := overlay.get_node("TutorialCard") as Control
     assert_false(overlay.is_opening_visible())
     assert_true(card.visible)
-    assert_eq((card.get_node("Title") as Label).text, "PREPARE THE FIELD")
-
-    var hoe_button := world.hud.get_node("HudRoot/Action_0") as Button
-    assert_false(hoe_button.disabled)
-    var before_button_press := world._session.snapshot()
-    hoe_button.pressed.emit()
-    assert_eq(world._session.snapshot(), before_button_press)
+    assert_eq(_card_title(card).text, "Prepare the field")
     assert_true(world._world_input_enabled)
 
-    var dismiss := card.get_node("Dismiss") as Button
+    var dismiss := card.find_child("Dismiss", true, false) as Button
     dismiss.pressed.emit()
     assert_false(card.visible)
     assert_false(world._session.snapshot()["tutorial"][&"farm_basics"])
@@ -140,22 +112,25 @@ func test_start_releases_gate_and_tutorial_card_guides_first_actions() -> void:
     var cell: Vector2i = WorldContract.farm_cells()[0]
     await _place_target(world, cell)
     world._process(0.0)
-    assert_true(hoe_button.button_pressed)
+    assert_eq(world.hud.prompt_icon(), world.hud.action_icon(GameRules.FarmingAction.HOE))
     world.use_target_action()
     assert_true(world._session.snapshot()["tutorial"][&"farm_basics"])
     world._process(0.0)
-    assert_true((world.hud.get_node("HudRoot/Action_1") as Button).button_pressed)
+    assert_eq(world.hud.prompt_icon(), world.hud.action_icon(GameRules.FarmingAction.SEEDS))
     assert_true(card.visible)
-    assert_eq((card.get_node("Title") as Label).text, "PLANT A SEED")
+    assert_eq(_card_title(card).text, "Plant a seed")
 
 func test_every_seed_cycle_press_advances_selected_seed() -> void:
     var world := _world()
-    var badge := world.hud.get_node("HudRoot/Action_1/Badge") as Label
+    var badge := _chrome(world.hud).get_node("SeedCard/Row/Tile/Badge/Count") as Label
+    var seed_name := _chrome(world.hud).get_node("SeedCard/Row/Info/Name") as Label
     # Starting seeds are [3, 0, 0]; the badge must track the selected seed, not
     # always Turnip, or cycling `2` shows the wrong quantity.
+    assert_eq(seed_name.text, "Turnip seeds")
     world.cycle_seed()
     assert_eq(world._session.snapshot()["selected_seed"], &"potato")
     assert_eq(badge.text, "×0")
+    assert_eq(seed_name.text, "Potato seeds")
     world.cycle_seed()
     assert_eq(world._session.snapshot()["selected_seed"], &"pumpkin")
     assert_eq(badge.text, "×0")
@@ -190,24 +165,69 @@ func test_settings_change_keeps_tutorial_card_hidden_under_open_modal() -> void:
     assert_false(world.hud.has_blocking_modal())
     assert_true(card.visible, "tutorial card restored after modal closes")
 
-func test_objective_label_counts_down_to_market_day() -> void:
+func test_market_pill_counts_down_and_bin_pill_shows_tomorrows_payout() -> void:
     var world := _world()
     if world == null:
         return
     var hud := _hud(world)
     if hud == null:
         return
-    var objective := hud.get_node("HudRoot/Objective") as Label
+    var market := _chrome(hud).get_node("TopRight/SubInfo/Market/Row/Label") as Label
+    var bin := _chrome(hud).get_node("TopRight/SubInfo/Bin") as Control
     var snapshot := world._session.snapshot()
     snapshot["day"] = 1
     hud.render(snapshot)
-    assert_eq(objective.text, "Harvest Market: Day 14 · 13 days left")
+    assert_eq(market.text, "in 13 days")
+    assert_false(bin.visible, "an empty bin shows no payout")
+    snapshot["day"] = GameRules.MAX_DAY - 1
+    snapshot["pending_shipment"] = {&"turnip": 2, &"potato": 1, &"pumpkin": 0}
+    hud.render(snapshot)
+    assert_eq(market.text, "tomorrow")
+    assert_true(bin.visible)
+    assert_eq((bin.get_node("Row/Amount") as Label).text, "+145G")
+    assert_eq((bin.get_node("Row/When") as Label).text, "tomorrow")
     snapshot["day"] = GameRules.MAX_DAY
     hud.render(snapshot)
-    assert_eq(
-        objective.text,
-        "Harvest Market today — ship crops first, then visit the village path stall.",
-    )
+    assert_eq(market.text, "today — ship crops, then visit the stall")
+    assert_eq((bin.get_node("Row/When") as Label).text, "today")
+
+func test_clock_card_and_stamina_pill_render_the_snapshot() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var chrome := _chrome(hud)
+    var body := chrome.get_node("ClockCard/Surface/Body")
+    var fieldwork := body.get_node("Fieldwork/Bar") as HudChrome.Bar
+    var stamina := chrome.get_node("Stamina/Row/Bar") as HudChrome.Bar
+    var stamina_value := chrome.get_node("Stamina/Row/Numbers/Value") as Label
+    var snapshot := world._session.snapshot()
+    snapshot["time_minutes"] = 14 * 60
+    snapshot["day"] = 3
+    snapshot["stamina"] = 14
+    snapshot["money"] = 150
+    hud.render(snapshot)
+    assert_eq((body.get_node("Row/Clock") as Label).text, "14:00")
+    assert_eq((body.get_node("Row/Meta/DayTag/DayRow/Day") as Label).text, "Day 3")
+    assert_eq((body.get_node("Row/Meta/Weather/Label") as Label).text, "Sunny")
+    assert_eq((body.get_node("Fieldwork/Label") as Label).text, "Fieldwork until 22:00")
+    assert_almost_eq(fieldwork.ratio, 0.5, 0.001)
+    assert_false(_fill_is(fieldwork, UiStyle.SUN), "before 18:00 the bar keeps the accent")
+    assert_almost_eq(stamina.ratio, 0.7, 0.001)
+    assert_eq(stamina_value.text, "14")
+    assert_eq(stamina_value.get_theme_color("font_color"), UiStyle.INK)
+    assert_eq((chrome.get_node("TopRight/Money/Row/Value") as Label).text, "150G")
+
+    snapshot["time_minutes"] = 18 * 60 + 40
+    snapshot["stamina"] = 1
+    snapshot["weather"] = GameRules.weather_key(GameRules.Weather.RAINY)
+    hud.render(snapshot)
+    assert_true(_fill_is(fieldwork, UiStyle.SUN), "late in the day the bar turns amber")
+    assert_true(_fill_is(stamina, UiStyle.BAD), "low stamina turns red")
+    assert_eq(stamina_value.get_theme_color("font_color"), UiStyle.BAD)
+    assert_eq((body.get_node("Row/Meta/Weather/Label") as Label).text, "Rainy")
+
+func _fill_is(bar: HudChrome.Bar, color: Color) -> bool:
+    var texture := (bar.fill.get_node("Gradient") as TextureRect).texture as GradientTexture2D
+    return texture.gradient.get_color(0) == color
 
 func _cell_center(cell: Vector2i) -> Vector2:
     return WorldMath.grid_to_world(Vector2(cell) + Vector2(0.5, 0.5))
@@ -542,6 +562,12 @@ func _place_target(
 
 func _panel(hud: GameHud, name: String) -> Control:
     return hud.get_node("HudRoot/%s" % name) as Control
+
+func _chrome(hud: GameHud) -> Control:
+    return hud.get_node("HudRoot/Chrome") as Control
+
+func _card_title(card: Control) -> Label:
+    return card.find_child("Title", true, false) as Label
 
 func test_interaction_targets_open_only_their_modal() -> void:
     var world := _world()
@@ -1170,10 +1196,7 @@ func test_off_target_interact_reports_nothing_without_session_mutation() -> void
     var before := world._session.snapshot()
     world.interact()
     assert_eq(world._session.snapshot(), before)
-    var feedback := hud.get_node("HudRoot/Feedback") as Label
-    assert_not_null(feedback)
-    if feedback != null:
-        assert_true(feedback.text.contains("Nothing"))
+    assert_true(hud.toast_text().contains("Nothing"))
 
 func test_opening_shop_immediately_blocks_movement_and_world_commands() -> void:
     var world := _world()
@@ -1208,13 +1231,11 @@ func test_primary_shop_modal_covers_tutorial_card_and_restores_it() -> void:
     hud.open_shop()
     assert_true(_panel(hud, "ShopPanel").visible)
     assert_false(tutorial.visible)
-    assert_false((hud.get_node("HudRoot/TopBar") as Control).visible)
-    assert_false((hud.get_node("HudRoot/ResourceStrip") as Control).visible)
-    assert_false((hud.get_node("HudRoot/Hotbar") as Control).visible)
+    assert_false(_chrome(hud).visible)
 
     hud.close_shop()
     assert_true(tutorial.visible)
-    assert_true((hud.get_node("HudRoot/Hotbar") as Control).visible)
+    assert_true(_chrome(hud).visible)
 
 func test_closing_shop_restores_input_without_session_refresh() -> void:
     var world := _world()
@@ -1238,16 +1259,14 @@ func test_successful_shop_refresh_preserves_modal_mask_until_close() -> void:
     if hud == null:
         return
     var tutorial := hud.get_node("HudRoot/OnboardingOverlay/TutorialCard") as Control
-    var topbar := hud.get_node("HudRoot/TopBar") as Control
-    var resource_strip := hud.get_node("HudRoot/ResourceStrip") as Control
-    var hotbar := hud.get_node("HudRoot/Hotbar") as Control
+    var chrome := _chrome(hud)
 
     await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
     world.interact()
     var shop := _panel(hud, "ShopPanel") as ShopPanel
     assert_true(shop.visible)
     assert_eq(shop.selected_quantity(), 1)
-    assert_false(topbar.visible)
+    assert_false(chrome.visible)
     assert_false(tutorial.visible)
 
     shop.buy_requested.emit(GameRules.CropKind.TURNIP, 1)
@@ -1257,15 +1276,11 @@ func test_successful_shop_refresh_preserves_modal_mask_until_close() -> void:
         150 - GameRules.seed_price(GameRules.CropKind.TURNIP),
     )
     assert_true(shop.visible)
-    assert_false(topbar.visible)
-    assert_false(resource_strip.visible)
-    assert_false(hotbar.visible)
+    assert_false(chrome.visible)
     assert_false(tutorial.visible)
 
     hud.close_shop()
-    assert_true(topbar.visible)
-    assert_true(resource_strip.visible)
-    assert_true(hotbar.visible)
+    assert_true(chrome.visible)
     assert_true(tutorial.visible)
 
 func test_upgrade_request_chain_gates_target_and_refreshes_hud() -> void:
@@ -1277,13 +1292,12 @@ func test_upgrade_request_chain_gates_target_and_refreshes_hud() -> void:
     shop.upgrade_requested.emit()
     assert_eq(forwarded.size(), 1, "ShopPanel upgrade request must forward as GameHud signal")
 
-    var feedback := hud.get_node("HudRoot/Feedback") as Label
     var sfx := hud.get_node("SfxPlayer") as AudioStreamPlayer
 
     # Wrong target: the shop guard holds and nothing mutates.
     await _place_target(world, WorldContract.farm_cells()[0])
     hud.upgrade_requested.emit()
-    assert_eq(feedback.text, "Stand at the shop.")
+    assert_eq(hud.toast_text(), "Stand at the shop.")
     assert_false(world._session.snapshot()["watering_can_upgraded"])
     assert_eq(int(world._session.snapshot()["money"]), 150)
 
@@ -1296,16 +1310,16 @@ func test_upgrade_request_chain_gates_target_and_refreshes_hud() -> void:
     hud.upgrade_requested.emit()
     assert_true(world._session.snapshot()["watering_can_upgraded"])
     assert_eq(int(world._session.snapshot()["money"]), 250 - GameRules.WATERING_CAN_UPGRADE_PRICE)
-    assert_eq(feedback.text, "Watering can upgraded.")
+    assert_eq(hud.toast_text(), "", "a success clears the refusal toast")
     assert_eq(sfx.stream.resource_path, "res://assets/audio/commerce.wav")
     assert_eq(
-        (hud.get_node("HudRoot/Action_2/Icon") as TextureRect).texture.resource_path,
+        hud.action_icon(GameRules.FarmingAction.WATERING_CAN).resource_path,
         "res://assets/ui/icons/watering-can-efficient.png",
     )
 
     # Repeat purchase: truthful failure text on the cancel path, money intact.
     hud.upgrade_requested.emit()
-    assert_eq(feedback.text, "Watering can is already upgraded.")
+    assert_eq(hud.toast_text(), "Watering can is already upgraded.")
     assert_eq(sfx.stream.resource_path, "res://assets/audio/cancel.wav")
     assert_eq(int(world._session.snapshot()["money"]), 250 - GameRules.WATERING_CAN_UPGRADE_PRICE)
 
@@ -1506,7 +1520,7 @@ func test_public_primary_opens_are_denied_while_morning_summary_is_visible() -> 
     assert_true(summary.visible)
     assert_false(shop.visible)
     assert_false(shipping.visible)
-    assert_false((hud.get_node("HudRoot/TopBar") as Control).visible)
+    assert_false(_chrome(hud).visible)
 
     hud.open_shop()
     hud.open_shipping()
@@ -1514,7 +1528,7 @@ func test_public_primary_opens_are_denied_while_morning_summary_is_visible() -> 
     assert_true(summary.visible)
     assert_false(shop.visible)
     assert_false(shipping.visible)
-    assert_false((hud.get_node("HudRoot/TopBar") as Control).visible)
+    assert_false(_chrome(hud).visible)
     var visible_primary_count := 0
     for panel in hud._primary_modals:
         if panel.visible:
@@ -1550,39 +1564,29 @@ func test_blocked_routing_leaves_session_snapshot_unchanged() -> void:
     world.interact()
     assert_eq(world._session.snapshot(), before)
 
-func test_modal_gates_toggle_buttons_so_hud_matches_session_after_close() -> void:
+func test_seed_card_click_advances_seed_and_is_gated_under_modals() -> void:
     var world := _world()
     if world == null:
         return
     var hud := _hud(world)
     if hud == null:
         return
-    var action_button := hud.get_node("HudRoot/Action_1") as Button
-    var potato_button := hud.get_node("HudRoot/Seed_1") as Button
-    assert_not_null(action_button)
-    assert_not_null(potato_button)
-    if action_button == null or potato_button == null:
-        return
+    var card := _chrome(hud).get_node("SeedCard") as Control
+    assert_eq(card.mouse_filter, Control.MOUSE_FILTER_STOP)
+    var click := InputEventMouseButton.new()
+    click.button_index = MOUSE_BUTTON_LEFT
+    click.pressed = true
+    card.gui_input.emit(click)
+    assert_eq(world._session.snapshot()["selected_seed"], &"potato")
 
     hud.open_shop()
-
-    # The target indicator stays enabled and read-only; seed buttons remain gated.
-    assert_false(action_button.disabled)
-    assert_true(potato_button.disabled)
+    assert_false(_chrome(hud).visible)
     var before := world._session.snapshot()
-
+    _chrome(hud).seed_card_pressed.emit()
+    assert_eq(world._session.snapshot(), before, "a modal gates the seed card request")
     hud.close_shop()
-    assert_false(action_button.disabled)
-    assert_false(potato_button.disabled)
-
-    var snapshot := world._session.snapshot()
-    assert_eq(snapshot, before)
-    action_button.pressed.emit()
-    assert_eq(world._session.snapshot(), before)
-    assert_eq(
-        potato_button.button_pressed,
-        GameRules.crop_key(GameRules.CropKind.POTATO) == snapshot["selected_seed"],
-    )
+    _chrome(hud).seed_card_pressed.emit()
+    assert_eq(world._session.snapshot()["selected_seed"], &"pumpkin")
 
 func test_day_fourteen_boundary_copy_is_explicit_about_shipped_only() -> void:
     var world := _world()
@@ -1616,35 +1620,32 @@ func test_market_target_hint_and_pre_finale_routing() -> void:
     # fires, so a single frame can still observe the pre-placement hint.
     await get_tree().process_frame
     await get_tree().process_frame
-    var hint := hud.get_node("HudRoot/InteractionHint") as Label
-    assert_eq(hint.text, "Harvest Market — E")
+    assert_eq(hud.prompt_text(), "[E] Harvest Market")
 
     var before := world._session.snapshot()
     world.interact()
     assert_eq(world._session.snapshot(), before)
-    var feedback := hud.get_node("HudRoot/Feedback") as Label
-    assert_true(feedback.text.contains("opens on Day 14"))
+    assert_true(hud.toast_text().contains("opens on Day 14"))
 
 func test_farm_preview_uses_green_red_reason_and_non_farm_gold() -> void:
     var world := _world()
     var hud := _hud(world)
-    var hint := hud.get_node("HudRoot/InteractionHint") as Label
     var cell: Vector2i = WorldContract.farm_cells()[0]
 
     await _place_target(world, cell)
     world._process(0.0)
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_VALID)
-    assert_eq(hint.text, "Space — Till soil · 3 stamina")
+    assert_eq(hud.prompt_text(), "[Space] Till soil · 3 stamina")
 
     world.use_target_action()
     world._process(0.0)
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_VALID)
-    assert_eq(hint.text, "Space — Plant Turnip · 1 stamina")
+    assert_eq(hud.prompt_text(), "[Space] Plant Turnip · 1 stamina")
 
     await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
     world._process(0.0)
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_NEUTRAL)
-    assert_eq(hint.text, "Shop — E")
+    assert_eq(hud.prompt_text(), "[E] Shop")
 
 func _grow_mature_turnip(world: WorldShell, cell: Vector2i) -> void:
     var session := world._session
@@ -1661,30 +1662,35 @@ func _grow_mature_turnip(world: WorldShell, cell: Vector2i) -> void:
 func test_farming_hint_copy_is_action_specific_from_structured_preview() -> void:
     var world := _world()
     var hud := _hud(world)
-    var hint := hud.get_node("HudRoot/InteractionHint") as Label
     var cells := WorldContract.farm_cells()
 
     await _place_target(world, cells[0])
     world._process(0.0)
-    assert_eq(hint.text, "Space — Till soil · 3 stamina")
+    assert_eq(hud.prompt_text(), "[Space] Till soil · 3 stamina")
 
     world.use_target_action()
     world._process(0.0)
-    assert_eq(hint.text, "Space — Plant Turnip · 1 stamina")
+    assert_eq(hud.prompt_text(), "[Space] Plant Turnip · 1 stamina")
 
     world.use_target_action()
     world._process(0.0)
-    assert_eq(hint.text, "Space — Water Turnip · 2 stamina")
+    assert_eq(hud.prompt_text(), "[Space] Water Turnip · 2 stamina")
 
     _grow_mature_turnip(world, cells[1])
     await _place_target(world, cells[1])
     world._process(0.0)
-    assert_eq(hint.text, "Space — Harvest Turnip · 1 stamina")
+    assert_eq(hud.prompt_text(), "[Space] Harvest Turnip · 1 stamina")
+
+    # Villagers prompt with their translated display name.
+    var villager := VillagerRules.VillagerId.RESIDENT
+    await _place_target(world, WorldContract.villager_cell(villager))
+    world._process(0.0)
+    assert_eq(hud.prompt_text(), "[E] %s" % VillagerRules.display_name(villager))
 
 func test_target_hint_explains_empty_seed_rain_and_already_watered_blocks() -> void:
     var world := _world()
     var cells := WorldContract.farm_cells()
-    var hint := world.hud.get_node("HudRoot/InteractionHint") as Label
+    var hud := world.hud
     var session := world._session
 
     assert_eq(session.hoe(cells[0]), GameRules.CommandCode.SOIL_TILLED)
@@ -1693,12 +1699,12 @@ func test_target_hint_explains_empty_seed_rain_and_already_watered_blocks() -> v
     await _place_target(world, cells[0])
     world._process(0.0)
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_INVALID)
-    assert_eq(hint.text, "Crop is already watered.")
-    assert_true((world.hud.get_node("HudRoot/Action_2") as Button).button_pressed)
+    assert_eq(hud.prompt_text(), "Crop is already watered.")
+    assert_eq(hud.prompt_icon(), hud.action_icon(GameRules.FarmingAction.WATERING_CAN))
 
     _restore_weather(world, &"rainy")
     world._process(0.0)
-    assert_eq(hint.text, "Rain is watering the crops.")
+    assert_eq(hud.prompt_text(), "Rain is watering the crops.")
 
     _restore_weather(world, &"sunny")
     assert_eq(session.hoe(cells[1]), GameRules.CommandCode.SOIL_TILLED)
@@ -1706,8 +1712,8 @@ func test_target_hint_explains_empty_seed_rain_and_already_watered_blocks() -> v
     await _place_target(world, cells[1])
     world._process(0.0)
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_INVALID)
-    assert_eq(hint.text, "No selected seeds.")
-    assert_true((world.hud.get_node("HudRoot/Action_1") as Button).button_pressed)
+    assert_eq(hud.prompt_text(), "No selected seeds.")
+    assert_eq(hud.prompt_icon(), hud.action_icon(GameRules.FarmingAction.SEEDS))
 
 func _readiness_sparkle(world: WorldShell, cell: Vector2i) -> Sprite2D:
     var crop_root := world.farm_view.get_node(
@@ -1743,11 +1749,8 @@ func test_mature_crop_cue_targets_harvest() -> void:
     await _place_target(world, cells[0])
     world._process(0.0)
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_VALID)
-    assert_eq(
-        (world.hud.get_node("HudRoot/InteractionHint") as Label).text,
-        "Space — Harvest Turnip · 1 stamina",
-    )
-    assert_true((world.hud.get_node("HudRoot/Action_3") as Button).button_pressed)
+    assert_eq(world.hud.prompt_text(), "[Space] Harvest Turnip · 1 stamina")
+    assert_eq(world.hud.prompt_icon(), world.hud.action_icon(GameRules.FarmingAction.HANDS))
     assert_true(sparkle.visible)
     assert_eq(_visible_readiness_cue_count(world), 1)
 
@@ -1767,7 +1770,7 @@ func test_blocking_modal_clears_mature_readiness_cue() -> void:
     world.hud.open_bag()
     world._process(0.0)
     assert_eq(_visible_readiness_cue_count(world), 0)
-    assert_eq((world.hud.get_node("HudRoot/InteractionHint") as Label).text, "")
+    assert_eq(world.hud.prompt_text(), "")
 
 func test_blocking_intro_never_advertises_farm_action() -> void:
     var world := _locked_world()
@@ -1775,7 +1778,7 @@ func test_blocking_intro_never_advertises_farm_action() -> void:
     await _place_target(world, WorldContract.farm_cells()[0])
     world._process(0.0)
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_NEUTRAL)
-    assert_eq((hud.get_node("HudRoot/InteractionHint") as Label).text, "")
+    assert_eq(hud.prompt_text(), "")
 
 func _farm_effects(world: WorldShell) -> Node2D:
     return world.get_node_or_null("FarmActionEffects") as Node2D
@@ -2768,9 +2771,8 @@ func test_hold_invalid_and_nonfarm_targets_never_dispatch_or_restart_feedback() 
     await _place_target(world, cells[0])
     _push_use_action(world, true)
     assert_true(world._session.snapshot()["farm"][0]["tilled"])
-    var feedback := hud.get_node("HudRoot/Feedback") as Label
     var sfx := hud.get_node("SfxPlayer") as AudioStreamPlayer
-    assert_eq(feedback.text, "Soil tilled.")
+    assert_eq(hud.toast_text(), "")
     assert_eq(sfx.stream.resource_path, "res://assets/audio/farm-hoe.wav")
 
     # Invalid farm target: watering is blocked because the crop is already watered.
@@ -2789,7 +2791,7 @@ func test_hold_invalid_and_nonfarm_targets_never_dispatch_or_restart_feedback() 
         assert_false(world._advance_action_hold(0.1, cells[1], invalid_preview))
         assert_false(world._advance_action_hold(0.1, WorldContract.SHOP_CELL, shop_preview))
     assert_eq(world._session.snapshot(), before, "hold polling must not dispatch")
-    assert_eq(feedback.text, "Soil tilled.", "feedback text must not restart")
+    assert_eq(hud.toast_text(), "", "polling a blocked target must not raise a toast")
     assert_eq(
         sfx.stream.resource_path,
         "res://assets/audio/farm-hoe.wav",
@@ -2844,7 +2846,7 @@ func test_hold_seed_selection_cancels_the_gesture() -> void:
 
 func test_hold_locked_action_shows_mismatched_farm_tile_as_neutral() -> void:
     var world := _world()
-    var hint := world.hud.get_node("HudRoot/InteractionHint") as Label
+    var hud := world.hud
     var cells := WorldContract.farm_cells()
     assert_eq(world._session.hoe(cells[1]), GameRules.CommandCode.SOIL_TILLED)
     await _place_target(world, cells[0])
@@ -2857,7 +2859,7 @@ func test_hold_locked_action_shows_mismatched_farm_tile_as_neutral() -> void:
     _set_target(world, cells[1])
     world._process(0.0)
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_NEUTRAL)
-    assert_eq(hint.text, "")
+    assert_eq(hud.prompt_text(), "")
 
     # A blocked tile matching the lock still explains itself.
     assert_eq(world._session.plant(cells[1]), GameRules.CommandCode.CROP_PLANTED)
@@ -2867,13 +2869,13 @@ func test_hold_locked_action_shows_mismatched_farm_tile_as_neutral() -> void:
     assert_eq(world._action_hold_action, GameRules.FarmingAction.WATERING_CAN)
     world._process(0.0)
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_INVALID)
-    assert_eq(hint.text, "Crop is already watered.")
+    assert_eq(hud.prompt_text(), "Crop is already watered.")
 
     # A non-farm cell keeps the usual interaction hints during a hold.
     _set_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
     world._process(0.0)
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_NEUTRAL)
-    assert_eq(hint.text, "Shop — E")
+    assert_eq(hud.prompt_text(), "[E] Shop")
     _push_use_action(world, false)
 
 func test_hold_action_lock_requires_fresh_gestures_for_each_farm_stage() -> void:
@@ -3034,8 +3036,8 @@ func test_upgraded_watering_hold_costs_one_stamina_per_cell() -> void:
 
     await _place_target(world, cells[0])
     world._process(0.0)
-    var hint := hud.get_node("HudRoot/InteractionHint") as Label
-    assert_eq(hint.text, "Space — Water Turnip · 1 stamina")
+    assert_eq(hud.prompt_text(), "[Space] Water Turnip · 1 stamina")
+    assert_eq(hud.prompt_icon().resource_path, "res://assets/ui/icons/watering-can-efficient.png")
 
     assert_eq(int(session.snapshot()["stamina"]), 20)
     _push_use_action(world, true)
@@ -3063,8 +3065,7 @@ func test_passive_clock_ticks_pauses_and_keeps_late_day_interactive() -> void:
     if hud == null:
         return
     var session := world._session
-    var time_label := hud.get_node("HudRoot/TopBar/TimeValue") as Label
-    var feedback := hud.get_node("HudRoot/Feedback") as Label
+    var time_label := _chrome(hud).get_node("ClockCard/Surface/Body/Row/Clock") as Label
     var overlay := hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
     var card := overlay.get_node("TutorialCard") as Control
 
@@ -3175,7 +3176,7 @@ func test_passive_clock_ticks_pauses_and_keeps_late_day_interactive() -> void:
     var cell: Vector2i = WorldContract.farm_cells()[0]
     _set_target(world, cell)
     world.use_target_action()
-    assert_eq(feedback.text, "It is too late for that action.")
+    assert_eq(hud.toast_text(), "It is too late for that action.")
     assert_false(world._session.snapshot()["farm"][0]["tilled"])
     assert_eq(session.hoe(cell), GameRules.CommandCode.ACTION_TOO_LATE)
     assert_true(world._world_input_enabled)
@@ -3315,6 +3316,6 @@ func test_overnight_save_restores_upgrade_and_efficient_watering() -> void:
         return
     assert_true(bool(shell._session.snapshot()["watering_can_upgraded"]))
     assert_eq(
-        (_hud(shell).get_node("HudRoot/Action_2/Icon") as TextureRect).texture.resource_path,
+        _hud(shell).action_icon(GameRules.FarmingAction.WATERING_CAN).resource_path,
         "res://assets/ui/icons/watering-can-efficient.png",
     )
