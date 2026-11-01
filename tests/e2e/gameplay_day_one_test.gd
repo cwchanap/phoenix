@@ -32,6 +32,9 @@ func _start_new_game() -> Variant:
 	var settings_path := create_temp_dir("phoenix-settings-e2e") + "/settings.cfg"
 	var settings := ConfigFile.new()
 	settings.set_value("ui", "fullscreen", false)
+	# The HUD asserts English copy ("Day 1"); pin the language so a ja or
+	# zh_TW OS locale does not pick a translation.
+	settings.set_value("ui", "language", "en")
 	assert_int(settings.save(settings_path)).is_equal(OK)
 	OS.set_environment("PHOENIX_SAVE_PATH", _save_path)
 	OS.set_environment("PHOENIX_SETTINGS_PATH", settings_path)
@@ -301,6 +304,9 @@ func _continue_seeded_game() -> Variant:
 	var settings_path := create_temp_dir("phoenix-settings-e2e") + "/settings.cfg"
 	var settings := ConfigFile.new()
 	settings.set_value("ui", "fullscreen", false)
+	# The HUD asserts English copy ("Day 1"); pin the language so a ja or
+	# zh_TW OS locale does not pick a translation.
+	settings.set_value("ui", "language", "en")
 	assert_int(settings.save(settings_path)).is_equal(OK)
 	OS.set_environment("PHOENIX_SAVE_PATH", _save_path)
 	OS.set_environment("PHOENIX_SETTINGS_PATH", settings_path)
