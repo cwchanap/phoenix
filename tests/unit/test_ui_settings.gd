@@ -77,6 +77,26 @@ func test_fullscreen_mode_leaves_the_window_size_alone() -> void:
     assert_eq(window.mode, Window.MODE_FULLSCREEN)
     window.free()
 
+func test_apply_window_leaves_a_placed_window_alone_on_unrelated_changes() -> void:
+    var settings := UiSettings.load(TEST_PATH)
+    var window := Window.new()
+    settings.apply_window(window)
+    var placed := Vector2i(1280, 720)
+    window.size = placed
+
+    assert_eq(settings.set_music(2), OK)
+    settings.apply_window(window)
+    assert_eq(window.size, placed, "a volume change keeps the player's window")
+
+    assert_eq(settings.set_fullscreen(true), OK)
+    settings.apply_window(window)
+    assert_eq(window.mode, Window.MODE_FULLSCREEN)
+    assert_eq(settings.set_fullscreen(false), OK)
+    settings.apply_window(window)
+    assert_eq(window.mode, Window.MODE_WINDOWED)
+    assert_eq(window.size, UiSettings.WINDOW_SIZE, "leaving fullscreen refits the window")
+    window.free()
+
 func test_windowed_size_shrinks_to_fit_a_smaller_screen() -> void:
     assert_eq(UiSettings.windowed_size(Vector2i(2560, 1400)), UiSettings.WINDOW_SIZE)
     assert_eq(UiSettings.windowed_size(Vector2i(1920, 1080)), UiSettings.WINDOW_SIZE)
