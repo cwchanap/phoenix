@@ -22,6 +22,9 @@ var fullscreen: bool = DEFAULT_FULLSCREEN
 var tutorial_cards: bool = DEFAULT_TUTORIAL_CARDS
 var language: String = default_language(OS.get_locale())
 var _path: String
+# Transient, never saved: the fullscreen value apply_window() last applied.
+var _window_applied := false
+var _applied_fullscreen := false
 
 func _init(path: String = DEFAULT_PATH) -> void:
     _path = path
@@ -96,9 +99,16 @@ func db_for_level(level: int) -> float:
         return -80.0
     return -40.0 + float(clamped) * 4.0
 
+## Applies the window mode on first call and on a real Windowed/Fullscreen
+## change only, so a volume or language change never resizes or recenters a
+## window the player has moved.
 func apply_window(window: Window) -> void:
     if window == null:
         return
+    if _window_applied and _applied_fullscreen == fullscreen:
+        return
+    _window_applied = true
+    _applied_fullscreen = fullscreen
     if fullscreen:
         window.mode = Window.MODE_FULLSCREEN
         return
