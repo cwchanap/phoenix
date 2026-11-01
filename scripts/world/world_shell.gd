@@ -151,7 +151,7 @@ func _process(delta: float) -> void:
     # Continue into the existing villager/shop/bed/shipping/market/empty hint chain.
     var villager_id := WorldContract.villager_at(target)
     if villager_id >= 0:
-        hud.set_interaction_hint("%s — E" % VillagerRules.display_name(villager_id))
+        hud.set_interaction_hint(tr("%s — E") % tr(VillagerRules.display_name(villager_id)))
     elif target == WorldContract.SHOP_CELL:
         hud.set_interaction_hint("Shop — E")
     elif target == WorldContract.BED_CELL:

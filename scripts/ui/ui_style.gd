@@ -18,10 +18,20 @@ const RED := Color("d4574e")
 
 const OPEN_SANS: Font = preload("res://assets/ui/fonts/open-sans-variable.ttf")
 const JETBRAINS_MONO: Font = preload("res://assets/ui/fonts/jetbrains-mono-variable.ttf")
+# CJK fallbacks. Their import settings mark Noto Sans JP as not supporting `zh`
+# and Noto Sans TC as not supporting `ja`, so the text server picks the face
+# that matches the current locale for shared Han code points.
+const NOTO_SANS_JP: Font = preload("res://assets/ui/fonts/noto-sans-jp-variable.ttf")
+const NOTO_SANS_TC: Font = preload("res://assets/ui/fonts/noto-sans-tc-variable.ttf")
 
 static func font(weight: int = 400, mono: bool = false) -> FontVariation:
+	var variation := _weighted(JETBRAINS_MONO if mono else OPEN_SANS, weight)
+	variation.fallbacks = [_weighted(NOTO_SANS_JP, weight), _weighted(NOTO_SANS_TC, weight)]
+	return variation
+
+static func _weighted(base: Font, weight: int) -> FontVariation:
 	var variation := FontVariation.new()
-	variation.base_font = JETBRAINS_MONO if mono else OPEN_SANS
+	variation.base_font = base
 	variation.variation_opentype = {
 		TextServerManager.get_primary_interface().name_to_tag("wght"): float(weight),
 	}

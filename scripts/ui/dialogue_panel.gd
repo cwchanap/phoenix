@@ -65,28 +65,30 @@ func _render() -> void:
     ) as Texture2D
     portrait.scale = Vector2(1.1, 1.0) if _villager_id == VillagerRules.VillagerId.SHOPKEEPER else Vector2.ONE
     name_label.text = VillagerRules.display_name(_villager_id)
-    role_label.text = VillagerRules.role_label(_villager_id).to_upper()
+    role_label.text = tr(VillagerRules.role_label(_villager_id)).to_upper()
 
     var relationship := _relationship_snapshot()
     relationship_label.text = "%s  ·  %d/%d" % [
-        _relationship_display(relationship.get("level", &"stranger")).to_upper(),
+        tr(_relationship_display(relationship.get("level", &"stranger"))).to_upper(),
         int(relationship.get("points", 0)),
         VillagerRules.CLOSE_FRIEND_POINTS,
     ]
     ($Panel/Line as Label).text = (
-        "“%s”" % _lines[_line_index]
+        tr("“%s”") % tr(_lines[_line_index])
         if _line_index < _lines.size()
         else ""
     )
 
     var feedback_lines: Array[String] = []
     if _points_gained > 0:
-        var points_suffix := "" if _points_gained == 1 else "s"
-        feedback_lines.append("+%d relationship point%s" % [_points_gained, points_suffix])
+        feedback_lines.append(
+            tr("+%d relationship point" if _points_gained == 1 else "+%d relationship points")
+            % _points_gained
+        )
     if _gift_reaction == &"favourite":
-        feedback_lines.append("Favourite gift!")
+        feedback_lines.append(tr("Favourite gift!"))
     elif _gift_reaction == &"normal":
-        feedback_lines.append("Gift accepted.")
+        feedback_lines.append(tr("Gift accepted."))
     var feedback_label := $Panel/Feedback as Label
     var feedback_badge := $Panel/FeedbackBadge as Panel
     var points_only := _points_gained > 0 and feedback_lines.size() == 1
@@ -223,12 +225,12 @@ func _render_gift_buttons(suppressed: bool) -> void:
             0,
         ))
         if selected.visible and not selected.disabled:
-            var selected_name := GameRules.crop_display_name(_selected_gift_kind)
-            action_text.text = "GIVE %s" % selected_name.to_upper()
+            var selected_name := tr(GameRules.crop_display_name(_selected_gift_kind))
+            action_text.text = tr("GIVE %s") % selected_name.to_upper()
             if VillagerRules.is_favourite_crop(_villager_id, _selected_gift_kind):
-                gift_hint.text = "%s is %s's favourite — worth %d instead of %d." % [
+                gift_hint.text = tr("%s is %s's favourite — worth %d instead of %d.") % [
                     selected_name,
-                    VillagerRules.display_name(_villager_id),
+                    tr(VillagerRules.display_name(_villager_id)),
                     VillagerRules.gift_points(_villager_id, _selected_gift_kind),
                     VillagerRules.GIFT_POINTS,
                 ]

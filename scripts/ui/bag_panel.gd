@@ -145,13 +145,13 @@ func _update_view() -> void:
 
 func _update_detail() -> void:
     var kind := _selected_kind
-    var name := GameRules.crop_display_name(kind)
+    var name := tr(GameRules.crop_display_name(kind))
     var shelf_count := _count_for(_shelf, kind)
     var detail := get_node("Frame/Body/Detail") as Control
     var icon := detail.get_node("Icon") as TextureRect
     icon.texture = load(SHELF_TEXTURES[_shelf] % GameRules.crop_key(kind)) as Texture2D
     (detail.get_node("Title") as Label).text = (
-        "%s seeds" % name if _shelf == 0 else name
+        tr("%s seeds") % name if _shelf == 0 else name
     )
     var growth := GameRules.growth_nights(kind)
     var description := "Cheapest and fastest; the latest safe planting."
@@ -160,7 +160,7 @@ func _update_detail() -> void:
     elif kind == GameRules.CropKind.PUMPKIN:
         description = "Best profit per stamina of tending in a sunny season."
     if _shelf == 1:
-        description = "%d harvested and ready for the shipping bin." % shelf_count
+        description = tr("%d harvested and ready for the shipping bin.") % shelf_count
     elif _shelf == 2:
         description = (
             "Payout is collected at season end."
@@ -168,16 +168,16 @@ func _update_detail() -> void:
             else "Payout is collected tomorrow morning."
         )
     (detail.get_node("Description") as Label).text = description
-    (detail.get_node("GrowthText") as Label).text = "%d nights" % growth
+    (detail.get_node("GrowthText") as Label).text = tr("%d nights") % growth
     for pip_index in 7:
         var pip := detail.get_node("Growth/Pip_%d" % pip_index) as ColorRect
         pip.color = UiStyle.GOLD if pip_index < growth else UiStyle.BORDER
-    (detail.get_node("Economy") as Label).text = "%dG buy · %dG sell" % [
+    (detail.get_node("Economy") as Label).text = tr("%dG buy · %dG sell") % [
         GameRules.seed_price(kind),
         GameRules.sale_value(kind),
     ]
     var favourite := VillagerRules.favourite_villager_for_crop(kind)
-    (detail.get_node("Favourite") as Label).text = "%s's favourite" % VillagerRules.display_name(favourite)
+    (detail.get_node("Favourite") as Label).text = tr("%s's favourite") % tr(VillagerRules.display_name(favourite))
     var shipment := detail.get_node("Shipment") as Label
     shipment.visible = false
     shipment.text = ""

@@ -118,8 +118,19 @@ There is no JavaScript or Tauri runtime in the current checkout.
   saves are intentionally incompatible and there is no migration.
 - scripts/persistence/save_repository.gd writes user://phoenix-save.json with FileAccess.
 - `scripts/ui/ui_settings.gd` owns the separate preference file and its
-  Music/Sound `0..10`, Window `1x/2x/3x/4x/FULL`, and Tutorial Cards `ON/OFF`
-  settings; UI preferences never enter farm state.
+  Music/Sound `0..10`, Window `1x/2x/3x/4x/FULL`, Tutorial Cards `ON/OFF`,
+  and Language `en/zh_TW/ja` settings (first run follows the OS locale);
+  UI preferences never enter farm state.
+- Localisation (HPA-713): English source text is the key in
+  `assets/i18n/strings.csv` (`keys,zh_TW,ja`, Taiwan wording for zh_TW).
+  Rules tables keep English; views translate. Plain text assigned to a
+  Control auto-translates; formatted text uses `tr(template) % args` with each
+  argument translated, and HUD re-renders on a language change. Every new or
+  changed player-facing string goes into the CSV with both translations in
+  the same commit (`tests/unit/test_localisation.gd` enforces it).
+  `UiStyle.font()` adds Noto Sans JP/TC fallbacks whose import settings
+  exclude `zh`/`ja` respectively, so shared Han code points render in the
+  face matching the locale.
 - GameSession.state()/restore_state() own mutable-state export and canonical restore; SessionStateValidator.state_error() owns all persisted-state validation; snapshot() remains the view read model.
 - WorldShell remains the only live production session holder and synchronously writes once after successful overnight advancement.
 - Player position/facing/camera/UI state remain transient/authored.
