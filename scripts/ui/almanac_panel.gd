@@ -64,10 +64,10 @@ func _update_cards() -> void:
             "panel", UiStyle.panel(UiStyle.INSET, UiStyle.GOLD if selected else UiStyle.BORDER, 1)
         )
         var favourite_badge_label := favourite_badge.get_node("Value") as Label
-        favourite_badge_label.text = "♥ %s" % VillagerRules.display_name(favourite).to_upper()
+        favourite_badge_label.text = "♥ %s" % tr(VillagerRules.display_name(favourite)).to_upper()
         UiStyle.text(favourite_badge_label, 7, UiStyle.GOLD if selected else UiStyle.MUTED, 800, true)
         var growth := GameRules.growth_nights(kind)
-        (card.get_node("GrowthValue") as Label).text = "%d watered nights" % growth
+        (card.get_node("GrowthValue") as Label).text = tr("%d watered nights") % growth
         for pip_index in 7:
             var pip := card.get_node("Growth/Pip_%d" % pip_index) as ColorRect
             pip.color = GROWTH_COLORS[kind] if pip_index < growth else UiStyle.BORDER

@@ -55,7 +55,20 @@ there is no post-game or free play.
 Every `2` press advances the selected seed, including the first press.
 Bag, Almanac, and Calendar each gate movement and close with the same key.
 Settings edits Music and Sound from `0..10`, Window at `1x`, `2x`, `3x`, `4x`,
-or `FULL`, and Tutorial Cards `ON` or `OFF`; `O` is handled only by Pause.
+or `FULL`, Tutorial Cards `ON` or `OFF`, and Language (English, 繁體中文,
+日本語); `O` is handled only by Pause.
+
+## Languages
+
+Phoenix ships in English, Traditional Chinese (Taiwan wording, `zh_TW`), and
+Japanese (`ja`). English source text is the translation key: every
+player-facing string lives once in `assets/i18n/strings.csv`
+(`keys,zh_TW,ja`), which Godot imports into the gitignored `*.translation`
+files registered in `project.godot`. Text set on a Control is auto-translated;
+formatted text calls `tr("... %d ...") % args` and translates its arguments.
+Any new or changed player-facing string must land in the CSV with both
+translations in the same commit; `tests/unit/test_localisation.gd` fails on a
+missing translation, a placeholder mismatch, or an untranslated rules string.
 
 The target diamond is hidden when the faced cell is outside the map. Facing
 the shop cell `(17,9)`, bed cell `(12,7)`, or shipping cell `(10,13)` from an

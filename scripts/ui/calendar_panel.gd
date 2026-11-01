@@ -38,7 +38,7 @@ func _update_calendar() -> void:
     var market_text := (
         "MARKET TODAY"
         if current_day >= GameRules.MAX_DAY
-        else "%d DAYS TO MARKET" % (GameRules.MAX_DAY - current_day)
+        else tr("%d DAYS TO MARKET") % (GameRules.MAX_DAY - current_day)
     )
     (get_node("Frame/Header/Market") as Label).text = market_text
     var market_value := get_node_or_null("Frame/Header/MarketBadge/MarketValue") as Label
@@ -144,7 +144,7 @@ func _update_calendar() -> void:
                 UiStyle.text(multi_label, 6, UiStyle.GREEN, 700, true)
     var history_day := mini(history.size(), GameRules.MAX_DAY)
     var legend := get_node("Frame/Footer/Legend") as Label
-    legend.text = "KNOWN WEATHER THROUGH DAY %d · EARLIEST READINESS" % history_day
+    legend.text = tr("KNOWN WEATHER THROUGH DAY %d · EARLIEST READINESS") % history_day
     UiStyle.text(legend, 9, UiStyle.MUTED, 600)
 
 func _readiness_markers(current_day: int) -> Dictionary:

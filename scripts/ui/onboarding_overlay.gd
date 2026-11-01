@@ -108,7 +108,7 @@ func _render_tutorial(prompt: Dictionary) -> void:
     if prompt.is_empty():
         _tutorial_card.visible = false
         return
-    _tutorial_title.text = String(prompt["title"]).to_upper()
+    _tutorial_title.text = tr(String(prompt["title"])).to_upper()
     _tutorial_body.text = String(prompt["body"])
     _tutorial_card.visible = true
 

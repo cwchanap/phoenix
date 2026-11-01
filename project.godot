@@ -84,6 +84,11 @@ open_settings={
 ]
 }
 
+[internationalization]
+
+locale/translations=PackedStringArray("res://assets/i18n/strings.zh_TW.translation", "res://assets/i18n/strings.ja.translation")
+locale/include_text_server_data=true
+
 [rendering]
 
 textures/vram_compression/import_etc2_astc=true

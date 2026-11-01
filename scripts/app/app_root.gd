@@ -25,6 +25,7 @@ func _ready() -> void:
             settings_path if not settings_path.is_empty() else UiSettings.DEFAULT_PATH
         )
     _settings.apply_window(get_window())
+    _settings.apply_language()
     _title_screen.new_game_requested.connect(_on_new_game_requested)
     _title_screen.continue_requested.connect(_on_continue_requested)
     _result_screen.new_game_requested.connect(_on_result_new_game_requested)

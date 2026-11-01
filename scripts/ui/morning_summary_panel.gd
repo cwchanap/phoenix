@@ -47,10 +47,9 @@ func present(summary: Dictionary) -> void:
     var withered_warning := $Frame/WitheredWarning as Label
     withered_warning.visible = crops_withered > 0
     if withered_warning.visible:
-        withered_warning.text = "%d CROP%s WITHERED" % [
-            crops_withered,
-            "" if crops_withered == 1 else "S",
-        ]
+        withered_warning.text = (
+            tr("%d CROP WITHERED") if crops_withered == 1 else tr("%d CROPS WITHERED")
+        ) % crops_withered
 
     var shipments: Array = summary.get("shipments", [])
     assert(shipments.size() <= _compact_rows.size(), "morning summary has too many shipment lines")
@@ -68,14 +67,14 @@ func present(summary: Dictionary) -> void:
     ($Frame/EmptyShipment as Label).visible = shipments.is_empty()
 
     ($Frame/MoneyRow/Amount as Label).text = "%dG" % int(summary.get("money_after_shipping", 0))
-    ($Frame/Footer/ActionText as Label).text = "START DAY %d" % next_day
+    ($Frame/Footer/ActionText as Label).text = tr("START DAY %d") % next_day
     visible = true
 
 func _render_shipment_row(row: Panel, shipment: Dictionary) -> void:
     var crop_key := StringName(shipment.get("crop", &"turnip"))
     var kind := GameRules.CROP_KEYS.find(crop_key)
     (row.get_node("Name") as Label).text = "%s ×%d" % [
-        GameRules.crop_display_name(kind),
+        tr(GameRules.crop_display_name(kind)),
         int(shipment.get("quantity", 0)),
     ]
     (row.get_node("Amount") as Label).text = "%dG" % int(shipment.get("amount", 0))

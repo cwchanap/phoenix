@@ -91,7 +91,7 @@ func _update_rows() -> void:
     boundary.visible = int(_snapshot.get("day", 1)) == GameRules.MAX_DAY
     boundary.text = "Day 14 — only crops deposited here count toward the finale. Anything still in the bag scores nothing."
     (get_node("Frame/Header/PendingValue") as Label).text = "%dG" % _pending_value()
-    (get_node("Frame/Footer/Action") as Label).text = "DEPOSIT ×%d" % _quantity
+    (get_node("Frame/Footer/Action") as Label).text = tr("DEPOSIT ×%d") % _quantity
     for kind in range(GameRules.CropKind.size()):
         var row := _rows[kind]
         var selected := kind == _selected_kind
@@ -104,7 +104,7 @@ func _update_rows() -> void:
         var value_caption := row.get_node("MetaCaption") as Label
         var value := row.get_node("MetaValue") as Label
         row_name.text = GameRules.crop_display_name(kind)
-        details.text = "%d in bag · %dG each" % [held, GameRules.sale_value(kind)]
+        details.text = tr("%d in bag · %dG each") % [held, GameRules.sale_value(kind)]
         quantity.text = "×%d" % _quantity
         max_button.text = "M ALL"
         value_caption.text = "VALUE" if selected else ""

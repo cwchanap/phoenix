@@ -153,6 +153,7 @@ func apply_settings() -> void:
         _rain_ambience_player.play()
     _onboarding_overlay.set_tutorial_cards_enabled(_settings.tutorial_cards)
     _settings.apply_window(get_window())
+    _settings.apply_language()
 
 func _sound_muted() -> bool:
     return _settings != null and _settings.sound == 0
@@ -185,11 +186,11 @@ func render(snapshot: Dictionary) -> void:
     _time_value_label.text = GameRules.format_time(int(snapshot["time_minutes"]))
     _day_value_label.text = "%d" % int(snapshot["day"])
     _day_max_label.text = "/%d" % GameRules.MAX_DAY
-    _weather_value_label.text = _display_weather(snapshot["weather"]).to_upper()
+    _weather_value_label.text = tr(_display_weather(snapshot["weather"])).to_upper()
     _market_label.text = (
         "HARVEST MARKET TODAY"
         if int(snapshot["day"]) >= GameRules.MAX_DAY
-        else "HARVEST MARKET IN %d" % (GameRules.MAX_DAY - int(snapshot["day"]))
+        else tr("HARVEST MARKET IN %d") % (GameRules.MAX_DAY - int(snapshot["day"]))
     )
     _money_value_label.text = "%d" % int(snapshot["money"])
     for index in _stamina_pips.size():
@@ -221,7 +222,7 @@ func render(snapshot: Dictionary) -> void:
     if day >= GameRules.MAX_DAY:
         _objective_label.text = "Harvest Market today — ship crops first, then visit the village path stall."
     else:
-        _objective_label.text = "Harvest Market: Day 14 · %d days left" % (GameRules.MAX_DAY - day)
+        _objective_label.text = tr("Harvest Market: Day 14 · %d days left") % (GameRules.MAX_DAY - day)
     _day14_sleep_boundary.text = (
         "Day 14 — this ends the season and settles the bin."
         if day == GameRules.MAX_DAY
@@ -337,9 +338,9 @@ func farming_preview_text(preview: Dictionary) -> String:
     var action: GameRules.FarmingAction = preview["action"]
     var crop_suffix := ""
     if preview["crop"] != null:
-        crop_suffix = " %s" % GameRules.crop_display_name(preview["crop"])
-    return "Space — %s%s · %d stamina" % [
-        FARMING_PREVIEW_VERBS[action],
+        crop_suffix = " %s" % tr(GameRules.crop_display_name(preview["crop"]))
+    return tr("Space — %s%s · %d stamina") % [
+        tr(FARMING_PREVIEW_VERBS[action]),
         crop_suffix,
         int(preview["cost"]["stamina"]),
     ]
@@ -694,6 +695,10 @@ func _build_modals() -> void:
 
 func _on_settings_changed(_error: int) -> void:
     apply_settings()
+    # Auto-translated labels follow a language change on their own; text
+    # formatted with tr() is rebuilt from the last snapshot.
+    if not _last_snapshot.is_empty():
+        render(_last_snapshot)
     # Applying settings can re-show the tutorial card while a blocking modal
     # (e.g. Settings) is open; re-reconcile so the card stays hidden under it.
     _reconcile_modal_presentation()

@@ -1,0 +1,288 @@
+keys,zh_TW,ja
+Turnip,蕪菁,カブ
+Potato,馬鈴薯,ジャガイモ
+Pumpkin,南瓜,カボチャ
+Sunny,晴天,晴れ
+Rainy,雨天,雨
+Sato-san,佐藤小姐,佐藤さん
+Gen-san,阿源伯,源さん
+Hana,小花,ハナ
+Seed-shop keeper,種子行老闆娘,種屋の店主
+Retired farmer,退休農夫,引退した農家
+Station cafe owner,車站咖啡廳老闆娘,駅前カフェの店主
+Stranger,陌生人,顔見知り
+Friend,朋友,友だち
+Close Friend,知心好友,親友
+FRIEND,朋友,友だち
+Prepare the field,整理田地,畑を耕そう
+Face a farm diamond. Green means ready; red means blocked. Press Space to till.,面向一格田地。綠色代表可以動工，紅色代表無法動工。按空白鍵翻土。,畑のマスの方を向こう。緑は作業できる、赤はできないという意味。スペースキーで耕す。
+Plant a seed,播下種子,種をまこう
+Face tilled soil and press Space to plant the selected seed. Press 2 to change seeds.,面向翻好的土，按空白鍵播下選好的種子。按 2 切換種子。,耕した土の方を向いてスペースキーで選んだ種をまく。2 キーで種を切り替える。
+Water the crop,幫作物澆水,作物に水をやろう
+"On sunny days, press Space on a growing crop to water it. Two dry nights in a row and it withers.",晴天時，對著生長中的作物按空白鍵澆水。連續兩晚沒澆水，作物就會枯萎。,晴れの日は、育っている作物の前でスペースキーを押して水をやる。2晩続けて乾くと枯れてしまう。
+End the day,結束這一天,一日を終えよう
+"When today's work is done, face the bed, press E, and sleep.",今天的工作做完後，面向床鋪按 E 睡覺。,今日の作業が終わったら、ベッドの方を向いて E キーで眠る。
+Meet the village,認識村裡的人,村の人に会おう
+"Face Sato-san, Gen-san, or Hana and press E to talk.",面向佐藤小姐、阿源伯或小花，按 E 聊天。,佐藤さん、源さん、ハナの方を向いて E キーで話しかける。
+Reinvest,再投資,再投資しよう
+"Face the seed counter, press E, and buy seeds to keep planting.",面向種子櫃台按 E，買些種子繼續種。,種の売り場の方を向いて E キーを押し、種を買って植え続けよう。
+Harvest,收成,収穫
+A fully grown crop is ready. Press Space to harvest it.,有作物長好了。按空白鍵收成。,作物が育ちきった。スペースキーで収穫しよう。
+Ship produce,出貨農產品,作物を出荷しよう
+Carry harvested produce to the shipping bin and deposit it for next-morning income.,把收成的農產品放進出貨箱，隔天早上就有收入。,収穫した作物を出荷箱に入れると、翌朝に収入になる。
+Give a gift,送份禮物,贈り物をしよう
+Open a villager conversation while carrying a crop and choose a gift.,身上帶著作物時和村民聊天，就能選一樣送給對方。,作物を持っている時に村人と話して、贈り物を選ぼう。
+New Beginning,嶄新的開始,新たな始まり
+Heart of the Harvest,豐收之心,実りの心
+Promising Farmer,前途看好的農夫,期待の農家
+"Seeds on the left, prices on the tags. I do not haggle.",種子在左邊，價錢寫在標籤上。我不講價的。,種は左、値段は札に書いてある。値切りはしないよ。
+Turnips are quick. Potatoes want patience. Pumpkins want faith.,蕪菁長得快。馬鈴薯要耐心。南瓜要信心。,カブは早い。ジャガイモには忍耐、カボチャには信じる心が要る。
+Buy only what you can water. The field will not wait for you.,只買你澆得完的量。田地可不會等你。,水をやりきれる分だけ買いなさい。畑は待ってくれないよ。
+You stopped asking which seeds are best. Now you ask which are right.,你不再問哪種種子最好，而是問哪種最合適了。,どの種が一番いいかじゃなく、どの種が合うかを聞くようになったね。
+"Your tab is in my ledger. Paper never crashes, you know.",你的帳記在我的帳本裡。紙本可是不會當機的。,あんたのツケは帳簿につけてある。紙はフリーズしないからね。
+A mixed shelf keeps the counter interesting. So do you.,貨架上什麼都有才有趣。你也是。,いろんな種が並ぶと店先が楽しくなる。あんたもね。
+I set the good seed lots aside for you now. Do not tell Gen-san.,好的種子我現在都先幫你留著。別告訴阿源伯。,いい種はあんたの分を取っておいてる。源さんには内緒だよ。
+You know what that field can afford. Most people take years.,你已經知道那塊田負擔得起多少。大多數人要好幾年才懂。,あの畑にどれだけ任せられるか、もう分かってるね。普通は何年もかかるのに。
+The shop feels busier on the days your truck is outside.,你的貨車停在外面的日子，店裡感覺都熱鬧些。,あんたの軽トラが表にある日は、店がにぎやかに感じるよ。
+"City hands. You will learn, or the field will teach you.",一雙都市人的手。你自己學會，不然就讓田地來教你。,都会の手だな。自分で覚えるか、畑に教わるかだ。
+"Water first, plan later. Soil does not read spreadsheets.",先澆水，再計畫。土壤可不看試算表。,まず水やり、計画はその後だ。土は表計算なんか読まん。
+Do the work you can finish before dark. Then go to bed.,天黑前做得完的工作就去做。做完就去睡。,暗くなる前に終わる仕事をやれ。そしたら寝ろ。
+Your rows are straighter. Not straight. Straighter.,你的田壟變直了。不是很直，是比較直。,畝がまっすぐになってきたな。まっすぐじゃない、まっすぐに近づいた。
+You waste fewer steps now. The field notices that.,你現在少走很多冤枉路了。田地都看在眼裡。,無駄な歩きが減ったな。畑はちゃんと見とる。
+A few good plots beat a big field you cannot keep.,幾塊顧得好的地，勝過一大片顧不來的田。,手に負えん広い畑より、よく手入れした数区画のほうがいい。
+I would trust you with my own field. Do not make me regret it.,我願意把自己的田交給你。別讓我後悔。,わしの畑を任せてもいい。後悔させるなよ。
+You learned when to push and when to leave the soil alone.,你學會了什麼時候該拚，什麼時候該讓土地休息。,いつ踏ん張って、いつ土を休ませるか、分かってきたな。
+That old field has your rhythm in it now.,那塊老田現在有你的節奏了。,あの古い畑にも、もうお前のリズムが染みついとる。
+Coffee is strong here and the trains are slow. You get used to both.,這裡的咖啡很濃，火車很慢。兩樣你都會習慣的。,ここのコーヒーは濃くて、電車はのんびり。どっちもすぐ慣れるよ。
+Out at the old field? It is so quiet there you can hear the river.,你在那塊老田那邊嗎？那裡安靜到聽得見河水聲。,あの古い畑のほう？ 川の音が聞こえるくらい静かなところだよね。
+I left Tokyo too. I never ask why people come out here.,我也是從東京搬來的。我從來不問大家為什麼來這裡。,私も東京を出てきたの。ここに来る理由は、誰にも聞かないことにしてる。
+"Your usual seat was free. I kept it that way, a little.",你的老位子空著。我有稍微幫你留著。,いつもの席、空いてたよ。ちょっとだけ取っておいたの。
+You look less like you are waiting for a phone to buzz.,你看起來不再像在等手機響了。,スマホが鳴るのを待ってるような顔、しなくなったね。
+"People in town say your farm now, not the old field.",鎮上的人現在都說「你的農場」，不再說「那塊老田」了。,町の人も、もう「あの古い畑」じゃなくて「あなたの農場」って言ってるよ。
+Town feels more like home with you around.,有你在，小鎮更像家了。,あなたがいると、この町がもっと我が家みたいに感じる。
+"Whatever you left behind, you do not carry it in here anymore.",不管你留下了什麼，你都不再把它帶進這裡了。,何を置いてきたにせよ、もうここには持ち込んでないね。
+Some places become home one ordinary day at a time.,有些地方，是在一個個平凡的日子裡變成家的。,平凡な一日を重ねて、我が家になる場所もあるんだよ。
+Rain day. Let the sky water and come plan your next planting.,下雨天。讓老天幫你澆水，來規劃下一批要種什麼吧。,雨の日だね。水やりは空に任せて、次に何を植えるか考えにおいで。
+Let the rain do its share. Save your back for tomorrow.,讓雨水分擔一點。把腰力留到明天。,雨に仕事を分けてやれ。腰は明日のためにとっておけ。
+Rainy days fill every seat in here. Everyone listens to the same roof.,下雨天這裡座無虛席。大家都聽著同一片屋頂的雨聲。,雨の日はここも満席。みんなで同じ屋根の音を聞いてるの。
+Your produce has gone out. Growing and selling are different skills.,你的農產品出貨了。種和賣是兩種不同的本事。,作物が出荷されたね。育てるのと売るのは別の腕だよ。
+You sold real harvest. Now that field is a farm.,你賣出了真正的收成。那塊田現在是座農場了。,本物の収穫を売ったな。これであの畑も農場だ。
+I heard your produce made it into town. That is how people learn a name.,聽說你的農產品送到鎮上了。大家就是這樣記住一個名字的。,あなたの作物、町に届いたって聞いたよ。そうやって名前を覚えてもらうんだよね。
+The market is close. Keep some coin ready for what comes next.,市集快到了。留點錢準備接下來的事。,市はもうすぐだよ。この先のためにお金を少し取っておきな。
+Market soon. Finish what will be ready before you plant more.,市集快到了。先把來得及收成的做完，再種新的。,市はもうすぐだ。新しく植える前に、間に合うものを仕上げろ。
+The market is almost here. You will see who noticed your season.,市集就快到了。你會看到誰注意到你這一季的努力。,市はもうすぐ。あなたのこの季節を、誰が見てたか分かるよ。
+"You kept driving in, even on the slow days.",就算是冷清的日子，你也一直開車進鎮。,暇な日でも、あんたは車で通い続けてくれたね。
+The harvest market will feel different with you behind a stall.,有你站在攤位後面，豐收市集會很不一樣。,あんたが屋台に立つ収穫市は、きっと違って見えるよ。
+I watched that field sit empty for ten years.,我看著那塊田荒了十年。,あの畑が十年空っぽなのを、わしはずっと見てきた。
+You brought it back one ordinary day at a time.,你用一個個平凡的日子讓它重新活了過來。,お前は平凡な一日を重ねて、あれを生き返らせた。
+You came here as the Tokyo guy. That is not how I think of you now.,你剛來的時候是「那個東京來的人」。我現在可不這麼想了。,最初は「東京から来た人」だったけど、今はそう思ってないよ。
+You are one of us.,你是我們的一份子。,あなたはもう、私たちの仲間だよ。
+Good produce. I will note it in the ledger. Thank you.,好東西。我會記在帳本上。謝謝。,いい作物だね。帳簿につけておくよ。ありがとう。
+Hm. Decent. I can use this.,嗯。還不錯。用得上。,ふむ。悪くない。使わせてもらう。
+For me? That is kind of you.,送我的？你真貼心。,私に？ 優しいね。
+Potatoes? You remembered.,馬鈴薯？你還記得。,ジャガイモ？ 覚えててくれたんだね。
+A pumpkin like this is hard to argue with.,這樣的南瓜，誰都挑不出毛病。,こんなカボチャには、文句のつけようがない。
+Turnips! My favourite. Perfect choice.,蕪菁！我的最愛。選得真好。,カブ！ 大好物なの。さすがだね。
+"A quiet first season, but the field is yours now.",雖然是平靜的第一季，但那塊田現在是你的了。,静かな最初の季節だったけど、あの畑はもうあんたのものだよ。
+You kept my counter busy. That was good for both of us.,你讓我的櫃台忙個不停。這對我們都好。,あんたのおかげで店が忙しかった。お互いのためになったね。
+You came in for seeds and stayed for the town. Come back in spring.,你為了種子而來，卻為了小鎮留下。春天再來吧。,種を買いに来て、町に居ついたね。春にまたおいで。
+Every farmer starts with one tilled square. Plant twice as many in spring.,每個農夫都是從一格翻好的土開始的。春天種兩倍吧。,どんな農家も耕した一マスから始まる。春は倍植えろ。
+Your rows grew as steady as any I ever kept.,你的田壟長得跟我當年顧的一樣穩。,お前の畝は、わしが手入れしたどの畝にも負けんくらい安定しとった。
+I would trust you with my own field. A farmer has no higher words.,我願意把自己的田交給你。農夫沒有比這更高的讚美了。,わしの畑を任せてもいい。農家にとってこれ以上の言葉はない。
+Town noticed someone new working the old field.,鎮上的人都注意到有新人在耕那塊老田。,あの古い畑で新しい人が働いてるって、町のみんなが気づいてたよ。
+You made the road out of town feel lived-in again.,你讓出鎮的那條路又有了人氣。,町から続くあの道に、また人の気配が戻ったよ。
+"You are one of us now, whatever the next season brings.",不管下一季會怎樣，你現在都是我們的一份子了。,次の季節がどうなっても、あなたはもう私たちの仲間だよ。
+Save is incompatible; start a New Game.,存檔不相容，請開始新遊戲。,セーブデータに互換性がありません。新しいゲームを始めてください。
+Save unavailable; start a New Game.,無法讀取存檔，請開始新遊戲。,セーブデータを読み込めません。新しいゲームを始めてください。
+NEW GAME,新遊戲,ニューゲーム
+CONTINUE,繼續,つづきから
+choose,選擇,選択
+BAG,背包,かばん
+SEEDS,種子,種
+HARVESTED,收成品,収穫物
+IN THE SHIPPING BIN,出貨箱內,出荷箱の中
+%s seeds,%s種子,%sの種
+Cheapest and fastest; the latest safe planting.,最便宜也最快，是最晚還能安心播種的作物。,一番安くて早い。安心して植えられる最後の作物。
+Best return per seed coin per night.,每晚每塊種子錢的報酬最高。,種代1Gあたり、一晩ごとの儲けが一番大きい。
+Best profit per stamina of tending in a sunny season.,晴天多的季節裡，每點照顧體力的利潤最高。,晴れが多い季節なら、世話のスタミナあたりの利益が一番大きい。
+%d harvested and ready for the shipping bin.,已收成 %d 個，可以放進出貨箱。,%d 個収穫済み。出荷箱に入れられる。
+Payout is collected at season end.,貨款在季末結算。,代金はシーズン終了時に受け取る。
+Payout is collected tomorrow morning.,貨款在明天早上入帳。,代金は明日の朝に受け取る。
+Paid at season end,季末入帳,シーズン終了時に入金
+Pays out tomorrow morning,明早入帳,明朝に入金
+%d nights,%d 晚,%d 晩
+%dG buy · %dG sell,買價 %dG · 賣價 %dG,買値 %dG · 売値 %dG
+%s's favourite,%s的最愛,%sの好物
+move,移動,移動
+close,關閉,閉じる
+browse,瀏覽,見る
+ALMANAC,作物圖鑑,作物図鑑
+3 crops · 14-day season,3 種作物 · 14 天的季節,作物3種 · 14日間のシーズン
+GROWTH,生長,成長
+SEED,種子,種
+SELL,賣價,売値
+MARGIN,利潤,利益
+%d watered nights,澆水 %d 晚,水やり %d 晩
+SEASON,季節,シーズン
+MARKET TODAY,今天是市集,今日は市
+%d DAYS TO MARKET,距離市集 %d 天,市まであと %d 日
+TODAY,今天,今日
+EARLIEST,最快,最短
+MARKET,市集,市
+LAST NIGHT,最後一晚,最後の夜
+watered    rain did it for you,已澆水    雨水幫你澆了,水やり済み    雨がやってくれた
+KNOWN WEATHER THROUGH DAY %d · EARLIEST READINESS,已知天氣至第 %d 天 · 最快收成日,%d 日目までの天気 · 最短の収穫日
++%d relationship point,好感度 +%d,好感度 +%d
++%d relationship points,好感度 +%d,好感度 +%d
+Favourite gift!,最愛的禮物！,大好物の贈り物！
+Gift accepted.,對方收下了禮物。,贈り物を受け取ってもらえた。
+continue,繼續,つづける
+leave,離開,戻る
+CLOSE,關閉,閉じる
+GIFT GIVEN TODAY,今天已送過禮物,今日はもう贈り物をした
+GIVE A GIFT  ·  ONE PER DAY,送禮  ·  每天一次,贈り物  ·  1日1回
+GIVE A GIFT · ONE PER DAY,送禮 · 每天一次,贈り物 · 1日1回
+GIVE,送出,贈る
+none,沒有,なし
+GIVE %s,送出%s,%sを贈る
+%s is %s's favourite — worth %d instead of %d.,%s是%s的最愛——好感度 %d，而非 %d。,%sは%sの好物——好感度は %d ではなく %d。
+“%s”,「%s」,「%s」
+Continue,繼續,つづける
+Close,關閉,閉じる
+DAY,天數,日目
+PENDING,待入帳,入金待ち
+ACTIONS,操作,操作
+WORK,工作,作業
+SHOP,商店,店
+INTERACT,互動,調べる
+SHOP · BED · BIN,商店 · 床 · 出貨箱,店 · ベッド · 出荷箱
+HOE,鋤頭,クワ
+WATER,澆水,水やり
+HANDS,雙手,素手
+2 CYCLES SEED,按 2 切換種子,2 で種を切替
+Till soil,翻土,耕す
+Plant,播種,種まき
+Water,澆水,水やり
+HARVEST MARKET TODAY,今天是豐收市集,今日は収穫市
+HARVEST MARKET IN %d,距離豐收市集 %d 天,収穫市まであと %d 日
+"Harvest Market today — ship crops first, then visit the village path stall.",今天是豐收市集——先出貨，再去村路旁的攤位。,今日は収穫市——先に作物を出荷してから、村道の屋台へ行こう。
+Harvest Market: Day 14 · %d days left,豐收市集：第 14 天 · 還剩 %d 天,収穫市：14日目 · あと %d 日
+Day 14 — this ends the season and settles the bin.,第 14 天——這會結束本季並結算出貨箱。,14日目——これでシーズンが終わり、出荷箱が精算される。
+Space — %s%s · %d stamina,空白鍵 — %s%s · 體力 %d,スペース — %s%s · スタミナ %d
+Shop — E,商店 — E,店 — E
+Bed — E,床 — E,ベッド — E
+Shipping — E,出貨箱 — E,出荷箱 — E
+Harvest Market — E,豐收市集 — E,収穫市 — E
+%s — E,%s — E,%s — E
+Seed selected.,已選擇種子。,種を選んだ。
+Soil tilled.,翻好土了。,土を耕した。
+Crop planted.,種下作物了。,作物を植えた。
+Crop watered.,澆好水了。,水をやった。
+Crop harvested.,收成了作物。,作物を収穫した。
+Seeds purchased.,買好種子了。,種を買った。
+Watering can upgraded.,澆水壺升級了。,じょうろをアップグレードした。
+Watering can is already upgraded.,澆水壺已經升級過了。,じょうろはもうアップグレード済み。
+Crop deposited.,作物已放進出貨箱。,作物を出荷箱に入れた。
+Day advanced.,新的一天開始了。,次の日になった。
+Morning acknowledged.,早晨確認完畢。,朝の確認を終えた。
+No target.,沒有目標。,対象がない。
+That is not a farm cell.,那裡不是田地。,そこは畑ではない。
+Soil is already tilled.,土已經翻好了。,土はもう耕してある。
+Till the soil first.,請先翻土。,先に土を耕そう。
+A crop is already there.,那裡已經種了作物。,そこにはもう作物がある。
+No selected seeds.,沒有選好的種子。,選んだ種がない。
+There is no crop there.,那裡沒有作物。,そこに作物はない。
+Crop is already watered.,作物已經澆過水了。,作物にはもう水をやった。
+Crop is mature.,作物已經成熟了。,作物はもう育ちきっている。
+Crop is not mature.,作物還沒成熟。,作物はまだ育っていない。
+Stand at the bed.,請站到床邊。,ベッドの前に立とう。
+Stand at the shop.,請站到商店前。,店の前に立とう。
+Stand at the shipping bin.,請站到出貨箱旁。,出荷箱の前に立とう。
+Choose a positive quantity.,請選擇大於零的數量。,1 以上の数を選ぼう。
+Not enough money.,錢不夠。,お金が足りない。
+Not enough harvested crops.,收成的作物不夠。,収穫した作物が足りない。
+It is too late for that action.,太晚了，不能做這件事。,その作業をするには遅すぎる。
+Not enough stamina.,體力不夠。,スタミナが足りない。
+Rain is watering the crops.,雨水正在幫作物澆水。,雨が作物に水をやっている。
+Acknowledge the morning summary first.,請先確認早晨摘要。,先に朝のまとめを確認しよう。
+No morning summary.,沒有早晨摘要。,朝のまとめはない。
+Nothing to interact with.,這裡沒有可以互動的東西。,調べられるものがない。
+Talked to villager.,和村民聊過了。,村人と話した。
+Gift given.,送出禮物了。,贈り物をした。
+Stand at the villager.,請站到村民旁邊。,村人の前に立とう。
+Gift already given today.,今天已經送過禮物了。,今日はもう贈り物をした。
+Harvest finale complete.,豐收結局完成。,収穫のフィナーレが終わった。
+The Harvest Market opens on Day 14.,豐收市集在第 14 天開張。,収穫市は14日目に開かれる。
+Stand at the Harvest Market.,請站到豐收市集前。,収穫市の前に立とう。
+The harvest finale is already complete.,豐收結局已經完成了。,収穫のフィナーレはもう終わっている。
+Save failed — this morning is not persisted.,存檔失敗——今天早上的進度沒有保存。,セーブ失敗——今朝の進行は保存されていない。
+CROPS GREW,作物成長,作物が成長
+RAINY,雨天,雨
+SUNNY,晴天,晴れ
+TODAY — NO\nWATERING NEEDED,今天——\n不用澆水,今日——\n水やり不要
+TODAY —\nWATER AS USUAL,今天——\n照常澆水,今日——\nいつも通り水やり
+STAMINA FULL,體力全滿,スタミナ全快
+STAMINA,體力,スタミナ
+SHIPPED,已出貨,出荷済み
+%d CROP WITHERED,%d 株作物枯萎了,作物が %d 株枯れた
+%d CROPS WITHERED,%d 株作物枯萎了,作物が %d 株枯れた
+START DAY %d,開始第 %d 天,%d 日目を始める
+Saved.,已存檔。,セーブした。
+SAVED,已存檔,セーブ済み
+SAVE ERROR,存檔錯誤,セーブエラー
+THE BIN PAID OUT,出貨箱結算了,出荷箱の精算
+No crops shipped.,沒有出貨任何作物。,出荷した作物はない。
+Money after shipping,出貨後的金錢,出荷後の所持金
+This farm has been quiet for a while. It is yours now — bring it back one day at a time.,這座農場已經沉寂了好一陣子。現在它是你的了——一天一天讓它重新活起來吧。,この農場はしばらく静まり返っていた。今はもうあなたのもの——一日ずつ、よみがえらせよう。
+SATO-SAN,佐藤小姐,佐藤さん
+"The village harvest market is on Day 14. Grow what you can, and get to know the village before then.",村裡的豐收市集在第 14 天。在那之前盡量種，也多認識村裡的人吧。,村の収穫市は14日目。それまでにできるだけ育てて、村の人と仲良くなっておこう。
+BEGIN DAY 1,開始第 1 天,1日目を始める
+CONTROLS,操作說明,操作方法
+Move · facing picks the target cell,移動 · 面向的格子就是目標,移動 · 向いているマスが対象
+Cycle the selected seed,切換選擇的種子,選ぶ種を切り替え
+Space works target tile,空白鍵處理目標格子,スペースで対象マスを作業
+Shop · bed · bin · villagers,商店 · 床 · 出貨箱 · 村民,店 · ベッド · 出荷箱 · 村人
+Bag · Almanac · Season,背包 · 圖鑑 · 季節,かばん · 図鑑 · シーズン
+settings,設定,設定
+RESUME,繼續遊戲,再開
+SEASON COMPLETE,本季結束,シーズン終了
+CROPS SHIPPED,出貨作物,出荷した作物
+SHIPPED VALUE,出貨總額,出荷額
+FINAL MONEY,最終金錢,最終所持金
+TITLE,標題畫面,タイトル
+Shipped: %d crops · %dG,出貨：%d 個作物 · %dG,出荷：作物 %d 個 · %dG
+Final money: %dG,最終金錢：%dG,最終所持金：%dG
+Closest villager: %s,最親近的村民：%s,一番親しい村人：%s
+Final result was not saved.,最終結果沒有存檔。,最終結果は保存されていない。
+SETTINGS,設定,設定
+Music,音樂,音楽
+Sound,音效,効果音
+Window scale,視窗大小,画面サイズ
+FULL,全螢幕,全画面
+Tutorial cards,教學提示,チュートリアル
+ON,開,オン
+OFF,關,オフ
+Language,語言,言語
+DONE,完成,完了
+Save file: %s,存檔位置：%s,セーブファイル：%s
+Could not save settings.,無法儲存設定。,設定を保存できませんでした。
+SHIPPING BIN,出貨箱,出荷箱
+Day 14 — only crops deposited here count toward the finale. Anything still in the bag scores nothing.,第 14 天——只有放進這裡的作物才會計入結局。還留在背包裡的不算分。,14日目——ここに入れた作物だけがフィナーレに数えられる。かばんに残ったものは点にならない。
+%d in bag · %dG each,背包內 %d 個 · 每個 %dG,所持 %d 個 · 1個 %dG
+M ALL,M 全部,M 全部
+VALUE,價值,金額
+choose crop,選擇作物,作物を選ぶ
+DEPOSIT ×%d,放入 ×%d,入れる ×%d
+SEED SHOP,種子行,種屋
+each,每個,1個
+M\nMAX,M\n最多,M\n最大
+TOTAL,總計,合計
+STOCK,庫存,所持
+%d held,持有 %d,所持 %d
+Efficient Can,省力澆水壺,省力じょうろ
+Water %d→%d STA,澆水 體力 %d→%d,水やり スタミナ %d→%d
+OWNED,已擁有,購入済み
+BUY · %dG,購買 · %dG,買う · %dG
+Sleep until morning?,要睡到早上嗎？,朝まで眠りますか？
+SLEEP,睡覺,眠る
+not yet,還不要,まだ

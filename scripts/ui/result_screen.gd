@@ -26,12 +26,12 @@ func _unhandled_input(event: InputEvent) -> void:
 func present(result: Dictionary, save_error: int = OK) -> void:
     _featured_villager = String(result["villager"])
     ($Panel/Title as Label).text = String(result["title"])
-    ($Panel/Shipped as Label).text = "Shipped: %d crops · %dG" % [
+    ($Panel/Shipped as Label).text = tr("Shipped: %d crops · %dG") % [
         int(result["shipped_count"]),
         int(result["shipped_value"]),
     ]
-    ($Panel/Money as Label).text = "Final money: %dG" % int(result["final_money"])
-    ($Panel/Relationship as Label).text = "Closest villager: %s" % _featured_villager
+    ($Panel/Money as Label).text = tr("Final money: %dG") % int(result["final_money"])
+    ($Panel/Relationship as Label).text = tr("Closest villager: %s") % tr(_featured_villager)
     ($Panel/Stats/Card_0/Value as Label).text = "%d" % int(result["shipped_count"])
     ($Panel/Stats/Card_1/Value as Label).text = "%dG" % int(result["shipped_value"])
     ($Panel/Stats/Card_2/Value as Label).text = "%dG" % int(result["final_money"])
@@ -44,12 +44,12 @@ func present(result: Dictionary, save_error: int = OK) -> void:
         var level_key := StringName(villager["level"])
         var level := VillagerRules.RELATIONSHIP_KEYS.find(level_key)
         line.text = "%s (%s): %s" % [
-            String(villager["name"]),
-            _level_display_name(level_key),
-            String(villager["line"]),
+            tr(String(villager["name"])),
+            tr(_level_display_name(level_key)),
+            tr(String(villager["line"])),
         ]
         line.visible = false
-        (card.get_node("Quote") as Label).text = "\u201c%s\u201d" % String(villager["line"])
+        (card.get_node("Quote") as Label).text = tr("“%s”") % tr(String(villager["line"]))
         (card.get_node("Name") as Label).text = String(villager["name"])
         var heart_count := _heart_count(level)
         for heart_index in 3:

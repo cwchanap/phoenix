@@ -99,7 +99,7 @@ func _update_rows() -> void:
     var money := int(_snapshot.get("money", 0))
     (get_node("Frame/Header/MoneyValue") as Label).text = "%d" % money
     if _selected_row != UPGRADE_ROW:
-        (get_node("Frame/Footer/Action") as Label).text = "BUY · %dG" % (
+        (get_node("Frame/Footer/Action") as Label).text = tr("BUY · %dG") % (
             GameRules.seed_price(_selected_kind) * _quantity
         )
     for kind in range(GameRules.CropKind.size()):
@@ -120,7 +120,7 @@ func _update_rows() -> void:
         quantity.text = "×%d" % (_quantity if selected else 0)
         max_button.text = "M\nMAX"
         total_caption.text = "TOTAL" if selected else "STOCK"
-        total.text = "%d" % (GameRules.seed_price(kind) * _quantity) if selected else "%d held" % held
+        total.text = "%d" % (GameRules.seed_price(kind) * _quantity) if selected else tr("%d held") % held
         UiStyle.text(row_name, 12, UiStyle.CREAM if selected else UiStyle.TEXT, 800)
         UiStyle.text(price, 10, UiStyle.GOLD if selected else UiStyle.MUTED, 700, true)
         UiStyle.text(each, 8, UiStyle.MUTED, 600)
@@ -148,7 +148,7 @@ func _update_upgrade_row() -> void:
     var benefit := row.get_node("Benefit") as Label
     row_name.text = "Efficient Can"
     price.text = "%d" % GameRules.WATERING_CAN_UPGRADE_PRICE
-    benefit.text = "Water %d→%d STA" % [
+    benefit.text = tr("Water %d→%d STA") % [
         int(GameRules.effective_action_cost(GameRules.FarmingAction.WATERING_CAN, false)["stamina"]),
         int(GameRules.effective_action_cost(GameRules.FarmingAction.WATERING_CAN, true)["stamina"]),
     ]
@@ -160,7 +160,7 @@ func _update_upgrade_row() -> void:
     if selected:
         (get_node("Frame/Footer/Action") as Label).text = (
             "OWNED" if bool(_snapshot.get("watering_can_upgraded", false))
-            else "BUY · %dG" % GameRules.WATERING_CAN_UPGRADE_PRICE
+            else tr("BUY · %dG") % GameRules.WATERING_CAN_UPGRADE_PRICE
         )
 
 func _style_tree(node: Node) -> void:

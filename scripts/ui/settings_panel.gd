@@ -16,8 +16,8 @@ func _ready() -> void:
 		$Frame/Body/SoundRow as Panel,
 		$Frame/Body/WindowRow as Panel,
 		$Frame/Body/TutorialRow as Panel,
+		$Frame/Body/LanguageRow as Panel,
 	]
-	($Frame/Footer/SavePath as Label).text = "Save file: %s" % SaveRepository.DEFAULT_PATH
 	_style_tree(self)
 	_apply_style()
 	visible = false
@@ -36,7 +36,7 @@ func selected_setting() -> int:
 	return _selected_index
 
 func selected_setting_name() -> StringName:
-	return [&"music", &"sound", &"window_scale", &"tutorial_cards"][_selected_index]
+	return [&"music", &"sound", &"window_scale", &"tutorial_cards", &"language"][_selected_index]
 
 func _input(event: InputEvent) -> void:
 	if not visible or not event.is_pressed() or event.is_echo():
@@ -71,10 +71,15 @@ func _adjust(delta: int) -> void:
 			error = _settings.set_window_scale(WINDOW_VALUES[next])
 		3:
 			error = _settings.set_tutorial_cards(delta > 0)
+		4:
+			var languages := UiSettings.LANGUAGES
+			var next_language := posmod(languages.find(_settings.language) + delta, languages.size())
+			error = _settings.set_language(languages[next_language])
+			_settings.apply_language()
 	if error == OK:
 		($Frame/Footer/Status as Label).text = ""
 	else:
-		($Frame/Footer/Status as Label).text = "Could not save settings."
+		($Frame/Footer/Status as Label).text = tr("Could not save settings.")
 	_refresh()
 	settings_changed.emit(error)
 
@@ -87,10 +92,9 @@ func _refresh() -> void:
 			"panel", UiStyle.panel(UiStyle.INSET, UiStyle.BORDER, 1)
 		)
 		(_rows[index].get_node("SelectionStripe") as ColorRect).visible = selected
-	UiStyle.text($Frame/Body/MusicRow/Name as Label, 11, UiStyle.CREAM if _selected_index == 0 else UiStyle.TEXT, 800)
-	UiStyle.text($Frame/Body/SoundRow/Name as Label, 11, UiStyle.CREAM if _selected_index == 1 else UiStyle.TEXT, 800)
-	UiStyle.text($Frame/Body/WindowRow/Name as Label, 11, UiStyle.CREAM if _selected_index == 2 else UiStyle.TEXT, 800)
-	UiStyle.text($Frame/Body/TutorialRow/Name as Label, 11, UiStyle.CREAM if _selected_index == 3 else UiStyle.TEXT, 800)
+	for index in _rows.size():
+		UiStyle.text(_rows[index].get_node("Name") as Label, 11, UiStyle.CREAM if _selected_index == index else UiStyle.TEXT, 800)
+	($Frame/Footer/SavePath as Label).text = tr("Save file: %s") % SaveRepository.DEFAULT_PATH
 	var music_level := _settings.music
 	var sound_level := _settings.sound
 	for pip_index in 10:
@@ -98,10 +102,9 @@ func _refresh() -> void:
 		(get_node("Frame/Body/SoundRow/Pips/Pip_%d" % pip_index) as ColorRect).color = UiStyle.BORDER_LIGHT if pip_index < sound_level else UiStyle.BORDER
 	_update_window_buttons()
 	_update_tutorial_buttons()
-	($Frame/Body/MusicRow/Adjust as Control).visible = _selected_index == 0
-	($Frame/Body/SoundRow/Adjust as Control).visible = _selected_index == 1
-	($Frame/Body/WindowRow/Adjust as Control).visible = _selected_index == 2
-	($Frame/Body/TutorialRow/Adjust as Control).visible = _selected_index == 3
+	_update_language_buttons()
+	for index in _rows.size():
+		(_rows[index].get_node("Adjust") as Control).visible = _selected_index == index
 
 func _update_window_buttons() -> void:
 	for index in WINDOW_VALUES.size():
@@ -124,6 +127,15 @@ func _update_tutorial_buttons() -> void:
 			"panel", UiStyle.panel(UiStyle.KEYCAP_FILL if selected else UiStyle.INSET, UiStyle.GOLD if selected else UiStyle.BORDER, 1)
 		)
 		UiStyle.text(button.get_node("Label") as Label, 9, UiStyle.GOLD if selected else UiStyle.MUTED, 800, true)
+
+func _update_language_buttons() -> void:
+	for index in UiSettings.LANGUAGES.size():
+		var button := $Frame/Body/LanguageRow/Options.get_node("Option_%d" % index) as Panel
+		var selected: bool = UiSettings.LANGUAGES[index] == _settings.language
+		button.add_theme_stylebox_override(
+			"panel", UiStyle.panel(UiStyle.KEYCAP_FILL if selected else UiStyle.INSET, UiStyle.GOLD if selected else UiStyle.BORDER, 1)
+		)
+		UiStyle.text(button.get_node("Label") as Label, 9, UiStyle.GOLD if selected else UiStyle.MUTED, 800)
 
 func _style_tree(node: Node) -> void:
 	for child in node.get_children():
@@ -149,7 +161,7 @@ func _apply_style() -> void:
 	UiStyle.text($Frame/Footer/DoneText as Label, 10, UiStyle.GOLD, 800)
 	for row in _rows:
 		row.add_theme_stylebox_override("panel", UiStyle.panel(UiStyle.INSET, UiStyle.BORDER, 1))
-	for path in ["MusicRow", "SoundRow", "WindowRow", "TutorialRow"]:
+	for path in ["MusicRow", "SoundRow", "WindowRow", "TutorialRow", "LanguageRow"]:
 		UiStyle.text($Frame/Body.get_node(path + "/Name") as Label, 11, UiStyle.TEXT, 800)
 	for path in [
 		"Frame/Body/MusicRow/Adjust/Left",
@@ -160,6 +172,8 @@ func _apply_style() -> void:
 		"Frame/Body/WindowRow/Adjust/Right",
 		"Frame/Body/TutorialRow/Adjust/Left",
 		"Frame/Body/TutorialRow/Adjust/Right",
+		"Frame/Body/LanguageRow/Adjust/Left",
+		"Frame/Body/LanguageRow/Adjust/Right",
 	]:
 		_style_keycap(get_node(path) as Panel, UiStyle.BORDER_LIGHT, UiStyle.INSET)
 	for row_path in ["MusicRow", "SoundRow"]:
