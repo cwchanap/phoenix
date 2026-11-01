@@ -86,7 +86,7 @@ The motion preview has four frames and a 500 ms cycle.
 Native/nearest-2× comparisons and farm composites were inspected for scale and readability.
 Godot import/resource checks verify sixteen frame coordinates and the existing `Rect2(-16,-48,32,48)` sprite geometry.
 
-**HPA-546 must accept the new idle appearance and update affected production goldens after visual review.**
+**HPA-546 must accept the new idle appearance after a manual in-game visual review.**
 Recheck HPA-459 tool-overlay attachment positions against the new hands/body.
 The live player, tool code, collision, camera, saves, production goldens, and gameplay remain unchanged in this art PR.
 In-world motion and subjective timing are not validated by composited previews.
