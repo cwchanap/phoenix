@@ -17,6 +17,7 @@ func _ready() -> void:
         player_polygon[index] -= projection_origin
     player_collision.polygon = player_polygon
 
+    camera.zoom = Vector2.ONE * WorldContract.CAMERA_ZOOM
     var bounds := WorldContract.CAMERA_BOUNDS
     camera.limit_left = int(bounds.position.x)
     camera.limit_top = int(bounds.position.y)

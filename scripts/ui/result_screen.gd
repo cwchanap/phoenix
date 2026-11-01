@@ -7,6 +7,7 @@ signal return_to_title_requested
 var _featured_villager := ""
 
 func _ready() -> void:
+    UiStyle.fit_legacy_layout(self)
     ($Panel/NewGame as Button).pressed.connect(func() -> void: new_game_requested.emit())
     ($Panel/ReturnToTitle as Button).pressed.connect(func() -> void: return_to_title_requested.emit())
     _style_tree(self)

@@ -54,8 +54,8 @@ there is no post-game or free play.
 
 Every `2` press advances the selected seed, including the first press.
 Bag, Almanac, and Calendar each gate movement and close with the same key.
-Settings edits Music and Sound from `0..10`, Window at `1x`, `2x`, `3x`, `4x`,
-or `FULL`, Tutorial Cards `ON` or `OFF`, and Language (English, 繁體中文,
+Settings edits Music and Sound from `0..10`, Window at `1080p` or `FULL`,
+Tutorial Cards `ON` or `OFF`, and Language (English, 繁體中文,
 日本語); `O` is handled only by Pause.
 
 ## Languages
@@ -146,10 +146,12 @@ not this README.
 
 ## Presentation contract
 
-The game uses a `640x360` logical viewport, `viewport` stretching, `keep`
-aspect, integer scale, a minimum `640x360` desktop window, and nearest texture
-filtering. The presentation is pixel art and must remain crisp at every integer
-window scale.
+The game renders at a single 1080p: a `1920x1080` base viewport with
+`canvas_items` stretching, `keep` aspect, fractional scale, a minimum `960x540`
+desktop window, and nearest texture filtering, so text draws at full
+resolution. The world camera zooms by `WorldContract.CAMERA_ZOOM` (`3`): it
+still frames a `640x360` world view and each art pixel is `3x3` screen pixels.
+The windowed size is `1920x1080`, shrunk only when the screen cannot hold it.
 
 ## World contract
 

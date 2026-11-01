@@ -12,20 +12,23 @@ func _init() -> void:
     if ProjectSettings.get_setting("application/run/main_scene") != "res://scenes/app/app.tscn":
         _fail("main scene must be the HPA-598 app root")
         return
-    if ProjectSettings.get_setting("display/window/size/viewport_width") != 640:
-        _fail("viewport width must be 640")
+    if ProjectSettings.get_setting("display/window/size/viewport_width") != 1920:
+        _fail("viewport width must be 1920")
         return
-    if ProjectSettings.get_setting("display/window/size/viewport_height") != 360:
-        _fail("viewport height must be 360")
+    if ProjectSettings.get_setting("display/window/size/viewport_height") != 1080:
+        _fail("viewport height must be 1080")
         return
-    if ProjectSettings.get_setting("display/window/stretch/mode") != "viewport":
-        _fail("stretch mode must be viewport")
+    if ProjectSettings.get_setting("display/window/stretch/mode") != "canvas_items":
+        _fail("stretch mode must be canvas_items")
         return
     if ProjectSettings.get_setting("display/window/stretch/aspect") != "keep":
         _fail("stretch aspect must be keep")
         return
-    if ProjectSettings.get_setting("display/window/stretch/scale_mode") != "integer":
-        _fail("stretch scale mode must be integer")
+    if ProjectSettings.get_setting("display/window/stretch/scale_mode") != "fractional":
+        _fail("stretch scale mode must be fractional")
+        return
+    if ProjectSettings.get_setting("rendering/2d/snap/snap_2d_transforms_to_pixel") != true:
+        _fail("2D transforms must snap to pixels")
         return
     if ProjectSettings.get_setting("rendering/textures/canvas_textures/default_texture_filter") != 0:
         _fail("default CanvasItem texture filter must be nearest")

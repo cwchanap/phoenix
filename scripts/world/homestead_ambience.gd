@@ -71,7 +71,7 @@ func _draw() -> void:
     var camera := get_viewport().get_camera_2d()
     if camera == null:
         return
-    var view_size := get_viewport_rect().size
+    var view_size := _world_view_size()
     # The wrap domain is the view padded by the streak extent on the entry
     # sides (right for x, top for y), so carried-in streaks start offscreen.
     var enter_pad := Vector2(abs(RAIN_STREAK_VECTOR.x), abs(RAIN_STREAK_VECTOR.y))
@@ -87,7 +87,11 @@ func _draw() -> void:
 
 func _rain_span() -> Vector2:
     var enter_pad := Vector2(abs(RAIN_STREAK_VECTOR.x), abs(RAIN_STREAK_VECTOR.y))
-    return get_viewport_rect().size + enter_pad
+    return _world_view_size() + enter_pad
+
+# The camera's visible world rect, not the 1920x1080 canvas it is zoomed onto.
+func _world_view_size() -> Vector2:
+    return get_viewport_rect().size / WorldContract.CAMERA_ZOOM
 
 func _add_ripple(index: int) -> void:
     var ripple := Sprite2D.new()

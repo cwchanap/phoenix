@@ -3,7 +3,8 @@ extends Control
 
 signal settings_changed(error: int)
 
-const WINDOW_VALUES := [1, 2, 3, 4, UiSettings.FULLSCREEN]
+# Window row options, in display order: 1080p windowed, then fullscreen.
+const WINDOW_VALUES := [false, true]
 
 var _settings: UiSettings
 var _selected_index := 0
@@ -36,7 +37,7 @@ func selected_setting() -> int:
 	return _selected_index
 
 func selected_setting_name() -> StringName:
-	return [&"music", &"sound", &"window_scale", &"tutorial_cards", &"language"][_selected_index]
+	return [&"music", &"sound", &"fullscreen", &"tutorial_cards", &"language"][_selected_index]
 
 func _input(event: InputEvent) -> void:
 	if not visible or not event.is_pressed() or event.is_echo():
@@ -66,9 +67,9 @@ func _adjust(delta: int) -> void:
 		1:
 			error = _settings.set_sound(clampi(_settings.sound + delta, 0, 10))
 		2:
-			var current := WINDOW_VALUES.find(_settings.window_scale)
+			var current := WINDOW_VALUES.find(_settings.fullscreen)
 			var next := posmod(current + delta, WINDOW_VALUES.size())
-			error = _settings.set_window_scale(WINDOW_VALUES[next])
+			error = _settings.set_fullscreen(WINDOW_VALUES[next])
 		3:
 			error = _settings.set_tutorial_cards(delta > 0)
 		4:
@@ -109,7 +110,7 @@ func _refresh() -> void:
 func _update_window_buttons() -> void:
 	for index in WINDOW_VALUES.size():
 		var button := $Frame/Body/WindowRow/Options.get_node("Option_%d" % index) as Panel
-		var selected: bool = WINDOW_VALUES[index] == _settings.window_scale
+		var selected: bool = WINDOW_VALUES[index] == _settings.fullscreen
 		button.add_theme_stylebox_override(
 			"panel", UiStyle.panel(UiStyle.KEYCAP_FILL if selected else UiStyle.INSET, UiStyle.GOLD if selected else UiStyle.BORDER, 1)
 		)
@@ -179,7 +180,7 @@ func _apply_style() -> void:
 	for row_path in ["MusicRow", "SoundRow"]:
 		for pip_index in 10:
 			(get_node("Frame/Body/%s/Pips/Pip_%d" % [row_path, pip_index]) as ColorRect).color = UiStyle.BORDER
-	for option in [$Frame/Body/WindowRow/Options/Option_0 as Panel, $Frame/Body/WindowRow/Options/Option_1 as Panel, $Frame/Body/WindowRow/Options/Option_2 as Panel, $Frame/Body/WindowRow/Options/Option_3 as Panel, $Frame/Body/WindowRow/Options/Option_4 as Panel, $Frame/Body/TutorialRow/Options/On as Panel, $Frame/Body/TutorialRow/Options/Off as Panel]:
+	for option in [$Frame/Body/WindowRow/Options/Option_0 as Panel, $Frame/Body/WindowRow/Options/Option_1 as Panel, $Frame/Body/TutorialRow/Options/On as Panel, $Frame/Body/TutorialRow/Options/Off as Panel]:
 		option.add_theme_stylebox_override("panel", UiStyle.panel(UiStyle.INSET, UiStyle.BORDER, 1))
 	_style_keycap($Frame/Footer/EscKey as Panel, UiStyle.GOLD, UiStyle.KEYCAP_FILL)
 

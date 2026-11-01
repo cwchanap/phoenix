@@ -28,7 +28,7 @@ jobs:
       - run: ./tools/bootstrap-gdunit.sh
       - name: Run GdUnit4 unit tests
         run: >-
-          xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24"
+          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24"
           ./addons/gdUnit4/runtest.sh -a tests/gdunit -c
       - name: Upload reports on failure
         if: failure()

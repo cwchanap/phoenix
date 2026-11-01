@@ -83,7 +83,7 @@ func test_new_game_propagates_settings_and_tutorial_toggle_to_world_hud() -> voi
     var settings := UiSettings.load(SETTINGS_PATH)
     assert_eq(settings.set_music(0), OK)
     assert_eq(settings.set_sound(10), OK)
-    assert_eq(settings.set_window_scale(3), OK)
+    assert_eq(settings.set_fullscreen(false), OK)
     assert_eq(settings.set_tutorial_cards(false), OK)
 
     var app := _spawn_app(SaveRepository.new(TEST_PATH), settings)
@@ -365,6 +365,25 @@ func test_result_screen_keyboard_enter_and_esc_drive_app_flow() -> void:
     var world := _stop_world_clock(app)
     assert_not_null(world)
     assert_eq(world._session.state()["day"], 1)
+
+func test_legacy_640x360_ui_roots_fill_the_1080p_canvas() -> void:
+    # HPA-680 stopgap until HPA-681/682 rebuild these layouts natively.
+    var app := _spawn_app(SaveRepository.new(TEST_PATH))
+    if app == null:
+        return
+    var canvas := Rect2(Vector2.ZERO, Vector2(UiSettings.WINDOW_SIZE))
+    var title := app.get_node("TitleScreen") as TitleScreen
+    var result := app.get_node("ResultScreen") as ResultScreen
+    assert_eq(title.size, UiStyle.LEGACY_LAYOUT_SIZE)
+    assert_eq(title.get_global_rect(), canvas)
+    assert_eq(result.get_global_rect(), canvas)
+
+    title.new_game_requested.emit()
+    await get_tree().process_frame
+    var world := _stop_world_clock(app)
+    var hud_root := world.hud.get_node("HudRoot") as Control
+    assert_eq(hud_root.size, UiStyle.LEGACY_LAYOUT_SIZE)
+    assert_eq(hud_root.get_global_rect(), canvas)
 
 func test_title_keyboard_skips_disabled_continue_and_enter_starts_new_game() -> void:
     var repository := SaveRepository.new(TEST_PATH)

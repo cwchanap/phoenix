@@ -28,11 +28,11 @@ func _start_new_game() -> Variant:
 	# child inherits this env at spawn, so unsetting after launch is safe.
 	_save_path = create_temp_dir("phoenix-save-e2e") + "/save.json"
 	# gdUnit's click_node coordinates are logical viewport coordinates. Keep
-	# this fixture at 1x so the selector reaches the 640x360 production view;
-	# the shipped default remains 2x.
+	# this fixture windowed so the 1920x1080 window matches the base viewport
+	# 1:1 (CI's xvfb screen is 1920x1080, so the window never shrinks).
 	var settings_path := create_temp_dir("phoenix-settings-e2e") + "/settings.cfg"
 	var settings := ConfigFile.new()
-	settings.set_value("ui", "window_scale", 1)
+	settings.set_value("ui", "fullscreen", false)
 	assert_int(settings.save(settings_path)).is_equal(OK)
 	OS.set_environment("PHOENIX_SAVE_PATH", _save_path)
 	OS.set_environment("PHOENIX_SETTINGS_PATH", settings_path)
@@ -306,7 +306,7 @@ func _continue_seeded_game() -> Variant:
 	_seed_upgrade_save(_save_path)
 	var settings_path := create_temp_dir("phoenix-settings-e2e") + "/settings.cfg"
 	var settings := ConfigFile.new()
-	settings.set_value("ui", "window_scale", 1)
+	settings.set_value("ui", "fullscreen", false)
 	assert_int(settings.save(settings_path)).is_equal(OK)
 	OS.set_environment("PHOENIX_SAVE_PATH", _save_path)
 	OS.set_environment("PHOENIX_SETTINGS_PATH", settings_path)

@@ -61,3 +61,17 @@ static func button(control: Button, size: int = 10, selected: bool = false) -> v
 	control.add_theme_stylebox_override("disabled", panel(INSET, BORDER, 1))
 	control.add_theme_color_override("font_disabled_color", MUTED)
 	control.focus_mode = Control.FOCUS_NONE
+
+## HPA-680 stopgap: the title, result, and HUD roots are still authored for
+## the old 640x360 canvas. Pin them to that size and draw them 3x so they fill
+## the 1920x1080 base viewport until HPA-681/682 rebuild them natively; delete
+## this helper and its three call sites then.
+const LEGACY_LAYOUT_SIZE := Vector2(640, 360)
+
+static func fit_legacy_layout(root: Control) -> void:
+	root.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	root.position = Vector2.ZERO
+	root.size = LEGACY_LAYOUT_SIZE
+	root.scale = Vector2.ONE * (float(UiSettings.WINDOW_SIZE.x) / LEGACY_LAYOUT_SIZE.x)
+	# Rasterize glyphs at the scaled size so the 3x text stays sharp.
+	root.oversampling_with_scale = CanvasItem.OVERSAMPLING_WITH_SCALE_ENABLED

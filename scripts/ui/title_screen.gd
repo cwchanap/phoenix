@@ -12,6 +12,7 @@ var _continue_available := false
 var _selected_index := 0
 
 func _ready() -> void:
+    UiStyle.fit_legacy_layout(self)
     _new_game_button.pressed.connect(func() -> void: new_game_requested.emit())
     _continue_button.pressed.connect(func() -> void: continue_requested.emit())
     _style_tree(self)

@@ -14,7 +14,7 @@ func test_real_keys_navigate_pause_and_settings() -> void:
 	var save_path := create_temp_dir("phoenix-task9-save") + "/save.json"
 	var settings_path := create_temp_dir("phoenix-task9-settings") + "/settings.cfg"
 	var settings := ConfigFile.new()
-	settings.set_value("ui", "window_scale", 1)
+	settings.set_value("ui", "fullscreen", false)
 	assert_int(settings.save(settings_path)).is_equal(OK)
 	OS.set_environment("PHOENIX_SAVE_PATH", save_path)
 	OS.set_environment("PHOENIX_SETTINGS_PATH", settings_path)

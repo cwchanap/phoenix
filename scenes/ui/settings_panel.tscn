@@ -418,7 +418,7 @@ offset_left = 37.0
 offset_top = 9.0
 offset_right = 116.0
 offset_bottom = 30.0
-text = "Window scale"
+text = "Window"
 
 [node name="Options" type="Control" parent="Frame/Body/WindowRow"]
 layout_mode = 0
@@ -430,7 +430,7 @@ mouse_filter = 2
 
 [node name="Option_0" type="Panel" parent="Frame/Body/WindowRow/Options"]
 layout_mode = 0
-offset_right = 29.0
+offset_right = 44.0
 offset_bottom = 22.0
 mouse_filter = 2
 
@@ -442,75 +442,18 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-text = "1×"
+text = "1080p"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="Option_1" type="Panel" parent="Frame/Body/WindowRow/Options"]
 layout_mode = 0
-offset_left = 33.0
-offset_right = 62.0
+offset_left = 48.0
+offset_right = 92.0
 offset_bottom = 22.0
 mouse_filter = 2
 
 [node name="Label" type="Label" parent="Frame/Body/WindowRow/Options/Option_1"]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-text = "2×"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Option_2" type="Panel" parent="Frame/Body/WindowRow/Options"]
-layout_mode = 0
-offset_left = 66.0
-offset_right = 95.0
-offset_bottom = 22.0
-mouse_filter = 2
-
-[node name="Label" type="Label" parent="Frame/Body/WindowRow/Options/Option_2"]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-text = "3×"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Option_3" type="Panel" parent="Frame/Body/WindowRow/Options"]
-layout_mode = 0
-offset_left = 99.0
-offset_right = 128.0
-offset_bottom = 22.0
-mouse_filter = 2
-
-[node name="Label" type="Label" parent="Frame/Body/WindowRow/Options/Option_3"]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-text = "4×"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Option_4" type="Panel" parent="Frame/Body/WindowRow/Options"]
-layout_mode = 0
-offset_left = 132.0
-offset_right = 161.0
-offset_bottom = 22.0
-mouse_filter = 2
-
-[node name="Label" type="Label" parent="Frame/Body/WindowRow/Options/Option_4"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
