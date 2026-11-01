@@ -67,7 +67,7 @@ adjacent tile shows a contextual interaction hint (for example `Shop — E`).
 - Esc opens Controls when no blocking/closable UI owns the event.
 - Phoenix includes lightweight placeholder music/SFX.
 
-- Face Mira, Rowan, or June and press E to talk.
+- Face Sato-san, Gen-san, or Hana and press E to talk.
 - The first talk with each villager each day adds 1 relationship point.
 - Give at most one harvested crop per villager per day from the dialogue panel.
 - A normal gift adds 3 points; that villager's favourite crop adds 5 total.
@@ -178,7 +178,7 @@ boundaries, workbench yard, and an eastbound village road — using the approved
 committed art.
 
 Day 14 is the terminal day of the season. HPA-594 added the villagers and
-social systems: Mira, Rowan, and June stand at fixed cells, talking and
+social systems: Sato-san, Gen-san, and Hana stand at fixed cells, talking and
 gifting follow the relationship rules above, and `VillagerRules`/`GameSession`
 hold the frozen content and mutable relationship state. HPA-597 finished the
 content slice: the blocking introduction with contextual help, the Day 14

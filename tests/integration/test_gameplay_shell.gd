@@ -1003,7 +1003,7 @@ func test_read_only_panels_render_rules_and_only_known_calendar_weather() -> voi
     var bag := _panel(hud, "BagPanel")
     assert_eq((bag.get_node("Frame/Body/Detail/Title") as Label).text, "Turnip seeds")
     assert_eq((bag.get_node("Frame/Body/Detail/Economy") as Label).text, "20G buy · 35G sell")
-    assert_eq((bag.get_node("Frame/Body/Detail/Favourite") as Label).text, "June's favourite")
+    assert_eq((bag.get_node("Frame/Body/Detail/Favourite") as Label).text, "Hana's favourite")
     var description := bag.get_node("Frame/Body/Detail/Description") as Label
     await get_tree().process_frame
     assert_eq(description.text, "Cheapest and fastest; the latest safe planting.")
@@ -1395,7 +1395,7 @@ func test_task8_fixture_values_render_in_authored_social_and_morning_nodes() -> 
         VillagerRules.VillagerId.SHOPKEEPER,
         {
             "code": GameRules.CommandCode.VILLAGER_TALKED,
-            "lines": ["Your fields are starting to look dependable."],
+            "lines": ["You stopped asking which seeds are best. Now you ask which are right."],
             "points_gained": 1,
             "gift_reaction": &"",
             "close_friend_sequence": false,
@@ -1404,11 +1404,11 @@ func test_task8_fixture_values_render_in_authored_social_and_morning_nodes() -> 
         dialogue_snapshot,
     )
     var dialogue := _panel(hud, "DialoguePanel") as DialoguePanel
-    assert_eq((dialogue.get_node("Panel/Name") as Label).text, "Mira")
+    assert_eq((dialogue.get_node("Panel/Name") as Label).text, "Sato-san")
     assert_eq((dialogue.get_node("Panel/Relationship") as Label).text, "FRIEND  ·  13/18")
     assert_eq(
         (dialogue.get_node("Panel/Line") as Label).text,
-        "“Your fields are starting to look dependable.”",
+        "“You stopped asking which seeds are best. Now you ask which are right.”",
     )
     var gifts := dialogue.get_node("Panel/GiftButtons") as HBoxContainer
     assert_eq((gifts.get_node("Gift_0/Count") as Label).text, "7")
@@ -2003,7 +2003,7 @@ func test_villager_interaction_opens_dialogue_and_gates_world_input() -> void:
     var panel := _panel(hud, "DialoguePanel") as DialoguePanel
     assert_true(panel.visible)
     assert_false(world._world_input_enabled)
-    assert_eq((panel.get_node("Panel/Name") as Label).text, "June")
+    assert_eq((panel.get_node("Panel/Name") as Label).text, "Hana")
 
     var before := world._session.snapshot()
     world.cycle_seed()
@@ -2193,9 +2193,9 @@ func test_all_villagers_route_through_same_direct_interaction_path() -> void:
     if hud == null:
         return
     var day_one_lines := [
-        "The seed counter is open whenever you need it.",
-        "A straight row is nice, but a watered row is useful.",
-        "You will learn which corners feel familiar before long.",
+        "Seeds on the left, prices on the tags. I do not haggle.",
+        "Water first, plan later. Soil does not read spreadsheets.",
+        "I left Tokyo too. I never ask why people come out here.",
     ]
     for id in range(VillagerRules.VillagerId.size()):
         await _place_target(world, WorldContract.villager_cell(id))

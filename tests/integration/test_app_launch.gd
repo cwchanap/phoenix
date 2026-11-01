@@ -274,7 +274,7 @@ func test_continue_with_completed_finale_shows_result_screen() -> void:
     assert_eq(expected["shipped_count"], 9)
     assert_eq(expected["shipped_value"], 645)
     assert_eq(expected["tier"], &"heart_of_harvest")
-    assert_eq(expected["villager"], "June")
+    assert_eq(expected["villager"], "Hana")
     assert_eq(repository.save(completed), OK)
 
     var app := _spawn_app(repository)
@@ -288,11 +288,11 @@ func test_continue_with_completed_finale_shows_result_screen() -> void:
     var result := app.get_node("ResultScreen") as ResultScreen
     assert_true(result.visible)
     assert_eq(result.featured_villager_name(), expected["villager"])
-    assert_true((result.get_node("Panel/Card_Mira/Heart_0") as TextureRect).visible)
-    assert_true((result.get_node("Panel/Card_Mira/Heart_1") as TextureRect).visible)
-    assert_false((result.get_node("Panel/Card_Mira/Heart_2") as TextureRect).visible)
-    assert_false((result.get_node("Panel/Card_Rowan/Heart_0") as TextureRect).visible)
-    assert_true((result.get_node("Panel/Card_June/Heart_2") as TextureRect).visible)
+    assert_true((result.get_node("Panel/Card_Shopkeeper/Heart_0") as TextureRect).visible)
+    assert_true((result.get_node("Panel/Card_Shopkeeper/Heart_1") as TextureRect).visible)
+    assert_false((result.get_node("Panel/Card_Shopkeeper/Heart_2") as TextureRect).visible)
+    assert_false((result.get_node("Panel/Card_Farmer/Heart_0") as TextureRect).visible)
+    assert_true((result.get_node("Panel/Card_Resident/Heart_2") as TextureRect).visible)
     assert_eq((result.get_node("Panel/Title") as Label).text, expected["title"])
     assert_eq(
         (result.get_node("Panel/Shipped") as Label).text,
@@ -316,7 +316,7 @@ func test_continue_with_completed_finale_shows_result_screen() -> void:
             VillagerRules.RELATIONSHIP_KEYS.find(villager["level"])
         ]
         assert_eq(
-            (result.get_node("Panel/%sLine" % VillagerRules.display_name(id)) as Label).text,
+            (result.get_node("Panel/%sLine" % String(VillagerRules.villager_key(id)).capitalize()) as Label).text,
             "%s (%s): %s" % [String(villager["name"]), level_name, String(villager["line"])],
         )
     assert_eq((result.get_node("Panel/SaveStatus") as Label).text, "")

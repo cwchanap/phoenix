@@ -532,7 +532,7 @@ func test_talk_to_awards_first_point_and_repeat_is_zero() -> void:
     var mira := VillagerRules.VillagerId.SHOPKEEPER
     var first: Dictionary = session.talk_to(mira, WorldContract.villager_cell(mira))
     assert_eq(first["code"], GameRules.CommandCode.VILLAGER_TALKED)
-    assert_eq(first["lines"], ["The seed counter is open whenever you need it."])
+    assert_eq(first["lines"], ["Seeds on the left, prices on the tags. I do not haggle."])
     assert_eq(first["points_gained"], 1)
     assert_eq(first["gift_reaction"], &"")
     assert_false(first["close_friend_sequence"])
@@ -601,9 +601,9 @@ func _talk_session(day: int, rainy: bool, shipped: Array[int]) -> GameSession:
 
 func test_day_one_sunny_stranger_talk_is_literal_for_every_villager() -> void:
     var expected := [
-        "The seed counter is open whenever you need it.",
-        "A straight row is nice, but a watered row is useful.",
-        "You will learn which corners feel familiar before long.",
+        "Seeds on the left, prices on the tags. I do not haggle.",
+        "Water first, plan later. Soil does not read spreadsheets.",
+        "I left Tokyo too. I never ask why people come out here.",
     ]
     for id in range(VillagerRules.VillagerId.size()):
         var session := _talk_session(1, false, [0, 0, 0])
@@ -615,8 +615,8 @@ func test_day_one_sunny_stranger_talk_is_literal_for_every_villager() -> void:
 func test_day_twelve_rainy_settled_stranger_talk_is_literal_for_every_villager() -> void:
     var expected := [
         "The market is close. Keep some coin ready for what comes next.",
-        "Watered soil tells you what tomorrow will bring.",
-        "The village notices steady footsteps more than grand entrances.",
+        "City hands. You will learn, or the field will teach you.",
+        "Out at the old field? It is so quiet there you can hear the river.",
     ]
     for id in range(VillagerRules.VillagerId.size()):
         var session := _talk_session(12, true, [1, 0, 0])
@@ -626,7 +626,7 @@ func test_day_twelve_rainy_settled_stranger_talk_is_literal_for_every_villager()
 
 func test_only_settled_shipments_enable_shipping_flavor() -> void:
     var mira := VillagerRules.VillagerId.SHOPKEEPER
-    var no_shipment_literal := "Turnips are quick. Potatoes ask for a little more patience."
+    var no_shipment_literal := "Turnips are quick. Potatoes want patience. Pumpkins want faith."
 
     var harvested_state := _talk_session(12, true, [0, 0, 0]).state()
     harvested_state["harvested"] = {&"turnip": 2, &"potato": 0, &"pumpkin": 0}
@@ -661,7 +661,7 @@ func test_post_talk_points_select_the_friend_tier_literal() -> void:
     var mira := VillagerRules.VillagerId.SHOPKEEPER
     var result: Dictionary = session.talk_to(mira, WorldContract.villager_cell(mira))
     assert_eq(result["points_gained"], 1)
-    assert_eq(result["lines"], ["Your fields are starting to look dependable."])
+    assert_eq(result["lines"], ["You stopped asking which seeds are best. Now you ask which are right."])
     assert_eq(session.snapshot()["relationships"][&"shopkeeper"]["level"], &"friend")
 
 func test_talking_does_not_consume_weather_rng() -> void:
@@ -791,7 +791,7 @@ func test_june_reaches_close_friend_and_special_sequence_once() -> void:
     assert_false(normal["close_friend_sequence"])
     assert_eq(
         normal["lines"],
-        ["You do not look like a newcomer when you walk through town anymore."],
+        ["Whatever you left behind, you do not carry it in here anymore."],
     )
     assert_true(session.snapshot()["relationships"][&"resident"]["close_friend_dialogue_seen"])
 

@@ -200,7 +200,7 @@ mouse_filter = 2
 text = "FINAL MONEY"
 horizontal_alignment = 1
 
-[node name="Card_Mira" type="Panel" parent="Panel"]
+[node name="Card_Shopkeeper" type="Panel" parent="Panel"]
 layout_mode = 0
 offset_left = 51.0
 offset_top = 194.0
@@ -209,7 +209,7 @@ offset_bottom = 329.0
 mouse_filter = 2
 clip_contents = true
 
-[node name="PortraitClip" type="Control" parent="Panel/Card_Mira"]
+[node name="PortraitClip" type="Control" parent="Panel/Card_Shopkeeper"]
 layout_mode = 0
 offset_left = 2.0
 offset_right = 173.0
@@ -217,7 +217,7 @@ offset_bottom = 65.0
 mouse_filter = 2
 clip_contents = true
 
-[node name="Portrait" type="TextureRect" parent="Panel/Card_Mira/PortraitClip"]
+[node name="Portrait" type="TextureRect" parent="Panel/Card_Shopkeeper/PortraitClip"]
 layout_mode = 0
 offset_right = 171.0
 offset_top = -60.0
@@ -227,7 +227,7 @@ texture = ExtResource("7_mira")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="PortraitShade" type="ColorRect" parent="Panel/Card_Mira"]
+[node name="PortraitShade" type="ColorRect" parent="Panel/Card_Shopkeeper"]
 layout_mode = 0
 offset_left = 2.0
 offset_top = 65.0
@@ -236,16 +236,16 @@ offset_bottom = 133.0
 mouse_filter = 2
 color = Color(0.0784314, 0.101961, 0.141176, 1)
 
-[node name="Name" type="Label" parent="Panel/Card_Mira"]
+[node name="Name" type="Label" parent="Panel/Card_Shopkeeper"]
 layout_mode = 0
 offset_left = 9.0
 offset_top = 72.0
 offset_right = 100.0
 offset_bottom = 91.0
 mouse_filter = 2
-text = "Mira"
+text = "Sato-san"
 
-[node name="Quote" type="Label" parent="Panel/Card_Mira"]
+[node name="Quote" type="Label" parent="Panel/Card_Shopkeeper"]
 layout_mode = 0
 offset_left = 9.0
 offset_top = 88.0
@@ -255,7 +255,7 @@ mouse_filter = 2
 text = ""
 autowrap_mode = 3
 
-[node name="Heart_0" type="TextureRect" parent="Panel/Card_Mira"]
+[node name="Heart_0" type="TextureRect" parent="Panel/Card_Shopkeeper"]
 layout_mode = 0
 offset_left = 129.0
 offset_top = 73.0
@@ -266,7 +266,7 @@ texture = ExtResource("10_heart")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="HeartOutline_0" type="TextureRect" parent="Panel/Card_Mira"]
+[node name="HeartOutline_0" type="TextureRect" parent="Panel/Card_Shopkeeper"]
 layout_mode = 0
 offset_left = 129.0
 offset_top = 73.0
@@ -277,7 +277,7 @@ texture = ExtResource("11_heart_outline")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Heart_1" type="TextureRect" parent="Panel/Card_Mira"]
+[node name="Heart_1" type="TextureRect" parent="Panel/Card_Shopkeeper"]
 layout_mode = 0
 offset_left = 143.0
 offset_top = 73.0
@@ -288,7 +288,7 @@ texture = ExtResource("10_heart")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="HeartOutline_1" type="TextureRect" parent="Panel/Card_Mira"]
+[node name="HeartOutline_1" type="TextureRect" parent="Panel/Card_Shopkeeper"]
 layout_mode = 0
 offset_left = 143.0
 offset_top = 73.0
@@ -299,7 +299,7 @@ texture = ExtResource("11_heart_outline")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Heart_2" type="TextureRect" parent="Panel/Card_Mira"]
+[node name="Heart_2" type="TextureRect" parent="Panel/Card_Shopkeeper"]
 layout_mode = 0
 offset_left = 157.0
 offset_top = 73.0
@@ -310,7 +310,7 @@ texture = ExtResource("10_heart")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="HeartOutline_2" type="TextureRect" parent="Panel/Card_Mira"]
+[node name="HeartOutline_2" type="TextureRect" parent="Panel/Card_Shopkeeper"]
 layout_mode = 0
 offset_left = 157.0
 offset_top = 73.0
@@ -321,7 +321,7 @@ texture = ExtResource("11_heart_outline")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Card_Rowan" type="Panel" parent="Panel"]
+[node name="Card_Farmer" type="Panel" parent="Panel"]
 layout_mode = 0
 offset_left = 232.0
 offset_top = 194.0
@@ -330,7 +330,7 @@ offset_bottom = 329.0
 mouse_filter = 2
 clip_contents = true
 
-[node name="PortraitClip" type="Control" parent="Panel/Card_Rowan"]
+[node name="PortraitClip" type="Control" parent="Panel/Card_Farmer"]
 layout_mode = 0
 offset_left = 2.0
 offset_right = 173.0
@@ -338,7 +338,7 @@ offset_bottom = 65.0
 mouse_filter = 2
 clip_contents = true
 
-[node name="Portrait" type="TextureRect" parent="Panel/Card_Rowan/PortraitClip"]
+[node name="Portrait" type="TextureRect" parent="Panel/Card_Farmer/PortraitClip"]
 layout_mode = 0
 offset_right = 171.0
 offset_top = -55.0
@@ -348,7 +348,7 @@ texture = ExtResource("8_rowan")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="PortraitShade" type="ColorRect" parent="Panel/Card_Rowan"]
+[node name="PortraitShade" type="ColorRect" parent="Panel/Card_Farmer"]
 layout_mode = 0
 offset_left = 2.0
 offset_top = 65.0
@@ -357,16 +357,16 @@ offset_bottom = 133.0
 mouse_filter = 2
 color = Color(0.0784314, 0.101961, 0.141176, 1)
 
-[node name="Name" type="Label" parent="Panel/Card_Rowan"]
+[node name="Name" type="Label" parent="Panel/Card_Farmer"]
 layout_mode = 0
 offset_left = 9.0
 offset_top = 72.0
 offset_right = 100.0
 offset_bottom = 91.0
 mouse_filter = 2
-text = "Rowan"
+text = "Gen-san"
 
-[node name="Quote" type="Label" parent="Panel/Card_Rowan"]
+[node name="Quote" type="Label" parent="Panel/Card_Farmer"]
 layout_mode = 0
 offset_left = 9.0
 offset_top = 88.0
@@ -376,7 +376,7 @@ mouse_filter = 2
 text = ""
 autowrap_mode = 3
 
-[node name="Heart_0" type="TextureRect" parent="Panel/Card_Rowan"]
+[node name="Heart_0" type="TextureRect" parent="Panel/Card_Farmer"]
 layout_mode = 0
 offset_left = 129.0
 offset_top = 73.0
@@ -387,7 +387,7 @@ texture = ExtResource("10_heart")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="HeartOutline_0" type="TextureRect" parent="Panel/Card_Rowan"]
+[node name="HeartOutline_0" type="TextureRect" parent="Panel/Card_Farmer"]
 layout_mode = 0
 offset_left = 129.0
 offset_top = 73.0
@@ -398,7 +398,7 @@ texture = ExtResource("11_heart_outline")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Heart_1" type="TextureRect" parent="Panel/Card_Rowan"]
+[node name="Heart_1" type="TextureRect" parent="Panel/Card_Farmer"]
 layout_mode = 0
 offset_left = 143.0
 offset_top = 73.0
@@ -409,7 +409,7 @@ texture = ExtResource("10_heart")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="HeartOutline_1" type="TextureRect" parent="Panel/Card_Rowan"]
+[node name="HeartOutline_1" type="TextureRect" parent="Panel/Card_Farmer"]
 layout_mode = 0
 offset_left = 143.0
 offset_top = 73.0
@@ -420,7 +420,7 @@ texture = ExtResource("11_heart_outline")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Heart_2" type="TextureRect" parent="Panel/Card_Rowan"]
+[node name="Heart_2" type="TextureRect" parent="Panel/Card_Farmer"]
 layout_mode = 0
 offset_left = 157.0
 offset_top = 73.0
@@ -431,7 +431,7 @@ texture = ExtResource("10_heart")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="HeartOutline_2" type="TextureRect" parent="Panel/Card_Rowan"]
+[node name="HeartOutline_2" type="TextureRect" parent="Panel/Card_Farmer"]
 layout_mode = 0
 offset_left = 157.0
 offset_top = 73.0
@@ -442,7 +442,7 @@ texture = ExtResource("11_heart_outline")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Card_June" type="Panel" parent="Panel"]
+[node name="Card_Resident" type="Panel" parent="Panel"]
 layout_mode = 0
 offset_left = 413.0
 offset_top = 194.0
@@ -451,7 +451,7 @@ offset_bottom = 329.0
 mouse_filter = 2
 clip_contents = true
 
-[node name="PortraitClip" type="Control" parent="Panel/Card_June"]
+[node name="PortraitClip" type="Control" parent="Panel/Card_Resident"]
 layout_mode = 0
 offset_left = 2.0
 offset_right = 174.0
@@ -459,7 +459,7 @@ offset_bottom = 65.0
 mouse_filter = 2
 clip_contents = true
 
-[node name="Portrait" type="TextureRect" parent="Panel/Card_June/PortraitClip"]
+[node name="Portrait" type="TextureRect" parent="Panel/Card_Resident/PortraitClip"]
 layout_mode = 0
 offset_right = 172.0
 offset_top = -59.0
@@ -469,7 +469,7 @@ texture = ExtResource("9_june")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="PortraitShade" type="ColorRect" parent="Panel/Card_June"]
+[node name="PortraitShade" type="ColorRect" parent="Panel/Card_Resident"]
 layout_mode = 0
 offset_left = 2.0
 offset_top = 65.0
@@ -478,16 +478,16 @@ offset_bottom = 133.0
 mouse_filter = 2
 color = Color(0.0784314, 0.101961, 0.141176, 1)
 
-[node name="Name" type="Label" parent="Panel/Card_June"]
+[node name="Name" type="Label" parent="Panel/Card_Resident"]
 layout_mode = 0
 offset_left = 9.0
 offset_top = 72.0
 offset_right = 100.0
 offset_bottom = 91.0
 mouse_filter = 2
-text = "June"
+text = "Hana"
 
-[node name="Quote" type="Label" parent="Panel/Card_June"]
+[node name="Quote" type="Label" parent="Panel/Card_Resident"]
 layout_mode = 0
 offset_left = 9.0
 offset_top = 88.0
@@ -497,7 +497,7 @@ mouse_filter = 2
 text = ""
 autowrap_mode = 3
 
-[node name="Heart_0" type="TextureRect" parent="Panel/Card_June"]
+[node name="Heart_0" type="TextureRect" parent="Panel/Card_Resident"]
 layout_mode = 0
 offset_left = 130.0
 offset_top = 73.0
@@ -508,7 +508,7 @@ texture = ExtResource("10_heart")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="HeartOutline_0" type="TextureRect" parent="Panel/Card_June"]
+[node name="HeartOutline_0" type="TextureRect" parent="Panel/Card_Resident"]
 layout_mode = 0
 offset_left = 130.0
 offset_top = 73.0
@@ -519,7 +519,7 @@ texture = ExtResource("11_heart_outline")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Heart_1" type="TextureRect" parent="Panel/Card_June"]
+[node name="Heart_1" type="TextureRect" parent="Panel/Card_Resident"]
 layout_mode = 0
 offset_left = 144.0
 offset_top = 73.0
@@ -530,7 +530,7 @@ texture = ExtResource("10_heart")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="HeartOutline_1" type="TextureRect" parent="Panel/Card_June"]
+[node name="HeartOutline_1" type="TextureRect" parent="Panel/Card_Resident"]
 layout_mode = 0
 offset_left = 144.0
 offset_top = 73.0
@@ -541,7 +541,7 @@ texture = ExtResource("11_heart_outline")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Heart_2" type="TextureRect" parent="Panel/Card_June"]
+[node name="Heart_2" type="TextureRect" parent="Panel/Card_Resident"]
 layout_mode = 0
 offset_left = 158.0
 offset_top = 73.0
@@ -552,7 +552,7 @@ texture = ExtResource("10_heart")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="HeartOutline_2" type="TextureRect" parent="Panel/Card_June"]
+[node name="HeartOutline_2" type="TextureRect" parent="Panel/Card_Resident"]
 layout_mode = 0
 offset_left = 158.0
 offset_top = 73.0
@@ -563,34 +563,34 @@ texture = ExtResource("11_heart_outline")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="MiraLine" type="Label" parent="Panel"]
+[node name="ShopkeeperLine" type="Label" parent="Panel"]
 layout_mode = 0
 offset_left = 60.0
 offset_top = 282.0
 offset_right = 217.0
 offset_bottom = 316.0
 mouse_filter = 2
-text = "Mira (Stranger):"
+text = "Sato-san (Stranger):"
 autowrap_mode = 3
 
-[node name="RowanLine" type="Label" parent="Panel"]
+[node name="FarmerLine" type="Label" parent="Panel"]
 layout_mode = 0
 offset_left = 241.0
 offset_top = 282.0
 offset_right = 398.0
 offset_bottom = 316.0
 mouse_filter = 2
-text = "Rowan (Stranger):"
+text = "Gen-san (Stranger):"
 autowrap_mode = 3
 
-[node name="JuneLine" type="Label" parent="Panel"]
+[node name="ResidentLine" type="Label" parent="Panel"]
 layout_mode = 0
 offset_left = 422.0
 offset_top = 282.0
 offset_right = 580.0
 offset_bottom = 316.0
 mouse_filter = 2
-text = "June (Stranger):"
+text = "Hana (Stranger):"
 autowrap_mode = 3
 
 [node name="Shipped" type="Label" parent="Panel"]
