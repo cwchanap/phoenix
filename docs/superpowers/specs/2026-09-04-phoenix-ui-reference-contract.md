@@ -3,6 +3,8 @@
 Date: 2026-09-04
 Status: Normative companion to `2026-09-04-phoenix-ui-redesign-design.md`
 
+> **Superseded by PR #29 (2026-11-01).** The screenshot-golden gate is gone: `tools/verify-visual.sh`, `tests/visual/goldens/`, `design-reference/`, `plates/`, and the macOS visual CI job were removed. UI changes are reviewed by eye in the running game. Kept for history only.
+
 This document freezes the visual fixtures, comparison surfaces, asset names, and verification roles before implementation. It deliberately separates **design approval** from **machine regression** so the browser mock is never treated as a pixel-identical output of Godot.
 
 ## Two-tier visual contract
