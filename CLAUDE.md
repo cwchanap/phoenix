@@ -83,7 +83,9 @@ There is no JavaScript or Tauri runtime in the current checkout.
   and `toast_text()` are the test seams. Only refusals (codes that play
   CANCEL_SFX) raise the red toast, the last `HudRoot` child so it shows over
   modals; successes show no HUD text.
-- `UiStyle` is the City Pop design system: the mockup's tokens, rounded
+- `UiStyle` is the City Pop design system: the mockup's tokens plus one
+  hue per HUD widget (night clock card, mint stamina, pink money, blue
+  market, green bin, per-crop seed card, coloured keycaps), rounded
   `card()` styleboxes with shadows, `gradient_surface()` (a rounded box
   masking a GradientTexture2D via `clip_children`; Godot does not nest
   clips, so keep gradient surfaces out of another clip parent), `keycap()`,

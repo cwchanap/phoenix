@@ -21,10 +21,22 @@ const WARN := Color("fff1cf")
 const WARN_INK := Color("7a4d00")
 const BAD := Color("ff4b4b")
 const SHADOW := Color(10.0 / 255.0, 10.0 / 255.0, 30.0 / 255.0, 0.25)
+# Widget hues: each HUD piece owns one so the HUD reads as many colours,
+# not white cards with pink dots.
+const NIGHT := Color("2a1b47")
+const VIOLET := Color("8c5cff")
+const BLUE := Color("2f7bff")
+const ORANGE := Color("ff8a2a")
+const MINT := Color("e6fbef")
+const MINT_TRACK := Color("c3eed6")
+const LEAF_DEEP := Color("0a7f50")
+const BAD_SOFT := Color("ffe9e9")
+const BAD_TRACK := Color("ffcfcf")
 # "Selected" or "do it": one gradient pill per screen.
 const ACCENT_GRADIENT: Array[Color] = [ACCENT, Color("ff8a2a")]
 const HEADER_GRADIENT: Array[Color] = [ACCENT, Color("ff7a3a"), Color("ffb02e")]
 const STAMINA_GRADIENT: Array[Color] = [LEAF_LIGHT, LEAF]
+const FIELDWORK_GRADIENT: Array[Color] = [ACCENT_2, VIOLET]
 const PILL_RADIUS := 999
 
 # Legacy dark palette, still used by the 640x360 modal panels until HPA-682
@@ -104,6 +116,12 @@ static func card(
 		result.shadow_offset = Vector2(0, 8)
 	return result
 
+## Adds a solid border to a card() stylebox and returns it.
+static func outlined(box: StyleBoxFlat, color: Color, width: int = 3) -> StyleBoxFlat:
+	box.border_color = color
+	box.set_border_width_all(width)
+	return box
+
 ## A left-to-right gradient strip with evenly spaced stops.
 static func gradient_texture(colors: Array[Color]) -> GradientTexture2D:
 	var gradient := Gradient.new()
@@ -147,8 +165,9 @@ static func gradient_surface(colors: Array[Color], radius: int = PILL_RADIUS, pa
 	)
 	return result
 
-## A keycap: white with a heavier bottom edge, or the accent gradient.
-static func keycap(key_text: String, small: bool = false, accent: bool = false) -> PanelContainer:
+## A keycap: white with a heavier bottom edge, the accent gradient, or a
+## solid `tint` with a darker bottom edge.
+static func keycap(key_text: String, small: bool = false, accent: bool = false, tint := Color.TRANSPARENT) -> PanelContainer:
 	var height := 30 if small else 38
 	var side := 7 if small else 10
 	var radius := 8 if small else 10
@@ -156,15 +175,17 @@ static func keycap(key_text: String, small: bool = false, accent: bool = false) 
 	if accent:
 		result = gradient_surface(ACCENT_GRADIENT, radius, [side, 0, side, 0])
 	else:
+		var tinted := tint.a > 0.0
 		result = PanelContainer.new()
-		var box := card(CARD, radius, [side, 0, side, 0], false)
-		box.border_color = LINE
-		box.set_border_width_all(2)
+		var box := card(tint if tinted else CARD, radius, [side, 0, side, 0], false)
+		box.border_color = tint.darkened(0.25) if tinted else LINE
+		box.set_border_width_all(0 if tinted else 2)
 		box.border_width_bottom = 4
 		result.add_theme_stylebox_override("panel", box)
 	result.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	result.custom_minimum_size = Vector2(height, height)
-	var caption := label(key_text, 14 if small else 17, CARD if accent else INK, 800)
+	var light := accent or tint.a > 0.0
+	var caption := label(key_text, 14 if small else 17, CARD if light else INK, 800)
 	caption.name = "Key"
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
