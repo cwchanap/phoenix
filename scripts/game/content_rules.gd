@@ -32,7 +32,7 @@ const TUTORIALS: Array[Dictionary] = [
     {
         "id": &"talk",
         "title": "Meet the village",
-        "body": "Face Mira, Rowan, or June and press E to talk.",
+        "body": "Face Sato-san, Gen-san, or Hana and press E to talk.",
         "completed_by": GameRules.CommandCode.VILLAGER_TALKED,
     },
     {

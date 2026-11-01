@@ -282,7 +282,7 @@ func test_harvest_result_titles_and_closest_villager_summary() -> void:
 
     # The strongest relationship names the closest-villager summary.
     var result := _result_for([0, 0, 0], [0, 0, VillagerRules.CLOSE_FRIEND_POINTS])
-    assert_eq(result["villager"], "June")
+    assert_eq(result["villager"], "Hana")
 
 func test_harvest_result_carries_every_villager_level_and_line() -> void:
     # Mixed final levels: one Close Friend, one Friend, one Stranger.

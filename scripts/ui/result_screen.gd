@@ -38,9 +38,9 @@ func present(result: Dictionary, save_error: int = OK) -> void:
     var villagers: Dictionary = result["villagers"]
     for id in range(VillagerRules.VillagerId.size()):
         var villager: Dictionary = villagers[VillagerRules.villager_key(id)]
-        var name := VillagerRules.display_name(id)
-        var card := $Panel.get_node("Card_%s" % name) as Panel
-        var line := $Panel.get_node("%sLine" % name) as Label
+        var node_key := String(VillagerRules.villager_key(id)).capitalize()
+        var card := $Panel.get_node("Card_%s" % node_key) as Panel
+        var line := $Panel.get_node("%sLine" % node_key) as Label
         var level_key := StringName(villager["level"])
         var level := VillagerRules.RELATIONSHIP_KEYS.find(level_key)
         line.text = "%s (%s): %s" % [
@@ -105,10 +105,11 @@ func _apply_style() -> void:
     UiStyle.text($Panel/Money as Label, 1, Color.TRANSPARENT)
     UiStyle.text($Panel/Relationship as Label, 1, Color.TRANSPARENT)
     UiStyle.text($Panel/SaveStatus as Label, 8, UiStyle.RED, 600)
-    for name in ["Mira", "Rowan", "June"]:
-        var card := $Panel.get_node("Card_%s" % name) as Panel
+    for key in VillagerRules.VILLAGER_KEYS:
+        var node_key := String(key).capitalize()
+        var card := $Panel.get_node("Card_%s" % node_key) as Panel
         UiStyle.text(card.get_node("Name") as Label, 11, UiStyle.CREAM, 800)
-        UiStyle.text($Panel.get_node("%sLine" % name) as Label, 8, UiStyle.MUTED, 400)
+        UiStyle.text($Panel.get_node("%sLine" % node_key) as Label, 8, UiStyle.MUTED, 400)
         UiStyle.text(card.get_node("Quote") as Label, 9, UiStyle.TEXT, 400)
     for button in [$Panel/NewGame as Button, $Panel/ReturnToTitle as Button]:
         UiStyle.button(button, 9, true)

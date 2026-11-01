@@ -112,7 +112,7 @@ offset_left = 57.0
 offset_top = 9.0
 offset_right = 132.0
 offset_bottom = 23.0
-text = "MIRA"
+text = "SATO-SAN"
 
 [node name="Guide" type="Label" parent="OpeningPanel/MiraCard"]
 

@@ -4,6 +4,9 @@ extends Control
 signal gift_requested(villager_id: int, crop_kind: int)
 signal close_requested
 
+# Portrait art per VillagerId slot; placeholder art until the new-cast portraits land.
+const PORTRAIT_NAMES: Array[String] = ["mira-full", "rowan", "june"]
+
 var _villager_id := -1
 var _lines: Array[String] = []
 var _line_index := 0
@@ -55,11 +58,7 @@ func _render() -> void:
     var name_label := $Panel/Name as Label
     var role_label := $Panel/Role as Label
     var relationship_label := $Panel/Relationship as Label
-    var portrait_name := (
-        "mira-full"
-        if _villager_id == VillagerRules.VillagerId.SHOPKEEPER
-        else VillagerRules.display_name(_villager_id).to_lower()
-    )
+    var portrait_name: String = PORTRAIT_NAMES[_villager_id]
     var portrait := $Portrait as TextureRect
     portrait.texture = load(
         "res://assets/ui/portraits/%s.png" % portrait_name

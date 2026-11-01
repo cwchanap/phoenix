@@ -815,7 +815,7 @@ offset_left = 25.0
 offset_top = 201.0
 offset_right = 178.0
 offset_bottom = 219.0
-text = "June's favourite"
+text = "Hana's favourite"
 
 [node name="FavouriteIcon" type="TextureRect" parent="Frame/Body/Detail"]
 layout_mode = 0

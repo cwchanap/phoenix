@@ -3,86 +3,69 @@ extends GutTest
 const EXPECTED_NORMAL_DIALOGUE: Array = [
     [
         [
-            "The seed counter is open whenever you need it.",
-            "Turnips are quick. Potatoes ask for a little more patience.",
-            "Buy only the seeds you have time to water.",
+            "Seeds on the left, prices on the tags. I do not haggle.",
+            "Turnips are quick. Potatoes want patience. Pumpkins want faith.",
+            "Buy only what you can water. The field will not wait for you.",
         ],
         [
-            "Your fields are starting to look dependable.",
-            "You are planning your seed money better now.",
-            "A mixed crop shelf keeps the counter interesting.",
+            "You stopped asking which seeds are best. Now you ask which are right.",
+            "Your tab is in my ledger. Paper never crashes, you know.",
+            "A mixed shelf keeps the counter interesting. So do you.",
         ],
         [
-            "You have made this little farm part of the village.",
-            "You know what your fields can afford now.",
-            "I save the better seed lots when I know you will stop by.",
-        ],
-    ],
-    [
-        [
-            "Watered soil tells you what tomorrow will bring.",
-            "A straight row is nice, but a watered row is useful.",
-            "Do the work you can finish before dusk.",
-        ],
-        [
-            "Your rows are getting cleaner every day.",
-            "You move through the field with less wasted effort now.",
-            "A few well-kept plots beat a field you cannot tend.",
-        ],
-        [
-            "I would trust you with a field of my own.",
-            "You have learned when to push and when to leave the soil alone.",
-            "Your farm has your rhythm in it now.",
+            "I set the good seed lots aside for you now. Do not tell Gen-san.",
+            "You know what that field can afford. Most people take years.",
+            "The shop feels busier on the days your truck is outside.",
         ],
     ],
     [
         [
-            "It is quieter here than the road makes it look.",
-            "The village notices steady footsteps more than grand entrances.",
-            "You will learn which corners feel familiar before long.",
+            "City hands. You will learn, or the field will teach you.",
+            "Water first, plan later. Soil does not read spreadsheets.",
+            "Do the work you can finish before dark. Then go to bed.",
         ],
         [
-            "I keep seeing you around. I like that.",
-            "It is nice seeing your farm light up another part of the road.",
-            "People say your farm now, not the old farm.",
+            "Your rows are straighter. Not straight. Straighter.",
+            "You waste fewer steps now. The field notices that.",
+            "A few good plots beat a big field you cannot keep.",
         ],
         [
-            "The village feels more like home with you here.",
-            "You do not look like a newcomer when you walk through town anymore.",
+            "I would trust you with my own field. Do not make me regret it.",
+            "You learned when to push and when to leave the soil alone.",
+            "That old field has your rhythm in it now.",
+        ],
+    ],
+    [
+        [
+            "Coffee is strong here and the trains are slow. You get used to both.",
+            "Out at the old field? It is so quiet there you can hear the river.",
+            "I left Tokyo too. I never ask why people come out here.",
+        ],
+        [
+            "Your usual seat was free. I kept it that way, a little.",
+            "You look less like you are waiting for a phone to buzz.",
+            "People in town say your farm now, not the old field.",
+        ],
+        [
+            "Town feels more like home with you around.",
+            "Whatever you left behind, you do not carry it in here anymore.",
             "Some places become home one ordinary day at a time.",
         ],
     ],
 ]
-const EXPECTED_HPA_595_SLOT_ZERO: Array = [
-    [
-        "The seed counter is open whenever you need it.",
-        "Your fields are starting to look dependable.",
-        "You have made this little farm part of the village.",
-    ],
-    [
-        "Watered soil tells you what tomorrow will bring.",
-        "Your rows are getting cleaner every day.",
-        "I would trust you with a field of my own.",
-    ],
-    [
-        "It is quieter here than the road makes it look.",
-        "I keep seeing you around. I like that.",
-        "The village feels more like home with you here.",
-    ],
-]
 const EXPECTED_RAINY_DIALOGUE: Array = [
-    "Rain saves you a watering round. Good day to plan the next planting.",
-    "Let the rain do its share. Save your strength for the rest.",
-    "Rain pulls the village closer. Everyone listens to the same roofs.",
+    "Rain day. Let the sky water and come plan your next planting.",
+    "Let the rain do its share. Save your back for tomorrow.",
+    "Rainy days fill every seat in here. Everyone listens to the same roof.",
 ]
 const EXPECTED_SHIPPED_DIALOGUE: Array = [
-    "Produce has left your farm now. Growing and selling are different skills.",
-    "You have sent real harvest out now. That means the farm is working.",
-    "Your produce is going out now. The farm touches more than your own day.",
+    "Your produce has gone out. Growing and selling are different skills.",
+    "You sold real harvest. Now that field is a farm.",
+    "I heard your produce made it into town. That is how people learn a name.",
 ]
 const EXPECTED_MARKET_DIALOGUE: Array = [
     "The market is close. Keep some coin ready for what comes next.",
-    "The market is close. Finish what will be ready before you plant more.",
+    "Market soon. Finish what will be ready before you plant more.",
     "The market is almost here. You will see who noticed your season.",
 ]
 
@@ -100,11 +83,11 @@ func test_identity_favourites_and_policy_are_exact() -> void:
     ]:
         assert_eq(table.size(), VillagerRules.VillagerId.size())
 
-    assert_eq(VillagerRules.display_name(VillagerRules.VillagerId.SHOPKEEPER), "Mira")
+    assert_eq(VillagerRules.display_name(VillagerRules.VillagerId.SHOPKEEPER), "Sato-san")
     assert_eq(VillagerRules.favourite_crop(VillagerRules.VillagerId.SHOPKEEPER), GameRules.CropKind.POTATO)
-    assert_eq(VillagerRules.display_name(VillagerRules.VillagerId.FARMER), "Rowan")
+    assert_eq(VillagerRules.display_name(VillagerRules.VillagerId.FARMER), "Gen-san")
     assert_eq(VillagerRules.favourite_crop(VillagerRules.VillagerId.FARMER), GameRules.CropKind.PUMPKIN)
-    assert_eq(VillagerRules.display_name(VillagerRules.VillagerId.RESIDENT), "June")
+    assert_eq(VillagerRules.display_name(VillagerRules.VillagerId.RESIDENT), "Hana")
     assert_eq(VillagerRules.favourite_crop(VillagerRules.VillagerId.RESIDENT), GameRules.CropKind.TURNIP)
 
     assert_eq(VillagerRules.TALK_POINTS, 1)
@@ -122,48 +105,40 @@ func test_normal_dialogue_table_shape_and_content_are_exact() -> void:
         for level in range(VillagerRules.RelationshipLevel.size()):
             assert_eq(VillagerRules.NORMAL_DIALOGUE[id][level].size(), 3)
 
-func test_existing_hpa_595_lines_stay_in_slot_zero() -> void:
-    for id in range(VillagerRules.VillagerId.size()):
-        for level in range(VillagerRules.RelationshipLevel.size()):
-            assert_eq(
-                VillagerRules.NORMAL_DIALOGUE[id][level][0],
-                EXPECTED_HPA_595_SLOT_ZERO[id][level],
-            )
-
 func test_contextual_tables_and_market_start_are_exact() -> void:
     assert_eq(VillagerRules.MARKET_DIALOGUE_START_DAY, 12)
     assert_eq(VillagerRules.RAINY_DIALOGUE, EXPECTED_RAINY_DIALOGUE)
     assert_eq(VillagerRules.SHIPPED_DIALOGUE, EXPECTED_SHIPPED_DIALOGUE)
     assert_eq(VillagerRules.MARKET_DIALOGUE, EXPECTED_MARKET_DIALOGUE)
 
-func test_gift_close_friend_and_finale_content_is_unchanged() -> void:
+func test_gift_close_friend_and_finale_content_is_exact() -> void:
     var expected := [
         {
             "id": VillagerRules.VillagerId.SHOPKEEPER,
             "special": [
-                "You kept showing up, even on the slow days.",
-                "The harvest market will feel different with you there.",
+                "You kept driving in, even on the slow days.",
+                "The harvest market will feel different with you behind a stall.",
             ],
-            "normal_gift": "A useful harvest. Thank you.",
+            "normal_gift": "Good produce. I will note it in the ledger. Thank you.",
             "favourite_gift": "Potatoes? You remembered.",
         },
         {
             "id": VillagerRules.VillagerId.FARMER,
             "special": [
-                "I noticed when the farm stopped looking neglected.",
-                "You earned that change one ordinary day at a time.",
+                "I watched that field sit empty for ten years.",
+                "You brought it back one ordinary day at a time.",
             ],
-            "normal_gift": "Good produce. I can use this.",
-            "favourite_gift": "A pumpkin this good is hard to ignore.",
+            "normal_gift": "Hm. Decent. I can use this.",
+            "favourite_gift": "A pumpkin like this is hard to argue with.",
         },
         {
             "id": VillagerRules.VillagerId.RESIDENT,
             "special": [
-                "You came here as the new farmer, but that is not how I think of you now.",
+                "You came here as the Tokyo guy. That is not how I think of you now.",
                 "You are one of us.",
             ],
-            "normal_gift": "That is kind of you.",
-            "favourite_gift": "Turnips are my favourite. Perfect choice.",
+            "normal_gift": "For me? That is kind of you.",
+            "favourite_gift": "Turnips! My favourite. Perfect choice.",
         },
     ]
 
