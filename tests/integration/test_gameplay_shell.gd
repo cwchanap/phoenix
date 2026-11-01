@@ -207,13 +207,13 @@ func test_clock_card_and_stamina_pill_render_the_snapshot() -> void:
     hud.render(snapshot)
     assert_eq((body.get_node("Row/Clock") as Label).text, "14:00")
     assert_eq((body.get_node("Row/Meta/DayTag/DayRow/Day") as Label).text, "Day 3")
-    assert_eq((body.get_node("Row/Meta/Weather/Label") as Label).text, "Sunny")
+    assert_eq((body.get_node("Row/Meta/Weather/Row/Label") as Label).text, "Sunny")
     assert_eq((body.get_node("Fieldwork/Label") as Label).text, "Fieldwork until 22:00")
     assert_almost_eq(fieldwork.ratio, 0.5, 0.001)
-    assert_false(_fill_is(fieldwork, UiStyle.SUN), "before 18:00 the bar keeps the accent")
+    assert_false(_fill_is(fieldwork, UiStyle.SUN), "before 18:00 the bar keeps its own hue")
     assert_almost_eq(stamina.ratio, 0.7, 0.001)
     assert_eq(stamina_value.text, "14")
-    assert_eq(stamina_value.get_theme_color("font_color"), UiStyle.INK)
+    assert_eq(stamina_value.get_theme_color("font_color"), UiStyle.LEAF_DEEP)
     assert_eq((chrome.get_node("TopRight/Money/Row/Value") as Label).text, "150G")
 
     snapshot["time_minutes"] = 18 * 60 + 40
@@ -223,7 +223,7 @@ func test_clock_card_and_stamina_pill_render_the_snapshot() -> void:
     assert_true(_fill_is(fieldwork, UiStyle.SUN), "late in the day the bar turns amber")
     assert_true(_fill_is(stamina, UiStyle.BAD), "low stamina turns red")
     assert_eq(stamina_value.get_theme_color("font_color"), UiStyle.BAD)
-    assert_eq((body.get_node("Row/Meta/Weather/Label") as Label).text, "Rainy")
+    assert_eq((body.get_node("Row/Meta/Weather/Row/Label") as Label).text, "Rainy")
 
 func _fill_is(bar: HudChrome.Bar, color: Color) -> bool:
     var texture := (bar.fill.get_node("Gradient") as TextureRect).texture as GradientTexture2D
