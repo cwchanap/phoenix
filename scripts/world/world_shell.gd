@@ -121,11 +121,10 @@ func _process(delta: float) -> void:
     if not _world_input_enabled:
         player.set_target_tint(PlayerController.TargetTint.NEUTRAL)
         farm_view.set_target_cell(null)
-        hud.set_interaction_hint("")
+        hud.hide_prompt()
         return
 
     var preview: Dictionary = _session.preview_target_action(target)
-    hud.set_target_action(preview["action"])
     if _advance_action_hold(delta, target, preview):
         return
     farm_view.set_target_cell(target)
@@ -139,32 +138,45 @@ func _process(delta: float) -> void:
         and preview["action"] != _action_hold_action
     ):
         player.set_target_tint(PlayerController.TargetTint.NEUTRAL)
-        hud.set_interaction_hint("")
+        hud.hide_prompt()
         return
     if FARM_ACTION_SUCCESS_CODES.has(preview["code"]):
         player.set_target_tint(PlayerController.TargetTint.VALID)
-        hud.set_interaction_hint(hud.farming_preview_text(preview))
+        hud.show_farming_prompt(_prompt_anchor(target), preview)
         return
     if preview["code"] != GameRules.CommandCode.NO_TARGET and preview["code"] != GameRules.CommandCode.NOT_FARM_CELL:
         player.set_target_tint(PlayerController.TargetTint.INVALID)
-        hud.set_interaction_hint(hud.feedback_text(preview["code"]))
+        hud.show_blocked_prompt(_prompt_anchor(target), preview)
         return
 
     player.set_target_tint(PlayerController.TargetTint.NEUTRAL)
-    # Continue into the existing villager/shop/bed/shipping/market/empty hint chain.
+    # Continue into the existing villager/shop/bed/shipping/market/empty prompt chain.
+    var label := _interact_label(target)
+    if label == "":
+        hud.hide_prompt()
+    else:
+        hud.show_interact_prompt(_prompt_anchor(target), label)
+
+func _interact_label(target: Variant) -> String:
+    if target == null:
+        return ""
     var villager_id := WorldContract.villager_at(target)
     if villager_id >= 0:
-        hud.set_interaction_hint(tr("%s — E") % tr(VillagerRules.display_name(villager_id)))
-    elif target == WorldContract.SHOP_CELL:
-        hud.set_interaction_hint("Shop — E")
-    elif target == WorldContract.BED_CELL:
-        hud.set_interaction_hint("Bed — E")
-    elif target == WorldContract.SHIPPING_CELL:
-        hud.set_interaction_hint("Shipping — E")
-    elif target == WorldContract.MARKET_CELL:
-        hud.set_interaction_hint("Harvest Market — E")
-    else:
-        hud.set_interaction_hint("")
+        return VillagerRules.display_name(villager_id)
+    match target:
+        WorldContract.SHOP_CELL:
+            return "Shop"
+        WorldContract.BED_CELL:
+            return "Bed"
+        WorldContract.SHIPPING_CELL:
+            return "Shipping"
+        WorldContract.MARKET_CELL:
+            return "Harvest Market"
+    return ""
+
+## The target cell's centre in HUD (screen) coordinates.
+func _prompt_anchor(cell: Vector2i) -> Vector2:
+    return get_viewport().get_canvas_transform() * WorldMath.grid_to_world(Vector2(cell) + Vector2(0.5, 0.5))
 
 func _advance_passive_clock(delta: float) -> void:
     if not _world_input_enabled or delta <= 0.0:
@@ -192,7 +204,6 @@ func _refresh_world_input_gate() -> void:
     _world_input_enabled = not _finale_in_progress and not hud.has_blocking_modal()
     if not _world_input_enabled:
         _cancel_action_hold()
-        hud.set_target_action(null)
     player.set_input_enabled(_world_input_enabled)
 
 func cycle_seed() -> void:

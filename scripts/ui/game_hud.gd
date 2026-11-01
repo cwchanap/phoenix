@@ -26,8 +26,15 @@ const FARM_PLANT_SFX := preload("res://assets/audio/farm-plant.wav")
 const FARM_WATER_SFX := preload("res://assets/audio/farm-water.wav")
 const FARM_HARVEST_SFX := preload("res://assets/audio/farm-harvest.wav")
 const COMMERCE_SFX := preload("res://assets/audio/commerce.wav")
-const WATERING_CAN_ICON := preload("res://assets/ui/icons/watering-can.png")
+const ACTION_ICONS: Array[Texture2D] = [
+    preload("res://assets/ui/icons/hoe.png"),
+    preload("res://assets/ui/icons/seeds.png"),
+    preload("res://assets/ui/icons/watering-can.png"),
+    preload("res://assets/ui/icons/hands.png"),
+]
 const WATERING_CAN_EFFICIENT_ICON := preload("res://assets/ui/icons/watering-can-efficient.png")
+const WARNING_ICON := preload("res://assets/ui/icons/warning.png")
+const TOAST_SECONDS := 2.5
 const SOCIAL_SFX := preload("res://assets/audio/social.wav")
 const CONFIRM_SFX := preload("res://assets/audio/confirm.wav")
 const CANCEL_SFX := preload("res://assets/audio/cancel.wav")
@@ -51,19 +58,10 @@ const SETTINGS_SCENE := preload("res://scenes/ui/settings_panel.tscn")
 
 var _root: Control
 var _weather_tint: ColorRect
-var _interaction_hint: Label
-var _feedback: Label
-var _day_value_label: Label
-var _day_max_label: Label
-var _time_value_label: Label
-var _weather_value_label: Label
-var _market_label: Label
-var _money_value_label: Label
-var _bag_value_label: Label
-var _pending_value_label: Label
-var _seed_action_badge: Label
-var _feedback_panel: Panel
-var _stamina_pips: Array[ColorRect] = []
+var _chrome: HudChrome
+var _toast: Control
+var _toast_label: Label
+var _toast_timer: Timer
 var _shop_panel: ShopPanel
 var _shipping_panel: ShippingPanel
 var _bag_panel: BagPanel
@@ -76,10 +74,6 @@ var _morning_summary_panel: MorningSummaryPanel
 var _pause_panel: PausePanel
 var _settings_panel: SettingsPanel
 var _day14_sleep_boundary: Label
-var _objective_label: Label
-var _action_buttons: Array[Button] = []
-var _seed_buttons: Array[Button] = []
-var _seed_count_labels: Array[Label] = []
 var _sfx_player: AudioStreamPlayer
 var _music_player: AudioStreamPlayer
 var _river_ambience_player: AudioStreamPlayer
@@ -89,14 +83,15 @@ var _last_snapshot: Dictionary = {}
 var _finale_in_progress := false
 var _primary_modals: Array[Control] = []
 var _esc_close_order: Array[Dictionary] = []
-var _target_action: Variant = null
-var _selected_seed: StringName = GameRules.crop_key(GameRules.CropKind.TURNIP)
 
 func _ready() -> void:
     _root = $HudRoot as Control
-    UiStyle.fit_legacy_layout(_root)
-    _build_always_visible_hud()
+    _weather_tint = $HudRoot/WeatherTint as ColorRect
+    _chrome = HudChrome.new()
+    _root.add_child(_chrome)
+    _chrome.seed_card_pressed.connect(_on_seed_card_pressed)
     _build_modals()
+    _build_toast()
     _primary_modals = [
         _shop_panel,
         _shipping_panel,
@@ -122,7 +117,6 @@ func _ready() -> void:
     ]
     _build_audio()
     apply_settings()
-    modal_state_changed.connect(_update_toggle_enabled)
 
 func configure(settings: UiSettings = null) -> void:
     if settings != null:
@@ -184,46 +178,8 @@ func render(snapshot: Dictionary) -> void:
             _rain_ambience_player.play()
     elif _rain_ambience_player.playing or _rain_ambience_player.stream_paused:
         _rain_ambience_player.stop()
-    _time_value_label.text = GameRules.format_time(int(snapshot["time_minutes"]))
-    _day_value_label.text = "%d" % int(snapshot["day"])
-    _day_max_label.text = "/%d" % GameRules.MAX_DAY
-    _weather_value_label.text = tr(_display_weather(snapshot["weather"])).to_upper()
-    _market_label.text = (
-        "HARVEST MARKET TODAY"
-        if int(snapshot["day"]) >= GameRules.MAX_DAY
-        else tr("HARVEST MARKET IN %d") % (GameRules.MAX_DAY - int(snapshot["day"]))
-    )
-    _money_value_label.text = "%d" % int(snapshot["money"])
-    for index in _stamina_pips.size():
-        _stamina_pips[index].color = UiStyle.GREEN if index < int(snapshot["stamina"]) else Color("22301c")
-
-    _selected_seed = snapshot["selected_seed"]
-    _refresh_seed_selection()
-    ($HudRoot.get_node("Action_2/Icon") as TextureRect).texture = (
-        WATERING_CAN_EFFICIENT_ICON
-        if snapshot["watering_can_upgraded"]
-        else WATERING_CAN_ICON
-    )
-
-    var seeds: Dictionary = snapshot["seeds"]
-    var harvested: Dictionary = snapshot["harvested"]
-    var pending: Dictionary = snapshot["pending_shipment"]
-    var pending_total := 0
-    var harvested_total := 0
-    for kind in range(GameRules.CropKind.size()):
-        var key := GameRules.crop_key(kind)
-        _seed_count_labels[kind].text = "%d" % int(seeds.get(key, 0))
-        pending_total += int(pending.get(key, 0))
-        harvested_total += int(harvested.get(key, 0))
-    _bag_value_label.text = "%d" % harvested_total
-    _pending_value_label.text = "%d" % pending_total
-    _seed_action_badge.text = "×%d" % int(seeds.get(_selected_seed, 0))
-
+    _chrome.render(snapshot)
     var day := int(snapshot["day"])
-    if day >= GameRules.MAX_DAY:
-        _objective_label.text = "Harvest Market today — ship crops first, then visit the village path stall."
-    else:
-        _objective_label.text = tr("Harvest Market: Day 14 · %d days left") % (GameRules.MAX_DAY - day)
     _day14_sleep_boundary.text = (
         "Day 14 — this ends the season and settles the bin."
         if day == GameRules.MAX_DAY
@@ -253,8 +209,46 @@ func set_finale_in_progress(value: bool) -> void:
 func set_save_status(status: StringName, message: String = "") -> void:
     _morning_summary_panel.set_save_status(status, message)
 
-func set_interaction_hint(text: String) -> void:
-    _interaction_hint.text = text
+## Floating prompts over the target cell; `anchor` is the cell centre in
+## screen coordinates. WorldShell picks the prompt; the HUD owns the copy.
+func show_farming_prompt(anchor: Vector2, preview: Dictionary) -> void:
+    var action: GameRules.FarmingAction = preview["action"]
+    var crop_suffix := ""
+    if preview["crop"] != null:
+        crop_suffix = " %s" % tr(GameRules.crop_display_name(preview["crop"]))
+    _chrome.show_prompt(
+        anchor,
+        "Space",
+        action_icon(action),
+        tr(FARMING_PREVIEW_VERBS[action]) + crop_suffix,
+        tr("· %d stamina") % int(preview["cost"]["stamina"]),
+    )
+
+func show_blocked_prompt(anchor: Vector2, preview: Dictionary) -> void:
+    var icon: Texture2D = null if preview["action"] == null else action_icon(preview["action"])
+    _chrome.show_prompt(anchor, "", icon, tr(feedback_text(preview["code"])), "", true)
+
+func show_interact_prompt(anchor: Vector2, label: String) -> void:
+    _chrome.show_prompt(anchor, "E", null, tr(label))
+
+func hide_prompt() -> void:
+    _chrome.hide_prompt()
+
+func prompt_text() -> String:
+    return _chrome.prompt_text()
+
+func prompt_icon() -> Texture2D:
+    return _chrome.prompt_icon()
+
+## The tool icon for a farming action; the Efficient Can once owned.
+func action_icon(action: GameRules.FarmingAction) -> Texture2D:
+    if action == GameRules.FarmingAction.WATERING_CAN and _last_snapshot.get("watering_can_upgraded", false):
+        return WATERING_CAN_EFFICIENT_ICON
+    return ACTION_ICONS[action]
+
+## The refusal toast's text, or "" when no toast is showing.
+func toast_text() -> String:
+    return _toast_label.text if _toast.visible else ""
 
 func open_shop() -> void:
     if _open_modal(_shop_panel):
@@ -335,47 +329,29 @@ func close_settings() -> void:
     # sees an unblocked state between the nested surfaces.
     open_pause()
 
-func farming_preview_text(preview: Dictionary) -> String:
-    var action: GameRules.FarmingAction = preview["action"]
-    var crop_suffix := ""
-    if preview["crop"] != null:
-        crop_suffix = " %s" % tr(GameRules.crop_display_name(preview["crop"]))
-    return tr("Space — %s%s · %d stamina") % [
-        tr(FARMING_PREVIEW_VERBS[action]),
-        crop_suffix,
-        int(preview["cost"]["stamina"]),
-    ]
-
-func set_target_action(action: Variant) -> void:
-    if action == _target_action:
-        return
-    _target_action = action
-    _refresh_target_action()
-
+## Refusal copy for the toast and blocked prompts. Successes have none: the
+## world shows them (farm FX, the panels, the session snapshot).
 func feedback_text(code: GameRules.CommandCode) -> String:
     match code:
-        GameRules.CommandCode.SEED_SELECTED:
-            return "Seed selected."
-        GameRules.CommandCode.SOIL_TILLED:
-            return "Soil tilled."
-        GameRules.CommandCode.CROP_PLANTED:
-            return "Crop planted."
-        GameRules.CommandCode.CROP_WATERED:
-            return "Crop watered."
-        GameRules.CommandCode.CROP_HARVESTED:
-            return "Crop harvested."
-        GameRules.CommandCode.SEEDS_PURCHASED:
-            return "Seeds purchased."
-        GameRules.CommandCode.WATERING_CAN_UPGRADED:
-            return "Watering can upgraded."
+        GameRules.CommandCode.SEED_SELECTED, \
+        GameRules.CommandCode.SOIL_TILLED, \
+        GameRules.CommandCode.CROP_PLANTED, \
+        GameRules.CommandCode.CROP_WATERED, \
+        GameRules.CommandCode.CROP_HARVESTED, \
+        GameRules.CommandCode.SEEDS_PURCHASED, \
+        GameRules.CommandCode.WATERING_CAN_UPGRADED, \
+        GameRules.CommandCode.CROP_DEPOSITED, \
+        GameRules.CommandCode.DAY_ADVANCED, \
+        GameRules.CommandCode.DAY_STARTED, \
+        GameRules.CommandCode.VILLAGER_TALKED, \
+        GameRules.CommandCode.CROP_GIFTED, \
+        GameRules.CommandCode.INTRO_ACKNOWLEDGED, \
+        GameRules.CommandCode.INTRO_ALREADY_ACKNOWLEDGED, \
+        GameRules.CommandCode.FINALE_TRIGGERED, \
+        GameRules.CommandCode.FINALE_ALREADY_TRIGGERED:
+            return ""
         GameRules.CommandCode.WATERING_CAN_ALREADY_UPGRADED:
             return "Watering can is already upgraded."
-        GameRules.CommandCode.CROP_DEPOSITED:
-            return "Crop deposited."
-        GameRules.CommandCode.DAY_ADVANCED:
-            return "Day advanced."
-        GameRules.CommandCode.DAY_STARTED:
-            return "Morning acknowledged."
         GameRules.CommandCode.NO_TARGET:
             return "No target."
         GameRules.CommandCode.NOT_FARM_CELL:
@@ -420,36 +396,27 @@ func feedback_text(code: GameRules.CommandCode) -> String:
             return "No morning summary."
         GameRules.CommandCode.NOTHING_TO_INTERACT:
             return "Nothing to interact with."
-        GameRules.CommandCode.VILLAGER_TALKED:
-            return "Talked to villager."
-        GameRules.CommandCode.CROP_GIFTED:
-            return "Gift given."
         GameRules.CommandCode.NOT_AT_VILLAGER:
             return "Stand at the villager."
         GameRules.CommandCode.GIFT_ALREADY_GIVEN:
             return "Gift already given today."
-        GameRules.CommandCode.INTRO_ACKNOWLEDGED, \
-        GameRules.CommandCode.INTRO_ALREADY_ACKNOWLEDGED:
-            return ""
-        GameRules.CommandCode.FINALE_TRIGGERED:
-            return "Harvest finale complete."
         GameRules.CommandCode.MARKET_NOT_READY:
             return "The Harvest Market opens on Day 14."
         GameRules.CommandCode.NOT_AT_MARKET:
             return "Stand at the Harvest Market."
-        GameRules.CommandCode.FINALE_ALREADY_TRIGGERED:
-            return "The harvest finale is already complete."
         _:
             assert(false, "unmapped command feedback: %s" % code)
             return ""
 
+## Refusals raise one red toast; any other result clears a stale one.
 func show_feedback(code: GameRules.CommandCode) -> void:
     var text := feedback_text(code)
     if text != "":
-        _feedback.text = text
-        var tutorial_visible: bool = $HudRoot/OnboardingOverlay/TutorialCard.visible
-        _feedback_panel.visible = not tutorial_visible
-        _feedback.visible = not tutorial_visible
+        _toast_label.text = text
+        _toast.visible = true
+        _toast_timer.start(TOAST_SECONDS)
+    else:
+        _toast.visible = false
     var sfx := _sfx_for_code(code)
     if sfx != null:
         _play_sfx(sfx)
@@ -525,108 +492,36 @@ func _play_sfx(stream: AudioStream) -> void:
     _sfx_player.stream = stream
     _sfx_player.play()
 
-func _build_always_visible_hud() -> void:
-    _weather_tint = $HudRoot/WeatherTint as ColorRect
-    _day_value_label = $HudRoot/TopBar/DayValue as Label
-    _day_max_label = $HudRoot/TopBar/DayMax as Label
-    _time_value_label = $HudRoot/TopBar/TimeValue as Label
-    _weather_value_label = $HudRoot/TopBar/WeatherValue as Label
-    _market_label = $HudRoot/TopBar/MarketPanel/Market as Label
-    _money_value_label = $HudRoot/TopBar/MoneyValue as Label
-    _stamina_pips.clear()
-    for index in 20:
-        _stamina_pips.append($HudRoot/TopBar.get_node("StaminaPip_%02d" % index) as ColorRect)
-
-    _interaction_hint = $HudRoot/InteractionHint as Label
-    _feedback = $HudRoot/Feedback as Label
-    _feedback_panel = $HudRoot/FeedbackPanel as Panel
-    _bag_value_label = $HudRoot/ResourceStrip/BagPanel/BagValue as Label
-    _pending_value_label = $HudRoot/ResourceStrip/PendingPanel/PendingValue as Label
-    _seed_action_badge = $HudRoot/Action_1/Badge as Label
-    _objective_label = $HudRoot/Objective as Label
-    _seed_count_labels.clear()
-    _action_buttons.clear()
-    _seed_buttons.clear()
-    for action in 4:
-        var action_button := $HudRoot.get_node("Action_%d" % action) as Button
-        action_button.toggle_mode = true
-        action_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        action_button.focus_mode = Control.FOCUS_NONE
-        _action_buttons.append(action_button)
-    for kind in range(GameRules.CropKind.size()):
-        var seed_button := $HudRoot.get_node("Seed_%d" % kind) as Button
-        seed_button.toggle_mode = true
-        seed_button.focus_mode = Control.FOCUS_NONE
-        seed_button.pressed.connect(_on_seed_button_pressed.bind(kind))
-        _seed_buttons.append(seed_button)
-        _seed_count_labels.append(seed_button.get_node("Count") as Label)
-
-    _style_authored_tree(_root)
-    _apply_authored_hud_style()
-    _refresh_target_action()
-    _feedback_panel.visible = false
-    _feedback.visible = false
-
-func _style_authored_tree(node: Node) -> void:
-    for child in node.get_children():
-        if child is Label:
-            UiStyle.text(child as Label)
-        elif child is Button:
-            UiStyle.button(child as Button)
-        _style_authored_tree(child)
-
-func _apply_authored_hud_style() -> void:
-    for panel_path in ["TopBar", "TopBar/MarketPanel", "FeedbackPanel", "Hotbar", "ResourceStrip/BagPanel", "ResourceStrip/PendingPanel"]:
-        var panel := $HudRoot.get_node(panel_path) as Panel
-        panel.add_theme_stylebox_override("panel", UiStyle.panel(UiStyle.PRIMARY, UiStyle.BORDER, 1))
-    _feedback_panel.add_theme_stylebox_override("panel", UiStyle.panel(UiStyle.HEADER, UiStyle.BORDER, 1))
-    var topbar := $HudRoot/TopBar as Control
-    UiStyle.text(topbar.get_node("DayCaption") as Label, 8, UiStyle.MUTED, 700)
-    UiStyle.text(_day_value_label, 14, UiStyle.CREAM, 800)
-    UiStyle.text(_day_max_label, 9, UiStyle.MUTED, 600)
-    UiStyle.text(_time_value_label, 12, UiStyle.CREAM, 700, true)
-    UiStyle.text(_weather_value_label, 10, UiStyle.CREAM, 700)
-    UiStyle.text(_market_label, 9, UiStyle.GOLD, 700)
-    UiStyle.text($HudRoot/TopBar/StaminaCaption as Label, 7, UiStyle.MUTED, 700)
-    UiStyle.text(_money_value_label, 14, UiStyle.GOLD, 800, true)
-    UiStyle.text($HudRoot/TopBar/MoneySuffix as Label, 9, UiStyle.MUTED, 700)
-    UiStyle.text($HudRoot/ResourceStrip/BagPanel/BagCaption as Label, 8, UiStyle.MUTED, 600)
-    UiStyle.text(_bag_value_label, 8, UiStyle.CREAM, 700)
-    UiStyle.text($HudRoot/ResourceStrip/PendingPanel/PendingCaption as Label, 8, UiStyle.MUTED, 600)
-    UiStyle.text(_pending_value_label, 8, UiStyle.CREAM, 700)
-    UiStyle.button($HudRoot/ResourceStrip/BagPanel/BagKey as Button, 8)
-    UiStyle.text(_interaction_hint, 9, UiStyle.GOLD, 700)
-    _interaction_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-    UiStyle.text($HudRoot/SeedCycleHint as Label, 8, UiStyle.MUTED, 700)
-    UiStyle.text($HudRoot/Hotbar/TillLabel as Label, 9, UiStyle.CREAM, 700)
-    UiStyle.text($HudRoot/Hotbar/ShopLabel as Label, 9, UiStyle.CREAM, 700)
-    UiStyle.button($HudRoot/Hotbar/SpaceKey as Button, 9, true)
-    UiStyle.button($HudRoot/Hotbar/InteractKey as Button, 9)
-    for action in _action_buttons.size():
-        UiStyle.button(_action_buttons[action], 8)
-        UiStyle.text(_action_buttons[action].get_node("Name") as Label, 8, UiStyle.TEXT, 600)
-    var keycap := _action_buttons[1].get_node("Keycap") as Button
-    UiStyle.button(keycap, 8)
-    keycap.add_theme_stylebox_override("normal", UiStyle.panel(UiStyle.INSET, UiStyle.BORDER_LIGHT, 1))
-    UiStyle.text(_action_buttons[1].get_node("Key") as Label, 8, UiStyle.GOLD, 700)
-    UiStyle.text(_seed_action_badge, 8, UiStyle.GOLD, 700)
-    for seed in _seed_buttons.size():
-        UiStyle.button(_seed_buttons[seed], 8)
-        UiStyle.text(_seed_buttons[seed].get_node("Key") as Label, 8, UiStyle.GOLD, 700)
-        UiStyle.text(_seed_count_labels[seed], 8, UiStyle.TEXT, 700)
-    for separator_path in [
-        "TopBar/DaySeparator",
-        "TopBar/StatsSeparator",
-        "TopBar/MoneySeparator",
-        "Hotbar/ActionDivider",
-        "Hotbar/SeedDivider",
-    ]:
-        ($HudRoot.get_node(separator_path) as ColorRect).color = UiStyle.BORDER
-    ($HudRoot/TopBar/TimeRule as ColorRect).color = UiStyle.BORDER
-    ($HudRoot/TopBar/MarketPanel as Panel).add_theme_stylebox_override(
-        "panel",
-        UiStyle.panel(UiStyle.PRIMARY, UiStyle.GOLD, 1),
-    )
+func _build_toast() -> void:
+    # Last HudRoot child, so a refusal inside a modal (the shop's "Not enough
+    # money.") still shows above the panel.
+    _toast = UiStyle.hbox(0)
+    _toast.name = "Toast"
+    _toast.alignment = BoxContainer.ALIGNMENT_CENTER
+    _toast.anchor_left = 0.0
+    _toast.anchor_right = 1.0
+    _toast.anchor_top = 1.0
+    _toast.anchor_bottom = 1.0
+    _toast.offset_bottom = -150.0
+    _toast.offset_top = -150.0
+    _toast.grow_vertical = Control.GROW_DIRECTION_BEGIN
+    _toast.visible = false
+    _root.add_child(_toast)
+    var pill := PanelContainer.new()
+    pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    pill.add_theme_stylebox_override("panel", UiStyle.card(UiStyle.BAD, UiStyle.PILL_RADIUS, [12, 10, 22, 10]))
+    _toast.add_child(pill)
+    var row := UiStyle.hbox(10)
+    pill.add_child(row)
+    row.add_child(UiStyle.icon(WARNING_ICON))
+    _toast_label = UiStyle.label("", 20, UiStyle.CARD, 800)
+    _toast_label.name = "Label"
+    row.add_child(_toast_label)
+    _toast_timer = Timer.new()
+    _toast_timer.name = "ToastTimer"
+    _toast_timer.one_shot = true
+    _toast_timer.timeout.connect(func() -> void: _toast.visible = false)
+    add_child(_toast_timer)
 
 func _build_modals() -> void:
     _onboarding_overlay = ONBOARDING_SCENE.instantiate() as OnboardingOverlay
@@ -683,6 +578,19 @@ func _build_modals() -> void:
     _settings_panel = SETTINGS_SCENE.instantiate() as SettingsPanel
     _root.add_child(_settings_panel)
     _settings_panel.settings_changed.connect(_on_settings_changed)
+    for panel: Control in [
+        _shop_panel,
+        _shipping_panel,
+        _bag_panel,
+        _almanac_panel,
+        _calendar_panel,
+        _sleep_panel,
+        _morning_summary_panel,
+        _dialogue_panel,
+        _pause_panel,
+        _settings_panel,
+    ]:
+        UiStyle.fit_legacy_layout(panel)
     _shop_panel.visible = false
     _shipping_panel.visible = false
     _bag_panel.visible = false
@@ -704,29 +612,12 @@ func _on_settings_changed(_error: int) -> void:
     # (e.g. Settings) is open; re-reconcile so the card stays hidden under it.
     _reconcile_modal_presentation()
 
-func _on_seed_button_pressed(kind: int) -> void:
-    select_seed_requested.emit(kind)
-
-func _refresh_target_action() -> void:
-    for action in _action_buttons.size():
-        var selected: bool = _target_action != null and int(_target_action) == action
-        _action_buttons[action].button_pressed = selected
-        _action_buttons[action].modulate = Color(1.0, 0.9, 0.45) if selected else Color.WHITE
-        var name_label := _action_buttons[action].get_node("Name") as Label
-        UiStyle.text(name_label, 8, UiStyle.GOLD if selected else UiStyle.TEXT, 700 if selected else 600)
-        name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-
-func _refresh_seed_selection() -> void:
-    for kind in _seed_buttons.size():
-        var selected: bool = GameRules.crop_key(kind) == _selected_seed
-        _seed_buttons[kind].button_pressed = selected
-        _seed_buttons[kind].modulate = Color(1.0, 0.9, 0.45) if selected else Color.WHITE
-        _seed_buttons[kind].tooltip_text = GameRules.crop_display_name(kind)
-
-func _update_toggle_enabled() -> void:
-    var blocked := has_blocking_modal()
-    for button in _seed_buttons:
-        button.disabled = blocked
+## Clicking the seed card advances the seed like the `2` key does.
+func _on_seed_card_pressed() -> void:
+    if _last_snapshot.is_empty():
+        return
+    var kind := GameRules.CROP_KEYS.find(_last_snapshot["selected_seed"])
+    select_seed_requested.emit((kind + 1) % GameRules.CropKind.size())
 
 func _set_morning_summary_visible(is_visible: bool) -> void:
     var was_visible := _morning_summary_panel.visible
@@ -779,23 +670,7 @@ func _close_modal(panel: Control) -> void:
     modal_state_changed.emit()
 
 func _set_hud_chrome_visible(is_visible: bool) -> void:
-    for node_path in [
-        "TopBar",
-        "ResourceStrip",
-        "Hotbar",
-        "Action_0",
-        "Action_1",
-        "Action_2",
-        "Action_3",
-        "Seed_0",
-        "Seed_1",
-        "Seed_2",
-        "SeedCycleHint",
-    ]:
-        ($HudRoot.get_node(node_path) as Control).visible = is_visible
-
-func _display_weather(key: Variant) -> String:
-    return "Rainy" if key == GameRules.weather_key(GameRules.Weather.RAINY) else "Sunny"
+    _chrome.visible = is_visible
 
 func _unhandled_input(event: InputEvent) -> void:
     if event.is_action_pressed("toggle_bag"):

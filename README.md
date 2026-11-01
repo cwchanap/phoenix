@@ -132,8 +132,9 @@ observed the designed behavior end to end on a build that predates the
 pre-seeding flag only — human subjective pacing and an unlocked-desktop
 window-focus check remain open before the rate is final.
 
-The season runs 14 days and the HUD objective counts down to the Day 14
-harvest market. Only crops deposited in the shipping bin count toward the
+The season runs 14 days and the HUD's MARKET pill counts down to the Day 14
+harvest market; a Bin pill shows tomorrow's payout while the shipping bin is
+loaded. Only crops deposited in the shipping bin count toward the
 farming result — harvested crops still carried in hand do not. On Day 14,
 pressing E at the harvest market finishes the run; sleeping that night is
 the fallback route that finishes it instead. The result is one of three

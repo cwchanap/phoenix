@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://c8ngudidfbtxg"
-path="res://.godot/imported/open-sans-variable.ttf-b2a6f1b9237f4b1e65a99db4f0e949a9.fontdata"
+uid="uid://bgh6heksdpudy"
+path="res://.godot/imported/m-plus-1-variable.ttf-9b2fdf0d3572bff5f87d68659226f26b.fontdata"
 
 [deps]
 
-source_file="res://assets/ui/fonts/open-sans-variable.ttf"
-dest_files=["res://.godot/imported/open-sans-variable.ttf-b2a6f1b9237f4b1e65a99db4f0e949a9.fontdata"]
+source_file="res://assets/ui/fonts/m-plus-1-variable.ttf"
+dest_files=["res://.godot/imported/m-plus-1-variable.ttf-9b2fdf0d3572bff5f87d68659226f26b.fontdata"]
 
 [params]
 
@@ -31,6 +31,8 @@ fallbacks=[]
 Compress=null
 compress=true
 preload=[]
-language_support={}
+language_support={
+"zh": false
+}
 script_support={}
 opentype_features={}

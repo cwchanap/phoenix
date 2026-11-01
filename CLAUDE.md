@@ -72,6 +72,23 @@ There is no JavaScript or Tauri runtime in the current checkout.
 - `scripts/ui/game_hud.gd` and `scenes/ui/game_hud.tscn` own presentation and
   modal state only. The HUD emits request signals and renders snapshots; it
   never touches `GameSession`.
+- HPA-681 City Pop HUD: `HudRoot` is native 1920x1080. `HudChrome`
+  (`scripts/ui/hud_chrome.gd`, code-built as `HudRoot/Chrome`) draws the
+  clock card, stamina pill, money/MARKET/Bin pills, the floating target
+  prompt, the seed card, and the key pills; it owns no gameplay state and
+  hides under modals. WorldShell picks the prompt per frame
+  (`show_farming_prompt`/`show_blocked_prompt`/`show_interact_prompt`/
+  `hide_prompt`) and passes the target cell centre in screen coordinates;
+  GameHud owns the copy. `prompt_text()`, `prompt_icon()`, `action_icon()`,
+  and `toast_text()` are the test seams. Only refusals (codes that play
+  CANCEL_SFX) raise the red toast, the last `HudRoot` child so it shows over
+  modals; successes show no HUD text.
+- `UiStyle` is the City Pop design system: the mockup's tokens, rounded
+  `card()` styleboxes with shadows, `gradient_surface()` (a rounded box
+  masking a GradientTexture2D via `clip_children`; Godot does not nest
+  clips, so keep gradient surfaces out of another clip parent), `keycap()`,
+  `pin()`, and `SlantTag`. One font, M PLUS 1, with the Noto JP/TC
+  fallbacks.
 - DialoguePanel owns transient line/focus/gift-choice presentation only.
 - OnboardingOverlay is code-built under `GameHud` (like DialoguePanel) and
   forwards opening/tutorial visibility through the existing
@@ -130,9 +147,10 @@ There is no JavaScript or Tauri runtime in the current checkout.
   the same commit. `tests/unit/test_localisation.gd` checks that every CSV
   row has both translations and that rules-table strings are translated; it
   does not detect UI strings missing from the CSV, so add those by hand.
-  `UiStyle.font()` adds Noto Sans JP/TC fallbacks whose import settings
-  exclude `zh`/`ja` respectively, so shared Han code points render in the
-  face matching the locale.
+  `UiStyle.font()` is M PLUS 1 with Noto Sans JP/TC fallbacks; M PLUS 1 and
+  Noto Sans JP exclude `zh` and Noto Sans TC excludes `ja` in their import
+  settings, so zh_TW Han text renders in Noto Sans TC and Japanese keeps
+  Japanese glyph forms.
 - GameSession.state()/restore_state() own mutable-state export and canonical restore; SessionStateValidator.state_error() owns all persisted-state validation; snapshot() remains the view read model.
 - WorldShell remains the only live production session holder and synchronously writes once after successful overnight advancement.
 - Player position/facing/camera/UI state remain transient/authored.
@@ -174,9 +192,10 @@ The project renders at a single 1080p: a `1920x1080` base viewport with
 nearest filtering, and a minimum `960x540` window (`UiSettings`). The world
 Camera2D zooms by `WorldContract.CAMERA_ZOOM` (`3`), so the camera still frames
 a `640x360` world view and one art pixel is `3x3` screen pixels; a higher-res
-art set changes only that constant. Until HPA-681/682 rebuild them natively,
-the 640x360-authored title, result, and HUD roots draw at 3x through
-`UiStyle.fit_legacy_layout()` (HPA-680 stopgap).
+art set changes only that constant. The gameplay HUD is native (HPA-681);
+until HPA-682 rebuilds them, the 640x360-authored title, result, modal
+panels (`fit_legacy_layout()` per panel), and intro card
+(`fit_legacy_control()`) draw at 3x (HPA-680 stopgap).
 
 ## Current boundary
 

@@ -203,15 +203,16 @@ func test_duplicate_sleep_during_finale_does_not_restart_cue() -> void:
     # First sleep on Day 14 triggers the finale and starts the cue.
     world.hud.sleep_requested.emit()
     assert_eq(repository.save_calls, 1)
-    var feedback := world.hud.get_node("HudRoot/Feedback") as Label
-    assert_eq(feedback.text, "Harvest finale complete.")
+    var sfx := world.hud.get_node("SfxPlayer") as AudioStreamPlayer
+    assert_eq(sfx.stream.resource_path, "res://assets/audio/finale.wav")
     # The sleep confirmation modal stays open during the cue, so a duplicate
     # sleep request can still reach _on_sleep_requested. It must be ignored:
     # without the guard it would resolve to FINALE_ALREADY_TRIGGERED, whose
-    # show_feedback() restarts FINALE_SFX and cuts the original cue (and the
-    # feedback text would flip to "The harvest finale is already complete.").
+    # show_feedback() restarts FINALE_SFX and cuts the original cue. Clearing
+    # the stream makes any second _play_sfx() observable.
+    sfx.stream = null
     world.hud.sleep_requested.emit()
-    assert_eq(feedback.text, "Harvest finale complete.")
+    assert_null(sfx.stream, "a duplicate sleep must not restart the finale cue")
     assert_eq(repository.save_calls, 1)
     await _await_world_teardown(app)
 

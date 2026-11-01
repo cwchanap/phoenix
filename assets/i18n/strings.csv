@@ -151,40 +151,17 @@ Continue,繼續,つづける
 Close,關閉,閉じる
 DAY,天數,日目
 PENDING,待入帳,入金待ち
-ACTIONS,操作,操作
 WORK,工作,作業
 SHOP,商店,店
 INTERACT,互動,調べる
-SHOP · BED · BIN,商店 · 床 · 出貨箱,店 · ベッド · 出荷箱
 HOE,鋤頭,クワ
 WATER,澆水,水やり
 HANDS,雙手,素手
-2 CYCLES SEED,按 2 切換種子,2 で種を切替
 Till soil,翻土,耕す
 Plant,播種,種まき
 Water,澆水,水やり
-HARVEST MARKET TODAY,今天是豐收市集,今日は収穫市
-HARVEST MARKET IN %d,距離豐收市集 %d 天,収穫市まであと %d 日
-"Harvest Market today — ship crops first, then visit the village path stall.",今天是豐收市集——先出貨，再去村路旁的攤位。,今日は収穫市——先に作物を出荷してから、村道の屋台へ行こう。
-Harvest Market: Day 14 · %d days left,豐收市集：第 14 天 · 還剩 %d 天,収穫市：14日目 · あと %d 日
 Day 14 — this ends the season and settles the bin.,第 14 天——這會結束本季並結算出貨箱。,14日目——これでシーズンが終わり、出荷箱が精算される。
-Space — %s%s · %d stamina,空白鍵 — %s%s · 體力 %d,スペース — %s%s · スタミナ %d
-Shop — E,商店 — E,店 — E
-Bed — E,床 — E,ベッド — E
-Shipping — E,出貨箱 — E,出荷箱 — E
-Harvest Market — E,豐收市集 — E,収穫市 — E
-%s — E,%s — E,%s — E
-Seed selected.,已選擇種子。,種を選んだ。
-Soil tilled.,翻好土了。,土を耕した。
-Crop planted.,種下作物了。,作物を植えた。
-Crop watered.,澆好水了。,水をやった。
-Crop harvested.,收成了作物。,作物を収穫した。
-Seeds purchased.,買好種子了。,種を買った。
-Watering can upgraded.,澆水壺升級了。,じょうろをアップグレードした。
 Watering can is already upgraded.,澆水壺已經升級過了。,じょうろはもうアップグレード済み。
-Crop deposited.,作物已放進出貨箱。,作物を出荷箱に入れた。
-Day advanced.,新的一天開始了。,次の日になった。
-Morning acknowledged.,早晨確認完畢。,朝の確認を終えた。
 No target.,沒有目標。,対象がない。
 That is not a farm cell.,那裡不是田地。,そこは畑ではない。
 Soil is already tilled.,土已經翻好了。,土はもう耕してある。
@@ -207,14 +184,10 @@ Rain is watering the crops.,雨水正在幫作物澆水。,雨が作物に水を
 Acknowledge the morning summary first.,請先確認早晨摘要。,先に朝のまとめを確認しよう。
 No morning summary.,沒有早晨摘要。,朝のまとめはない。
 Nothing to interact with.,這裡沒有可以互動的東西。,調べられるものがない。
-Talked to villager.,和村民聊過了。,村人と話した。
-Gift given.,送出禮物了。,贈り物をした。
 Stand at the villager.,請站到村民旁邊。,村人の前に立とう。
 Gift already given today.,今天已經送過禮物了。,今日はもう贈り物をした。
-Harvest finale complete.,豐收結局完成。,収穫のフィナーレが終わった。
 The Harvest Market opens on Day 14.,豐收市集在第 14 天開張。,収穫市は14日目に開かれる。
 Stand at the Harvest Market.,請站到豐收市集前。,収穫市の前に立とう。
-The harvest finale is already complete.,豐收結局已經完成了。,収穫のフィナーレはもう終わっている。
 Save failed — this morning is not persisted.,存檔失敗——今天早上的進度沒有保存。,セーブ失敗——今朝の進行は保存されていない。
 CROPS GREW,作物成長,作物が成長
 RAINY,雨天,雨
@@ -288,3 +261,24 @@ Sleep until morning?,要睡到早上嗎？,朝まで眠りますか？
 SLEEP,睡覺,眠る
 not yet,還不要,まだ
 Godot 4.7.1 · 1080p,Godot 4.7.1 · 1080p,Godot 4.7.1 · 1080p
+Day %d,第 %d 天,%d日目
+Fieldwork until %s,田間工作到 %s,畑仕事は %s まで
+in %d days,還有 %d 天,あと %d 日
+tomorrow,明天,明日
+today,今天,今日
+"today — ship crops, then visit the stall",今天——先出貨，再去攤位,今日——出荷してから屋台へ
+Bin,出貨箱,出荷箱
+Space,空白鍵,スペース
+· %d stamina,· 體力 %d,· スタミナ %d
+Shop,商店,店
+Bed,床,ベッド
+Shipping,出貨箱,出荷箱
+Harvest Market,豐收市集,収穫市
+switch,切換,切替
+Bag,背包,かばん
+Almanac,圖鑑,図鑑
+Calendar,行事曆,カレンダー
+Phone,手機,スマホ
+TIP,提示,ヒント
+now,現在,今
+dismiss,關閉,閉じる

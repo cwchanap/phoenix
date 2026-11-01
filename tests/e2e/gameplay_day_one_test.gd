@@ -4,15 +4,14 @@
 extends GdUnitE2ETestSuite
 
 const WORLD := "/root/AppRoot/World"
-const HUD := WORLD + "/GameHud/HudRoot"
+const GAME_HUD := WORLD + "/GameHud"
+const HUD := GAME_HUD + "/HudRoot"
+const CHROME := HUD + "/Chrome"
+const DAY := CHROME + "/ClockCard/Surface/Body/Row/Meta/DayTag/DayRow/Day"
+const STAMINA := CHROME + "/Stamina/Row/Numbers/Value"
 const PLAYER := WORLD + "/Entities/Player"
 const UP := WorldMath.Facing.UP
 const RIGHT := WorldMath.Facing.RIGHT
-
-# The redesigned HUD renders stamina as 20 pips under TopBar: a pip is lit
-# (green, g≈0.75) when its index < stamina and dark (g≈0.19) otherwise.
-# 0.5 cleanly separates the two states.
-const STAMINA_LIT_THRESHOLD := 0.5
 
 # Save path the child is told to write via PHOENIX_SAVE_PATH. Kept so the
 # sleep test can assert the file actually exists, pinning the isolation
@@ -46,23 +45,15 @@ func _start_new_game() -> Variant:
 	).is_true()
 	assert_bool(await game.input_action("ui_accept", true)).is_true()
 	assert_bool(await game.input_action("ui_accept", false)).is_true()
-	assert_bool(await game.wait_for_property(HUD + "/TopBar/DayValue", "text", "1", 10.0)).is_true()
+	assert_bool(await game.wait_for_property(DAY, "text", "Day 1", 10.0)).is_true()
 	return game
 
 
-# The redesigned HUD shows stamina as 20 lit/dark pips rather than a text
-# label. Verify the pip at index (expected-1) is lit and, when expected < 20,
-# the pip at index expected is dark.
+# The stamina pill shows "N / 20"; its Value label carries N.
 func _assert_stamina(game, expected: int) -> void:
-	var lit: Color = await game.get_property(
-		HUD + "/TopBar/StaminaPip_%02d" % (expected - 1), "color"
-	)
-	assert_float(lit.g).is_greater(STAMINA_LIT_THRESHOLD)
-	if expected < 20:
-		var dark: Color = await game.get_property(
-			HUD + "/TopBar/StaminaPip_%02d" % expected, "color"
-		)
-		assert_float(dark.g).is_less(STAMINA_LIT_THRESHOLD)
+	assert_bool(
+		await game.wait_for_property(STAMINA, "text", "%d" % expected, 5.0)
+	).is_true()
 
 
 # Stand at a grid position with a facing so current_target_cell() resolves
@@ -91,14 +82,14 @@ func _crop_path(cell: Vector2i) -> String:
 	return WORLD + "/Entities/FarmCrop_%d_%d" % [cell.x, cell.y]
 
 
-func _use_action(game, feedback: String) -> void:
+# Successes raise no HUD text (only refusals toast), so each caller asserts
+# the world change itself; a refusal toast here means the action failed.
+func _use_action(game) -> void:
 	# use_target_action returns void; transport errors surface via is_failure().
 	await game.call_method(WORLD, "use_target_action")
 	if is_failure():
 		return
-	assert_bool(
-		await game.wait_for_property(HUD + "/Feedback", "text", feedback, 5.0)
-	).is_true()
+	assert_str(await game.call_method(GAME_HUD, "toast_text")).is_equal("")
 
 
 func test_day_one_farming_loop_and_sleep() -> void:
@@ -114,18 +105,19 @@ func test_day_one_farming_loop_and_sleep() -> void:
 	var crop_path := WORLD + "/Entities/FarmCrop_%d_%d" % [farm_cell.x, farm_cell.y]
 	await _stand_at_target(game, farm_cell, UP)
 	assert_bool(await game.get_property(soil_path, "visible")).is_false()
-	await _use_action(game, "Soil tilled.")
-	assert_bool(await game.get_property(soil_path, "visible")).is_true()
+	await _use_action(game)
+	assert_bool(await game.wait_for_property(soil_path, "visible", true, 5.0)).is_true()
 	assert_bool(
 		await game.get_property(crop_path + "/Sprite2D", "visible")
 	).is_false()
-	await _use_action(game, "Crop planted.")
+	await _use_action(game)
 	assert_bool(
-		await game.get_property(crop_path + "/Sprite2D", "visible")
+		await game.wait_for_property(crop_path + "/Sprite2D", "visible", true, 5.0)
 	).is_true()
-	await _use_action(game, "Crop watered.")
+	await _use_action(game)
 	if is_failure():
 		return
+	assert_int(int(await game.get_property(soil_path, "frame"))).is_equal(1)
 	await _assert_stamina(game, 14)
 
 	# Walk-free trip to the contract bed cell: interact, confirm, acknowledge.
@@ -137,7 +129,7 @@ func test_day_one_farming_loop_and_sleep() -> void:
 		await game.wait_for_property(HUD + "/SleepPanel", "visible", true, 5.0)
 	).is_true()
 	assert_bool(await game.click_node(HUD + "/SleepPanel/Confirm")).is_true()
-	assert_bool(await game.wait_for_property(HUD + "/TopBar/DayValue", "text", "2", 10.0)).is_true()
+	assert_bool(await game.wait_for_property(DAY, "text", "Day 2", 10.0)).is_true()
 	assert_bool(
 		await game.wait_for_property(HUD + "/MorningSummaryPanel", "visible", true, 5.0)
 	).is_true()
@@ -231,7 +223,9 @@ func test_day_one_held_row_works_three_cells() -> void:
 		assert_bool(
 			await game.get_property(_crop_path(cell) + "/Sprite2D", "visible")
 		).is_true()
-	assert_str(await game.get_property(HUD + "/Action_1/Badge", "text")).is_equal("×0")
+	assert_str(
+		await game.get_property(CHROME + "/SeedCard/Row/Tile/Badge/Count", "text")
+	).is_equal("×0")
 	await _assert_stamina(game, 2)
 
 
@@ -267,7 +261,7 @@ func test_shop_purchase_updates_money() -> void:
 	assert_bool(await game.input_action("ui_accept", true)).is_true()
 	assert_bool(await game.input_action("ui_accept", false)).is_true()
 	assert_bool(
-		await game.wait_for_property(HUD + "/TopBar/MoneyValue", "text", "130", 5.0)
+		await game.wait_for_property(CHROME + "/TopRight/Money/Row/Value", "text", "130G", 5.0)
 	).is_true()
 	assert_bool(await game.input_action("ui_cancel", true)).is_true()
 	assert_bool(await game.input_action("ui_cancel", false)).is_true()
@@ -318,7 +312,7 @@ func _continue_seeded_game() -> Variant:
 	assert_bool(await game.click_node("/root/AppRoot/TitleScreen/Panel/Continue")).is_true()
 	assert_bool(await game.wait_for_node(WORLD, 10.0)).is_true()
 	assert_bool(
-		await game.wait_for_property(HUD + "/TopBar/DayValue", "text", "1", 10.0)
+		await game.wait_for_property(DAY, "text", "Day 1", 10.0)
 	).is_true()
 	return game
 
@@ -367,20 +361,25 @@ func test_continue_seeded_save_buys_upgrade_and_waters_with_one_stamina() -> voi
 		await game.wait_for_property(HUD + "/ShopPanel", "visible", false, 5.0)
 	).is_true()
 
-	# Primary feedback: the Water preview reads 1 stamina. Secondary: the
-	# Action_2 icon swapped to the efficient-can glint.
+	# Primary feedback: the Water prompt reads 1 stamina. Secondary: its
+	# icon swapped to the efficient-can glint.
 	await _stand_at_target(game, WorldContract.farm_cells()[0], UP)
 	assert_bool(
 		await game.wait_for_property(
-			HUD + "/InteractionHint", "text", "Space — Water Turnip · 1 stamina", 5.0
+			CHROME + "/Prompt/Bubble/Row/Detail", "text", "· 1 stamina", 5.0
 		)
 	).is_true()
+	assert_str(await game.call_method(GAME_HUD, "prompt_text")).is_equal(
+		"[Space] Water Turnip · 1 stamina"
+	)
 	assert_str(
-		await game.get_property(HUD + "/Action_2/Icon", "texture:resource_path")
+		await game.get_property(
+			CHROME + "/Prompt/Bubble/Row/Icon", "texture:resource_path"
+		)
 	).is_equal("res://assets/ui/icons/watering-can-efficient.png")
 
-	# One real watering succeeds and spends exactly one pip (20 -> 19).
-	await _use_action(game, "Crop watered.")
+	# One real watering succeeds and spends exactly one stamina (20 -> 19).
+	await _use_action(game)
 	if is_failure():
 		return
 	await _assert_stamina(game, 19)

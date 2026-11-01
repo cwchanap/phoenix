@@ -38,8 +38,7 @@ func _init() -> void:
         "res://assets/ui/crops/turnip.png",
         "res://assets/ui/portraits/mira.png",
         "res://assets/ui/logo/phoenix.png",
-        "res://assets/ui/fonts/open-sans-variable.ttf",
-        "res://assets/ui/fonts/jetbrains-mono-variable.ttf",
+        "res://assets/ui/fonts/m-plus-1-variable.ttf",
     ]:
         if not ResourceLoader.exists(path):
             _fail("missing required resource: %s" % path)
