@@ -127,7 +127,9 @@ There is no JavaScript or Tauri runtime in the current checkout.
   Control auto-translates; formatted text uses `tr(template) % args` with each
   argument translated, and HUD re-renders on a language change. Every new or
   changed player-facing string goes into the CSV with both translations in
-  the same commit (`tests/unit/test_localisation.gd` enforces it).
+  the same commit. `tests/unit/test_localisation.gd` checks that every CSV
+  row has both translations and that rules-table strings are translated; it
+  does not detect UI strings missing from the CSV, so add those by hand.
   `UiStyle.font()` adds Noto Sans JP/TC fallbacks whose import settings
   exclude `zh`/`ja` respectively, so shared Han code points render in the
   face matching the locale.
