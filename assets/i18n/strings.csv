@@ -145,7 +145,7 @@ GIVE A GIFT · ONE PER DAY,送禮 · 每天一次,贈り物 · 1日1回
 GIVE,送出,贈る
 none,沒有,なし
 GIVE %s,送出%s,%sを贈る
-%s is %s's favourite — worth %d instead of %d.,%s是%s的最愛——好感度 %d，而非 %d。,%sは%sの好物——好感度は %d ではなく %d。
+%s is %s's favourite — worth %d instead of %d.,%s是%s的最愛——好感度 %d，而非 %d。,%sは%sの好物——好感度は %d（通常は %d）。
 “%s”,「%s」,「%s」
 Continue,繼續,つづける
 Close,關閉,閉じる
