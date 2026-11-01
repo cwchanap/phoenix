@@ -70,7 +70,7 @@ func _ready() -> void:
         push_error("AppRoot supplied invalid restored state")
         _session = GameSession.new()
 
-    get_window().min_size = Vector2i(640, 360)
+    get_window().min_size = UiSettings.MIN_WINDOW_SIZE
     # Focus notifications only fire on transitions; a world that enters the
     # tree already unfocused must not tick until its first focus-in.
     _clock_window_focused = get_window().has_focus()

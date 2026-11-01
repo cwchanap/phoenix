@@ -6,11 +6,11 @@ func test_new_game_reaches_world() -> void:
 	var options := E2ELaunchOptions.new()
 	options.scene_path = "res://scenes/app/app.tscn"
 	# gdUnit's click_node coordinates are logical viewport coordinates. Keep
-	# this fixture at 1x so the selector reaches the 640x360 production view;
-	# the shipped default remains 2x.
+	# this fixture windowed so the 1920x1080 window matches the base viewport
+	# 1:1 (CI's xvfb screen is 1920x1080, so the window never shrinks).
 	var settings_path := create_temp_dir("phoenix-settings-e2e") + "/settings.cfg"
 	var settings := ConfigFile.new()
-	settings.set_value("ui", "window_scale", 1)
+	settings.set_value("ui", "fullscreen", false)
 	assert_int(settings.save(settings_path)).is_equal(OK)
 	OS.set_environment("PHOENIX_SETTINGS_PATH", settings_path)
 	var game := await launch_game(options)

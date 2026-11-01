@@ -94,6 +94,7 @@ var _selected_seed: StringName = GameRules.crop_key(GameRules.CropKind.TURNIP)
 
 func _ready() -> void:
     _root = $HudRoot as Control
+    UiStyle.fit_legacy_layout(_root)
     _build_always_visible_hud()
     _build_modals()
     _primary_modals = [

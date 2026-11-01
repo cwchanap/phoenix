@@ -37,6 +37,10 @@ const RIVER_SOUTH_FOOTPRINT := Rect2(0.0, 18.0, 12.0, 2.0)
 const WORKBENCH_CELL := Vector2i(13, 16)
 const WORKBENCH_FOOTPRINT := Rect2(13.25, 16.25, 0.5, 0.5)
 const VILLAGE_SIGN_CELL := Vector2i(21, 8)
+# One world (art) pixel draws as CAMERA_ZOOM screen pixels on the 1920x1080
+# canvas, so the camera still frames a 640x360 world view. A higher-res art
+# set changes only this value.
+const CAMERA_ZOOM := 3.0
 const CAMERA_TOP_PADDING := 96.0
 const CAMERA_BOUNDS := Rect2(128.0, -96.0, 1408.0, 800.0)
 

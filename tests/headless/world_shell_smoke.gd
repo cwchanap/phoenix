@@ -832,7 +832,9 @@ func _run() -> void:
     )
     if not _expect(camera_bounds == WorldContract.CAMERA_BOUNDS, "camera bounds"):
         return
-    if not _expect(root.get_window().min_size == Vector2i(640, 360), "minimum window size"):
+    if not _expect(camera.zoom == Vector2.ONE * WorldContract.CAMERA_ZOOM, "camera zoom"):
+        return
+    if not _expect(root.get_window().min_size == UiSettings.MIN_WINDOW_SIZE, "minimum window size"):
         return
 
     for entry in [

@@ -118,7 +118,7 @@ There is no JavaScript or Tauri runtime in the current checkout.
   saves are intentionally incompatible and there is no migration.
 - scripts/persistence/save_repository.gd writes user://phoenix-save.json with FileAccess.
 - `scripts/ui/ui_settings.gd` owns the separate preference file and its
-  Music/Sound `0..10`, Window `1x/2x/3x/4x/FULL`, Tutorial Cards `ON/OFF`,
+  Music/Sound `0..10`, Window `1080p/FULL`, Tutorial Cards `ON/OFF`,
   and Language `en/zh_TW/ja` settings (first run follows the OS locale);
   UI preferences never enter farm state.
 - Localisation (HPA-713): English source text is the key in
@@ -169,8 +169,14 @@ The retired `TREE_*`, `BUILDING_*`, `PATH_ROW`, and `path_cells()` constants
 must not return as stale parallel representations.
 
 Camera bounds are `Rect2(128,-96,1408,800)` with `96` pixels of top padding.
-The project uses a `640x360` viewport, `viewport`/`keep` stretching, integer
-scale, nearest filtering, and a minimum `640x360` window.
+The project renders at a single 1080p: a `1920x1080` base viewport with
+`canvas_items`/`keep` stretching, fractional scale, 2D transform pixel snap,
+nearest filtering, and a minimum `960x540` window (`UiSettings`). The world
+Camera2D zooms by `WorldContract.CAMERA_ZOOM` (`3`), so the camera still frames
+a `640x360` world view and one art pixel is `3x3` screen pixels; a higher-res
+art set changes only that constant. Until HPA-681/682 rebuild them natively,
+the 640x360-authored title, result, and HUD roots draw at 3x through
+`UiStyle.fit_legacy_layout()` (HPA-680 stopgap).
 
 ## Current boundary
 
@@ -270,7 +276,8 @@ Sprite-isometric art contract
 - Visible sprites offset upward from the root.
 - Shadows are child sprites on the ground plane, never Y-sort roots.
 - Entities remains the sole Y-sort owner for foreground/occluding world objects.
-- Nearest filtering and integer scaling remain mandatory.
+- Nearest filtering is mandatory; world art scales by the integer
+  `WorldContract.CAMERA_ZOOM` on the 1080p canvas.
 - World terrain and props derive from the two committed
   `starting-farm-*-source.webp` sheets; the sheets stay tracked as source
   provenance and approved art is never regenerated.
