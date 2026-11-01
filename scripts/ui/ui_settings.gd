@@ -116,7 +116,7 @@ static func windowed_size(usable: Vector2i) -> Vector2i:
     if usable.x >= WINDOW_SIZE.x and usable.y >= WINDOW_SIZE.y:
         return WINDOW_SIZE
     var fit := 0.9 * minf(float(usable.x) / WINDOW_SIZE.x, float(usable.y) / WINDOW_SIZE.y)
-    return Vector2i((Vector2(WINDOW_SIZE) * fit).round()).max(MIN_WINDOW_SIZE)
+    return Vector2i((Vector2(WINDOW_SIZE) * fit).round())
 
 static func _read_level(value: Variant, fallback: int) -> int:
     if value is int:

@@ -81,5 +81,6 @@ func test_windowed_size_shrinks_to_fit_a_smaller_screen() -> void:
     assert_eq(UiSettings.windowed_size(Vector2i(2560, 1400)), UiSettings.WINDOW_SIZE)
     assert_eq(UiSettings.windowed_size(Vector2i(1920, 1080)), UiSettings.WINDOW_SIZE)
     assert_eq(UiSettings.windowed_size(Vector2i(1440, 860)), Vector2i(1296, 729))
-    assert_eq(UiSettings.windowed_size(Vector2i(800, 600)), UiSettings.MIN_WINDOW_SIZE)
+    # A screen below the minimum window still gets a window that fits on it.
+    assert_eq(UiSettings.windowed_size(Vector2i(800, 600)), Vector2i(720, 405))
     assert_eq(UiSettings.windowed_size(Vector2i.ZERO), UiSettings.WINDOW_SIZE)
