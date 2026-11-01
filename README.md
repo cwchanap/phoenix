@@ -209,26 +209,8 @@ released — so test frames can never advance the clock nondeterministically;
 clock arithmetic is verified by driving `WorldShell._advance_passive_clock()`
 directly.
 
-Native macOS UI regression uses the same Godot capture harness:
-
-```bash
-./tools/verify-visual.sh
-```
-
-The default run captures all 14 approved states as raw `640x360` production
-images, nearest-neighbour `1280x720` evidence images, and masked diff images
-under `test_output/ui-visual/`. It compares the production captures with the
-approved files in `tests/visual/goldens/`; a missing golden fails normal mode.
-`--update-goldens` is a manual local operation and is rejected in CI. The
-mock-derived files in `tests/visual/design-reference/` are approved manually
-side by side; production goldens are the automated regression oracle. Visual
-acceptance and calibration are macOS-native only, while Linux CI continues to
-run behavior and E2E coverage through Xvfb.
-
-The Calendar reference intentionally follows the truthful earliest-ready and
-actual-weather data. The Result reference retains the source mock's clipped
-vertical spacing; production uses the approved viewport-fit layout so the
-wreath and footer remain visible while the portrait keeps its intended crop.
+There is no screenshot-golden gate: UI changes are checked by eye in the
+running game, and CI covers behavior through GUT, GdUnit4, and godot-e2e.
 
 Local clean export:
 

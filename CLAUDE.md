@@ -128,10 +128,8 @@ There is no JavaScript or Tauri runtime in the current checkout.
   tint + ground shadows, placeholder audio with import-time music looping, the
   deterministic 5-Turnip/175G Promising GUT route, and pinned-SHA CI with
   import + unsigned macOS ZIP export; final docs live in README/CLAUDE.
-- The UI redesign closeout keeps browser/mock references as manual design
-  oracles and Godot production goldens as the automated oracle. Native macOS
-  `./tools/verify-visual.sh` captures all 14 approved states, nearest 2x
-  evidence, and masked diffs; Linux CI remains behavior/E2E-only.
+- There is no screenshot-golden gate (removed 2026-11-01): UI changes are
+  checked by eye in the running game; CI covers behavior only.
 
 ## Locked world contract
 
@@ -246,13 +244,6 @@ mkdir -p build
 godot --headless --path . --export-release "macOS" build/Phoenix.zip
 unzip -l build/Phoenix.zip | grep -F "Phoenix.app/Contents/MacOS/Phoenix"
 ```
-
-Native macOS visual acceptance runs separately with
-`./tools/verify-visual.sh`; it compares raw `640x360` captures to the approved
-production goldens, while `tests/visual/design-reference/` remains a manual
-side-by-side reference set. CI cannot bless goldens. Result reference 14 keeps
-the source mock's clipped vertical spacing; the production fit intentionally
-keeps the wreath/footer visible and clips the portrait as approved.
 
 The deterministic Promising route is pinned by
 `test_representative_reinvestment_route_reaches_promising()`:
