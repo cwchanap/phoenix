@@ -96,6 +96,8 @@ func test_default_language_follows_os_locale() -> void:
     assert_eq(UiSettings.default_language("zh_HK"), "zh_TW")
     assert_eq(UiSettings.default_language("zh_Hant_MO"), "zh_TW")
     assert_eq(UiSettings.default_language("zh_CN"), "en")
+    assert_eq(UiSettings.default_language("zh_Hans_HK"), "en")
+    assert_eq(UiSettings.default_language("zh_Hans_TW"), "en")
     assert_eq(UiSettings.default_language("en_US"), "en")
     assert_eq(UiSettings.default_language("fr"), "en")
 

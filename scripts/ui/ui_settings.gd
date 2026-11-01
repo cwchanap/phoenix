@@ -55,8 +55,11 @@ static func default_language(os_locale: String) -> String:
         "ja":
             return "ja"
         "zh":
-            for part in parts.slice(1):
-                if ["hant", "tw", "hk", "mo"].has(part.to_lower()):
+            var subtags := Array(parts.slice(1)).map(func(part: String) -> String: return part.to_lower())
+            if subtags.has("hans"):
+                return "en"
+            for subtag in subtags:
+                if ["hant", "tw", "hk", "mo"].has(subtag):
                     return "zh_TW"
     return "en"
 
