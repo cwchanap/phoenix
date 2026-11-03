@@ -221,6 +221,113 @@ static func action_button(text_value: String) -> Button:
 	result.add_theme_stylebox_override("disabled", card(INK_MUTED, 16, [0, 0, 0, 0]))
 	return result
 
+static func stepper_button(text_value: String) -> Button:
+	var result := Button.new()
+	result.text = text_value
+	result.custom_minimum_size = Vector2(42, 42)
+	result.focus_mode = Control.FOCUS_NONE
+	text(result, 22, INK, 800)
+	result.add_theme_stylebox_override(
+		"normal",
+		outlined(card(CARD, 10, [0, 0, 0, 0], false), LINE, 1),
+	)
+	result.add_theme_stylebox_override(
+		"hover",
+		outlined(card(ACCENT_SOFT, 10, [0, 0, 0, 0], false), ACCENT, 1),
+	)
+	result.add_theme_stylebox_override(
+		"pressed",
+		outlined(card(ACCENT_SOFT, 10, [0, 0, 0, 0], false), ACCENT, 2),
+	)
+	result.add_theme_stylebox_override(
+		"focus",
+		outlined(card(CARD, 10, [0, 0, 0, 0], false), ACCENT, 2),
+	)
+	result.add_theme_stylebox_override(
+		"disabled",
+		outlined(card(SOFT, 10, [0, 0, 0, 0], false), LINE, 1),
+	)
+	result.add_theme_color_override("font_disabled_color", INK_MUTED)
+	return result
+
+static func max_button(caption_text: String) -> Button:
+	var result := Button.new()
+	result.name = "Max"
+	result.custom_minimum_size = Vector2(88, 42)
+	result.focus_mode = Control.FOCUS_NONE
+	result.add_theme_stylebox_override(
+		"normal",
+		outlined(card(CARD, 10, [0, 0, 0, 0], false), LINE, 1),
+	)
+	result.add_theme_stylebox_override(
+		"hover",
+		outlined(card(ACCENT_SOFT, 10, [0, 0, 0, 0], false), ACCENT, 1),
+	)
+	result.add_theme_stylebox_override(
+		"pressed",
+		outlined(card(ACCENT_SOFT, 10, [0, 0, 0, 0], false), ACCENT, 2),
+	)
+	result.add_theme_stylebox_override(
+		"focus",
+		outlined(card(CARD, 10, [0, 0, 0, 0], false), ACCENT, 2),
+	)
+	result.add_theme_stylebox_override(
+		"disabled",
+		outlined(card(SOFT, 10, [0, 0, 0, 0], false), LINE, 1),
+	)
+	var row := hbox(6)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	result.add_child(row)
+	var cap := keycap("M", true)
+	cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(cap)
+	var caption := label(caption_text, 14, INK_MUTED, 800)
+	caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(caption)
+	return result
+
+static func commerce_footer() -> HBoxContainer:
+	var footer := hbox(10)
+	footer.name = "Footer"
+	var caps := hbox(4)
+	caps.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	for key in ["W", "S"]:
+		caps.add_child(keycap(key, true))
+	footer.add_child(caps)
+	var choose := label("choose crop", 15, INK_MUTED, 700)
+	choose.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	footer.add_child(choose)
+	var adjust_caps := hbox(4)
+	adjust_caps.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	for key in ["A", "D"]:
+		adjust_caps.add_child(keycap(key, true))
+	footer.add_child(adjust_caps)
+	var quantity_hint := label("quantity", 15, INK_MUTED, 700)
+	quantity_hint.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	footer.add_child(quantity_hint)
+	var spacer := Control.new()
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	footer.add_child(spacer)
+	var escape := keycap("Esc", true)
+	escape.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	footer.add_child(escape)
+	var leave := label("leave", 15, INK_MUTED, 700)
+	leave.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	footer.add_child(leave)
+	var enter := keycap("Enter", true)
+	enter.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	footer.add_child(enter)
+	var pill := gradient_surface(ACCENT_GRADIENT, PILL_RADIUS, [18, 8, 18, 8])
+	pill.name = "Action"
+	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	footer.add_child(pill)
+	var action := label("", 18, CARD, 900)
+	action.name = "Text"
+	pill.add_child(action)
+	return footer
+
 ## HPA-680 stopgap: the title, result, intro, and modal panels are still
 ## authored for the old 640x360 canvas. Pin them to that size and draw them 3x
 ## so they fill the 1920x1080 base viewport until HPA-682 rebuilds them

@@ -577,6 +577,21 @@ func _input(event: InputEvent) -> void:
 		var delta := -1 if event.is_action_pressed("move_left") else 1
 		_select_gift(delta)
 		get_viewport().set_input_as_handled()
+		return
+	var key_event := event as InputEventKey
+	if key_event == null:
+		return
+	var code := key_event.physical_keycode
+	if code == KEY_NONE:
+		code = key_event.keycode
+	var kind := int(code) - int(KEY_1)
+	if kind < 0 or kind >= _gift_buttons.size():
+		return
+	var chip := _gift_buttons[kind]
+	if not chip.visible or chip.disabled:
+		return
+	_on_gift_button_pressed(kind)
+	get_viewport().set_input_as_handled()
 
 func _select_gift(delta: int) -> void:
 	var next := _selected_gift_kind

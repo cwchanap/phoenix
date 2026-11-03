@@ -18,6 +18,8 @@ var _new_game_gradient: PanelContainer
 var _continue_gradient: PanelContainer
 var _new_game_label: Label
 var _continue_label: Label
+var _new_game_keycap: PanelContainer
+var _continue_keycap: PanelContainer
 var _status_pill: PanelContainer
 var _status_label: Label
 
@@ -80,6 +82,8 @@ func _refresh_selection() -> void:
         else UiStyle.INK if _continue_available
         else UiStyle.INK_MUTED,
     )
+    _new_game_keycap.visible = new_selected
+    _continue_keycap.visible = continue_selected
 
 func _build() -> void:
     var background := TextureRect.new()
@@ -116,15 +120,17 @@ func _build() -> void:
     menu.size = Vector2(640, 500)
     add_child(menu)
 
-    var new_row := _action_row("NewGame", GROWTH_ICON, "NEW GAME", true)
+    var new_row := _action_row("NewGame", GROWTH_ICON, "NEW GAME")
     _new_game_button = new_row["button"]
     _new_game_gradient = new_row["gradient"]
     _new_game_label = new_row["label"]
+    _new_game_keycap = new_row["keycap"]
     menu.add_child(_new_game_button)
-    var continue_row := _action_row("Continue", SAVE_ICON, "CONTINUE", false)
+    var continue_row := _action_row("Continue", SAVE_ICON, "CONTINUE")
     _continue_button = continue_row["button"]
     _continue_gradient = continue_row["gradient"]
     _continue_label = continue_row["label"]
+    _continue_keycap = continue_row["keycap"]
     menu.add_child(_continue_button)
 
     _status_pill = PanelContainer.new()
@@ -143,6 +149,7 @@ func _build() -> void:
     _status_label = UiStyle.label("", 17, UiStyle.BAD, 800)
     _status_label.name = "Label"
     _status_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+    _status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     _status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     status_row.add_child(_status_label)
     menu.add_child(_status_pill)
@@ -171,7 +178,7 @@ func _build() -> void:
     footer.add_child(version)
 
 func _action_row(
-    row_name: String, icon_texture: Texture2D, text_value: String, with_keycap: bool
+    row_name: String, icon_texture: Texture2D, text_value: String
 ) -> Dictionary:
     var button := Button.new()
     button.name = row_name
@@ -209,14 +216,14 @@ func _action_row(
     label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     button.add_child(label)
 
-    if with_keycap:
-        var keycap := UiStyle.keycap("Enter")
-        keycap.name = "Keycap"
-        button.add_child(keycap)
-        keycap.reset_size()
-        keycap.position = Vector2(616 - keycap.size.x, (104 - keycap.size.y) / 2.0)
+    var keycap := UiStyle.keycap("Enter")
+    keycap.name = "Keycap"
+    keycap.visible = false
+    button.add_child(keycap)
+    keycap.reset_size()
+    keycap.position = Vector2(616 - keycap.size.x, (104 - keycap.size.y) / 2.0)
 
-    return {"button": button, "gradient": gradient, "label": label}
+    return {"button": button, "gradient": gradient, "label": label, "keycap": keycap}
 
 func _left_fade() -> GradientTexture2D:
     var gradient := Gradient.new()

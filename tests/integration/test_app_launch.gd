@@ -17,6 +17,8 @@ func before_each() -> void:
 func after_each() -> void:
     OS.unset_environment("PHOENIX_SETTINGS_PATH")
     OS.unset_environment("PHOENIX_SAVE_PATH")
+    TranslationServer.set_locale("en")
+    get_window().size = UiSettings.WINDOW_SIZE
     _clean()
 
 func _push_action(node: Node, action: StringName) -> void:
@@ -399,6 +401,101 @@ func test_native_ui_roots_fill_the_1080p_canvas() -> void:
     var opening := world.hud.get_node("HudRoot/OnboardingOverlay/OpeningPanel") as Control
     assert_eq(opening.scale, Vector2.ONE)
     assert_eq(opening.get_global_rect(), canvas)
+
+func test_save_warning_label_fills_its_row_and_stays_contained() -> void:
+    var repository := SaveRepository.new(TEST_PATH)
+    var incompatible := GameSession.new(func() -> float: return 0.9).state()
+    incompatible["day"] = GameRules.MAX_DAY + 1
+    assert_eq(repository.save(incompatible), OK)
+
+    var window := get_window()
+    var app := _spawn_app(repository)
+    if app == null:
+        return
+    var title := app.get_node("TitleScreen") as TitleScreen
+    var status_pill := title.get_node("Menu/Status") as Control
+    var status_row := title.get_node("Menu/Status/Row") as Control
+    var status_label := title.get_node("Menu/Status/Row/Label") as Label
+    var footer := title.get_node("Menu/Footer") as Control
+    var continue_button := title.get_node("Menu/Continue") as Button
+    assert_true(continue_button.disabled)
+    assert_true(status_pill.visible)
+
+    for window_size in [UiSettings.WINDOW_SIZE, UiSettings.MIN_WINDOW_SIZE]:
+        window.size = window_size
+        for locale in UiSettings.LANGUAGES:
+            TranslationServer.set_locale(locale)
+            for status in [
+                "Save is incompatible; start a New Game.",
+                "Save unavailable; start a New Game.",
+            ]:
+                title.set_continue_state(false, status)
+                await get_tree().process_frame
+                await get_tree().process_frame
+                var where := "%s %s %s" % [window_size, locale, status]
+                var canvas := title.get_global_rect()
+                assert_true(
+                    status_label.size.x > 400.0,
+                    "%s: warning width %s must fill the row, not wrap one word" % [
+                        where, status_label.size.x,
+                    ],
+                )
+                assert_lte(
+                    status_label.get_line_count(), 3,
+                    "%s: %d lines must stay readable" % [
+                        where, status_label.get_line_count(),
+                    ],
+                )
+                assert_lte(
+                    status_pill.get_global_rect().size.y, 160.0,
+                    "%s: pill height %s must not displace the footer" % [
+                        where, status_pill.get_global_rect().size.y,
+                    ],
+                )
+                assert_true(
+                    canvas.encloses(status_row.get_global_rect()),
+                    "%s: warning row %s must stay inside the canvas" % [
+                        where, status_row.get_global_rect(),
+                    ],
+                )
+                assert_true(
+                    canvas.encloses(footer.get_global_rect()),
+                    "%s: footer %s must stay inside the canvas" % [
+                        where, footer.get_global_rect(),
+                    ],
+                )
+                assert_true(continue_button.disabled, "%s: Continue stays disabled" % where)
+                assert_ne(title.status_text(), "")
+
+func test_title_enter_keycap_marks_only_the_selected_action() -> void:
+    var repository := SaveRepository.new(TEST_PATH)
+    var saved_session := GameSession.new(func() -> float: return 0.9)
+    assert_eq(saved_session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+    assert_eq(repository.save(saved_session.state()), OK)
+
+    var app := _spawn_app(repository)
+    if app == null:
+        return
+    var title := app.get_node("TitleScreen") as TitleScreen
+    var new_keycap := title.get_node_or_null("Menu/NewGame/Keycap") as Control
+    var continue_keycap := title.get_node_or_null("Menu/Continue/Keycap") as Control
+    assert_not_null(new_keycap)
+    assert_not_null(continue_keycap)
+    if new_keycap == null or continue_keycap == null:
+        return
+    assert_eq(title.selected_action(), &"new_game")
+    assert_true(new_keycap.visible)
+    assert_false(continue_keycap.visible)
+
+    _push_action(title, &"move_down")
+    assert_eq(title.selected_action(), &"continue")
+    assert_false(new_keycap.visible)
+    assert_true(continue_keycap.visible)
+
+    _push_action(title, &"move_down")
+    assert_eq(title.selected_action(), &"new_game")
+    assert_true(new_keycap.visible)
+    assert_false(continue_keycap.visible)
 
 func test_title_keyboard_skips_disabled_continue_and_enter_starts_new_game() -> void:
     var repository := SaveRepository.new(TEST_PATH)
