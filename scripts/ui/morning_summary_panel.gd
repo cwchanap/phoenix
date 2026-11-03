@@ -3,25 +3,27 @@ extends Control
 
 signal acknowledged
 
+const INTRO_WALLPAPER := preload("res://assets/ui/backgrounds/intro.png")
 const SUN_ICON := preload("res://assets/ui/icons/sun.png")
 const RAIN_ICON := preload("res://assets/ui/icons/rain.png")
-const STAMINA_ICON := preload("res://assets/ui/icons/stamina.png")
 const MONEY_ICON := preload("res://assets/ui/icons/money-bag.png")
 const SAVE_ICON := preload("res://assets/ui/icons/save.png")
 const GROWTH_ICON := preload("res://assets/ui/icons/growth.png")
 const COIN_STACK_ICON := preload("res://assets/ui/icons/coin-stack.png")
-const FACT_ICONS: Array[Texture2D] = [GROWTH_ICON, SUN_ICON, STAMINA_ICON, COIN_STACK_ICON]
-const FACT_COLORS: Array[Color] = [
-	UiStyle.LEAF_DEEP, UiStyle.ACCENT_2, UiStyle.LEAF, UiStyle.ORANGE,
-]
+const RAIN_TILE := Color("4d8dff")
+const SAVE_STATUS_MAX_SHOWN := 2
+const SAVE_STATUS_WIDTH := 420.0
+const SAVE_STATUS_SCROLL_STEP := 30
 
 var _frame: PhoneFrame
 var _day_line: Label
-var _save_badge: PanelContainer
-var _save_caption: Label
+var _weather_tail: Label
+var _weather_tile_box: StyleBoxFlat
 var _weather_icon: TextureRect
 var _card_values: Array[Label] = []
 var _card_captions: Array[Label] = []
+var _weather_sub: Label
+var _farm_sub: Label
 var _withered: Label
 var _shipment_single: PanelContainer
 var _single_row: Dictionary
@@ -31,9 +33,18 @@ var _shipment_empty: Label
 var _money: Label
 var _action_text: Label
 var _save_status: Label
+var _save_status_card: PanelContainer
+var _save_status_scroll: ScrollContainer
+var _save_hint: Label
 var _acknowledge: Button
-var _badge_ok := UiStyle.card(UiStyle.MINT, UiStyle.PILL_RADIUS, [10, 4, 12, 4], false)
-var _badge_error := UiStyle.card(UiStyle.BAD_SOFT, UiStyle.PILL_RADIUS, [10, 4, 12, 4], false)
+var _save_badge: PanelContainer
+var _save_caption: Label
+var _badge_ok := UiStyle.card(
+	Color(UiStyle.LEAF, 0.15), UiStyle.PILL_RADIUS, [12, 4, 12, 4], false
+)
+var _badge_error := UiStyle.card(
+	Color(UiStyle.BAD, 0.14), UiStyle.PILL_RADIUS, [12, 4, 12, 4], false
+)
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -49,25 +60,24 @@ func present(summary: Dictionary) -> void:
 		tr("Day %d") % next_day,
 	]
 
-	var crops_advanced := int(summary.get("crops_advanced", 0))
-	_card_values[0].text = "+%d" % crops_advanced
-	_card_captions[0].text = "CROPS GREW"
-
 	var weather := StringName(summary.get("next_weather", &"sunny"))
 	var rainy := weather == GameRules.weather_key(GameRules.Weather.RAINY)
-	_card_values[1].text = "RAINY" if rainy else "SUNNY"
-	_card_captions[1].text = (
-		"TODAY — NO\nWATERING NEEDED" if rainy else "TODAY —\nWATER AS USUAL"
-	)
+	_weather_tail.text = "· %s" % tr("Rainy" if rainy else "Sunny")
+	_weather_tile_box.bg_color = RAIN_TILE if rainy else UiStyle.SUN
 	_weather_icon.texture = RAIN_ICON if rainy else SUN_ICON
+	_card_values[0].text = "Rain all day" if rainy else "Sunny all day"
+	_weather_sub.text = (
+		"No watering needed today." if rainy else "Water as usual."
+	)
 
-	var stamina := int(summary.get("stamina_restored", 0))
-	_card_values[2].text = "%d" % stamina
-	_card_captions[2].text = "STAMINA FULL" if stamina > 0 else "STAMINA"
-
-	var income := int(summary.get("shipping_income", 0))
-	_card_values[3].text = "+%d" % income
-	_card_captions[3].text = "SHIPPED"
+	var crops_advanced := int(summary.get("crops_advanced", 0))
+	if crops_advanced <= 0:
+		_card_values[1].text = "No crops grew overnight"
+	elif crops_advanced == 1:
+		_card_values[1].text = tr("%d crop grew overnight") % crops_advanced
+	else:
+		_card_values[1].text = tr("%d crops grew overnight") % crops_advanced
+	_farm_sub.text = tr("Stamina is back to %d.") % GameRules.MAX_STAMINA
 
 	var crops_withered := int(summary.get("crops_withered", 0))
 	_withered.visible = crops_withered > 0
@@ -75,6 +85,11 @@ func present(summary: Dictionary) -> void:
 		_withered.text = (
 			tr("%d CROP WITHERED") if crops_withered == 1 else tr("%d CROPS WITHERED")
 		) % crops_withered
+
+	var income := int(summary.get("shipping_income", 0))
+	_card_values[2].text = (
+		tr("Shipping payout +%dG") % income if income > 0 else "No shipping payout"
+	)
 
 	var shipments: Array = summary.get("shipments", [])
 	assert(shipments.size() <= _compact_rows.size(), "morning summary has too many shipment lines")
@@ -111,23 +126,67 @@ func set_save_status(status: StringName, message: String = "") -> void:
 	match status:
 		&"idle":
 			_save_status.text = ""
+			_save_status_card.visible = false
 			_save_badge.visible = false
 		&"saved":
 			_save_status.text = "Saved."
 			_save_status.add_theme_color_override("font_color", UiStyle.LEAF_DEEP)
+			_save_status_card.visible = true
 			_save_caption.text = "SAVED"
-			_save_caption.add_theme_color_override("font_color", UiStyle.LEAF_DEEP)
+			_save_caption.add_theme_color_override("font_color", UiStyle.LEAF)
 			_save_badge.add_theme_stylebox_override("panel", _badge_ok)
 			_save_badge.visible = true
 		&"error":
 			_save_status.text = message
 			_save_status.add_theme_color_override("font_color", UiStyle.BAD)
+			_save_status_card.visible = true
 			_save_caption.text = "SAVE ERROR"
 			_save_caption.add_theme_color_override("font_color", UiStyle.BAD)
 			_save_badge.add_theme_stylebox_override("panel", _badge_error)
 			_save_badge.visible = true
 		_:
 			assert(false, "unknown save status")
+	if _save_status_scroll != null:
+		_save_status_scroll.scroll_vertical = 0
+	if is_inside_tree():
+		call_deferred(&"_sync_save_status_height")
+
+func _sync_save_status_height() -> void:
+	if _save_status == null or _save_status_scroll == null:
+		return
+	var lines := _save_status.get_line_count()
+	var line_height := _save_status.get_line_height()
+	var shown := clampi(lines, 1, SAVE_STATUS_MAX_SHOWN)
+	_save_status_scroll.custom_minimum_size = Vector2(
+		SAVE_STATUS_WIDTH, ceilf(line_height * float(shown))
+	)
+	_save_hint.visible = lines > SAVE_STATUS_MAX_SHOWN
+
+func _input(event: InputEvent) -> void:
+	if not visible or not event.is_pressed() or event.is_echo():
+		return
+	if _save_status_scroll == null or _save_status == null:
+		return
+	if _save_status.get_line_count() <= SAVE_STATUS_MAX_SHOWN:
+		return
+	var max_scroll := int(maxf(
+		0.0,
+		_save_status.get_combined_minimum_size().y - _save_status_scroll.size.y,
+	))
+	if max_scroll <= 0:
+		return
+	if event.is_action_pressed("move_up"):
+		_save_status_scroll.scroll_vertical = maxi(
+			0, _save_status_scroll.scroll_vertical - SAVE_STATUS_SCROLL_STEP
+		)
+	elif event.is_action_pressed("move_down"):
+		_save_status_scroll.scroll_vertical = mini(
+			max_scroll,
+			_save_status_scroll.scroll_vertical + SAVE_STATUS_SCROLL_STEP,
+		)
+	else:
+		return
+	get_viewport().set_input_as_handled()
 
 func set_status_time(time_text: String) -> void:
 	_frame.set_status_time(time_text)
@@ -199,156 +258,60 @@ func _build() -> void:
 	add_child(center)
 	_frame = PhoneFrame.new()
 	center.add_child(_frame)
+	_frame.set_screen_backplate(
+		UiStyle.wallpaper_texture(
+			INTRO_WALLPAPER,
+			Vector2i(
+				int(PhoneFrame.PHONE_SIZE.x) - 28,
+				int(PhoneFrame.PHONE_SIZE.y) - 28,
+			),
+			PhoneFrame.SCREEN_RADIUS,
+			Color(10.0 / 255.0, 10.0 / 255.0, 30.0 / 255.0, 0.3),
+			Color(10.0 / 255.0, 10.0 / 255.0, 30.0 / 255.0, 0.72),
+		)
+	)
+	_frame.set_status_time_visible(false)
 
 	var layout := MarginContainer.new()
 	layout.name = "Layout"
 	layout.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for side in [["left", 18], ["top", 14], ["right", 18], ["bottom", 12]]:
+	for side in [["left", 20], ["top", 6], ["right", 20], ["bottom", 0]]:
 		layout.add_theme_constant_override("margin_" + side[0], side[1])
 	layout.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_frame.content_mount().add_child(layout)
-	var column := UiStyle.vbox(10)
+	var column := UiStyle.vbox(8)
 	column.name = "Column"
 	layout.add_child(column)
 
 	column.add_child(_lock_header())
-	column.add_child(_facts_grid())
-	column.add_child(_bin_card())
-	var spacer := Control.new()
-	spacer.name = "Spacer"
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	column.add_child(spacer)
-	column.add_child(_footer())
 
-	_save_status = UiStyle.label("", 15, UiStyle.LEAF_DEEP, 800)
-	_save_status.name = "SaveStatus"
-	_save_status.anchor_left = 0.5
-	_save_status.anchor_right = 0.5
-	_save_status.offset_top = 34.0
-	_save_status.offset_bottom = 60.0
-	_save_status.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_save_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	add_child(_save_status)
+	var weather := _notification_card("Weather", RAIN_TILE, RAIN_ICON)
+	_weather_tile_box = weather["tile_box"]
+	_weather_icon = weather["tile_icon"]
+	_card_values.append(weather["headline"])
+	_card_captions.append(weather["header"])
+	_weather_sub = _card_sub("")
+	weather["lines"].add_child(_weather_sub)
+	column.add_child(weather["card"])
 
-	_acknowledge = UiStyle.action_button("")
-	_acknowledge.name = "Acknowledge"
-	_acknowledge.anchor_left = 0.5
-	_acknowledge.anchor_right = 0.5
-	_acknowledge.anchor_top = 1.0
-	_acknowledge.anchor_bottom = 1.0
-	_acknowledge.offset_left = -130.0
-	_acknowledge.offset_right = 130.0
-	_acknowledge.offset_top = -68.0
-	_acknowledge.offset_bottom = -14.0
-	_acknowledge.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_acknowledge.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	add_child(_acknowledge)
-
-func _lock_header() -> VBoxContainer:
-	var header := UiStyle.vbox(4)
-	header.name = "LockHeader"
-	var clock := UiStyle.label(
-		GameRules.format_time(GameRules.DAY_START_MINUTES), 64, UiStyle.NIGHT, 900
-	)
-	clock.name = "Clock"
-	clock.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	header.add_child(clock)
-	_day_line = UiStyle.label("", 16, UiStyle.INK_MUTED, 700)
-	_day_line.name = "DayLine"
-	_day_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	header.add_child(_day_line)
-	_save_badge = PanelContainer.new()
-	_save_badge.name = "SaveBadge"
-	_save_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_save_badge.visible = false
-	_save_badge.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_badge_ok.border_color = UiStyle.LEAF
-	_badge_ok.set_border_width_all(2)
-	_badge_error.border_color = UiStyle.BAD
-	_badge_error.set_border_width_all(2)
-	_save_badge.add_theme_stylebox_override("panel", _badge_ok)
-	header.add_child(_save_badge)
-	var badge_row := UiStyle.hbox(6)
-	badge_row.name = "Row"
-	_save_badge.add_child(badge_row)
-	badge_row.add_child(UiStyle.icon(SAVE_ICON, 16))
-	_save_caption = UiStyle.label("SAVED", 13, UiStyle.LEAF_DEEP, 800)
-	_save_caption.name = "Caption"
-	badge_row.add_child(_save_caption)
-	return header
-
-func _facts_grid() -> GridContainer:
-	var grid := GridContainer.new()
-	grid.name = "FactsGrid"
-	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 8)
-	grid.add_theme_constant_override("v_separation", 8)
-	for index in FACT_ICONS.size():
-		grid.add_child(_fact_card(index))
-	return grid
-
-func _fact_card(index: int) -> PanelContainer:
-	var card := PanelContainer.new()
-	card.name = "Fact_%d" % index
-	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var box := UiStyle.card(UiStyle.HUD_CARD, 16, [12, 10, 12, 10], false)
-	box.border_color = UiStyle.LINE
-	box.set_border_width_all(1)
-	card.add_theme_stylebox_override("panel", box)
-	var row := UiStyle.hbox(10)
-	card.add_child(row)
-	var icon := UiStyle.icon(FACT_ICONS[index], 30)
-	icon.name = "Icon"
-	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(icon)
-	if index == 1:
-		_weather_icon = icon
-	var pair := UiStyle.vbox(2)
-	pair.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	pair.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(pair)
-	var value := UiStyle.label("", 20, FACT_COLORS[index], 900)
-	value.name = "Value"
-	_card_values.append(value)
-	pair.add_child(value)
-	var caption := UiStyle.label("", 11, UiStyle.INK_MUTED, 700)
-	caption.name = "Caption"
-	caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_card_captions.append(caption)
-	pair.add_child(caption)
-	return card
-
-func _bin_card() -> PanelContainer:
-	var card := PanelContainer.new()
-	card.name = "BinCard"
-	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var box := UiStyle.card(UiStyle.HUD_CARD, 18, [14, 10, 14, 12], false)
-	box.border_color = UiStyle.LINE
-	box.set_border_width_all(1)
-	card.add_theme_stylebox_override("panel", box)
-	var column := UiStyle.vbox(8)
-	card.add_child(column)
-
-	var title_row := UiStyle.hbox(8)
-	title_row.name = "TitleRow"
-	column.add_child(title_row)
-	var title := UiStyle.label("THE BIN PAID OUT", 13, UiStyle.INK_MUTED, 800)
-	title.name = "Title"
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_row.add_child(title)
+	var farm := _notification_card("Farm", UiStyle.LEAF, GROWTH_ICON)
+	_card_values.append(farm["headline"])
+	_card_captions.append(farm["header"])
+	_farm_sub = _card_sub("")
+	farm["lines"].add_child(_farm_sub)
 	_withered = UiStyle.label("", 13, UiStyle.BAD, 800)
 	_withered.name = "WitheredWarning"
 	_withered.visible = false
-	_withered.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	title_row.add_child(_withered)
+	farm["lines"].add_child(_withered)
+	column.add_child(farm["card"])
 
-	var shipments := UiStyle.vbox(6)
+	var bank := _notification_card("Bank", UiStyle.SUN, COIN_STACK_ICON)
+	_card_values.append(bank["headline"])
+	_card_captions.append(bank["header"])
+	var shipments := UiStyle.vbox(5)
 	shipments.name = "Shipments"
-	column.add_child(shipments)
-	_shipment_single = _shipment_row("ShipmentRow", 28, 15, 15)
+	bank["lines"].add_child(shipments)
+	_shipment_single = _shipment_row("ShipmentRow", 24, 14, 14)
 	_shipment_single.visible = false
 	shipments.add_child(_shipment_single)
 	_single_row = _row_children(_shipment_single)
@@ -357,7 +320,7 @@ func _bin_card() -> PanelContainer:
 	_shipment_compact.visible = false
 	shipments.add_child(_shipment_compact)
 	for index in 3:
-		var row := _shipment_row("Row_%d" % index, 20, 13, 13)
+		var row := _shipment_row("Row_%d" % index, 16, 13, 13)
 		row.visible = false
 		_shipment_compact.add_child(row)
 		_compact_rows.append(_row_children(row))
@@ -365,34 +328,204 @@ func _bin_card() -> PanelContainer:
 	_shipment_empty.name = "EmptyShipment"
 	_shipment_empty.visible = false
 	shipments.add_child(_shipment_empty)
-
-	var divider := ColorRect.new()
-	divider.name = "Divider"
-	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	divider.color = UiStyle.LINE
-	divider.custom_minimum_size = Vector2(0, 1)
-	column.add_child(divider)
-
-	var money_row := UiStyle.hbox(10)
-	money_row.name = "MoneyRow"
-	column.add_child(money_row)
-	var coin := UiStyle.icon(MONEY_ICON, 24)
+	var balance := UiStyle.hbox(8)
+	balance.name = "BalanceRow"
+	bank["lines"].add_child(balance)
+	var coin := UiStyle.icon(MONEY_ICON, 20)
 	coin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	money_row.add_child(coin)
-	var caption := UiStyle.label("Money after shipping", 15, UiStyle.INK, 700)
-	caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	money_row.add_child(caption)
-	_money = UiStyle.label("", 22, UiStyle.ORANGE, 900)
+	balance.add_child(coin)
+	var balance_caption := UiStyle.label("Balance", 15, UiStyle.INK_MUTED, 700)
+	balance_caption.name = "Sub"
+	balance_caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	balance_caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	balance.add_child(balance_caption)
+	_money = UiStyle.label("", 20, UiStyle.ORANGE, 900)
 	_money.name = "Amount"
-	money_row.add_child(_money)
-	return card
+	_money.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	balance.add_child(_money)
+	column.add_child(bank["card"])
+
+	var spacer := Control.new()
+	spacer.name = "Spacer"
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.add_child(spacer)
+
+	var footer := _frame.footer_mount()
+	var lead := Control.new()
+	lead.name = "Lead"
+	lead.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lead.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	footer.add_child(lead)
+	var actions := UiStyle.vbox(8)
+	actions.name = "Actions"
+	footer.add_child(actions)
+	var trail := Control.new()
+	trail.name = "Trail"
+	trail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	trail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	footer.add_child(trail)
+
+	_save_status_card = PanelContainer.new()
+	_save_status_card.name = "SaveStatusCard"
+	_save_status_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_save_status_card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_save_status_card.visible = false
+	_save_status_card.add_theme_stylebox_override(
+		"panel", UiStyle.card(UiStyle.CARD, 16, [14, 8, 14, 8])
+	)
+	actions.add_child(_save_status_card)
+	var save_column := UiStyle.vbox(6)
+	save_column.name = "Column"
+	_save_status_card.add_child(save_column)
+
+	var head_row := UiStyle.hbox(8)
+	head_row.name = "HeadRow"
+	save_column.add_child(head_row)
+
+	_save_badge = PanelContainer.new()
+	_save_badge.name = "SaveBadge"
+	_save_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_save_badge.visible = false
+	_save_badge.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_save_badge.add_theme_stylebox_override("panel", _badge_ok)
+	head_row.add_child(_save_badge)
+	var badge_row := UiStyle.hbox(6)
+	badge_row.name = "Row"
+	_save_badge.add_child(badge_row)
+	var badge_icon := UiStyle.icon(SAVE_ICON, 16)
+	badge_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	badge_row.add_child(badge_icon)
+	_save_caption = UiStyle.label("SAVED", 15, UiStyle.LEAF, 800)
+	_save_caption.name = "Caption"
+	badge_row.add_child(_save_caption)
+
+	var head_spacer := Control.new()
+	head_spacer.name = "Spacer"
+	head_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head_row.add_child(head_spacer)
+	_save_hint = UiStyle.label("W/S more", 13, UiStyle.INK_MUTED, 700)
+	_save_hint.name = "ScrollHint"
+	_save_hint.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_save_hint.visible = false
+	head_row.add_child(_save_hint)
+
+	_save_status_scroll = ScrollContainer.new()
+	_save_status_scroll.name = "SaveStatusScroll"
+	_save_status_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_save_status_scroll.custom_minimum_size = Vector2(SAVE_STATUS_WIDTH, 0)
+	save_column.add_child(_save_status_scroll)
+	_save_status = UiStyle.label("", 20, UiStyle.BAD, 800)
+	_save_status.name = "SaveStatus"
+	_save_status.custom_minimum_size = Vector2(SAVE_STATUS_WIDTH - 20.0, 0)
+	_save_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_save_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_save_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_save_status.resized.connect(_sync_save_status_height)
+	_save_status_scroll.add_child(_save_status)
+
+	_acknowledge = UiStyle.primary_action("Enter", "")
+	_acknowledge.name = "Acknowledge"
+	_acknowledge.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	actions.add_child(_acknowledge)
+	_action_text = _acknowledge.find_child("Text", true, false) as Label
+
+func _lock_header() -> VBoxContainer:
+	var header := UiStyle.vbox(2)
+	header.name = "DayHeader"
+	var day_row := UiStyle.hbox(8)
+	day_row.name = "DayRow"
+	day_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	header.add_child(day_row)
+	_day_line = _shadowed_label("", 22, 800)
+	_day_line.name = "DayLine"
+	day_row.add_child(_day_line)
+	_weather_tail = _shadowed_label("", 22, 800)
+	_weather_tail.name = "WeatherTail"
+	day_row.add_child(_weather_tail)
+	var clock := _shadowed_label(
+		GameRules.format_time(GameRules.DAY_START_MINUTES), 90, 900
+	)
+	clock.name = "LockTime"
+	clock.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	header.add_child(clock)
+	return header
+
+func _notification_card(
+	card_name: String, tile_fill: Color, icon: Texture2D
+) -> Dictionary:
+	var card := PanelContainer.new()
+	card.name = "%sCard" % card_name
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_theme_stylebox_override(
+		"panel", UiStyle.card(UiStyle.HUD_CARD, 22, [14, 10, 14, 10])
+	)
+	var row := UiStyle.hbox(12)
+	card.add_child(row)
+	var tile := PanelContainer.new()
+	tile.name = "Tile"
+	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tile.custom_minimum_size = Vector2(44, 44)
+	var tile_box := UiStyle.card(tile_fill, 12, [0, 0, 0, 0], false)
+	tile.add_theme_stylebox_override("panel", tile_box)
+	tile.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	row.add_child(tile)
+	var tile_icon := UiStyle.icon(icon, 32)
+	tile_icon.name = "Icon"
+	tile.add_child(tile_icon)
+	var lines := UiStyle.vbox(2)
+	lines.name = "Lines"
+	lines.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lines.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(lines)
+	var head_row := UiStyle.hbox(6)
+	head_row.name = "HeadRow"
+	lines.add_child(head_row)
+	var header := UiStyle.label(card_name.to_upper(), 13, UiStyle.INK_MUTED, 900)
+	header.name = "Header"
+	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head_row.add_child(header)
+	var stamp := UiStyle.label(
+		"%d:%02d" % [GameRules.DAY_START_MINUTES / 60, GameRules.DAY_START_MINUTES % 60],
+		12,
+		UiStyle.INK_MUTED,
+		700
+	)
+	stamp.name = "Stamp"
+	head_row.add_child(stamp)
+	var headline := UiStyle.label("", 18, UiStyle.INK, 800)
+	headline.name = "Headline"
+	headline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lines.add_child(headline)
+	return {
+		"card": card,
+		"tile_box": tile_box,
+		"tile_icon": tile_icon,
+		"lines": lines,
+		"header": header,
+		"stamp": stamp,
+		"headline": headline,
+	}
+
+func _card_sub(text_value: String) -> Label:
+	var result := UiStyle.label(text_value, 16, UiStyle.INK_MUTED, 600)
+	result.name = "Sub"
+	result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return result
+
+func _shadowed_label(text_value: String, size: int, weight: int) -> Label:
+	var result := UiStyle.label(text_value, size, UiStyle.CARD, weight)
+	result.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.5))
+	result.add_theme_constant_override("shadow_offset_x", 0)
+	result.add_theme_constant_override("shadow_offset_y", 2)
+	return result
 
 func _shipment_row(row_name: String, icon_size: int, name_size: int, amount_size: int) -> PanelContainer:
 	var row := PanelContainer.new()
 	row.name = row_name
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var box := UiStyle.card(UiStyle.SOFT, 12, [10, 5, 10, 5], false)
+	var box := UiStyle.card(UiStyle.SOFT, 12, [8, 4, 8, 4], false)
 	row.add_theme_stylebox_override("panel", box)
 	var hbox := UiStyle.hbox(8)
 	hbox.name = "Row"
@@ -419,15 +552,3 @@ func _row_children(row: PanelContainer) -> Dictionary:
 		"name": row.get_node("Row/Name") as Label,
 		"amount": row.get_node("Row/Amount") as Label,
 	}
-
-func _footer() -> HBoxContainer:
-	var footer := UiStyle.hbox(8)
-	footer.name = "Footer"
-	footer.alignment = BoxContainer.ALIGNMENT_CENTER
-	footer.size_flags_vertical = Control.SIZE_SHRINK_END
-	footer.add_child(UiStyle.keycap("Enter", true))
-	_action_text = UiStyle.label("", 14, UiStyle.INK_MUTED, 700)
-	_action_text.name = "ActionText"
-	_action_text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	footer.add_child(_action_text)
-	return footer

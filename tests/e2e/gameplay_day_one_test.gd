@@ -140,23 +140,25 @@ func test_day_one_farming_loop_and_sleep() -> void:
 	assert_bool(
 		await game.wait_for_property(HUD + "/SleepPanel", "visible", true, 5.0)
 	).is_true()
-	assert_bool(await game.click_node(HUD + "/SleepPanel/Confirm")).is_true()
+	assert_bool(await game.click_node(
+		HUD + "/SleepPanel/Center/PhoneFrame/Screen/Column/BottomBar/Rows/Footer/Row/Actions/Confirm"
+	)).is_true()
 	assert_bool(await game.wait_for_property(DAY, "text", "Day 2", 10.0)).is_true()
 	assert_bool(
 		await game.wait_for_property(HUD + "/MorningSummaryPanel", "visible", true, 5.0)
 	).is_true()
 	# The overnight save landed (status resets once the summary is dismissed).
 	assert_str(
-		await game.get_property(HUD + "/MorningSummaryPanel/SaveStatus", "text")
+		await game.call_method(HUD + "/MorningSummaryPanel", "save_status_text")
 	).is_equal("Saved.")
 	# Pin the save-isolation seam: the child must have written the file at the
 	# PHOENIX_SAVE_PATH we set, not the developer's real user://phoenix-save.json.
 	# Parent and child share the same user:// root (same project), so this sees
 	# the child's write. If AppRoot stops honoring the env override, this fails.
 	assert_bool(FileAccess.file_exists(_save_path)).is_true()
-	assert_bool(
-		await game.click_node(HUD + "/MorningSummaryPanel/Acknowledge")
-	).is_true()
+	assert_bool(await game.click_node(
+		HUD + "/MorningSummaryPanel/Center/PhoneFrame/Screen/Column/BottomBar/Rows/Footer/Row/Actions/Acknowledge"
+	)).is_true()
 	assert_bool(
 		await game.wait_for_property(HUD + "/MorningSummaryPanel", "visible", false, 5.0)
 	).is_true()

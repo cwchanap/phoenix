@@ -206,35 +206,37 @@ Gift already given today.,今天已經送過禮物了。,今日はもう贈り�
 The Harvest Market opens on Day 14.,豐收市集在第 14 天開張。,収穫市は14日目に開かれる。
 Stand at the Harvest Market.,請站到豐收市集前。,収穫市の前に立とう。
 Save failed — this morning is not persisted.,存檔失敗——今天早上的進度沒有保存。,セーブ失敗——今朝の進行は保存されていない。
-CROPS GREW,作物成長,作物が成長
-RAINY,雨天,雨
-SUNNY,晴天,晴れ
-TODAY — NO\nWATERING NEEDED,今天——\n不用澆水,今日——\n水やり不要
-TODAY —\nWATER AS USUAL,今天——\n照常澆水,今日——\nいつも通り水やり
-STAMINA FULL,體力全滿,スタミナ全快
-STAMINA,體力,スタミナ
-SHIPPED,已出貨,出荷済み
+WEATHER,天氣,天気
+FARM,農場,農場
+BANK,銀行,銀行
+Rain all day,整天有雨,一日中雨
+Sunny all day,整天放晴,一日中晴れ
+No watering needed today.,今天不用澆水。,今日は水やり不要。
+Water as usual.,照常澆水。,いつも通り水やり。
+No crops grew overnight,夜裡沒有作物生長,一晩で育った作物はない
+%d crop grew overnight,夜裡有 %d 株作物生長,一晩で %d 株が育った
+%d crops grew overnight,夜裡有 %d 株作物生長,一晩で %d 株が育った
+Stamina is back to %d.,體力回復到 %d。,スタミナが %d に回復。
+Shipping payout +%dG,出貨收入 +%dG,出荷の支払い +%dG
+No shipping payout,沒有出貨收入,出荷の支払いなし
+Balance,餘額,残高
 %d CROP WITHERED,%d 株作物枯萎了,作物が %d 株枯れた
 %d CROPS WITHERED,%d 株作物枯萎了,作物が %d 株枯れた
 START DAY %d,開始第 %d 天,%d 日目を始める
 Saved.,已存檔。,セーブした。
 SAVED,已存檔,セーブ済み
 SAVE ERROR,存檔錯誤,セーブエラー
-THE BIN PAID OUT,出貨箱結算了,出荷箱の精算
 No crops shipped.,沒有出貨任何作物。,出荷した作物はない。
-Money after shipping,出貨後的金錢,出荷後の所持金
 This farm has been quiet for a while. It is yours now — bring it back one day at a time.,這座農場已經沉寂了好一陣子。現在它是你的了——一天一天讓它重新活起來吧。,この農場はしばらく静まり返っていた。今はもうあなたのもの——一日ずつ、よみがえらせよう。
 SATO-SAN,佐藤先生,佐藤さん
 "The village harvest market is on Day 14. Grow what you can, and get to know the village before then.",村裡的豐收市集在第 14 天。在那之前盡量種，也多認識村裡的人吧。,村の収穫市は14日目。それまでにできるだけ育てて、村の人と仲良くなっておこう。
 BEGIN DAY 1,開始第 1 天,1日目を始める
 CONTROLS,操作說明,操作方法
-Move · facing picks the target cell,移動 · 面向的格子就是目標,移動 · 向いているマスが対象
-Cycle the selected seed,切換選擇的種子,選ぶ種を切り替え
-Space works target tile,空白鍵處理目標格子,スペースで対象マスを作業
-Shop · bed · bin · villagers,商店 · 床 · 出貨箱 · 村民,店 · ベッド · 出荷箱 · 村人
-Bag · Almanac · Season,背包 · 圖鑑 · 季節,かばん · 図鑑 · シーズン
-settings,設定,設定
-RESUME,繼續遊戲,再開
+Walk; you face the tile you'll work,走路；你面向的格子就是要施作的格子,歩く。向いているマスが作業対象
+"Till, plant, water or harvest. Hold to keep going.",翻土、種植、澆水或收成。長按可以連續工作。,耕す・植える・水やり・収穫。長押しで続けて作業。
+Switch seed,切換種子,種を切り替え
+"Talk, shop, bin, bed",對話、商店、出貨箱、床,話す・店・出荷箱・ベッド
+Back to the farm,回到農場,農場に戻る
 Paused,暫停中,一時停止中
 Settings,設定,設定
 SEASON COMPLETE,本季結束,シーズン終了
@@ -285,8 +287,9 @@ OWNED,已擁有,購入済み
 Buy %d · %dG,購買 %d · %dG,買う %d · %dG
 Sleep until morning?,要睡到早上嗎？,朝まで眠りますか？
 Sleep,睡覺,眠る
-SLEEP,睡覺,眠る
-ALARM,鬧鐘,アラーム
+Crops you watered today grow overnight.,今天澆過水的作物會在夜裡生長。,今日水やりした作物は一晩で育つ。
+Alarm,鬧鐘,アラーム
+Day %d · wake up,第 %d 天 · 起床,%d日目 · 起床
 not yet,還不要,まだ
 Godot 4.7.1 · 1080p,Godot 4.7.1 · 1080p,Godot 4.7.1 · 1080p
 Day %d,第 %d 天,%d日目
