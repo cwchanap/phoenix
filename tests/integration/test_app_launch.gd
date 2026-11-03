@@ -388,6 +388,10 @@ func test_legacy_640x360_ui_roots_fill_the_1080p_canvas() -> void:
     var shop := world.hud.get_node("HudRoot/ShopPanel") as Control
     assert_eq(shop.size, UiStyle.LEGACY_LAYOUT_SIZE)
     assert_eq(shop.get_global_rect(), canvas)
+    # HPA-682: Pause is rebuilt natively inside its code-built phone frame.
+    var pause := world.hud.get_node("HudRoot/PausePanel") as Control
+    assert_eq(pause.scale, Vector2.ONE)
+    assert_eq(pause.get_global_rect(), canvas)
 
 func test_title_keyboard_skips_disabled_continue_and_enter_starts_new_game() -> void:
     var repository := SaveRepository.new(TEST_PATH)
