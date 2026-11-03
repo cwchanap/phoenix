@@ -732,6 +732,85 @@ func test_shop_upgrade_purchase_refreshes_open_shop_to_55g_owned_and_owned_enter
     assert_eq(int(world._session.snapshot()["money"]), 55)
     hud.close_shop()
 
+func test_shop_stepper_mouse_press_cancel_and_bound_disabled_states() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+
+    var snapshot := world._session.snapshot()
+    snapshot["money"] = 40
+    hud.render(snapshot)
+    hud.open_shop()
+    var panel := _panel(hud, "ShopPanel")
+    assert_true(panel.has_method("stepper_button"))
+    var minus := panel.call("stepper_button", 0, &"minus") as Button
+    var plus := panel.call("stepper_button", 0, &"plus") as Button
+    var max_button := panel.call("stepper_button", 0, &"max") as Button
+    assert_not_null(minus)
+    assert_not_null(plus)
+    assert_not_null(max_button)
+    assert_false(minus.disabled)
+    assert_false(plus.disabled)
+    assert_false(max_button.disabled)
+
+    await _press_and_release_outside(plus)
+    assert_eq(int(panel.call("selected_quantity")), 1)
+
+    await _click_control(plus)
+    assert_eq(int(panel.call("selected_quantity")), 2)
+    assert_true(plus.disabled)
+    assert_true(max_button.disabled)
+    assert_false(minus.disabled)
+
+    await _click_control(minus)
+    assert_eq(int(panel.call("selected_quantity")), 1)
+    await _click_control(minus)
+    assert_eq(int(panel.call("selected_quantity")), 0)
+    assert_true(minus.disabled)
+    assert_false(plus.disabled)
+    assert_false(max_button.disabled)
+    assert_eq(String(panel.call("selected_action_text")), "BUY · 0G")
+
+    await _click_control(max_button)
+    assert_eq(int(panel.call("selected_quantity")), 2)
+    assert_eq(String(panel.call("selected_action_text")), "BUY · 40G")
+    hud.close_shop()
+
+func test_shop_stepper_disabled_and_enter_still_requests_when_unaffordable() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var requests: Array[Dictionary] = []
+    hud.buy_requested.connect(func(kind: int, quantity: int) -> void:
+        requests.append({"kind": kind, "quantity": quantity})
+    )
+
+    var snapshot := world._session.snapshot()
+    snapshot["money"] = 15
+    hud.render(snapshot)
+    hud.open_shop()
+    var panel := _panel(hud, "ShopPanel")
+    assert_true(panel.has_method("stepper_button"))
+    var minus := panel.call("stepper_button", 0, &"minus") as Button
+    var plus := panel.call("stepper_button", 0, &"plus") as Button
+    var max_button := panel.call("stepper_button", 0, &"max") as Button
+    assert_true(minus.disabled)
+    assert_true(plus.disabled)
+    assert_true(max_button.disabled)
+    assert_eq(String(panel.call("selected_action_text")), "BUY · 0G")
+
+    await _click_control(plus)
+    assert_eq(int(panel.call("selected_quantity")), 0)
+    await _press_panel_action("ui_accept")
+    assert_eq(requests, [{"kind": GameRules.CropKind.TURNIP, "quantity": 0}])
+    hud.close_shop()
+
 func test_shipping_keyboard_rows_update_quantity_max_and_enter_request() -> void:
     var world := _world()
     if world == null:
@@ -753,15 +832,80 @@ func test_shipping_keyboard_rows_update_quantity_max_and_enter_request() -> void
     var panel := _panel(hud, "ShippingPanel")
     assert_true(panel.has_method("selected_kind"))
     assert_true(panel.has_method("selected_quantity"))
+    assert_true(panel.has_method("selected_action_text"))
     assert_eq(int(panel.call("selected_kind")), GameRules.CropKind.TURNIP)
     assert_eq(int(panel.call("selected_quantity")), 1)
+    assert_eq(String(panel.call("selected_action_text")), "DEPOSIT ×1")
 
     await _press_panel_action("move_right")
     assert_eq(int(panel.call("selected_quantity")), 2)
+    assert_eq(String(panel.call("selected_action_text")), "DEPOSIT ×2")
     await _press_panel_action("panel_max")
     assert_eq(int(panel.call("selected_quantity")), 7)
+    assert_eq(String(panel.call("selected_action_text")), "DEPOSIT ×7")
     await _press_panel_action("ui_accept")
     assert_eq(requests, [{"kind": GameRules.CropKind.TURNIP, "quantity": 7}])
+
+func test_shipping_stepper_mouse_cancel_click_and_empty_stock_disabled() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+
+    var snapshot := world._session.snapshot()
+    snapshot["harvested"] = {&"turnip": 7, &"potato": 0, &"pumpkin": 0}
+    hud.render(snapshot)
+    hud.open_shipping()
+    var panel := _panel(hud, "ShippingPanel")
+    assert_true(panel.has_method("stepper_button"))
+    var minus := panel.call("stepper_button", 0, &"minus") as Button
+    var plus := panel.call("stepper_button", 0, &"plus") as Button
+    var max_button := panel.call("stepper_button", 0, &"max") as Button
+    assert_not_null(minus)
+    assert_not_null(plus)
+    assert_not_null(max_button)
+    assert_eq(String(panel.call("selected_action_text")), "DEPOSIT ×1")
+
+    await _press_and_release_outside(max_button)
+    assert_eq(int(panel.call("selected_quantity")), 1)
+
+    await _click_control(plus)
+    assert_eq(int(panel.call("selected_quantity")), 2)
+    assert_eq(String(panel.call("selected_action_text")), "DEPOSIT ×2")
+    assert_false(plus.disabled)
+    assert_false(max_button.disabled)
+
+    await _click_control(max_button)
+    assert_eq(int(panel.call("selected_quantity")), 7)
+    assert_eq(String(panel.call("selected_action_text")), "DEPOSIT ×7")
+    assert_true(plus.disabled)
+    assert_true(max_button.disabled)
+    assert_false(minus.disabled)
+
+    await _press_panel_action("move_down")
+    assert_eq(int(panel.call("selected_kind")), GameRules.CropKind.POTATO)
+    assert_eq(int(panel.call("selected_quantity")), 0)
+    assert_eq(String(panel.call("selected_action_text")), "DEPOSIT ×0")
+    var empty_minus := panel.call("stepper_button", 1, &"minus") as Button
+    var empty_plus := panel.call("stepper_button", 1, &"plus") as Button
+    var empty_max := panel.call("stepper_button", 1, &"max") as Button
+    assert_true(empty_minus.disabled)
+    assert_true(empty_plus.disabled)
+    assert_true(empty_max.disabled)
+    await _click_control(empty_plus)
+    assert_eq(int(panel.call("selected_quantity")), 0)
+
+    snapshot["harvested"] = {&"turnip": 0, &"potato": 0, &"pumpkin": 0}
+    hud.render(snapshot)
+    await _press_panel_action("move_up")
+    assert_eq(int(panel.call("selected_kind")), GameRules.CropKind.TURNIP)
+    assert_eq(String(panel.call("selected_action_text")), "DEPOSIT ×0")
+    assert_true((panel.call("stepper_button", 0, &"minus") as Button).disabled)
+    assert_true((panel.call("stepper_button", 0, &"plus") as Button).disabled)
+    assert_true((panel.call("stepper_button", 0, &"max") as Button).disabled)
+    hud.close_shipping()
 
 func test_inventory_modal_keys_are_exclusive_same_key_closes_and_gate_input() -> void:
     var world := _world()
@@ -1234,6 +1378,29 @@ func _press_panel_action(action: StringName) -> void:
     release.pressed = false
     get_viewport().push_input(release)
     await get_tree().process_frame
+
+func _mouse_left(point: Vector2, pressed: bool) -> void:
+    var event := InputEventMouseButton.new()
+    event.button_index = MOUSE_BUTTON_LEFT
+    event.pressed = pressed
+    event.position = point
+    get_viewport().push_input(event)
+    await get_tree().process_frame
+
+func _click_control(control: Control) -> void:
+    var center := control.get_global_rect().get_center()
+    await _mouse_left(center, true)
+    await _mouse_left(center, false)
+
+func _press_and_release_outside(control: Control) -> void:
+    var center := control.get_global_rect().get_center()
+    await _mouse_left(center, true)
+    var outside := Vector2(40, 40)
+    var motion := InputEventMouseMotion.new()
+    motion.position = outside
+    get_viewport().push_input(motion)
+    await get_tree().process_frame
+    await _mouse_left(outside, false)
 
 func _press_physical_key(keycode: Key) -> void:
     var press := InputEventKey.new()
