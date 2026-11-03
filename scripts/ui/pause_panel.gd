@@ -178,12 +178,20 @@ func _app_tile(
 	column.add_child(caption)
 	caption.add_child(UiStyle.label(app_name, 17, UiStyle.CARD, 900))
 	caption.add_child(UiStyle.keycap(key, true))
-	tile.gui_input.connect(func(event: InputEvent) -> void:
-		var click := event as InputEventMouseButton
-		if click != null and click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
-			request.emit()
-	)
+	var click := _click_area()
+	tile.add_child(click)
+	click.pressed.connect(func() -> void: request.emit())
 	return tile
+
+func _click_area() -> Button:
+	var button := Button.new()
+	button.name = "ClickArea"
+	button.focus_mode = Control.FOCUS_NONE
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var empty := StyleBoxEmpty.new()
+	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+		button.add_theme_stylebox_override(state, empty)
+	return button
 
 func _controls_card() -> PanelContainer:
 	var card := PanelContainer.new()
@@ -211,11 +219,9 @@ func _controls_card() -> PanelContainer:
 	resume.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	column.add_child(resume)
 	resume.add_child(_control_row(["Esc"], "RESUME"))
-	resume.gui_input.connect(func(event: InputEvent) -> void:
-		var click := event as InputEventMouseButton
-		if click != null and click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
-			resume_requested.emit()
-	)
+	var click := _click_area()
+	resume.add_child(click)
+	click.pressed.connect(func() -> void: resume_requested.emit())
 	return card
 
 func _control_row(keys: Array, copy: String) -> HBoxContainer:

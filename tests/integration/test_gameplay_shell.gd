@@ -2501,6 +2501,44 @@ func test_gift_button_round_trips_through_session_and_updates_open_panel() -> vo
     assert_true(String(panel.call("feedback_text")).contains("Favourite gift"))
     assert_eq(_visible_gift_count(panel), 0)
 
+func test_gift_number_key_gives_the_numbered_chip() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var june := VillagerRules.VillagerId.RESIDENT
+    var seeded: Array[int] = [1, 1, 0]
+    world._session.set("_harvested_counts", seeded)
+
+    await _place_target(world, WorldContract.villager_cell(june))
+    world.interact()
+    var panel := _panel(hud, "DialoguePanel") as DialoguePanel
+    assert_eq(int(world._session.snapshot()["harvested"][&"potato"]), 1)
+    var points_before := int(
+        world._session.snapshot()["relationships"][&"resident"]["points"]
+    )
+
+    await _press_physical_key(KEY_3)
+    assert_eq(int(world._session.snapshot()["harvested"][&"potato"]), 1)
+    assert_eq(
+        int(world._session.snapshot()["relationships"][&"resident"]["points"]),
+        points_before,
+    )
+
+    await _press_physical_key(KEY_2)
+    assert_eq(int(world._session.snapshot()["harvested"][&"potato"]), 0)
+    assert_eq(
+        String(panel.call("current_line_text")),
+        "“%s”" % VillagerRules.gift_line(june, GameRules.CropKind.POTATO),
+    )
+    assert_eq(
+        int(world._session.snapshot()["relationships"][&"resident"]["points"]),
+        points_before + VillagerRules.gift_points(june, GameRules.CropKind.POTATO),
+    )
+    hud.close_dialogue()
+
 func _visible_gift_count(dialogue: DialoguePanel) -> int:
     var count := 0
     for kind in range(GameRules.CropKind.size()):
@@ -2723,15 +2761,12 @@ func test_pause_app_tiles_open_their_apps() -> void:
     var world := _settings_world()
     var hud := _hud(world)
     var pause := _panel(hud, "PausePanel")
-    var click := InputEventMouseButton.new()
-    click.button_index = MOUSE_BUTTON_LEFT
-    click.pressed = true
 
     await _press_escape()
     assert_true(pause.visible)
     var bag_tile := pause.find_child("BagTile", true, false) as Control
     assert_not_null(bag_tile)
-    bag_tile.gui_input.emit(click)
+    await _click_control(bag_tile)
     assert_false(pause.visible)
     assert_true(_panel(hud, "BagPanel").visible)
     assert_false(world._world_input_enabled)
@@ -2741,12 +2776,55 @@ func test_pause_app_tiles_open_their_apps() -> void:
     assert_true(pause.visible)
     var settings_tile := pause.find_child("SettingsTile", true, false) as Control
     assert_not_null(settings_tile)
-    settings_tile.gui_input.emit(click)
+    await _click_control(settings_tile)
     assert_false(pause.visible)
     assert_true(_panel(hud, "SettingsPanel").visible)
     await _press_escape()
     assert_true(pause.visible)
     assert_false(_panel(hud, "SettingsPanel").visible)
+
+func test_pause_tile_click_cancelled_when_released_outside() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var pause := _panel(hud, "PausePanel")
+    var bag := _panel(hud, "BagPanel")
+
+    await _press_escape()
+    assert_true(pause.visible)
+    var bag_tile := pause.find_child("BagTile", true, false) as Control
+    var calendar_tile := pause.find_child("CalendarTile", true, false) as Control
+    assert_not_null(bag_tile)
+    assert_not_null(calendar_tile)
+
+    await _press_and_release_outside(bag_tile)
+    assert_true(pause.visible)
+    assert_false(bag.visible)
+    await _press_and_release_outside(calendar_tile)
+    assert_true(pause.visible)
+    assert_false(_panel(hud, "CalendarPanel").visible)
+
+    await _click_control(calendar_tile)
+    assert_false(pause.visible)
+    assert_true(_panel(hud, "CalendarPanel").visible)
+    hud.close_calendar()
+
+func test_pause_resume_click_cancelled_when_released_outside() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var pause := _panel(hud, "PausePanel")
+
+    await _press_escape()
+    assert_true(pause.visible)
+    var resume := pause.find_child("Resume", true, false) as Control
+    assert_not_null(resume)
+
+    await _press_and_release_outside(resume)
+    assert_true(pause.visible)
+    assert_false(world._world_input_enabled)
+
+    await _click_control(resume)
+    assert_false(pause.visible)
+    assert_true(world._world_input_enabled)
 
 func test_pause_status_bar_tracks_the_rendered_clock_and_day() -> void:
     var world := _world()
