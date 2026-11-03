@@ -4,8 +4,8 @@ extends Control
 signal gift_requested(villager_id: int, crop_kind: int)
 signal close_requested
 
-# Portrait art per VillagerId slot; placeholder art until the new-cast portraits land.
-const PORTRAIT_NAMES: Array[String] = ["mira-full", "rowan", "june"]
+# Portrait art per VillagerId slot.
+const PORTRAIT_NAMES: Array[String] = ["sato", "gen", "hana"]
 
 var _villager_id := -1
 var _lines: Array[String] = []
@@ -63,7 +63,6 @@ func _render() -> void:
     portrait.texture = load(
         "res://assets/ui/portraits/%s.png" % portrait_name
     ) as Texture2D
-    portrait.scale = Vector2(1.1, 1.0) if _villager_id == VillagerRules.VillagerId.SHOPKEEPER else Vector2.ONE
     name_label.text = VillagerRules.display_name(_villager_id)
     role_label.text = tr(VillagerRules.role_label(_villager_id)).to_upper()
 
