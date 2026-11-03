@@ -12,29 +12,22 @@ const ART_TEXTURES: Array[String] = [
 	"res://assets/ui/crops/potato-art.png",
 	"res://assets/ui/crops/pumpkin-art.png",
 ]
-const GROWTH_COLORS: Array[Color] = [UiStyle.SUN, UiStyle.BLUE, UiStyle.ORANGE]
-const ALMANAC_ICON := preload("res://assets/ui/icons/almanac.png")
+const ART_GRADIENT: Array[Color] = [Color("bfe8ff"), Color("e9fbe8")]
 const HEART_ICON := preload("res://assets/ui/icons/heart-filled.png")
-const HEADER_GRADIENT: Array[Color] = [UiStyle.ACCENT_2, UiStyle.VIOLET]
 
 var _snapshot: Dictionary = {}
 var _selected_kind := GameRules.CropKind.TURNIP
 var _frame: PhoneFrame
+var _page: Label
 var _art: TextureRect
 var _name: Label
-var _favourite_badge: PanelContainer
-var _favourite_box: StyleBoxFlat
 var _favourite_value: Label
-var _pips: Array[Panel] = []
-var _pip_boxes: Array[StyleBoxFlat] = []
-var _pip_off := UiStyle.card(UiStyle.LINE, 4, [0, 0, 0, 0], false)
+var _pips: Array[Dictionary] = []
 var _growth_value: Label
 var _seed_value: Label
 var _sell_value: Label
 var _margin_value: Label
-var _dots: Array[Panel] = []
-var _dot_on := UiStyle.card(UiStyle.BLUE, UiStyle.PILL_RADIUS, [0, 0, 0, 0], false)
-var _dot_off := UiStyle.card(UiStyle.LINE, UiStyle.PILL_RADIUS, [0, 0, 0, 0], false)
+var _dots: Array[Dictionary] = []
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -74,6 +67,9 @@ func crop_sell_text() -> String:
 func crop_margin_text() -> String:
 	return _margin_value.text
 
+func crop_favourite_text() -> String:
+	return _favourite_value.text
+
 func _input(event: InputEvent) -> void:
 	if not visible or not event.is_pressed() or event.is_echo():
 		return
@@ -101,11 +97,23 @@ func _build() -> void:
 	add_child(center)
 	_frame = PhoneFrame.new()
 	center.add_child(_frame)
+	_frame.set_app_header("Almanac", "作物図鑑")
+	var chip := PanelContainer.new()
+	chip.name = "Page"
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chip.add_theme_stylebox_override(
+		"panel",
+		UiStyle.card(Color(1.0, 1.0, 1.0, 0.22), UiStyle.PILL_RADIUS, [12, 5, 12, 5], false),
+	)
+	_frame.app_header_accessory().add_child(chip)
+	_page = UiStyle.label("", 15, UiStyle.CARD, 800)
+	_page.name = "PageChip"
+	chip.add_child(_page)
 
 	var layout := MarginContainer.new()
 	layout.name = "Layout"
 	layout.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for side in [["left", 16], ["top", 14], ["right", 16], ["bottom", 12]]:
+	for side in [["left", 22], ["top", -10], ["right", 22], ["bottom", 4]]:
 		layout.add_theme_constant_override("margin_" + side[0], side[1])
 	layout.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_frame.content_mount().add_child(layout)
@@ -113,120 +121,96 @@ func _build() -> void:
 	column.name = "Column"
 	layout.add_child(column)
 
-	for color in GROWTH_COLORS:
-		_pip_boxes.append(UiStyle.card(color, 4, [0, 0, 0, 0], false))
-	column.add_child(_app_header())
-	column.add_child(_art_card())
+	column.add_child(_art_box())
+	column.add_child(_name_row())
 	column.add_child(_growth_card())
 	column.add_child(_stats_row())
+	var spacer := Control.new()
+	spacer.name = "Spacer"
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.add_child(spacer)
 	column.add_child(_dots_row())
-	column.add_child(_footer_hint())
+	_build_footer()
 
-func _app_header() -> PanelContainer:
-	var header := UiStyle.gradient_surface(HEADER_GRADIENT, 20, [16, 10, 16, 10])
-	header.name = "AppHeader"
-	var row := UiStyle.hbox(10)
-	header.add_child(row)
-	var icon_chip := PanelContainer.new()
-	icon_chip.name = "IconChip"
-	icon_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon_chip.custom_minimum_size = Vector2(38, 38)
-	icon_chip.add_theme_stylebox_override(
-		"panel", UiStyle.card(UiStyle.CARD, 12, [5, 5, 5, 5], false)
+func _art_box() -> PanelContainer:
+	var box := PanelContainer.new()
+	box.name = "ArtBox"
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.custom_minimum_size = Vector2(0, 300)
+	box.add_theme_stylebox_override(
+		"panel", UiStyle.card(UiStyle.CARD, 24, [0, 0, 0, 0], false)
 	)
-	icon_chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(icon_chip)
-	icon_chip.add_child(UiStyle.icon(ALMANAC_ICON, 28))
-	var title := UiStyle.label("Almanac", 26, UiStyle.CARD, 900)
-	title.name = "Title"
-	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(title)
+	var sky := TextureRect.new()
+	sky.name = "Gradient"
+	sky.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sky.texture = UiStyle.rounded_gradient_texture(
+		ART_GRADIENT, Vector2i(488, 300), 24, 24, true
+	)
+	sky.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	sky.stretch_mode = TextureRect.STRETCH_SCALE
+	box.add_child(sky)
+	_art = UiStyle.icon(null, 0)
+	_art.name = "Art"
+	box.add_child(_art)
+	return box
+
+func _name_row() -> HBoxContainer:
+	var row := UiStyle.hbox(10)
+	row.name = "NameRow"
+	_name = UiStyle.label("", 34, UiStyle.INK, 900)
+	_name.name = "Name"
+	_name.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(_name)
 	var spacer := Control.new()
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(spacer)
-	var subtitle := UiStyle.label("3 crops · 14-day season", 14, UiStyle.CARD, 800)
-	subtitle.name = "Subtitle"
-	subtitle.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(subtitle)
-	return header
-
-func _art_card() -> PanelContainer:
-	var card := PanelContainer.new()
-	card.name = "ArtCard"
-	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	card.add_theme_stylebox_override(
-		"panel", UiStyle.card(UiStyle.HUD_CARD, 20, [14, 12, 14, 12])
+	var chip := PanelContainer.new()
+	chip.name = "FavouriteChip"
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	chip.add_theme_stylebox_override(
+		"panel",
+		UiStyle.card(UiStyle.ACCENT_SOFT, UiStyle.PILL_RADIUS, [10, 3, 12, 3], false),
 	)
-	var column := UiStyle.vbox(10)
-	card.add_child(column)
-	var art_frame := PanelContainer.new()
-	art_frame.name = "ArtFrame"
-	art_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	art_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	art_frame.add_theme_stylebox_override(
-		"panel", UiStyle.card(UiStyle.SOFT, 16, [10, 10, 10, 10], false)
-	)
-	column.add_child(art_frame)
-	_art = UiStyle.icon(null, 220)
-	_art.name = "Art"
-	_art.custom_minimum_size = Vector2(0, 220)
-	art_frame.add_child(_art)
-	var name_row := UiStyle.hbox(10)
-	name_row.name = "NameRow"
-	column.add_child(name_row)
-	_name = UiStyle.label("", 26, UiStyle.INK, 900)
-	_name.name = "Name"
-	name_row.add_child(_name)
-	var spacer := Control.new()
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_row.add_child(spacer)
-	_favourite_badge = PanelContainer.new()
-	_favourite_badge.name = "FavouriteBadge"
-	_favourite_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_favourite_badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_favourite_box = UiStyle.card(UiStyle.ACCENT_SOFT, UiStyle.PILL_RADIUS, [12, 4, 12, 4], false)
-	_favourite_badge.add_theme_stylebox_override("panel", _favourite_box)
-	name_row.add_child(_favourite_badge)
-	var badge_row := UiStyle.hbox(4)
-	badge_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	_favourite_badge.add_child(badge_row)
-	badge_row.add_child(UiStyle.icon(HEART_ICON, 14))
-	_favourite_value = UiStyle.label("", 13, UiStyle.ACCENT_DEEP, 800)
+	row.add_child(chip)
+	var chip_row := UiStyle.hbox(6)
+	chip_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	chip.add_child(chip_row)
+	chip_row.add_child(UiStyle.icon(HEART_ICON, 16))
+	_favourite_value = UiStyle.label("", 15, UiStyle.ACCENT_DEEP, 800)
 	_favourite_value.name = "Value"
-	badge_row.add_child(_favourite_value)
-	return card
+	chip_row.add_child(_favourite_value)
+	return row
 
 func _growth_card() -> PanelContainer:
 	var card := PanelContainer.new()
 	card.name = "Growth"
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_theme_stylebox_override(
-		"panel", UiStyle.card(UiStyle.HUD_CARD, 18, [14, 10, 14, 12], false)
-	)
+	var box := UiStyle.card(UiStyle.CARD, 20, [16, 14, 16, 14], false)
+	box.shadow_color = Color(0.16, 0.04, 0.16, 0.06)
+	box.shadow_size = 14
+	box.shadow_offset = Vector2(0, 4)
+	card.add_theme_stylebox_override("panel", box)
 	var column := UiStyle.vbox(8)
 	card.add_child(column)
-	var caption := UiStyle.label("GROWTH", 13, UiStyle.INK_MUTED, 800)
+	var caption := UiStyle.label("GROWTH", 14, UiStyle.INK_MUTED, 900)
 	caption.name = "Caption"
 	column.add_child(caption)
-	var row := UiStyle.hbox(8)
+	var row := UiStyle.hbox(12)
 	row.name = "Row"
 	column.add_child(row)
-	var pips := UiStyle.hbox(4)
-	pips.name = "Pips"
+	var pips := UiStyle.hbox(6)
+	pips.name = "GrowthPips"
 	pips.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(pips)
 	for index in 7:
-		var pip := Panel.new()
+		var pip := UiStyle.state_pip(Vector2(22, 8))
 		pip.name = "Pip_%d" % index
-		pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		pip.custom_minimum_size = Vector2(20, 12)
-		pip.add_theme_stylebox_override("panel", _pip_off)
 		pips.add_child(pip)
-		_pips.append(pip)
-	_growth_value = UiStyle.label("", 15, UiStyle.INK, 700)
+		_pips.append({"pip": pip, "on": pip.get_node("On"), "off": pip.get_node("Off")})
+	_growth_value = UiStyle.label("", 17, UiStyle.INK, 800)
 	_growth_value.name = "Value"
 	_growth_value.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(_growth_value)
@@ -235,27 +219,28 @@ func _growth_card() -> PanelContainer:
 func _stats_row() -> HBoxContainer:
 	var row := UiStyle.hbox(10)
 	row.name = "Stats"
-	_seed_value = _stat_cell(row, "SEED", UiStyle.INK)
-	_sell_value = _stat_cell(row, "SELL", UiStyle.LEAF_DEEP)
-	_margin_value = _stat_cell(row, "MARGIN", UiStyle.LEAF_DEEP)
+	_seed_value = _stat_cell(row, "SeedCell", "SEED", UiStyle.INK)
+	_sell_value = _stat_cell(row, "SellCell", "SELL", UiStyle.INK)
+	_margin_value = _stat_cell(row, "MarginCell", "MARGIN", UiStyle.LEAF_DEEP)
 	return row
 
-func _stat_cell(row: HBoxContainer, caption: String, value_color: Color) -> Label:
+func _stat_cell(row: HBoxContainer, cell_name: String, caption: String, value_color: Color) -> Label:
 	var cell := PanelContainer.new()
-	cell.name = "%sCell" % caption
+	cell.name = cell_name
 	cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var box := UiStyle.card(UiStyle.HUD_CARD, 14, [10, 8, 10, 8], false)
-	box.border_color = UiStyle.LINE
-	box.set_border_width_all(1)
+	var box := UiStyle.card(UiStyle.CARD, 20, [16, 14, 16, 14], false)
+	box.shadow_color = Color(0.16, 0.04, 0.16, 0.06)
+	box.shadow_size = 14
+	box.shadow_offset = Vector2(0, 4)
 	cell.add_theme_stylebox_override("panel", box)
 	var column := UiStyle.vbox(2)
 	cell.add_child(column)
-	var caption_label := UiStyle.label(caption, 11, UiStyle.INK_MUTED, 800)
+	var caption_label := UiStyle.label(caption, 14, UiStyle.INK_MUTED, 900)
 	caption_label.name = "Caption"
 	caption_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(caption_label)
-	var value := UiStyle.label("", 20, value_color, 900)
+	var value := UiStyle.label("", 30, value_color, 900)
 	value.name = "Value"
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(value)
@@ -263,64 +248,77 @@ func _stat_cell(row: HBoxContainer, caption: String, value_color: Color) -> Labe
 	return value
 
 func _dots_row() -> HBoxContainer:
-	var row := UiStyle.hbox(6)
-	row.name = "Dots"
+	var row := UiStyle.hbox(8)
+	row.name = "PageDots"
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	for kind in range(GameRules.CropKind.size()):
-		var dot := Panel.new()
+		var dot := Control.new()
 		dot.name = "Dot_%d" % kind
 		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		dot.custom_minimum_size = Vector2(10, 10)
-		dot.add_theme_stylebox_override("panel", _dot_off)
+		var off := Panel.new()
+		off.name = "Off"
+		off.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		off.set_anchors_preset(Control.PRESET_FULL_RECT)
+		off.add_theme_stylebox_override(
+			"panel", UiStyle.card(UiStyle.LINE, 5, [0, 0, 0, 0], false)
+		)
+		dot.add_child(off)
+		var on := UiStyle.gradient_rect(UiStyle.ACCENT_GRADIENT)
+		on.name = "On"
+		on.set_anchors_preset(Control.PRESET_FULL_RECT)
+		dot.add_child(on)
 		row.add_child(dot)
-		_dots.append(dot)
+		_dots.append({"dot": dot, "on": on, "off": off})
 	return row
 
-func _footer_hint() -> HBoxContainer:
-	var footer := UiStyle.hbox(8)
-	footer.name = "Footer"
-	footer.alignment = BoxContainer.ALIGNMENT_CENTER
-	footer.size_flags_vertical = Control.SIZE_SHRINK_END
+func _build_footer() -> void:
+	var footer := _frame.footer_mount()
 	var caps := UiStyle.hbox(4)
 	caps.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	caps.add_child(UiStyle.keycap("A", true))
 	caps.add_child(UiStyle.keycap("D", true))
 	footer.add_child(caps)
-	var browse := UiStyle.label("browse", 14, UiStyle.INK_MUTED, 700)
+	var browse := UiStyle.label("browse", 15, UiStyle.INK_MUTED, 800)
 	browse.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	footer.add_child(browse)
-	var gap := Control.new()
-	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	gap.custom_minimum_size = Vector2(18, 0)
-	footer.add_child(gap)
-	footer.add_child(UiStyle.keycap("B", true))
-	var close := UiStyle.label("close", 14, UiStyle.INK_MUTED, 700)
+	var spacer := Control.new()
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	footer.add_child(spacer)
+	var close_caps := UiStyle.hbox(4)
+	close_caps.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	close_caps.add_child(UiStyle.keycap("B", true))
+	footer.add_child(close_caps)
+	var close := UiStyle.label("close", 15, UiStyle.INK_MUTED, 800)
 	close.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	footer.add_child(close)
-	return footer
 
 func _update_page() -> void:
 	if _frame == null:
 		return
 	var kind := _selected_kind
+	_page.text = tr("%d of %d") % [kind + 1, GameRules.CropKind.size()]
 	_art.texture = load(ART_TEXTURES[kind]) as Texture2D
 	_name.text = GameRules.crop_display_name(kind)
 	var favourite := VillagerRules.favourite_villager_for_crop(kind)
-	_favourite_value.text = tr(VillagerRules.display_name(favourite)).to_upper()
-	_favourite_box.border_color = UiStyle.ACCENT
-	_favourite_box.set_border_width_all(2)
+	_favourite_value.text = tr("%s's favourite") % tr(VillagerRules.display_name(favourite))
 	var growth := GameRules.growth_nights(kind)
 	_growth_value.text = tr("%d watered nights") % growth
 	for index in _pips.size():
-		_pips[index].add_theme_stylebox_override(
-			"panel", _pip_boxes[kind] if index < growth else _pip_off
-		)
+		var pip: Dictionary = _pips[index]
+		(pip["on"] as Control).visible = index < growth
+		(pip["off"] as Control).visible = index >= growth
 	_seed_value.text = "%dG" % GameRules.seed_price(kind)
 	_sell_value.text = "%dG" % GameRules.sale_value(kind)
 	_margin_value.text = "+%d" % (
 		GameRules.sale_value(kind) - GameRules.seed_price(kind)
 	)
 	for index in _dots.size():
-		_dots[index].add_theme_stylebox_override(
-			"panel", _dot_on if index == kind else _dot_off
+		var dot: Dictionary = _dots[index]
+		var active := index == kind
+		(dot["dot"] as Control).custom_minimum_size = (
+			Vector2(26, 10) if active else Vector2(10, 10)
 		)
+		(dot["on"] as Control).visible = active
+		(dot["off"] as Control).visible = not active

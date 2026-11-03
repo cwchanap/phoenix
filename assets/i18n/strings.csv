@@ -110,6 +110,9 @@ Payout is collected at season end.,貨款在季末結算。,代金はシーズ�
 Payout is collected tomorrow morning.,貨款在明天早上入帳。,代金は明日の朝に受け取る。
 Paid at season end,季末入帳,シーズン終了時に入金
 Pays out tomorrow morning,明早入帳,明朝に入金
+%d crops in the bin,出貨箱內 %d 個作物,出荷箱に %d 個の作物
+%d seeds · %d crops,種子 %d · 作物 %d,種 %d · 作物 %d
+%d of %d,%d / %d,%d / %d
 %d nights,%d 晚,%d 晩
 %dG buy · %dG sell,買價 %dG · 賣價 %dG,買値 %dG · 売値 %dG
 %s's favourite,%s的最愛,%sの好物
