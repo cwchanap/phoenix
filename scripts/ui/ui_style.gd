@@ -382,15 +382,39 @@ static func max_button(caption_text: String) -> Button:
 	row.add_child(caption)
 	return result
 
-static func commerce_footer() -> HBoxContainer:
-	var footer := hbox(10)
+static func gradient_band(
+	colors: Array[Color], radius: int, padding: Array = [0, 0, 0, 0]
+) -> PanelContainer:
+	var band := PanelContainer.new()
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var box := card(Color(1.0, 1.0, 1.0, 0.0), 0, padding, false)
+	band.add_theme_stylebox_override("panel", box)
+	var fill := TextureRect.new()
+	fill.name = "Gradient"
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fill.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	fill.stretch_mode = TextureRect.STRETCH_SCALE
+	band.add_child(fill)
+	band.sort_children.connect(func() -> void:
+		fill.position = Vector2.ZERO
+		fill.size = band.size
+		var pixels := Vector2i(
+			maxi(2, int(band.size.x)), maxi(2, int(band.size.y))
+		)
+		if fill.texture == null or fill.texture.get_size() != Vector2(pixels):
+			fill.texture = rounded_gradient_texture(colors, pixels, radius, 0)
+	)
+	return band
+
+static func commerce_footer(max_hint: String = "max") -> HBoxContainer:
+	var footer := hbox(20)
 	footer.name = "Footer"
 	var caps := hbox(4)
 	caps.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	for key in ["W", "S"]:
 		caps.add_child(keycap(key, true))
 	footer.add_child(caps)
-	var choose := label("choose crop", 15, INK_MUTED, 700)
+	var choose := label("choose crop", 17, INK_MUTED, 800)
 	choose.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	footer.add_child(choose)
 	var adjust_caps := hbox(4)
@@ -398,9 +422,16 @@ static func commerce_footer() -> HBoxContainer:
 	for key in ["A", "D"]:
 		adjust_caps.add_child(keycap(key, true))
 	footer.add_child(adjust_caps)
-	var quantity_hint := label("quantity", 15, INK_MUTED, 700)
+	var quantity_hint := label("quantity", 17, INK_MUTED, 800)
 	quantity_hint.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	footer.add_child(quantity_hint)
+	var max_cap := keycap("M", true)
+	max_cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	footer.add_child(max_cap)
+	var max_label := label(max_hint, 17, INK_MUTED, 800)
+	max_label.name = "MaxHint"
+	max_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	footer.add_child(max_label)
 	var spacer := Control.new()
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -408,19 +439,25 @@ static func commerce_footer() -> HBoxContainer:
 	var escape := keycap("Esc", true)
 	escape.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	footer.add_child(escape)
-	var leave := label("leave", 15, INK_MUTED, 700)
+	var leave := label("leave", 17, INK_MUTED, 800)
 	leave.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	footer.add_child(leave)
-	var enter := keycap("Enter", true)
-	enter.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	footer.add_child(enter)
-	var pill := gradient_surface(ACCENT_GRADIENT, PILL_RADIUS, [18, 8, 18, 8])
+	var pill := gradient_surface(ACCENT_GRADIENT, PILL_RADIUS, [8, 7, 24, 7])
 	pill.name = "Action"
 	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	footer.add_child(pill)
-	var action := label("", 18, CARD, 900)
+	var pill_row := hbox(12)
+	pill_row.name = "Row"
+	pill_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	pill.add_child(pill_row)
+	var enter := keycap("Enter", true)
+	enter.name = "Enter"
+	enter.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	pill_row.add_child(enter)
+	var action := label("", 20, CARD, 900)
 	action.name = "Text"
-	pill.add_child(action)
+	action.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	pill_row.add_child(action)
 	return footer
 
 ## HPA-680 stopgap: the title, result, intro, and modal panels are still

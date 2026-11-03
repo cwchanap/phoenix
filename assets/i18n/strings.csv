@@ -270,17 +270,19 @@ Day 14 — only crops deposited here count toward the finale. Anything still in 
 M ALL,M 全部,M 全部
 VALUE,價值,金額
 choose crop,選擇作物,作物を選ぶ
-DEPOSIT ×%d,放入 ×%d,入れる ×%d
+Ship %d · %dG,出貨 %d · %dG,出荷 %d · %dG
 SEED SHOP,種子行,種屋
-each,每個,1個
+Seeds and tools,種子與工具,種と道具
+%dG each · %d nights · %d held,每個 %dG · %d 晚 · 持有 %d,1個 %dG · %d 晩 · 所持 %d
+EACH,每個,1個
 M\nMAX,M\n最多,M\n最大
 TOTAL,總計,合計
-STOCK,庫存,所持
-%d held,持有 %d,所持 %d
+PRICE,價格,価格
 Efficient Can,省力澆水壺,省力じょうろ
-Water %d→%d STA,澆水 體力 %d→%d,水やり スタミナ %d→%d
+Watering costs %d stamina instead of %d. One-time.,澆水消耗 %d 體力，而非 %d。一次性升級。,水やりの消費スタミナが %d（通常 %d）。買い切り。
+Need %dG,需要 %dG,%dG 必要
 OWNED,已擁有,購入済み
-BUY · %dG,購買 · %dG,買う · %dG
+Buy %d · %dG,購買 %d · %dG,買う %d · %dG
 Sleep until morning?,要睡到早上嗎？,朝まで眠りますか？
 Sleep,睡覺,眠る
 SLEEP,睡覺,眠る
