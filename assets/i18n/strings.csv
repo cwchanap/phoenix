@@ -237,6 +237,7 @@ Window,顯示模式,画面モード
 FULL,全螢幕,全画面
 1080p,1080p,1080p
 Tutorial cards,教學提示,チュートリアル
+Tips,提示,ヒント
 ON,開,オン
 OFF,關,オフ
 Language,語言,言語
@@ -261,7 +262,9 @@ Water %d→%d STA,澆水 體力 %d→%d,水やり スタミナ %d→%d
 OWNED,已擁有,購入済み
 BUY · %dG,購買 · %dG,買う · %dG
 Sleep until morning?,要睡到早上嗎？,朝まで眠りますか？
+Sleep,睡覺,眠る
 SLEEP,睡覺,眠る
+ALARM,鬧鐘,アラーム
 not yet,還不要,まだ
 Godot 4.7.1 · 1080p,Godot 4.7.1 · 1080p,Godot 4.7.1 · 1080p
 Day %d,第 %d 天,%d日目

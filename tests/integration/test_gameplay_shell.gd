@@ -1440,18 +1440,18 @@ func test_morning_summary_save_status_shows_saved_error_and_clears() -> void:
     assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
     world.hud.render(session.snapshot())
 
-    var status := world.hud.get_node(
-        "HudRoot/MorningSummaryPanel/SaveStatus"
-    ) as Label
+    var summary := world.hud.get_node(
+        "HudRoot/MorningSummaryPanel"
+    ) as MorningSummaryPanel
 
     world.hud.set_save_status(&"saved")
-    assert_eq(status.text, "Saved.")
+    assert_eq(summary.save_status_text(), "Saved.")
 
     world.hud.set_save_status(&"error", "Save failed — this morning is not persisted.")
-    assert_eq(status.text, "Save failed — this morning is not persisted.")
+    assert_eq(summary.save_status_text(), "Save failed — this morning is not persisted.")
 
     world.hud.set_save_status(&"idle")
-    assert_eq(status.text, "")
+    assert_eq(summary.save_status_text(), "")
 
 func test_summary_snapshot_derives_morning_modal_visibility() -> void:
     var world := _world()
@@ -1471,7 +1471,7 @@ func test_summary_snapshot_derives_morning_modal_visibility() -> void:
     assert_eq(visible_primary_count, 1)
     assert_true(hud.has_blocking_modal())
 
-func test_task8_fixture_values_render_in_authored_social_and_morning_nodes() -> void:
+func test_task8_fixture_values_render_in_social_and_morning_panels() -> void:
     var world := _world()
     if world == null:
         return
@@ -1530,33 +1530,33 @@ func test_task8_fixture_values_render_in_authored_social_and_morning_nodes() -> 
         "money_after_shipping": 220,
     }
     hud.render(summary_snapshot)
-    var summary := _panel(hud, "MorningSummaryPanel")
-    var withered_warning := summary.get_node("Frame/WitheredWarning") as Label
-    assert_false(withered_warning.visible)
-    assert_eq((summary.get_node("Frame/Header/CompletedDay") as Label).text, "3")
-    assert_eq((summary.get_node("Frame/Header/NextDay") as Label).text, "4")
-    assert_eq((summary.get_node("Frame/Card_0/Value") as Label).text, "+2")
-    assert_eq((summary.get_node("Frame/Card_1/Value") as Label).text, "RAINY")
-    assert_eq((summary.get_node("Frame/Card_2/Value") as Label).text, "20")
-    assert_eq((summary.get_node("Frame/Card_3/Value") as Label).text, "+70")
-    assert_eq((summary.get_node("Frame/ShipmentRow/Name") as Label).text, "Turnip ×2")
-    assert_eq((summary.get_node("Frame/ShipmentRow/Amount") as Label).text, "70G")
-    assert_false((summary.get_node("Frame/CompactShipmentRows") as Control).visible)
-    assert_eq((summary.get_node("Frame/MoneyRow/Amount") as Label).text, "220G")
+    var summary := _panel(hud, "MorningSummaryPanel") as MorningSummaryPanel
+    var state := summary.summary_state()
+    assert_false(state["withered_visible"])
+    assert_eq(state["day_text"], "Day 3 → Day 4")
+    assert_eq(state["card_values"], ["+2", "RAINY", "20", "+70"])
+    assert_eq(state["shipment_mode"], "single")
+    assert_eq(state["shipments"].size(), 1)
+    assert_eq(state["shipments"][0]["name"], "Turnip ×2")
+    assert_eq(state["shipments"][0]["amount"], "70G")
+    assert_eq(state["money_text"], "220G")
 
     summary_snapshot["pending_morning_summary"]["crops_withered"] = 1
     hud.render(summary_snapshot)
-    assert_true(withered_warning.visible)
-    assert_eq(withered_warning.text, "1 CROP WITHERED")
+    state = summary.summary_state()
+    assert_true(state["withered_visible"])
+    assert_eq(state["withered_text"], "1 CROP WITHERED")
 
     summary_snapshot["pending_morning_summary"]["crops_withered"] = 2
     hud.render(summary_snapshot)
-    assert_true(withered_warning.visible)
-    assert_eq(withered_warning.text, "2 CROPS WITHERED")
+    state = summary.summary_state()
+    assert_true(state["withered_visible"])
+    assert_eq(state["withered_text"], "2 CROPS WITHERED")
 
     summary_snapshot["pending_morning_summary"]["crops_withered"] = 0
     hud.render(summary_snapshot)
-    assert_false(withered_warning.visible)
+    state = summary.summary_state()
+    assert_false(state["withered_visible"])
 
     summary_snapshot["pending_morning_summary"]["shipments"] = [
         {"crop": &"turnip", "quantity": 2, "amount": 70},
@@ -1564,27 +1564,15 @@ func test_task8_fixture_values_render_in_authored_social_and_morning_nodes() -> 
         {"crop": &"pumpkin", "quantity": 3, "amount": 300},
     ]
     hud.render(summary_snapshot)
-    var compact := summary.get_node("Frame/CompactShipmentRows") as Control
-    assert_false((summary.get_node("Frame/ShipmentRow") as Panel).visible)
-    assert_true(compact.visible)
-    assert_eq((compact.get_node("Row_0/Name") as Label).text, "Turnip ×2")
-    assert_eq((compact.get_node("Row_0/Amount") as Label).text, "70G")
-    assert_true((compact.get_node("Row_1") as Panel).visible)
-    assert_eq((compact.get_node("Row_1/Name") as Label).text, "Potato ×1")
-    assert_eq((compact.get_node("Row_1/Amount") as Label).text, "80G")
-    assert_true((compact.get_node("Row_2") as Panel).visible)
-    assert_eq((compact.get_node("Row_2/Name") as Label).text, "Pumpkin ×3")
-    assert_eq((compact.get_node("Row_2/Amount") as Label).text, "300G")
-    var frame := summary.get_node("Frame") as Panel
-    var money := summary.get_node("Frame/MoneyRow") as Panel
-    var footer := summary.get_node("Frame/Footer") as Panel
-    assert_true(
-        compact.position.y + compact.size.y <= frame.size.y
-        and footer.position.y + footer.size.y <= frame.size.y
-        and money.position == Vector2(14, 228)
-        and footer.position == Vector2(2, 270),
-        "compact payout rows and footer must stay inside the authored frame",
-    )
+    state = summary.summary_state()
+    assert_eq(state["shipment_mode"], "compact")
+    assert_eq(state["shipments"].size(), 3)
+    assert_eq(state["shipments"][0]["name"], "Turnip ×2")
+    assert_eq(state["shipments"][0]["amount"], "70G")
+    assert_eq(state["shipments"][1]["name"], "Potato ×1")
+    assert_eq(state["shipments"][1]["amount"], "80G")
+    assert_eq(state["shipments"][2]["name"], "Pumpkin ×3")
+    assert_eq(state["shipments"][2]["amount"], "300G")
 
 func test_public_primary_opens_are_denied_while_morning_summary_is_visible() -> void:
     var world := _world()
@@ -1688,8 +1676,12 @@ func test_day_fourteen_boundary_copy_is_explicit_about_shipped_only() -> void:
     assert_true(shipping_boundary.text.contains("only crops deposited here count"))
 
     hud.open_sleep_confirmation()
-    var sleep_boundary := _panel(hud, "SleepPanel").get_node("Boundary") as Label
-    assert_true(sleep_boundary.text.contains("this ends the season and settles the bin"))
+    var sleep_panel := _panel(hud, "SleepPanel") as SleepPanel
+    assert_true(
+        sleep_panel.day14_warning_text().contains(
+            "this ends the season and settles the bin"
+        )
+    )
 
 func test_market_target_hint_and_pre_finale_routing() -> void:
     var world := _world()
@@ -2326,7 +2318,7 @@ func test_dialogue_portrait_matches_each_villager() -> void:
         )
         hud.close_dialogue()
 
-func test_sleep_warning_box_only_shows_on_day14() -> void:
+func test_sleep_day14_warning_only_shows_on_day14() -> void:
     var world := _world()
     if world == null:
         return
@@ -2337,12 +2329,14 @@ func test_sleep_warning_box_only_shows_on_day14() -> void:
     var snapshot := world._session.snapshot()
     snapshot["day"] = 1
     hud.render(snapshot)
-    assert_false((sleep.get_node("Frame/WarningBox") as Panel).visible)
-    assert_false((sleep.get_node("Boundary") as Label).visible)
+    assert_false(sleep.day14_warning_visible())
     snapshot["day"] = GameRules.MAX_DAY
     hud.render(snapshot)
-    assert_true((sleep.get_node("Frame/WarningBox") as Panel).visible)
-    assert_true((sleep.get_node("Boundary") as Label).visible)
+    assert_true(sleep.day14_warning_visible())
+    assert_eq(
+        sleep.day14_warning_text(),
+        "Day 14 — this ends the season and settles the bin.",
+    )
 
 func _press_escape() -> void:
     var pressed := InputEventAction.new()
@@ -2532,6 +2526,9 @@ func test_phone_apps_status_bar_tracks_the_rendered_clock() -> void:
     var bag := _panel(hud, "BagPanel") as BagPanel
     var almanac := _panel(hud, "AlmanacPanel") as AlmanacPanel
     var calendar := _panel(hud, "CalendarPanel") as CalendarPanel
+    var settings := _panel(hud, "SettingsPanel") as SettingsPanel
+    var sleep := _panel(hud, "SleepPanel") as SleepPanel
+    var summary := _panel(hud, "MorningSummaryPanel") as MorningSummaryPanel
 
     var snapshot := world._session.snapshot()
     snapshot["time_minutes"] = 9 * 60 + 30
@@ -2540,6 +2537,10 @@ func test_phone_apps_status_bar_tracks_the_rendered_clock() -> void:
     assert_eq(bag.status_time_text(), expected)
     assert_eq(almanac.status_time_text(), expected)
     assert_eq(calendar.status_time_text(), expected)
+    assert_eq(settings.status_time_text(), expected)
+    assert_eq(sleep.status_time_text(), expected)
+    assert_eq(summary.status_time_text(), expected)
+    assert_eq(sleep.alarm_time_text(), GameRules.format_time(GameRules.DAY_START_MINUTES))
 
     snapshot["time_minutes"] = GameRules.DAY_START_MINUTES
     hud.render(snapshot)
@@ -2547,6 +2548,10 @@ func test_phone_apps_status_bar_tracks_the_rendered_clock() -> void:
     assert_eq(bag.status_time_text(), expected)
     assert_eq(almanac.status_time_text(), expected)
     assert_eq(calendar.status_time_text(), expected)
+    assert_eq(settings.status_time_text(), expected)
+    assert_eq(sleep.status_time_text(), expected)
+    assert_eq(summary.status_time_text(), expected)
+    assert_eq(sleep.alarm_time_text(), GameRules.format_time(GameRules.DAY_START_MINUTES))
 
 func test_settings_adjustment_persists_in_isolated_path_and_applies_audio() -> void:
     var world := _settings_world()

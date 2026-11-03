@@ -223,6 +223,25 @@ static func panel(fill: Color = PRIMARY, border: Color = BORDER, width: int = 1)
 	result.set_border_width_all(width)
 	return result
 
+static func action_button(text_value: String) -> Button:
+	var result := Button.new()
+	result.text = text_value
+	result.custom_minimum_size = Vector2(220, 54)
+	result.focus_mode = Control.FOCUS_NONE
+	text(result, 20, CARD, 900)
+	var normal := card(ACCENT, 16, [0, 0, 0, 0])
+	normal.border_color = ACCENT_DEEP
+	normal.border_width_bottom = 4
+	var hover := card(ACCENT.lightened(0.08), 16, [0, 0, 0, 0])
+	hover.border_color = ACCENT_DEEP
+	hover.border_width_bottom = 4
+	result.add_theme_stylebox_override("normal", normal)
+	result.add_theme_stylebox_override("hover", hover)
+	result.add_theme_stylebox_override("pressed", card(ACCENT_DEEP, 16, [0, 0, 0, 0]))
+	result.add_theme_stylebox_override("focus", normal)
+	result.add_theme_stylebox_override("disabled", card(INK_MUTED, 16, [0, 0, 0, 0]))
+	return result
+
 static func button(control: Button, size: int = 10, selected: bool = false) -> void:
 	text(control, size, GOLD if selected else TEXT, 700, false)
 	control.add_theme_stylebox_override("normal", panel(INSET, GOLD if selected else BORDER, 1))
