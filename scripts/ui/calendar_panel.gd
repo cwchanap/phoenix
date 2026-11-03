@@ -25,7 +25,6 @@ const HEADER_GRADIENT: Array[Color] = [UiStyle.VIOLET, UiStyle.ACCENT]
 var _snapshot: Dictionary = {}
 var _frame: PhoneFrame
 var _cells: Array[Dictionary] = []
-var _day_states: Array[Dictionary] = []
 var _market_value: Label
 var _coming_up_market: Label
 var _legend: Label
@@ -51,11 +50,45 @@ func set_status_time(time_text: String) -> void:
 func status_time_text() -> String:
 	return _frame.status_time_text()
 
-## Read-only seam for tests: the presented state of one day cell.
+## Read-only seam for tests: the rendered state of one day cell.
 func day_state(day: int) -> Dictionary:
-	if day < 1 or day > _day_states.size():
+	if day < 1 or day > _cells.size():
 		return {}
-	return _day_states[day - 1]
+	var cell: Dictionary = _cells[day - 1]
+	var today := (cell["today"] as Label).visible
+	var market := (
+		(cell["market"] as TextureRect).visible
+		and (cell["market_label"] as Label).visible
+	)
+	var readiness_icon := cell["readiness_icon"] as TextureRect
+	var readiness_kinds: Array = []
+	if readiness_icon.visible:
+		readiness_kinds.append(_kind_for_icon(readiness_icon))
+	var multi_icons := cell["multi_icons"] as Array
+	for multi_index in range(multi_icons.size()):
+		var multi_icon := multi_icons[multi_index] as TextureRect
+		if multi_icon.visible:
+			readiness_kinds.append(_kind_for_icon(multi_icon))
+	var readiness_label := cell["readiness_label"] as Label
+	return {
+		"today": today,
+		"market": market,
+		"combined": today and market,
+		"last_night": (cell["last_night"] as Label).visible,
+		"weather_known": (cell["weather"] as TextureRect).visible,
+		"readiness_kinds": readiness_kinds,
+		"readiness_icon_path": (
+			readiness_icon.texture.resource_path
+			if readiness_icon.visible and readiness_icon.texture != null
+			else ""
+		),
+		"readiness_text": readiness_label.text if readiness_label.visible else "",
+	}
+
+func _kind_for_icon(icon: TextureRect) -> int:
+	if icon.texture == null:
+		return -1
+	return CROP_TEXTURES.find(icon.texture.resource_path)
 
 func _build() -> void:
 	var dim := ColorRect.new()
@@ -152,7 +185,6 @@ func _grid_card() -> PanelContainer:
 		var cell := _day_cell(day)
 		grid.add_child(cell["cell"])
 		_cells.append(cell)
-		_day_states.append({})
 	return card
 
 func _day_cell(day: int) -> Dictionary:
@@ -309,7 +341,6 @@ func _update_calendar() -> void:
 		var cell: Dictionary = _cells[index]
 		var is_today := day == current_day
 		var is_market := day == GameRules.MAX_DAY
-		var combined := is_today and is_market
 		var box := cell["box"] as StyleBoxFlat
 		box.bg_color = (
 			UiStyle.WARN
@@ -356,16 +387,6 @@ func _update_calendar() -> void:
 					CROP_TEXTURES[int(crop_kinds[multi_index])]
 				) as Texture2D
 		(cell["readiness_label"] as Label).visible = not crop_kinds.is_empty()
-		_day_states[index] = {
-			"today": is_today,
-			"market": is_market,
-			"combined": combined,
-			"last_night": is_last_night,
-			"weather_known": weather_known,
-			"readiness_kinds": crop_kinds.duplicate(),
-			"readiness_icon_path": CROP_TEXTURES[int(crop_kinds[0])] if single else "",
-			"readiness_text": "EARLIEST" if not crop_kinds.is_empty() else "",
-		}
 	var history_day := mini(history.size(), GameRules.MAX_DAY)
 	_legend.text = tr("KNOWN WEATHER THROUGH DAY %d · EARLIEST READINESS") % history_day
 

@@ -978,6 +978,109 @@ func test_calendar_day14_current_market_layout_without_readiness() -> void:
     assert_eq(day_fourteen["readiness_kinds"], [])
     assert_eq(day_fourteen["readiness_text"], "")
 
+func test_calendar_day_state_observes_the_rendered_cell_controls() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var state := world._session.state()
+    state["day"] = 3
+    state["weather"] = &"sunny"
+    state["weather_history"] = [&"sunny", &"rainy", &"sunny"]
+    var farm: Array = state["farm"]
+    farm[0]["tilled"] = true
+    farm[0]["crop"] = {
+        "kind": &"turnip",
+        "growth": 0,
+        "dry_nights": 0,
+        "watered_today": false,
+    }
+    farm[1]["tilled"] = true
+    farm[1]["crop"] = {
+        "kind": &"potato",
+        "growth": 2,
+        "dry_nights": 0,
+        "watered_today": false,
+    }
+    farm[2]["tilled"] = true
+    farm[2]["crop"] = {
+        "kind": &"pumpkin",
+        "growth": 1,
+        "dry_nights": 0,
+        "watered_today": false,
+    }
+    state["farm"] = farm
+    var restored := GameSession.new()
+    assert_true(restored.restore_state(state))
+    hud.render(restored.snapshot())
+    hud.open_calendar()
+    var calendar := _panel(hud, "CalendarPanel") as CalendarPanel
+
+    var day_nine_cell: Dictionary = calendar._cells[8]
+    var day_nine: Dictionary = calendar.day_state(9)
+    assert_eq(day_nine["readiness_kinds"], [GameRules.CropKind.PUMPKIN])
+    assert_eq(day_nine["readiness_icon_path"], "res://assets/ui/crops/pumpkin.png")
+    assert_eq(day_nine["readiness_text"], "EARLIEST")
+    var single_icon := day_nine_cell["readiness_icon"] as TextureRect
+    single_icon.texture = load("res://assets/ui/crops/turnip.png") as Texture2D
+    day_nine = calendar.day_state(9)
+    assert_eq(day_nine["readiness_kinds"], [GameRules.CropKind.TURNIP])
+    assert_eq(day_nine["readiness_icon_path"], "res://assets/ui/crops/turnip.png")
+    single_icon.visible = false
+    (day_nine_cell["readiness_label"] as Label).visible = false
+    day_nine = calendar.day_state(9)
+    assert_eq(day_nine["readiness_kinds"], [])
+    assert_eq(day_nine["readiness_icon_path"], "")
+    assert_eq(day_nine["readiness_text"], "")
+
+    var day_six_cell: Dictionary = calendar._cells[5]
+    assert_eq(
+        calendar.day_state(6)["readiness_kinds"],
+        [GameRules.CropKind.TURNIP, GameRules.CropKind.POTATO],
+    )
+    var multi_icons := day_six_cell["multi_icons"] as Array
+    (multi_icons[1] as TextureRect).visible = false
+    assert_eq(calendar.day_state(6)["readiness_kinds"], [GameRules.CropKind.TURNIP])
+
+    var day_four_cell: Dictionary = calendar._cells[3]
+    assert_false(calendar.day_state(4)["weather_known"])
+    (day_four_cell["weather"] as TextureRect).visible = true
+    assert_true(calendar.day_state(4)["weather_known"])
+    var day_three_cell: Dictionary = calendar._cells[2]
+    assert_true(calendar.day_state(3)["weather_known"])
+    (day_three_cell["weather"] as TextureRect).visible = false
+    assert_false(calendar.day_state(3)["weather_known"])
+
+    var season_end_state := world._session.state()
+    season_end_state["day"] = GameRules.MAX_DAY
+    season_end_state["weather"] = &"sunny"
+    var season_weather: Array = []
+    for _day in GameRules.MAX_DAY:
+        season_weather.append(&"sunny")
+    season_end_state["weather_history"] = season_weather
+    var season_end := GameSession.new()
+    assert_true(season_end.restore_state(season_end_state))
+    hud.render(season_end.snapshot())
+    hud.open_calendar()
+    var market_cell: Dictionary = calendar._cells[GameRules.MAX_DAY - 1]
+    var day_fourteen: Dictionary = calendar.day_state(GameRules.MAX_DAY)
+    assert_true(day_fourteen["today"])
+    assert_true(day_fourteen["market"])
+    assert_true(day_fourteen["combined"])
+    (market_cell["market_label"] as Label).visible = false
+    day_fourteen = calendar.day_state(GameRules.MAX_DAY)
+    assert_true(day_fourteen["today"])
+    assert_false(day_fourteen["market"])
+    assert_false(day_fourteen["combined"])
+    (market_cell["market_label"] as Label).visible = true
+    (market_cell["market"] as TextureRect).visible = false
+    day_fourteen = calendar.day_state(GameRules.MAX_DAY)
+    assert_true(day_fourteen["today"])
+    assert_false(day_fourteen["market"])
+    assert_false(day_fourteen["combined"])
+
 func test_read_only_panels_render_rules_and_only_known_calendar_weather() -> void:
     var world := _world()
     if world == null:
