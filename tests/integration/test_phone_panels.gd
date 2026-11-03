@@ -93,6 +93,27 @@ func _three_kind_snapshot() -> Dictionary:
 	assert_true(session.restore_state(state))
 	return session.snapshot()
 
+func _max_rows_snapshot() -> Dictionary:
+	var session := GameSession.new()
+	var state := session.state()
+	state["day"] = 10
+	state["weather"] = &"sunny"
+	state["weather_history"] = []
+	for _day in 10:
+		state["weather_history"].append(&"sunny")
+	var growths: Array[Array] = [
+		[&"turnip", 2], [&"turnip", 1], [&"turnip", 0],
+		[&"potato", 4], [&"potato", 3], [&"potato", 2], [&"potato", 1],
+		[&"pumpkin", 6], [&"pumpkin", 5], [&"pumpkin", 4],
+	]
+	var farm: Array = state["farm"]
+	for index in growths.size():
+		farm[index]["tilled"] = true
+		farm[index]["crop"] = _crop(growths[index][0], growths[index][1])
+	state["farm"] = farm
+	assert_true(session.restore_state(state))
+	return session.snapshot()
+
 func _season_end_snapshot() -> Dictionary:
 	var session := GameSession.new()
 	var state := session.state()
@@ -917,6 +938,162 @@ func test_calendar_coming_up_wraps_three_crop_names_inside_the_frame() -> void:
 				text_label.get_line_count() >= 2,
 				"en three-crop text wraps instead of widening the phone",
 			)
+
+func test_calendar_coming_up_max_rows_stay_inside_the_frame() -> void:
+	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
+	if calendar == null:
+		return
+	var crop_names := {
+		"en": ["Turnip", "Potato", "Pumpkin"],
+		"zh_TW": ["蕪菁", "馬鈴薯", "南瓜"],
+		"ja": ["カブ", "ジャガイモ", "カボチャ"],
+	}
+	var earliest := {"en": "earliest harvest", "zh_TW": "最早收成", "ja": "最短収穫"}
+	var overflow := {"en": "+1 more", "zh_TW": "還有 1", "ja": "あと 1"}
+	for locale in ["en", "zh_TW", "ja"]:
+		TranslationServer.set_locale(locale)
+		calendar.open_panel(_max_rows_snapshot())
+		await _settle()
+		var frame_rect := _frame(calendar).get_global_rect()
+		assert_true(
+			frame_rect.size.x <= 560.0,
+			"%s max-row coming-up keeps the phone at 560 wide" % locale,
+		)
+		assert_true(
+			frame_rect.size.y <= 920.0,
+			"%s max-row coming-up keeps the phone at 920 tall" % locale,
+		)
+		var coming := calendar.find_child("ComingUp", true, false) as Control
+		assert_not_null(coming)
+		if coming == null:
+			continue
+		assert_eq(
+			calendar.coming_up_row_texts().size(),
+			6,
+			"%s renders three crop days plus overflow, last night and market"
+				% locale,
+		)
+		var readiness_rows := 0
+		var checked := 0
+		var screen_rect := (
+			(_frame(calendar).get_node("Screen") as Control).get_global_rect()
+		)
+		for node in coming.find_children("*", "Control", true, false):
+			var child := node as Control
+			if not child.is_visible_in_tree():
+				continue
+			if child.get_global_rect().has_area() == false:
+				continue
+			checked += 1
+			assert_true(
+				screen_rect.encloses(child.get_global_rect()),
+				(
+					"%s escapes the phone screen in %s"
+					% [child.get_path(), locale]
+				),
+			)
+			var label := child as Label
+			if (
+				label != null
+				and label.text.contains(earliest[locale])
+				and label.text.contains(" · ")
+			):
+				readiness_rows += 1
+				for crop_name in crop_names[locale]:
+					assert_true(
+						label.text.contains(crop_name),
+						(
+							"%s keeps %s in wrapped readiness row %d"
+							% [locale, crop_name, readiness_rows]
+						),
+					)
+		assert_gt(checked, 0, "%s coming-up walk inspects real controls" % locale)
+		assert_eq(
+			readiness_rows,
+			3,
+			"%s renders all three three-kind readiness rows" % locale,
+		)
+		var all_text := " ".join(calendar.coming_up_row_texts())
+		assert_true(
+			all_text.contains(overflow[locale]),
+			"%s keeps the +1 overflow row" % locale,
+		)
+
+func test_calendar_coming_up_scrolls_with_keys_and_pointer() -> void:
+	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
+	if calendar == null:
+		return
+	calendar.open_panel(_max_rows_snapshot())
+	await _settle()
+	var scroll := calendar.find_child("ComingScroll", true, false) as ScrollContainer
+	assert_not_null(scroll)
+	var hint := calendar.find_child("ScrollHint", true, false) as Label
+	assert_not_null(hint)
+	if scroll == null or hint == null:
+		return
+	assert_true(scroll.visible, "the bounded rows viewport is real")
+	assert_true(hint.visible, "the scroll hint shows only when content overflows")
+	assert_false(hint.text.is_empty(), "the scroll hint carries text")
+	assert_eq(scroll.scroll_vertical, 0, "a fresh snapshot starts at the top")
+	_press("move_down")
+	await _settle()
+	assert_gt(
+		scroll.scroll_vertical,
+		0,
+		"move_down scrolls the hidden readiness rows into view",
+	)
+	for _press_index in 12:
+		_press("move_down")
+	await _settle()
+	var bottom := scroll.scroll_vertical
+	assert_gt(bottom, 0)
+	_press("move_down")
+	await _settle()
+	assert_eq(
+		scroll.scroll_vertical,
+		bottom,
+		"move_down clamps at the last hidden row",
+	)
+	_press("move_up")
+	await _settle()
+	assert_lt(scroll.scroll_vertical, bottom, "move_up scrolls back up")
+	var vbar := scroll.get_v_scroll_bar()
+	assert_not_null(vbar, "a pointer-draggable scrollbar exists")
+	if vbar == null:
+		return
+	assert_true(vbar.visible, "the scrollbar renders for pointer users")
+	assert_gt(
+		vbar.max_value - vbar.page,
+		0.0,
+		"the scrollbar exposes the hidden readiness rows",
+	)
+	var vbar_before := vbar.value
+	vbar.value = minf(vbar.max_value - vbar.page, vbar.value + 40.0)
+	await _settle()
+	assert_gt(
+		vbar.value,
+		vbar_before,
+		"dragging the scrollbar scrolls for pointer users",
+	)
+	assert_eq(
+		int(vbar.value),
+		scroll.scroll_vertical,
+		"the scrollbar drives the same scroll position as the keys",
+	)
+	calendar.open_panel(_calendar_snapshot())
+	await _settle()
+	assert_eq(scroll.scroll_vertical, 0, "a fresh snapshot resets the scroll")
+	assert_false(
+		hint.visible,
+		"the scroll hint hides when every row fits without scrolling",
+	)
+	_press("move_down")
+	await _settle()
+	assert_eq(
+		scroll.scroll_vertical,
+		0,
+		"move_down is a no-op while every row is already visible",
+	)
 
 func test_calendar_event_markers_use_legible_icons_not_tiny_text() -> void:
 	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel

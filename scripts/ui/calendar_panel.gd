@@ -21,12 +21,16 @@ const CROP_TEXTURES: Array[String] = [
 const MARKET_ICON := preload("res://assets/ui/icons/market.png")
 const MOON_ICON := preload("res://assets/ui/icons/moon.png")
 const COMING_UP_CROP_LIMIT := 3
+const COMING_UP_VIEW_HEIGHT := 232.0
+const COMING_UP_SCROLL_STEP := 44
 
 var _snapshot: Dictionary = {}
 var _frame: PhoneFrame
 var _cells: Array[Dictionary] = []
 var _market_tag: Label
 var _coming_rows: VBoxContainer
+var _coming_scroll: ScrollContainer
+var _coming_hint: Label
 var _caption: Label
 var _legend: Label
 var _today_texture: Texture2D
@@ -51,6 +55,27 @@ func set_status_time(time_text: String) -> void:
 
 func status_time_text() -> String:
 	return _frame.status_time_text()
+
+func _input(event: InputEvent) -> void:
+	if not visible or not event.is_pressed() or event.is_echo():
+		return
+	if _coming_scroll == null or _coming_rows == null:
+		return
+	var rows_height := _coming_rows.get_combined_minimum_size().y
+	var max_scroll := int(maxf(0.0, rows_height - _coming_scroll.size.y))
+	if max_scroll <= 0:
+		return
+	if event.is_action_pressed("move_up"):
+		_coming_scroll.scroll_vertical = maxi(
+			0, _coming_scroll.scroll_vertical - COMING_UP_SCROLL_STEP
+		)
+	elif event.is_action_pressed("move_down"):
+		_coming_scroll.scroll_vertical = mini(
+			max_scroll, _coming_scroll.scroll_vertical + COMING_UP_SCROLL_STEP
+		)
+	else:
+		return
+	get_viewport().set_input_as_handled()
 
 ## Read-only seam for tests: the rendered state of one day cell.
 func day_state(day: int) -> Dictionary:
@@ -271,13 +296,31 @@ func _coming_up_card() -> PanelContainer:
 	card.add_theme_stylebox_override("panel", box)
 	var column := UiStyle.vbox(4)
 	card.add_child(column)
+	var head := UiStyle.hbox(8)
+	head.name = "Head"
+	column.add_child(head)
 	var title := UiStyle.label("Coming Up", 15, UiStyle.INK_MUTED, 900)
 	title.name = "Title"
 	title.uppercase = true
-	column.add_child(title)
+	head.add_child(title)
+	var head_spacer := Control.new()
+	head_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(head_spacer)
+	_coming_hint = UiStyle.label("", 13, UiStyle.INK_MUTED, 800)
+	_coming_hint.name = "ScrollHint"
+	_coming_hint.visible = false
+	head.add_child(_coming_hint)
+	var scroll := ScrollContainer.new()
+	scroll.name = "ComingScroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.add_child(scroll)
+	_coming_scroll = scroll
 	_coming_rows = UiStyle.vbox(0)
 	_coming_rows.name = "Rows"
-	column.add_child(_coming_rows)
+	_coming_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_coming_rows)
 	return card
 
 func _coming_up_row() -> PanelContainer:
@@ -450,6 +493,20 @@ func _update_coming_up(current_day: int, readiness: Dictionary) -> void:
 		tr("Pink: today · Gold: market · Moon: last night · Crops: earliest days")
 		+ (" " + tr("Earliest days need nightly watering.") if not readiness.is_empty() else "")
 	)
+	_coming_scroll.scroll_vertical = 0
+	_coming_scroll.custom_minimum_size = Vector2(0, COMING_UP_VIEW_HEIGHT)
+	_coming_hint.text = tr("W/S more")
+	_fit_coming_scroll()
+
+func _fit_coming_scroll() -> void:
+	await get_tree().process_frame
+	if not is_inside_tree() or _coming_rows == null:
+		return
+	var rows_height := _coming_rows.get_combined_minimum_size().y
+	_coming_scroll.custom_minimum_size.y = minf(
+		rows_height, COMING_UP_VIEW_HEIGHT
+	)
+	_coming_hint.visible = rows_height > COMING_UP_VIEW_HEIGHT + 1.0
 
 func _readiness_markers(current_day: int) -> Dictionary:
 	var result: Dictionary = {}
