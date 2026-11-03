@@ -385,9 +385,6 @@ func test_legacy_640x360_ui_roots_fill_the_1080p_canvas() -> void:
     var hud_root := world.hud.get_node("HudRoot") as Control
     assert_eq(hud_root.scale, Vector2.ONE)
     assert_eq(hud_root.get_global_rect(), canvas)
-    var shop := world.hud.get_node("HudRoot/ShopPanel") as Control
-    assert_eq(shop.size, UiStyle.LEGACY_LAYOUT_SIZE)
-    assert_eq(shop.get_global_rect(), canvas)
     # HPA-682: Pause is rebuilt natively inside its code-built phone frame.
     var pause := world.hud.get_node("HudRoot/PausePanel") as Control
     assert_eq(pause.scale, Vector2.ONE)
@@ -397,7 +394,14 @@ func test_legacy_640x360_ui_roots_fill_the_1080p_canvas() -> void:
         var app_panel := world.hud.get_node("HudRoot/%s" % panel_name) as Control
         assert_eq(app_panel.scale, Vector2.ONE)
         assert_eq(app_panel.get_global_rect(), canvas)
-    for panel_name in ["SettingsPanel", "SleepPanel", "MorningSummaryPanel"]:
+    for panel_name in [
+        "ShopPanel",
+        "ShippingPanel",
+        "DialoguePanel",
+        "SettingsPanel",
+        "SleepPanel",
+        "MorningSummaryPanel",
+    ]:
         var modal := world.hud.get_node("HudRoot/%s" % panel_name) as Control
         assert_eq(modal.scale, Vector2.ONE)
         assert_eq(modal.get_global_rect(), canvas)

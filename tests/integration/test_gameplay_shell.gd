@@ -609,9 +609,10 @@ func test_shop_keyboard_rows_update_quantity_max_and_enter_request() -> void:
     hud.render(snapshot)
     hud.open_shop()
     var panel := _panel(hud, "ShopPanel")
-    assert_eq((panel.get_node("Frame/Body/Row_0/Price") as Label).text, "20")
-    assert_eq((panel.get_node("Frame/Body/Row_1/Price") as Label).text, "30")
-    assert_eq((panel.get_node("Frame/Body/Row_2/Price") as Label).text, "70")
+    assert_true(panel.has_method("display_price_for_row"))
+    assert_eq(String(panel.call("display_price_for_row", 0)), "20")
+    assert_eq(String(panel.call("display_price_for_row", 1)), "30")
+    assert_eq(String(panel.call("display_price_for_row", 2)), "70")
     assert_true(panel.has_method("selected_kind"))
     assert_true(panel.has_method("selected_quantity"))
     assert_eq(int(panel.call("selected_kind")), GameRules.CropKind.TURNIP)
@@ -677,15 +678,21 @@ func test_shop_upgrade_row_ignores_quantity_keys_and_unaffordable_enter_requests
     for _i in range(3):
         await _press_panel_action("move_down")
     assert_eq(int(panel.call("selected_row")), 3)
-    var footer := panel.get_node("Frame/Footer/Action") as Label
-    assert_eq(footer.text, "BUY · %dG" % GameRules.WATERING_CAN_UPGRADE_PRICE)
+    assert_true(panel.has_method("selected_action_text"))
+    assert_eq(
+        String(panel.call("selected_action_text")),
+        "BUY · %dG" % GameRules.WATERING_CAN_UPGRADE_PRICE,
+    )
     var quantity_before := int(panel.call("selected_quantity"))
 
     await _press_panel_action("move_left")
     await _press_panel_action("move_right")
     await _press_panel_action("panel_max")
     assert_eq(int(panel.call("selected_quantity")), quantity_before, "A/D/M no-op on row 3")
-    assert_eq(footer.text, "BUY · %dG" % GameRules.WATERING_CAN_UPGRADE_PRICE)
+    assert_eq(
+        String(panel.call("selected_action_text")),
+        "BUY · %dG" % GameRules.WATERING_CAN_UPGRADE_PRICE,
+    )
 
     await _press_panel_action("ui_accept")
     assert_eq(requests.size(), 1, "unaffordable Enter still emits one upgrade request")
@@ -715,8 +722,8 @@ func test_shop_upgrade_purchase_refreshes_open_shop_to_55g_owned_and_owned_enter
         int(world._session.snapshot()["money"]),
         255 - GameRules.WATERING_CAN_UPGRADE_PRICE,
     )
-    assert_eq((shop.get_node("Frame/Header/MoneyValue") as Label).text, "55")
-    assert_eq((shop.get_node("Frame/Footer/Action") as Label).text, "OWNED")
+    assert_eq(String(shop.call("money_text")), "55")
+    assert_eq(String(shop.call("selected_action_text")), "OWNED")
 
     var requests: Array[bool] = []
     hud.upgrade_requested.connect(func() -> void: requests.append(true))
@@ -831,13 +838,13 @@ func test_inventory_shortcuts_respect_opening_and_close_friend_blockers() -> voi
     }
     hud.open_dialogue(villager_id, result, world._session.snapshot())
     var dialogue := _panel(hud, "DialoguePanel") as DialoguePanel
-    var line := dialogue.get_node("Panel/Line") as Label
+    assert_true(dialogue.has_method("current_line_text"))
     assert_true(dialogue.visible)
-    assert_eq(line.text, "“%s”" % lines[0])
+    assert_eq(String(dialogue.call("current_line_text")), "“%s”" % lines[0])
     for action in [&"toggle_bag", &"toggle_almanac", &"toggle_calendar"]:
         await _press_panel_action(action)
         assert_true(dialogue.visible)
-        assert_eq(line.text, "“%s”" % lines[0])
+        assert_eq(String(dialogue.call("current_line_text")), "“%s”" % lines[0])
         assert_false(_panel(hud, "BagPanel").visible)
         assert_false(_panel(hud, "AlmanacPanel").visible)
         assert_false(_panel(hud, "CalendarPanel").visible)
@@ -1501,19 +1508,19 @@ func test_task8_fixture_values_render_in_social_and_morning_panels() -> void:
         dialogue_snapshot,
     )
     var dialogue := _panel(hud, "DialoguePanel") as DialoguePanel
-    assert_eq((dialogue.get_node("Panel/Name") as Label).text, "Sato-san")
-    assert_eq((dialogue.get_node("Panel/Relationship") as Label).text, "FRIEND  ·  13/18")
+    assert_eq(String(dialogue.call("villager_name_text")), "Sato-san")
+    assert_eq(String(dialogue.call("relationship_text")), "FRIEND  ·  13/18")
     assert_eq(
-        (dialogue.get_node("Panel/Line") as Label).text,
+        String(dialogue.call("current_line_text")),
         "“You stopped asking which seeds are best. Now you ask which are right.”",
     )
-    var gifts := dialogue.get_node("Panel/GiftButtons") as HBoxContainer
-    assert_eq((gifts.get_node("Gift_0/Count") as Label).text, "7")
-    assert_eq((gifts.get_node("Gift_1/Count") as Label).text, "2")
-    assert_eq((gifts.get_node("Gift_1/Value") as Label).text, "+5 ♥")
-    assert_true((gifts.get_node("Gift_1") as Button).has_focus())
-    assert_true((gifts.get_node("Gift_2") as Button).disabled)
-    assert_eq((dialogue.get_node("Panel/Footer/ActionText") as Label).text, "GIVE POTATO")
+    assert_true(dialogue.has_method("gift_chip"))
+    assert_eq(String(dialogue.call("gift_chip_count_text", 0)), "7")
+    assert_eq(String(dialogue.call("gift_chip_count_text", 1)), "2")
+    assert_eq(String(dialogue.call("gift_chip_value_text", 1)), "+5 ♥")
+    assert_true((dialogue.call("gift_chip", 1) as Button).has_focus())
+    assert_true((dialogue.call("gift_chip", 2) as Button).disabled)
+    assert_eq(String(dialogue.call("action_text")), "GIVE POTATO")
     hud.close_dialogue()
 
     var summary_snapshot := world._session.snapshot()
@@ -1672,8 +1679,14 @@ func test_day_fourteen_boundary_copy_is_explicit_about_shipped_only() -> void:
     hud.render(snapshot)
 
     hud.open_shipping()
-    var shipping_boundary := _panel(hud, "ShippingPanel").get_node("Boundary") as Label
-    assert_true(shipping_boundary.text.contains("only crops deposited here count"))
+    var shipping := _panel(hud, "ShippingPanel") as ShippingPanel
+    assert_true(shipping.has_method("day14_warning_text"))
+    assert_true(bool(shipping.call("day14_warning_visible")))
+    assert_true(
+        String(shipping.call("day14_warning_text")).contains(
+            "only crops deposited here count"
+        )
+    )
 
     hud.open_sleep_confirmation()
     var sleep_panel := _panel(hud, "SleepPanel") as SleepPanel
@@ -2081,7 +2094,7 @@ func test_villager_interaction_opens_dialogue_and_gates_world_input() -> void:
     var panel := _panel(hud, "DialoguePanel") as DialoguePanel
     assert_true(panel.visible)
     assert_false(world._world_input_enabled)
-    assert_eq((panel.get_node("Panel/Name") as Label).text, "Hana")
+    assert_eq(String(panel.call("villager_name_text")), "Hana")
 
     var before := world._session.snapshot()
     world.cycle_seed()
@@ -2105,7 +2118,8 @@ func test_dialogue_ui_cancel_closes_and_releases_focus() -> void:
     world.interact()
 
     var panel := _panel(hud, "DialoguePanel") as DialoguePanel
-    var close_button := panel.get_node("Panel/Close") as Button
+    var close_button := panel.call("close_control") as Button
+    assert_not_null(close_button)
     close_button.grab_focus()
     assert_eq(get_viewport().gui_get_focus_owner(), close_button)
 
@@ -2145,11 +2159,12 @@ func test_close_friend_dialogue_uses_native_focus_and_cancel_progression() -> vo
 
     hud.open_dialogue(june, result, snapshot)
     var panel := _panel(hud, "DialoguePanel") as DialoguePanel
-    var continue_button := panel.get_node("Panel/Continue") as Button
-    var close_button := panel.get_node("Panel/Close") as Button
-    var line := panel.get_node("Panel/Line") as Label
+    var continue_button := panel.call("continue_control") as Button
+    var close_button := panel.call("close_control") as Button
+    assert_not_null(continue_button)
+    assert_not_null(close_button)
     assert_eq(get_viewport().gui_get_focus_owner(), continue_button)
-    assert_eq(line.text, "“%s”" % lines[0])
+    assert_eq(String(panel.call("current_line_text")), "“%s”" % lines[0])
 
     var cancel := InputEventAction.new()
     cancel.action = &"ui_cancel"
@@ -2157,7 +2172,7 @@ func test_close_friend_dialogue_uses_native_focus_and_cancel_progression() -> vo
     get_viewport().push_input(cancel)
     await get_tree().process_frame
     assert_true(panel.visible)
-    assert_eq(line.text, "“%s”" % lines[0])
+    assert_eq(String(panel.call("current_line_text")), "“%s”" % lines[0])
 
     var accept_press := InputEventAction.new()
     accept_press.action = &"ui_accept"
@@ -2168,7 +2183,7 @@ func test_close_friend_dialogue_uses_native_focus_and_cancel_progression() -> vo
     accept_release.pressed = false
     get_viewport().push_input(accept_release)
     await get_tree().process_frame
-    assert_eq(line.text, "“%s”" % lines[1])
+    assert_eq(String(panel.call("current_line_text")), "“%s”" % lines[1])
     assert_eq(panel._line_index, 1)
 
     close_button.pressed.emit()
@@ -2197,11 +2212,10 @@ func test_close_friend_line_one_cannot_be_closed_or_gifted_early() -> void:
 
     hud.open_dialogue(june, result, snapshot)
     var panel := _panel(hud, "DialoguePanel") as DialoguePanel
-    var continue_button := panel.get_node("Panel/Continue") as Button
-    var close_button := panel.get_node("Panel/Close") as Button
-    var gift_buttons := panel.get_node("Panel/GiftButtons") as HBoxContainer
+    var continue_button := panel.call("continue_control") as Button
+    var close_button := panel.call("close_control") as Button
     assert_false(close_button.visible)
-    assert_eq(_visible_gift_count(gift_buttons), 0)
+    assert_eq(_visible_gift_count(panel), 0)
 
     var tab := InputEventAction.new()
     tab.action = &"ui_focus_next"
@@ -2239,27 +2253,26 @@ func test_gift_button_round_trips_through_session_and_updates_open_panel() -> vo
     await _place_target(world, WorldContract.villager_cell(june))
     world.interact()
     var panel := _panel(hud, "DialoguePanel") as DialoguePanel
-    var gift_buttons := panel.get_node("Panel/GiftButtons") as HBoxContainer
-    assert_eq(_visible_gift_count(gift_buttons), 1)
-    var give_turnip := gift_buttons.get_node("Gift_0") as Button
-    assert_eq((give_turnip.get_node("Value") as Label).text, "+5 ♥")
+    assert_eq(_visible_gift_count(panel), 1)
+    var give_turnip := panel.call("gift_chip", 0) as Button
+    assert_eq(String(panel.call("gift_chip_value_text", 0)), "+5 ♥")
 
     give_turnip.pressed.emit()
 
     assert_eq(world._session.snapshot()["harvested"][&"turnip"], 0)
     assert_eq(world._session.snapshot()["relationships"][&"resident"]["points"], 6)
     assert_eq(
-        (panel.get_node("Panel/Line") as Label).text,
+        String(panel.call("current_line_text")),
         "“%s”" % VillagerRules.gift_line(june, GameRules.CropKind.TURNIP),
     )
-    assert_true((panel.get_node("Panel/Feedback") as Label).text.contains("Favourite gift"))
-    assert_eq(_visible_gift_count(gift_buttons), 0)
+    assert_true(String(panel.call("feedback_text")).contains("Favourite gift"))
+    assert_eq(_visible_gift_count(panel), 0)
 
-func _visible_gift_count(gifts: HBoxContainer) -> int:
+func _visible_gift_count(dialogue: DialoguePanel) -> int:
     var count := 0
-    for child in gifts.get_children():
-        var button := child as Button
-        if button.visible and not button.disabled:
+    for kind in range(GameRules.CropKind.size()):
+        var button := dialogue.call("gift_chip", kind) as Button
+        if button != null and button.visible and not button.disabled:
             count += 1
     return count
 
@@ -2280,10 +2293,10 @@ func test_all_villagers_route_through_same_direct_interaction_path() -> void:
         world.interact()
         var panel := _panel(hud, "DialoguePanel") as DialoguePanel
         assert_true(panel.visible)
-        assert_eq((panel.get_node("Panel/Name") as Label).text, VillagerRules.display_name(id))
-        assert_eq((panel.get_node("Panel/Role") as Label).text, VillagerRules.role_label(id).to_upper())
+        assert_eq(String(panel.call("villager_name_text")), VillagerRules.display_name(id))
+        assert_eq(String(panel.call("role_text")), VillagerRules.role_label(id).to_upper())
         assert_eq(
-            (panel.get_node("Panel/Line") as Label).text,
+            String(panel.call("current_line_text")),
             "“%s”" % day_one_lines[id],
         )
         hud.close_dialogue()
@@ -2313,7 +2326,7 @@ func test_dialogue_portrait_matches_each_villager() -> void:
         hud.open_dialogue(id, result, world._session.snapshot())
         var panel := _panel(hud, "DialoguePanel") as DialoguePanel
         assert_eq(
-            (panel.get_node("Portrait") as TextureRect).texture.resource_path,
+            (panel.call("portrait_texture") as Texture2D).resource_path,
             expected_paths[id],
         )
         hud.close_dialogue()
