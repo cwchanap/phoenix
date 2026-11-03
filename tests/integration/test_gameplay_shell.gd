@@ -897,14 +897,20 @@ func test_shipping_stepper_mouse_cancel_click_and_empty_stock_disabled() -> void
     await _click_control(empty_plus)
     assert_eq(int(panel.call("selected_quantity")), 0)
 
-    snapshot["harvested"] = {&"turnip": 0, &"potato": 0, &"pumpkin": 0}
-    hud.render(snapshot)
     await _press_panel_action("move_up")
     assert_eq(int(panel.call("selected_kind")), GameRules.CropKind.TURNIP)
+    await _click_control(max_button)
+    assert_eq(int(panel.call("selected_quantity")), 7)
+    assert_eq(String(panel.call("selected_action_text")), "DEPOSIT ×7")
+    assert_false(minus.disabled)
+
+    snapshot["harvested"] = {&"turnip": 0, &"potato": 0, &"pumpkin": 0}
+    hud.render(snapshot)
+    assert_eq(int(panel.call("selected_quantity")), 0)
     assert_eq(String(panel.call("selected_action_text")), "DEPOSIT ×0")
-    assert_true((panel.call("stepper_button", 0, &"minus") as Button).disabled)
-    assert_true((panel.call("stepper_button", 0, &"plus") as Button).disabled)
-    assert_true((panel.call("stepper_button", 0, &"max") as Button).disabled)
+    assert_true(minus.disabled)
+    assert_true(plus.disabled)
+    assert_true(max_button.disabled)
     hud.close_shipping()
 
 func test_inventory_modal_keys_are_exclusive_same_key_closes_and_gate_input() -> void:
