@@ -11,11 +11,12 @@ const CROP_TEXTURES: Array[Texture2D] = [
 	preload("res://assets/ui/crops/potato.png"),
 	preload("res://assets/ui/crops/pumpkin.png"),
 ]
-const DIMMED := Color(0.58, 0.61, 0.68, 1.0)
+const DIMMED := Color(1.0, 1.0, 1.0, 0.45)
 
 var _snapshot: Dictionary = {}
 var _selected_kind := GameRules.CropKind.TURNIP
 var _quantity := 1
+var _sub: Label
 var _pending: Label
 var _action: Label
 var _warning: PanelContainer
@@ -122,82 +123,105 @@ func _build() -> void:
 	var card := PanelContainer.new()
 	card.name = "Card"
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.custom_minimum_size = Vector2(960, 0)
+	card.custom_minimum_size = Vector2(1040, 0)
 	card.add_theme_stylebox_override(
-		"panel", UiStyle.card(UiStyle.HUD_CARD, 26, [24, 18, 24, 18])
+		"panel", UiStyle.card(UiStyle.HUD_CARD, 30, [0, 0, 0, 0])
 	)
 	center.add_child(card)
-	var column := UiStyle.vbox(14)
+	var column := UiStyle.vbox(0)
 	column.name = "Column"
 	card.add_child(column)
 	column.add_child(_header())
+	var body := MarginContainer.new()
+	body.name = "Body"
+	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side in [["left", 32], ["top", 20], ["right", 32], ["bottom", 24]]:
+		body.add_theme_constant_override("margin_" + side[0], side[1])
+	column.add_child(body)
+	var content := UiStyle.vbox(10)
+	content.name = "Content"
+	body.add_child(content)
 	_warning = _warning_card()
-	column.add_child(_warning)
+	content.add_child(_warning)
 	var rows := UiStyle.vbox(10)
 	rows.name = "Rows"
-	column.add_child(rows)
+	content.add_child(rows)
 	for kind in range(GameRules.CropKind.size()):
 		rows.add_child(_row(kind))
 	column.add_child(_footer())
 
-func _header() -> HBoxContainer:
-	var header := UiStyle.hbox(12)
-	header.name = "Header"
+func _header() -> PanelContainer:
+	var band := UiStyle.gradient_band(UiStyle.HEADER_GRADIENT, 30, [32, 24, 32, 22])
+	band.name = "HeaderBand"
+	var row := UiStyle.hbox(16)
+	row.name = "Row"
+	band.add_child(row)
 	var icon_chip := PanelContainer.new()
 	icon_chip.name = "IconChip"
 	icon_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon_chip.custom_minimum_size = Vector2(44, 44)
+	icon_chip.custom_minimum_size = Vector2(64, 64)
 	icon_chip.add_theme_stylebox_override(
-		"panel", UiStyle.card(UiStyle.CARD, 13, [7, 7, 7, 7], false)
+		"panel", UiStyle.card(Color(1.0, 1.0, 1.0, 0.22), 18, [0, 0, 0, 0], false)
 	)
 	icon_chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	header.add_child(icon_chip)
-	icon_chip.add_child(UiStyle.icon(SHIPPING_ICON, 30))
-	var title := UiStyle.label("SHIPPING BIN", 28, UiStyle.INK, 900)
+	row.add_child(icon_chip)
+	icon_chip.add_child(UiStyle.icon(SHIPPING_ICON, 48))
+	var titles := UiStyle.vbox(2)
+	titles.name = "Titles"
+	titles.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(titles)
+	var title := UiStyle.label("SHIPPING BIN", 34, UiStyle.CARD, 900)
 	title.name = "Title"
-	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	header.add_child(title)
+	titles.add_child(title)
+	_sub = UiStyle.label("Pays out tomorrow morning", 16, Color(1.0, 1.0, 1.0, 0.85), 700)
+	_sub.name = "Sub"
+	titles.add_child(_sub)
 	var spacer := Control.new()
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(spacer)
+	row.add_child(spacer)
 	var pending_chip := PanelContainer.new()
 	pending_chip.name = "Pending"
 	pending_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pending_chip.add_theme_stylebox_override(
-		"panel", UiStyle.card(UiStyle.MINT, UiStyle.PILL_RADIUS, [12, 5, 16, 5], false)
+		"panel",
+		UiStyle.card(
+			Color(1.0, 1.0, 1.0, 0.2), UiStyle.PILL_RADIUS, [8, 7, 18, 7], false
+		)
 	)
 	pending_chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	header.add_child(pending_chip)
-	var pending_row := UiStyle.hbox(8)
+	row.add_child(pending_chip)
+	var pending_row := UiStyle.hbox(10)
 	pending_chip.add_child(pending_row)
-	var coin := UiStyle.icon(COIN_ICON, 22)
+	var coin := UiStyle.icon(COIN_ICON, 32)
 	coin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	pending_row.add_child(coin)
-	var caption := UiStyle.label("PENDING", 14, UiStyle.LEAF_DEEP, 800)
+	var pending_text := UiStyle.vbox(0)
+	pending_text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	pending_row.add_child(pending_text)
+	var caption := UiStyle.label("PENDING", 14, Color(1.0, 1.0, 1.0, 0.85), 800)
 	caption.name = "Caption"
-	caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	pending_row.add_child(caption)
-	_pending = UiStyle.label("0G", 24, UiStyle.LEAF_DEEP, 900)
+	pending_text.add_child(caption)
+	_pending = UiStyle.label("0G", 28, UiStyle.CARD, 900)
 	_pending.name = "Value"
-	pending_row.add_child(_pending)
-	return header
+	pending_text.add_child(_pending)
+	return band
 
 func _warning_card() -> PanelContainer:
 	var card := PanelContainer.new()
 	card.name = "Warning"
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.visible = false
-	var box := UiStyle.card(UiStyle.WARN, 14, [12, 10, 12, 10], false)
+	var box := UiStyle.card(UiStyle.WARN, 16, [16, 12, 16, 12], false)
 	box.border_color = UiStyle.SUN
 	box.set_border_width_all(2)
 	card.add_theme_stylebox_override("panel", box)
-	var row := UiStyle.hbox(8)
+	var row := UiStyle.hbox(10)
 	card.add_child(row)
-	var icon := UiStyle.icon(WARNING_ICON, 20)
+	var icon := UiStyle.icon(WARNING_ICON, 32)
 	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(icon)
-	_warning_text = UiStyle.label("", 14, UiStyle.WARN_INK, 700)
+	_warning_text = UiStyle.label("", 18, UiStyle.WARN_INK, 700)
 	_warning_text.name = "Text"
 	_warning_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_warning_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -208,27 +232,26 @@ func _row(index: int) -> PanelContainer:
 	var row := PanelContainer.new()
 	row.name = "Row_%d" % index
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var box := UiStyle.card(UiStyle.CARD, 16, [12, 10, 12, 10], false)
+	var box := UiStyle.card(UiStyle.SOFT, 20, [12, 12, 22, 12], false)
 	box.border_color = UiStyle.LINE
 	box.set_border_width_all(1)
 	_row_boxes.append(box)
 	row.add_theme_stylebox_override("panel", box)
-	var line := UiStyle.hbox(14)
+	var line := UiStyle.hbox(20)
+	line.name = "Line"
 	row.add_child(line)
 
-	var tile := Panel.new()
+	var tile := PanelContainer.new()
 	tile.name = "Tile"
 	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tile.custom_minimum_size = Vector2(68, 68)
+	tile.custom_minimum_size = Vector2(76, 76)
 	tile.add_theme_stylebox_override(
-		"panel", UiStyle.card(UiStyle.SOFT, 14, [0, 0, 0, 0], false)
+		"panel", UiStyle.card(UiStyle.CARD, 14, [0, 0, 0, 0], false)
 	)
 	tile.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	line.add_child(tile)
-	var icon := UiStyle.icon(null, 48)
+	var icon := UiStyle.icon(null, 64)
 	icon.name = "Icon"
-	icon.position = Vector2(10, 10)
-	icon.size = Vector2(48, 48)
 	tile.add_child(icon)
 
 	var info := UiStyle.vbox(4)
@@ -236,14 +259,14 @@ func _row(index: int) -> PanelContainer:
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	info.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	line.add_child(info)
-	var row_name := UiStyle.label("", 22, UiStyle.INK, 800)
+	var row_name := UiStyle.label("", 26, UiStyle.INK, 900)
 	row_name.name = "Name"
 	info.add_child(row_name)
-	var details := UiStyle.label("", 15, UiStyle.INK_MUTED, 500)
-	details.name = "Details"
+	var details := UiStyle.label("", 17, UiStyle.INK_MUTED, 700)
+	details.name = "Sub"
 	info.add_child(details)
 
-	var stepper := UiStyle.hbox(6)
+	var stepper := UiStyle.hbox(8)
 	stepper.name = "Stepper"
 	stepper.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	line.add_child(stepper)
@@ -253,13 +276,16 @@ func _row(index: int) -> PanelContainer:
 	var quantity_pill := PanelContainer.new()
 	quantity_pill.name = "Quantity"
 	quantity_pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	quantity_pill.add_theme_stylebox_override(
-		"panel", UiStyle.card(UiStyle.NIGHT, UiStyle.PILL_RADIUS, [14, 6, 14, 6], false)
-	)
+	quantity_pill.custom_minimum_size = Vector2(90, 0)
+	var quantity_box := UiStyle.card(UiStyle.CARD, 12, [10, 4, 10, 4], false)
+	quantity_box.border_color = UiStyle.ACCENT
+	quantity_box.set_border_width_all(2)
+	quantity_pill.add_theme_stylebox_override("panel", quantity_box)
 	quantity_pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	stepper.add_child(quantity_pill)
-	var quantity := UiStyle.label("×0", 20, UiStyle.CARD, 900)
+	var quantity := UiStyle.label("×0", 26, UiStyle.ACCENT_DEEP, 900)
 	quantity.name = "Value"
+	quantity.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	quantity_pill.add_child(quantity)
 	var plus := UiStyle.stepper_button("+")
 	plus.name = "Plus"
@@ -272,14 +298,14 @@ func _row(index: int) -> PanelContainer:
 
 	var meta := UiStyle.vbox(2)
 	meta.name = "Meta"
-	meta.custom_minimum_size = Vector2(130, 0)
+	meta.custom_minimum_size = Vector2(150, 0)
 	meta.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	line.add_child(meta)
-	var meta_caption := UiStyle.label("", 12, UiStyle.INK_MUTED, 800)
+	var meta_caption := UiStyle.label("", 13, UiStyle.INK_MUTED, 900)
 	meta_caption.name = "Caption"
 	meta_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	meta.add_child(meta_caption)
-	var meta_value := UiStyle.label("", 24, UiStyle.INK, 900)
+	var meta_value := UiStyle.label("", 30, UiStyle.INK, 900)
 	meta_value.name = "Value"
 	meta_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	meta.add_child(meta_value)
@@ -288,7 +314,7 @@ func _row(index: int) -> PanelContainer:
 		"panel": row,
 		"icon": icon,
 		"name": row_name,
-		"details": details,
+		"sub": details,
 		"stepper": stepper,
 		"quantity": quantity,
 		"minus": minus,
@@ -299,48 +325,71 @@ func _row(index: int) -> PanelContainer:
 	})
 	return row
 
-func _footer() -> HBoxContainer:
-	var footer := UiStyle.commerce_footer()
-	_action = footer.get_node("Action/Text") as Label
-	return footer
+func _footer() -> PanelContainer:
+	var bar := PanelContainer.new()
+	bar.name = "FooterBar"
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bar_box := UiStyle.card(
+		Color(1.0, 1.0, 1.0, 0.0), 0, [32, 16, 32, 16], false
+	)
+	bar_box.border_color = UiStyle.LINE
+	bar_box.border_width_top = 2
+	bar.add_theme_stylebox_override("panel", bar_box)
+	var footer := UiStyle.commerce_footer("all")
+	bar.add_child(footer)
+	_action = footer.get_node("Action/Row/Text") as Label
+	return bar
 
 func _update_rows() -> void:
-	_warning.visible = int(_snapshot.get("day", 1)) == GameRules.MAX_DAY
+	var day := int(_snapshot.get("day", 1))
+	_warning.visible = day == GameRules.MAX_DAY
 	_warning_text.text = (
 		"Day 14 — only crops deposited here count toward the finale. Anything still in the bag scores nothing."
 		if _warning.visible
 		else ""
 	)
+	_sub.text = (
+		tr("Paid at season end")
+		if _warning.visible
+		else tr("Pays out tomorrow morning")
+	)
 	_pending.text = "%dG" % _pending_value()
-	_action.text = tr("DEPOSIT ×%d") % _quantity
+	_action.text = tr("Ship %d · %dG") % [
+		_quantity, GameRules.sale_value(_selected_kind) * _quantity,
+	]
 	var harvested: Dictionary = _snapshot.get("harvested", {})
 	for kind in range(GameRules.CropKind.size()):
 		var row := _rows[kind]
 		var selected := kind == _selected_kind
 		var held := int(harvested.get(GameRules.crop_key(kind), 0))
 		(row["name"] as Label).text = GameRules.crop_display_name(kind)
-		(row["details"] as Label).text = tr("%d in bag · %dG each") % [
+		(row["sub"] as Label).text = tr("%d in bag · %dG each") % [
 			held,
 			GameRules.sale_value(kind),
 		]
 		(row["quantity"] as Label).text = "×%d" % _quantity
 		(row["meta_caption"] as Label).text = "VALUE" if selected else ""
 		(row["meta_value"] as Label).text = (
-			"%d" % (GameRules.sale_value(kind) * _quantity) if selected else "—"
+			"%dG" % (GameRules.sale_value(kind) * _quantity) if selected else "—"
 		)
 		(row["icon"] as TextureRect).texture = CROP_TEXTURES[kind]
 		(row["stepper"] as Control).visible = selected
 		(row["minus"] as Button).disabled = _quantity <= 0
 		(row["plus"] as Button).disabled = _quantity >= held
 		(row["max"] as Button).disabled = _quantity >= held
-		(row["panel"] as Control).modulate = Color.WHITE if selected or held > 0 else DIMMED
+		(row["panel"] as Control).modulate = Color.WHITE if held > 0 else DIMMED
 		_style_row(kind, selected)
 
 func _style_row(index: int, selected: bool) -> void:
 	var row_box := _row_boxes[index]
-	row_box.bg_color = UiStyle.ACCENT_SOFT if selected else UiStyle.CARD
+	row_box.bg_color = UiStyle.ACCENT_SOFT if selected else UiStyle.SOFT
 	row_box.border_color = UiStyle.ACCENT if selected else UiStyle.LINE
-	row_box.set_border_width_all(2 if selected else 1)
+	row_box.set_border_width_all(3 if selected else 1)
+	row_box.shadow_color = (
+		Color(UiStyle.ACCENT, 0.38) if selected else Color(0, 0, 0, 0)
+	)
+	row_box.shadow_size = 10 if selected else 0
+	row_box.shadow_offset = Vector2(0, 6) if selected else Vector2.ZERO
 	var row := _rows[index]
 	(row["name"] as Label).add_theme_color_override(
 		"font_color", UiStyle.ACCENT_DEEP if selected else UiStyle.INK

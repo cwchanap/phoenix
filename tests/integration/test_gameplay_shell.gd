@@ -610,9 +610,18 @@ func test_shop_keyboard_rows_update_quantity_max_and_enter_request() -> void:
     hud.open_shop()
     var panel := _panel(hud, "ShopPanel")
     assert_true(panel.has_method("display_price_for_row"))
-    assert_eq(String(panel.call("display_price_for_row", 0)), "20")
-    assert_eq(String(panel.call("display_price_for_row", 1)), "30")
-    assert_eq(String(panel.call("display_price_for_row", 2)), "70")
+    assert_eq(
+        String(panel.call("display_price_for_row", 0)),
+        "20",
+    )
+    assert_eq(
+        String(panel.call("display_price_for_row", 1)),
+        "30",
+    )
+    assert_eq(
+        String(panel.call("display_price_for_row", 2)),
+        "70",
+    )
     assert_true(panel.has_method("selected_kind"))
     assert_true(panel.has_method("selected_quantity"))
     assert_eq(int(panel.call("selected_kind")), GameRules.CropKind.TURNIP)
@@ -681,7 +690,7 @@ func test_shop_upgrade_row_ignores_quantity_keys_and_unaffordable_enter_requests
     assert_true(panel.has_method("selected_action_text"))
     assert_eq(
         String(panel.call("selected_action_text")),
-        "BUY · %dG" % GameRules.WATERING_CAN_UPGRADE_PRICE,
+        "Buy 1 · %dG" % GameRules.WATERING_CAN_UPGRADE_PRICE,
     )
     var quantity_before := int(panel.call("selected_quantity"))
 
@@ -691,7 +700,7 @@ func test_shop_upgrade_row_ignores_quantity_keys_and_unaffordable_enter_requests
     assert_eq(int(panel.call("selected_quantity")), quantity_before, "A/D/M no-op on row 3")
     assert_eq(
         String(panel.call("selected_action_text")),
-        "BUY · %dG" % GameRules.WATERING_CAN_UPGRADE_PRICE,
+        "Buy 1 · %dG" % GameRules.WATERING_CAN_UPGRADE_PRICE,
     )
 
     await _press_panel_action("ui_accept")
@@ -772,11 +781,11 @@ func test_shop_stepper_mouse_press_cancel_and_bound_disabled_states() -> void:
     assert_true(minus.disabled)
     assert_false(plus.disabled)
     assert_false(max_button.disabled)
-    assert_eq(String(panel.call("selected_action_text")), "BUY · 0G")
+    assert_eq(String(panel.call("selected_action_text")), "Buy 0 · 0G")
 
     await _click_control(max_button)
     assert_eq(int(panel.call("selected_quantity")), 2)
-    assert_eq(String(panel.call("selected_action_text")), "BUY · 40G")
+    assert_eq(String(panel.call("selected_action_text")), "Buy 2 · 40G")
     hud.close_shop()
 
 func test_shop_stepper_disabled_and_enter_still_requests_when_unaffordable() -> void:
@@ -803,7 +812,7 @@ func test_shop_stepper_disabled_and_enter_still_requests_when_unaffordable() -> 
     assert_true(minus.disabled)
     assert_true(plus.disabled)
     assert_true(max_button.disabled)
-    assert_eq(String(panel.call("selected_action_text")), "BUY · 0G")
+    assert_eq(String(panel.call("selected_action_text")), "Buy 0 · 0G")
 
     await _click_control(plus)
     assert_eq(int(panel.call("selected_quantity")), 0)
@@ -835,14 +844,14 @@ func test_shipping_keyboard_rows_update_quantity_max_and_enter_request() -> void
     assert_true(panel.has_method("selected_action_text"))
     assert_eq(int(panel.call("selected_kind")), GameRules.CropKind.TURNIP)
     assert_eq(int(panel.call("selected_quantity")), 1)
-    assert_eq(String(panel.call("selected_action_text")), "DEPOSIT ×1")
+    assert_eq(String(panel.call("selected_action_text")), "Ship 1 · 35G")
 
     await _press_panel_action("move_right")
     assert_eq(int(panel.call("selected_quantity")), 2)
-    assert_eq(String(panel.call("selected_action_text")), "DEPOSIT ×2")
+    assert_eq(String(panel.call("selected_action_text")), "Ship 2 · 70G")
     await _press_panel_action("panel_max")
     assert_eq(int(panel.call("selected_quantity")), 7)
-    assert_eq(String(panel.call("selected_action_text")), "DEPOSIT ×7")
+    assert_eq(String(panel.call("selected_action_text")), "Ship 7 · 245G")
     await _press_panel_action("ui_accept")
     assert_eq(requests, [{"kind": GameRules.CropKind.TURNIP, "quantity": 7}])
 
@@ -866,20 +875,20 @@ func test_shipping_stepper_mouse_cancel_click_and_empty_stock_disabled() -> void
     assert_not_null(minus)
     assert_not_null(plus)
     assert_not_null(max_button)
-    assert_eq(String(panel.call("selected_action_text")), "DEPOSIT ×1")
+    assert_eq(String(panel.call("selected_action_text")), "Ship 1 · 35G")
 
     await _press_and_release_outside(max_button)
     assert_eq(int(panel.call("selected_quantity")), 1)
 
     await _click_control(plus)
     assert_eq(int(panel.call("selected_quantity")), 2)
-    assert_eq(String(panel.call("selected_action_text")), "DEPOSIT ×2")
+    assert_eq(String(panel.call("selected_action_text")), "Ship 2 · 70G")
     assert_false(plus.disabled)
     assert_false(max_button.disabled)
 
     await _click_control(max_button)
     assert_eq(int(panel.call("selected_quantity")), 7)
-    assert_eq(String(panel.call("selected_action_text")), "DEPOSIT ×7")
+    assert_eq(String(panel.call("selected_action_text")), "Ship 7 · 245G")
     assert_true(plus.disabled)
     assert_true(max_button.disabled)
     assert_false(minus.disabled)
@@ -887,7 +896,7 @@ func test_shipping_stepper_mouse_cancel_click_and_empty_stock_disabled() -> void
     await _press_panel_action("move_down")
     assert_eq(int(panel.call("selected_kind")), GameRules.CropKind.POTATO)
     assert_eq(int(panel.call("selected_quantity")), 0)
-    assert_eq(String(panel.call("selected_action_text")), "DEPOSIT ×0")
+    assert_eq(String(panel.call("selected_action_text")), "Ship 0 · 0G")
     var empty_minus := panel.call("stepper_button", 1, &"minus") as Button
     var empty_plus := panel.call("stepper_button", 1, &"plus") as Button
     var empty_max := panel.call("stepper_button", 1, &"max") as Button
@@ -901,13 +910,13 @@ func test_shipping_stepper_mouse_cancel_click_and_empty_stock_disabled() -> void
     assert_eq(int(panel.call("selected_kind")), GameRules.CropKind.TURNIP)
     await _click_control(max_button)
     assert_eq(int(panel.call("selected_quantity")), 7)
-    assert_eq(String(panel.call("selected_action_text")), "DEPOSIT ×7")
+    assert_eq(String(panel.call("selected_action_text")), "Ship 7 · 245G")
     assert_false(minus.disabled)
 
     snapshot["harvested"] = {&"turnip": 0, &"potato": 0, &"pumpkin": 0}
     hud.render(snapshot)
     assert_eq(int(panel.call("selected_quantity")), 0)
-    assert_eq(String(panel.call("selected_action_text")), "DEPOSIT ×0")
+    assert_eq(String(panel.call("selected_action_text")), "Ship 0 · 0G")
     assert_true(minus.disabled)
     assert_true(plus.disabled)
     assert_true(max_button.disabled)
