@@ -74,6 +74,25 @@ func _busy_calendar_snapshot() -> Dictionary:
 	assert_true(session.restore_state(state))
 	return session.snapshot()
 
+func _three_kind_snapshot() -> Dictionary:
+	var session := GameSession.new()
+	var state := session.state()
+	state["day"] = 10
+	state["weather"] = &"sunny"
+	state["weather_history"] = []
+	for _day in 10:
+		state["weather_history"].append(&"sunny")
+	var farm: Array = state["farm"]
+	farm[0]["tilled"] = true
+	farm[0]["crop"] = _crop(&"turnip", 0)
+	farm[1]["tilled"] = true
+	farm[1]["crop"] = _crop(&"potato", 2)
+	farm[2]["tilled"] = true
+	farm[2]["crop"] = _crop(&"pumpkin", 4)
+	state["farm"] = farm
+	assert_true(session.restore_state(state))
+	return session.snapshot()
+
 func _season_end_snapshot() -> Dictionary:
 	var session := GameSession.new()
 	var state := session.state()
@@ -814,7 +833,16 @@ func test_calendar_cell_markers_never_overlap_neighbor_cells() -> void:
 	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
 	if calendar == null:
 		return
-	for snapshot in [_calendar_snapshot(), _season_end_snapshot(), _busy_calendar_snapshot()]:
+	var snapshots := [
+		_calendar_snapshot(),
+		_season_end_snapshot(),
+		_busy_calendar_snapshot(),
+		_three_kind_snapshot(),
+	]
+	calendar.open_panel(snapshots[0])
+	await _settle()
+	var checked := 0
+	for snapshot in snapshots:
 		calendar.present(snapshot)
 		await _settle()
 		var grid := calendar.find_child("Days", true, false) as GridContainer
@@ -830,10 +858,65 @@ func test_calendar_cell_markers_never_overlap_neighbor_cells() -> void:
 					continue
 				if child.get_global_rect().has_area() == false:
 					continue
+				checked += 1
 				assert_true(
 					cell_rect.encloses(child.get_global_rect()),
 					"%s overlaps its day cell at day %d" % [child.get_path(), int(snapshot["day"])],
 				)
+	assert_gt(checked, 0, "the overlap walk must inspect rendered descendants")
+
+func test_calendar_coming_up_wraps_three_crop_names_inside_the_frame() -> void:
+	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
+	if calendar == null:
+		return
+	var crop_names := {
+		"en": ["Turnip", "Potato", "Pumpkin"],
+		"zh_TW": ["蕪菁", "馬鈴薯", "南瓜"],
+		"ja": ["カブ", "ジャガイモ", "カボチャ"],
+	}
+	var earliest := {"en": "earliest harvest", "zh_TW": "最早收成", "ja": "最短収穫"}
+	for locale in ["en", "zh_TW", "ja"]:
+		TranslationServer.set_locale(locale)
+		calendar.open_panel(_three_kind_snapshot())
+		await _settle()
+		var frame_rect := _frame(calendar).get_global_rect()
+		assert_true(
+			frame_rect.size.x <= 560.0,
+			"%s three-crop coming-up row keeps the phone at 560 wide" % locale,
+		)
+		assert_true(
+			frame_rect.size.y <= 920.0,
+			"%s three-crop coming-up row keeps the phone at 920 tall" % locale,
+		)
+		var coming := calendar.find_child("ComingUp", true, false) as Control
+		assert_not_null(coming)
+		if coming == null:
+			continue
+		var text_label: Label = null
+		for node in coming.find_children("Text", "Label", true, false):
+			var label := node as Label
+			if label.text.contains(earliest[locale]):
+				text_label = label
+		assert_not_null(text_label, "%s renders the three-crop readiness row" % locale)
+		if text_label == null:
+			continue
+		for crop_name in crop_names[locale]:
+			assert_true(
+				text_label.text.contains(crop_name),
+				"%s row keeps %s in the wrapped text" % [locale, crop_name],
+			)
+		var screen_rect := (
+			(_frame(calendar).get_node("Screen") as Control).get_global_rect()
+		)
+		assert_true(
+			screen_rect.encloses(text_label.get_global_rect()),
+			"%s three-crop text stays inside the phone screen" % locale,
+		)
+		if locale == "en":
+			assert_true(
+				text_label.get_line_count() >= 2,
+				"en three-crop text wraps instead of widening the phone",
+			)
 
 func test_calendar_event_markers_use_legible_icons_not_tiny_text() -> void:
 	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
