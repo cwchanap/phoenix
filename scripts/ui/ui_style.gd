@@ -132,6 +132,87 @@ static func gradient_rect(colors: Array[Color], min_size: Vector2 = Vector2.ZERO
 	result.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return result
 
+static func rounded_gradient_texture(
+	colors: Array[Color],
+	size: Vector2i,
+	radius_top: int,
+	radius_bottom: int = -1,
+	vertical: bool = false,
+) -> ImageTexture:
+	if radius_bottom < 0:
+		radius_bottom = radius_top
+	var stops := Gradient.new()
+	var offsets := PackedFloat32Array()
+	for index in colors.size():
+		offsets.append(float(index) / float(colors.size() - 1))
+	stops.offsets = offsets
+	stops.colors = PackedColorArray(colors)
+	var image := Image.create(size.x, size.y, false, Image.FORMAT_RGBA8)
+	var span := maxf(1.0, float((size.y if vertical else size.x) - 1))
+	var steps := size.y if vertical else size.x
+	for step in steps:
+		var color := stops.sample(float(step) / span)
+		if vertical:
+			image.fill_rect(Rect2i(0, step, size.x, 1), color)
+		else:
+			image.fill_rect(Rect2i(step, 0, 1, size.y), color)
+	for y in image.get_height():
+		if y >= radius_top and y < size.y - radius_bottom:
+			continue
+		for x in image.get_width():
+			var alpha := _rounded_coverage(x, y, size, radius_top, radius_bottom)
+			if alpha < 1.0:
+				var pixel := image.get_pixel(x, y)
+				pixel.a *= alpha
+				image.set_pixel(x, y, pixel)
+	return ImageTexture.create_from_image(image)
+
+static func _rounded_coverage(
+	x: int, y: int, size: Vector2i, radius_top: int, radius_bottom: int
+) -> float:
+	var center := Vector2.ZERO
+	var radius := 0.0
+	if y < radius_top:
+		radius = radius_top
+		center.y = radius_top
+		if x < radius_top:
+			center.x = radius_top
+		elif x >= size.x - radius_top:
+			center.x = size.x - radius_top
+		else:
+			return 1.0
+	elif y >= size.y - radius_bottom:
+		radius = radius_bottom
+		center.y = size.y - radius_bottom
+		if x < radius_bottom:
+			center.x = radius_bottom
+		elif x >= size.x - radius_bottom:
+			center.x = size.x - radius_bottom
+		else:
+			return 1.0
+	else:
+		return 1.0
+	var distance := Vector2(x + 0.5 - center.x, y + 0.5 - center.y).length()
+	return clampf(radius - distance + 0.5, 0.0, 1.0)
+
+static func state_pip(size: Vector2, radius: int = 4) -> Control:
+	var pip := Control.new()
+	pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pip.custom_minimum_size = size
+	var off := Panel.new()
+	off.name = "Off"
+	off.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	off.set_anchors_preset(Control.PRESET_FULL_RECT)
+	off.add_theme_stylebox_override(
+		"panel", card(LINE, radius, [0, 0, 0, 0], false)
+	)
+	pip.add_child(off)
+	var on := gradient_rect(ACCENT_GRADIENT)
+	on.name = "On"
+	on.set_anchors_preset(Control.PRESET_FULL_RECT)
+	pip.add_child(on)
+	return pip
+
 ## A rounded container filled with a gradient: the rounded box masks a
 ## gradient child, so gradients keep their corners without image assets.
 ## Add content as further children; they stack over the gradient.

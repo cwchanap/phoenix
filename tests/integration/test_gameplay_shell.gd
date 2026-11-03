@@ -1020,7 +1020,7 @@ func test_bag_all_pending_crops_show_bin_slots_and_one_payout_summary() -> void:
     assert_true(bag.bin_slot_visible(GameRules.CropKind.POTATO))
     assert_true(bag.bin_slot_visible(GameRules.CropKind.PUMPKIN))
     assert_true(bag.bin_payout_visible())
-    assert_eq(bag.bin_payout_value_text(), "325G")
+    assert_eq(bag.bin_payout_value_text(), "+325G")
     assert_eq(bag.bin_payout_note_text(), "Pays out tomorrow morning")
 
 func test_calendar_readiness_preserves_mixed_crop_kinds_per_day() -> void:
@@ -1291,7 +1291,7 @@ func test_read_only_panels_render_rules_and_only_known_calendar_weather() -> voi
     assert_lte(bag.detail_description_line_count(), 2)
     await _press_panel_action("move_down")
     await _press_panel_action("move_down")
-    assert_eq(bag.bin_payout_value_text(), "140G")
+    assert_eq(bag.bin_payout_value_text(), "+140G")
     assert_eq(bag.bin_payout_note_text(), "Pays out tomorrow morning")
     assert_true(bag.bin_slot_visible(GameRules.CropKind.TURNIP))
     assert_false(bag.bin_slot_visible(GameRules.CropKind.POTATO))
