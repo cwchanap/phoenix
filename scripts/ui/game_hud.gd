@@ -73,7 +73,6 @@ var _onboarding_overlay: OnboardingOverlay
 var _morning_summary_panel: MorningSummaryPanel
 var _pause_panel: PausePanel
 var _settings_panel: SettingsPanel
-var _day14_sleep_boundary: Label
 var _sfx_player: AudioStreamPlayer
 var _music_player: AudioStreamPlayer
 var _river_ambience_player: AudioStreamPlayer
@@ -185,12 +184,10 @@ func render(snapshot: Dictionary) -> void:
     _bag_panel.set_status_time(status_time)
     _almanac_panel.set_status_time(status_time)
     _calendar_panel.set_status_time(status_time)
+    _settings_panel.set_status_time(status_time)
+    _sleep_panel.set_status_time(status_time)
+    _morning_summary_panel.set_status_time(status_time)
     _pause_panel.set_day_weather(day, snapshot["weather"])
-    _day14_sleep_boundary.text = (
-        "Day 14 — this ends the season and settles the bin."
-        if day == GameRules.MAX_DAY
-        else ""
-    )
 
     var summary: Variant = snapshot["pending_morning_summary"]
     _set_morning_summary_visible(summary != null)
@@ -565,7 +562,6 @@ func _build_modals() -> void:
     _sleep_panel.sleep_requested.connect(func() -> void:
         sleep_requested.emit()
     )
-    _day14_sleep_boundary = _sleep_panel.get_node("Boundary") as Label
     _morning_summary_panel = MORNING_SUMMARY_SCENE.instantiate() as MorningSummaryPanel
     _root.add_child(_morning_summary_panel)
     _morning_summary_panel.acknowledged.connect(func() -> void:
@@ -590,10 +586,7 @@ func _build_modals() -> void:
     for panel: Control in [
         _shop_panel,
         _shipping_panel,
-        _sleep_panel,
-        _morning_summary_panel,
         _dialogue_panel,
-        _settings_panel,
     ]:
         UiStyle.fit_legacy_layout(panel)
     _shop_panel.visible = false

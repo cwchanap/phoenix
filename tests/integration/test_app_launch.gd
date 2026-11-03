@@ -49,7 +49,7 @@ func test_settings_panel_shows_canonical_save_path_under_save_override() -> void
     world.hud.open_pause()
     world.hud.open_settings()
     assert_eq(
-        (world.hud.get_node("HudRoot/SettingsPanel/Frame/Footer/SavePath") as Label).text,
+        (world.hud.get_node("HudRoot/SettingsPanel") as SettingsPanel).save_path_text(),
         "Save file: %s" % SaveRepository.DEFAULT_PATH,
     )
 
@@ -397,6 +397,10 @@ func test_legacy_640x360_ui_roots_fill_the_1080p_canvas() -> void:
         var app_panel := world.hud.get_node("HudRoot/%s" % panel_name) as Control
         assert_eq(app_panel.scale, Vector2.ONE)
         assert_eq(app_panel.get_global_rect(), canvas)
+    for panel_name in ["SettingsPanel", "SleepPanel", "MorningSummaryPanel"]:
+        var modal := world.hud.get_node("HudRoot/%s" % panel_name) as Control
+        assert_eq(modal.scale, Vector2.ONE)
+        assert_eq(modal.get_global_rect(), canvas)
 
 func test_title_keyboard_skips_disabled_continue_and_enter_starts_new_game() -> void:
     var repository := SaveRepository.new(TEST_PATH)
