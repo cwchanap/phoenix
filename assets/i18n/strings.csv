@@ -4,10 +4,10 @@ Potato,馬鈴薯,ジャガイモ
 Pumpkin,南瓜,カボチャ
 Sunny,晴天,晴れ
 Rainy,雨天,雨
-Sato-san,佐藤小姐,佐藤さん
+Sato-san,佐藤先生,佐藤さん
 Gen-san,阿源伯,源さん
 Hana,小花,ハナ
-Seed-shop keeper,種子行老闆娘,種屋の店主
+Seed-shop keeper,種子行店主,種屋の店主
 Retired farmer,退休農夫,引退した農家
 Station cafe owner,車站咖啡廳老闆娘,駅前カフェの店主
 Stranger,陌生人,顔見知り
@@ -23,7 +23,7 @@ Water the crop,幫作物澆水,作物に水をやろう
 End the day,結束這一天,一日を終えよう
 "When today's work is done, face the bed, press E, and sleep.",今天的工作做完後，面向床鋪按 E 睡覺。,今日の作業が終わったら、ベッドの方を向いて E キーで眠る。
 Meet the village,認識村裡的人,村の人に会おう
-"Face Sato-san, Gen-san, or Hana and press E to talk.",面向佐藤小姐、阿源伯或小花，按 E 聊天。,佐藤さん、源さん、ハナの方を向いて E キーで話しかける。
+"Face Sato-san, Gen-san, or Hana and press E to talk.",面向佐藤先生、阿源伯或小花，按 E 聊天。,佐藤さん、源さん、ハナの方を向いて E キーで話しかける。
 Reinvest,再投資,再投資しよう
 "Face the seed counter, press E, and buy seeds to keep planting.",面向種子櫃台按 E，買些種子繼續種。,種の売り場の方を向いて E キーを押し、種を買って植え続けよう。
 Harvest,收成,収穫
@@ -207,7 +207,7 @@ THE BIN PAID OUT,出貨箱結算了,出荷箱の精算
 No crops shipped.,沒有出貨任何作物。,出荷した作物はない。
 Money after shipping,出貨後的金錢,出荷後の所持金
 This farm has been quiet for a while. It is yours now — bring it back one day at a time.,這座農場已經沉寂了好一陣子。現在它是你的了——一天一天讓它重新活起來吧。,この農場はしばらく静まり返っていた。今はもうあなたのもの——一日ずつ、よみがえらせよう。
-SATO-SAN,佐藤小姐,佐藤さん
+SATO-SAN,佐藤先生,佐藤さん
 "The village harvest market is on Day 14. Grow what you can, and get to know the village before then.",村裡的豐收市集在第 14 天。在那之前盡量種，也多認識村裡的人吧。,村の収穫市は14日目。それまでにできるだけ育てて、村の人と仲良くなっておこう。
 BEGIN DAY 1,開始第 1 天,1日目を始める
 CONTROLS,操作說明,操作方法
