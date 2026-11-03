@@ -583,12 +583,6 @@ func _build_modals() -> void:
     _settings_panel = SETTINGS_SCENE.instantiate() as SettingsPanel
     _root.add_child(_settings_panel)
     _settings_panel.settings_changed.connect(_on_settings_changed)
-    for panel: Control in [
-        _shop_panel,
-        _shipping_panel,
-        _dialogue_panel,
-    ]:
-        UiStyle.fit_legacy_layout(panel)
     _shop_panel.visible = false
     _shipping_panel.visible = false
     _bag_panel.visible = false

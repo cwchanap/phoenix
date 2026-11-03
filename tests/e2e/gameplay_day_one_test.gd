@@ -95,6 +95,15 @@ func _use_action(game) -> void:
 	assert_str(await game.call_method(GAME_HUD, "toast_text")).is_equal("")
 
 
+func _wait_for_call_value(game, path: String, method: String, expected: Variant, timeout := 5.0) -> Variant:
+	var deadline_msec := Time.get_ticks_msec() + int(timeout * 1000.0)
+	var value: Variant = await game.call_method(path, method)
+	while value != expected and Time.get_ticks_msec() < deadline_msec:
+		await game.wait_seconds(0.1)
+		value = await game.call_method(path, method)
+	return value
+
+
 func test_day_one_farming_loop_and_sleep() -> void:
 	var game = await _start_new_game()
 	if game == null or is_failure():
@@ -345,19 +354,17 @@ func test_continue_seeded_save_buys_upgrade_and_waters_with_one_stamina() -> voi
 		assert_bool(await game.input_action("move_down", true)).is_true()
 		assert_bool(await game.input_action("move_down", false)).is_true()
 	assert_str(
-		await game.get_property(HUD + "/ShopPanel/Frame/Footer/Action", "text")
+		await game.call_method(HUD + "/ShopPanel", "selected_action_text")
 	).is_equal("BUY · 200G")
 
 	# One Enter buys through the real panel request path: 255 - 200 = 55.
 	assert_bool(await game.input_action("ui_accept", true)).is_true()
 	assert_bool(await game.input_action("ui_accept", false)).is_true()
-	assert_bool(
-		await game.wait_for_property(
-			HUD + "/ShopPanel/Frame/Header/MoneyValue", "text", "55", 5.0
-		)
-	).is_true()
 	assert_str(
-		await game.get_property(HUD + "/ShopPanel/Frame/Footer/Action", "text")
+		await _wait_for_call_value(game, HUD + "/ShopPanel", "money_text", "55")
+	).is_equal("55")
+	assert_str(
+		await game.call_method(HUD + "/ShopPanel", "selected_action_text")
 	).is_equal("OWNED")
 
 	# Esc closes the shop; ownership now shows on the world HUD.
