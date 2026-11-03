@@ -180,6 +180,9 @@ func render(snapshot: Dictionary) -> void:
         _rain_ambience_player.stop()
     _chrome.render(snapshot)
     var day := int(snapshot["day"])
+    var status_time := GameRules.format_time(int(snapshot["time_minutes"]))
+    _pause_panel.set_status_time(status_time)
+    _pause_panel.set_day_weather(day, snapshot["weather"])
     _day14_sleep_boundary.text = (
         "Day 14 — this ends the season and settles the bin."
         if day == GameRules.MAX_DAY
@@ -573,6 +576,9 @@ func _build_modals() -> void:
     _dialogue_panel.close_requested.connect(close_dialogue)
     _pause_panel = PAUSE_SCENE.instantiate() as PausePanel
     _root.add_child(_pause_panel)
+    _pause_panel.bag_requested.connect(open_bag)
+    _pause_panel.almanac_requested.connect(open_almanac)
+    _pause_panel.calendar_requested.connect(open_calendar)
     _pause_panel.settings_requested.connect(open_settings)
     _pause_panel.resume_requested.connect(close_pause)
     _settings_panel = SETTINGS_SCENE.instantiate() as SettingsPanel
@@ -587,7 +593,6 @@ func _build_modals() -> void:
         _sleep_panel,
         _morning_summary_panel,
         _dialogue_panel,
-        _pause_panel,
         _settings_panel,
     ]:
         UiStyle.fit_legacy_layout(panel)
@@ -676,21 +681,21 @@ func _unhandled_input(event: InputEvent) -> void:
     if event.is_action_pressed("toggle_bag"):
         if _bag_panel.visible:
             close_bag()
-        elif not has_blocking_modal():
+        elif not has_blocking_modal() or _pause_panel.visible:
             open_bag()
         get_viewport().set_input_as_handled()
         return
     if event.is_action_pressed("toggle_almanac"):
         if _almanac_panel.visible:
             close_almanac()
-        elif not has_blocking_modal():
+        elif not has_blocking_modal() or _pause_panel.visible:
             open_almanac()
         get_viewport().set_input_as_handled()
         return
     if event.is_action_pressed("toggle_calendar"):
         if _calendar_panel.visible:
             close_calendar()
-        elif not has_blocking_modal():
+        elif not has_blocking_modal() or _pause_panel.visible:
             open_calendar()
         get_viewport().set_input_as_handled()
         return

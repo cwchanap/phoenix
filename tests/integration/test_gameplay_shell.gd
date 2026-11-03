@@ -2355,6 +2355,94 @@ func test_open_settings_is_only_available_from_pause() -> void:
     await _press_panel_action(&"open_settings")
     assert_true(settings.visible)
 
+func test_pause_app_shortcut_opens_bag_and_returns_to_world_not_pause() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var pause := _panel(hud, "PausePanel")
+    var bag := _panel(hud, "BagPanel")
+
+    await _press_escape()
+    assert_true(pause.visible)
+    await _press_panel_action(&"toggle_bag")
+    assert_false(pause.visible)
+    assert_true(bag.visible)
+    assert_false(world._world_input_enabled)
+    var visible_primary_count := 0
+    for panel in hud._primary_modals:
+        if panel.visible:
+            visible_primary_count += 1
+    assert_eq(visible_primary_count, 1)
+
+    await _press_panel_action(&"toggle_bag")
+    assert_false(bag.visible)
+    assert_false(pause.visible, "the app closes to the world, not back to Pause")
+    assert_true(world._world_input_enabled)
+
+func test_pause_almanac_and_calendar_shortcuts_open_apps() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    for entry in [
+        {"action": &"toggle_almanac", "panel": "AlmanacPanel"},
+        {"action": &"toggle_calendar", "panel": "CalendarPanel"},
+    ]:
+        await _press_escape()
+        assert_true(_panel(hud, "PausePanel").visible)
+        await _press_panel_action(entry["action"])
+        assert_false(_panel(hud, "PausePanel").visible)
+        assert_true(_panel(hud, entry["panel"]).visible)
+        assert_false(world._world_input_enabled)
+        await _press_panel_action(entry["action"])
+        assert_false(_panel(hud, entry["panel"]).visible)
+        assert_false(_panel(hud, "PausePanel").visible)
+        assert_true(world._world_input_enabled)
+
+func test_pause_app_tiles_open_their_apps() -> void:
+    var world := _settings_world()
+    var hud := _hud(world)
+    var pause := _panel(hud, "PausePanel")
+    var click := InputEventMouseButton.new()
+    click.button_index = MOUSE_BUTTON_LEFT
+    click.pressed = true
+
+    await _press_escape()
+    assert_true(pause.visible)
+    var bag_tile := pause.find_child("BagTile", true, false) as Control
+    assert_not_null(bag_tile)
+    bag_tile.gui_input.emit(click)
+    assert_false(pause.visible)
+    assert_true(_panel(hud, "BagPanel").visible)
+    assert_false(world._world_input_enabled)
+    hud.close_bag()
+
+    await _press_escape()
+    assert_true(pause.visible)
+    var settings_tile := pause.find_child("SettingsTile", true, false) as Control
+    assert_not_null(settings_tile)
+    settings_tile.gui_input.emit(click)
+    assert_false(pause.visible)
+    assert_true(_panel(hud, "SettingsPanel").visible)
+    await _press_escape()
+    assert_true(pause.visible)
+    assert_false(_panel(hud, "SettingsPanel").visible)
+
+func test_pause_status_bar_tracks_the_rendered_clock_and_day() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var pause := _panel(hud, "PausePanel") as PausePanel
+
+    var snapshot := world._session.snapshot()
+    snapshot["time_minutes"] = 9 * 60 + 30
+    snapshot["day"] = 4
+    hud.render(snapshot)
+    assert_eq(pause.status_time_text(), GameRules.format_time(9 * 60 + 30))
+    assert_eq(pause.day_weather_text(), "Day 4 · Sunny")
+
+    snapshot["time_minutes"] = GameRules.DAY_START_MINUTES
+    snapshot["weather"] = GameRules.weather_key(GameRules.Weather.RAINY)
+    hud.render(snapshot)
+    assert_eq(pause.status_time_text(), GameRules.format_time(GameRules.DAY_START_MINUTES))
+    assert_eq(pause.day_weather_text(), "Day 4 · Rainy")
+
 func test_settings_adjustment_persists_in_isolated_path_and_applies_audio() -> void:
     var world := _settings_world()
     var hud := _hud(world)
