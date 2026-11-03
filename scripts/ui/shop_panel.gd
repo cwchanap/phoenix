@@ -59,6 +59,9 @@ func display_price_for_row(index: int) -> String:
 func money_text() -> String:
 	return _money.text
 
+func stepper_button(row_index: int, part: StringName) -> Button:
+	return _rows[row_index][part] as Button
+
 func _input(event: InputEvent) -> void:
 	if not visible or not event.is_pressed() or event.is_echo():
 		return
@@ -249,16 +252,11 @@ func _row(index: int) -> PanelContainer:
 	var plus := _stepper_button("+")
 	plus.name = "Plus"
 	stepper.add_child(plus)
-	var max_chip := _stepper_chip("M", "max")
-	max_chip.name = "Max"
+	var max_chip := _max_button("max")
 	stepper.add_child(max_chip)
 	minus.pressed.connect(_adjust_quantity.bind(-1))
 	plus.pressed.connect(_adjust_quantity.bind(1))
-	max_chip.gui_input.connect(func(event: InputEvent) -> void:
-		var click := event as InputEventMouseButton
-		if click != null and click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
-			_select_max()
-	)
+	max_chip.pressed.connect(_select_max)
 
 	var meta := UiStyle.vbox(2)
 	meta.name = "Meta"
@@ -282,6 +280,9 @@ func _row(index: int) -> PanelContainer:
 		"note": note,
 		"stepper": stepper,
 		"quantity": quantity,
+		"minus": minus,
+		"plus": plus,
+		"max": max_chip,
 		"meta_caption": meta_caption,
 		"meta_value": meta_value,
 	})
@@ -316,22 +317,42 @@ func _stepper_button(text_value: String) -> Button:
 	button.add_theme_color_override("font_disabled_color", UiStyle.INK_MUTED)
 	return button
 
-func _stepper_chip(key: String, caption_text: String) -> PanelContainer:
-	var chip := PanelContainer.new()
-	chip.mouse_filter = Control.MOUSE_FILTER_STOP
-	chip.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	chip.add_theme_stylebox_override(
-		"panel",
-		UiStyle.outlined(UiStyle.card(UiStyle.CARD, 10, [8, 5, 10, 5], false), UiStyle.LINE, 1),
+func _max_button(caption_text: String) -> Button:
+	var button := Button.new()
+	button.name = "Max"
+	button.custom_minimum_size = Vector2(88, 42)
+	button.focus_mode = Control.FOCUS_NONE
+	button.add_theme_stylebox_override(
+		"normal",
+		UiStyle.outlined(UiStyle.card(UiStyle.CARD, 10, [0, 0, 0, 0], false), UiStyle.LINE, 1),
 	)
-	chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	button.add_theme_stylebox_override(
+		"hover",
+		UiStyle.outlined(UiStyle.card(UiStyle.ACCENT_SOFT, 10, [0, 0, 0, 0], false), UiStyle.ACCENT, 1),
+	)
+	button.add_theme_stylebox_override(
+		"pressed",
+		UiStyle.outlined(UiStyle.card(UiStyle.ACCENT_SOFT, 10, [0, 0, 0, 0], false), UiStyle.ACCENT, 2),
+	)
+	button.add_theme_stylebox_override(
+		"focus",
+		UiStyle.outlined(UiStyle.card(UiStyle.CARD, 10, [0, 0, 0, 0], false), UiStyle.ACCENT, 2),
+	)
+	button.add_theme_stylebox_override(
+		"disabled",
+		UiStyle.outlined(UiStyle.card(UiStyle.SOFT, 10, [0, 0, 0, 0], false), UiStyle.LINE, 1),
+	)
 	var row := UiStyle.hbox(6)
-	chip.add_child(row)
-	row.add_child(UiStyle.keycap(key, true))
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	button.add_child(row)
+	var keycap := UiStyle.keycap("M", true)
+	keycap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(keycap)
 	var caption := UiStyle.label(caption_text, 14, UiStyle.INK_MUTED, 800)
 	caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(caption)
-	return chip
+	return button
 
 func _footer() -> HBoxContainer:
 	var footer := UiStyle.hbox(10)
@@ -398,6 +419,10 @@ func _update_rows() -> void:
 		)
 		(row["icon"] as TextureRect).texture = SEED_PACKETS[kind]
 		(row["stepper"] as Control).visible = selected
+		var max_qty := _max_quantity(kind)
+		(row["minus"] as Button).disabled = _quantity <= 0
+		(row["plus"] as Button).disabled = _quantity >= max_qty
+		(row["max"] as Button).disabled = _quantity >= max_qty
 		_style_row(kind, selected)
 	_update_upgrade_row()
 
