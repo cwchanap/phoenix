@@ -13,7 +13,7 @@ const EXPECTED_ASSETS := [
     {"path": "res://assets/sprites/proof-scenery.png", "size": Vector2i(384, 96)},
     {"path": "res://assets/sprites/proof-soil.png", "size": Vector2i(128, 32)},
     {"path": "res://assets/sprites/proof-crops.png", "size": Vector2i(128, 144)},
-    {"path": "res://assets/sprites/proof-villagers.png", "size": Vector2i(96, 48)},
+    {"path": "res://assets/sprites/villagers.png", "size": Vector2i(96, 48)},
     {"path": "res://assets/sprites/proof-shadow.png", "size": Vector2i(16, 8)},
     {"path": "res://assets/sprites/starting-farm-tiles-source.webp", "size": Vector2i(384, 192)},
     {"path": "res://assets/sprites/starting-farm-props-source.webp", "size": Vector2i(384, 192)},
@@ -675,7 +675,7 @@ func _run() -> void:
             return
         var villager_sprite := villager.get_node("Sprite2D") as Sprite2D
         if not _expect(
-            villager_sprite.texture.resource_path == "res://assets/sprites/proof-villagers.png",
+            villager_sprite.texture.resource_path == "res://assets/sprites/villagers.png",
             "villager %d texture" % id,
         ):
             return

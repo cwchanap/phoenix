@@ -2223,9 +2223,9 @@ func test_dialogue_portrait_matches_each_villager() -> void:
     if hud == null:
         return
     var expected_paths := [
-        "res://assets/ui/portraits/mira-full.png",
-        "res://assets/ui/portraits/rowan.png",
-        "res://assets/ui/portraits/june.png",
+        "res://assets/ui/portraits/sato.png",
+        "res://assets/ui/portraits/gen.png",
+        "res://assets/ui/portraits/hana.png",
     ]
     var result := {
         "code": GameRules.CommandCode.VILLAGER_TALKED,
