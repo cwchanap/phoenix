@@ -307,6 +307,7 @@ func _fact_card(index: int) -> PanelContainer:
 	if index == 1:
 		_weather_icon = icon
 	var pair := UiStyle.vbox(2)
+	pair.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pair.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(pair)
 	var value := UiStyle.label("", 20, FACT_COLORS[index], 900)

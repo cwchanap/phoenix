@@ -156,7 +156,7 @@ func _play_harvest(cell: Vector2i, crop_kind: Variant, player_position: Vector2)
     var plus_one := Label.new()
     plus_one.name = "PlusOne"
     plus_one.text = "+1"
-    UiStyle.text(plus_one, 10, UiStyle.GOLD, 700)
+    UiStyle.text(plus_one, 10, UiStyle.SUN, 700)
     pop.add_child(plus_one)
     plus_one.reset_size()
     plus_one.position = Vector2(-plus_one.size.x * 0.5, -64)
