@@ -196,7 +196,7 @@ func test_continue_restores_state_and_uses_authored_spawn() -> void:
     if app == null:
         return
     var title := app.get_node("TitleScreen") as TitleScreen
-    var continue_button := title.get_node("Panel/Continue") as Button
+    var continue_button := title.get_node("Menu/Continue") as Button
     assert_false(continue_button.disabled)
     title.continue_requested.emit()
     await get_tree().process_frame
@@ -242,7 +242,7 @@ func test_continue_restores_one_dry_night_and_wither_summary() -> void:
     if app == null:
         return
     var title := app.get_node("TitleScreen") as TitleScreen
-    assert_false((title.get_node("Panel/Continue") as Button).disabled)
+    assert_false((title.get_node("Menu/Continue") as Button).disabled)
     title.continue_requested.emit()
     await get_tree().process_frame
 
@@ -281,45 +281,38 @@ func test_continue_with_completed_finale_shows_result_screen() -> void:
     if app == null:
         return
     var title := app.get_node("TitleScreen") as TitleScreen
-    assert_false((title.get_node("Panel/Continue") as Button).disabled)
+    assert_false((title.get_node("Menu/Continue") as Button).disabled)
     title.continue_requested.emit()
 
     assert_null(app.get_node_or_null("World"))
     var result := app.get_node("ResultScreen") as ResultScreen
     assert_true(result.visible)
     assert_eq(result.featured_villager_name(), expected["villager"])
-    assert_true((result.get_node("Panel/Card_Shopkeeper/Heart_0") as TextureRect).visible)
-    assert_true((result.get_node("Panel/Card_Shopkeeper/Heart_1") as TextureRect).visible)
-    assert_false((result.get_node("Panel/Card_Shopkeeper/Heart_2") as TextureRect).visible)
-    assert_false((result.get_node("Panel/Card_Farmer/Heart_0") as TextureRect).visible)
-    assert_true((result.get_node("Panel/Card_Resident/Heart_2") as TextureRect).visible)
-    assert_eq((result.get_node("Panel/Title") as Label).text, expected["title"])
+    var result_state := result.result_state()
+    assert_eq(result_state["hearts"][&"shopkeeper"], [true, true, false])
+    assert_eq(result_state["hearts"][&"farmer"], [false, false, false])
+    assert_eq(result_state["hearts"][&"resident"], [true, true, true])
+    assert_eq(result_state["title"], expected["title"])
     assert_eq(
-        (result.get_node("Panel/Shipped") as Label).text,
-        "Shipped: %d crops · %dG" % [
-            int(expected["shipped_count"]),
-            int(expected["shipped_value"]),
+        result_state["stats"],
+        [
+            "%d" % int(expected["shipped_count"]),
+            "%dG" % int(expected["shipped_value"]),
+            "%dG" % int(expected["final_money"]),
         ],
-    )
-    assert_eq(
-        (result.get_node("Panel/Money") as Label).text,
-        "Final money: %dG" % int(expected["final_money"]),
-    )
-    assert_eq(
-        (result.get_node("Panel/Relationship") as Label).text,
-        "Closest villager: %s" % String(expected["villager"]),
     )
     var villagers: Dictionary = expected["villagers"]
     for id in range(VillagerRules.VillagerId.size()):
         var villager: Dictionary = villagers[VillagerRules.villager_key(id)]
+        var key := VillagerRules.villager_key(id)
         var level_name: String = VillagerRules.RELATIONSHIP_DISPLAY_NAMES[
             VillagerRules.RELATIONSHIP_KEYS.find(villager["level"])
         ]
-        assert_eq(
-            (result.get_node("Panel/%sLine" % String(VillagerRules.villager_key(id)).capitalize()) as Label).text,
-            "%s (%s): %s" % [String(villager["name"]), level_name, String(villager["line"])],
-        )
-    assert_eq((result.get_node("Panel/SaveStatus") as Label).text, "")
+        assert_eq(result_state["names"][key], String(villager["name"]))
+        assert_eq(result_state["levels"][key], level_name)
+        assert_eq(result_state["quotes"][key], "“%s”" % String(villager["line"]))
+        assert_eq(result_state["featured"][key], String(villager["name"]) == expected["villager"])
+    assert_eq(result_state["save_status"], "")
 
 func _seed_completed_save(repository: SaveRepository) -> void:
     var session := GameSession.new(func() -> float: return 0.9)
@@ -366,7 +359,7 @@ func test_result_screen_keyboard_enter_and_esc_drive_app_flow() -> void:
     assert_not_null(world)
     assert_eq(world._session.state()["day"], 1)
 
-func test_legacy_640x360_ui_roots_fill_the_1080p_canvas() -> void:
+func test_native_ui_roots_fill_the_1080p_canvas() -> void:
     # HPA-680 stopgap until HPA-681/682 rebuild these layouts natively.
     var app := _spawn_app(SaveRepository.new(TEST_PATH))
     if app == null:
@@ -374,9 +367,9 @@ func test_legacy_640x360_ui_roots_fill_the_1080p_canvas() -> void:
     var canvas := Rect2(Vector2.ZERO, Vector2(UiSettings.WINDOW_SIZE))
     var title := app.get_node("TitleScreen") as TitleScreen
     var result := app.get_node("ResultScreen") as ResultScreen
-    assert_eq(title.size, UiStyle.LEGACY_LAYOUT_SIZE)
-    assert_eq(title.get_global_rect(), canvas)
-    assert_eq(result.get_global_rect(), canvas)
+    for root in [title, result] as Array[Control]:
+        assert_eq(root.scale, Vector2.ONE)
+        assert_eq(root.get_global_rect(), canvas)
 
     title.new_game_requested.emit()
     await get_tree().process_frame
@@ -386,15 +379,13 @@ func test_legacy_640x360_ui_roots_fill_the_1080p_canvas() -> void:
     assert_eq(hud_root.scale, Vector2.ONE)
     assert_eq(hud_root.get_global_rect(), canvas)
     # HPA-682: Pause is rebuilt natively inside its code-built phone frame.
-    var pause := world.hud.get_node("HudRoot/PausePanel") as Control
-    assert_eq(pause.scale, Vector2.ONE)
-    assert_eq(pause.get_global_rect(), canvas)
     # HPA-682 Phase 2: the Bag/Almanac/Calendar phone apps are native too.
-    for panel_name in ["BagPanel", "AlmanacPanel", "CalendarPanel"]:
-        var app_panel := world.hud.get_node("HudRoot/%s" % panel_name) as Control
-        assert_eq(app_panel.scale, Vector2.ONE)
-        assert_eq(app_panel.get_global_rect(), canvas)
     for panel_name in [
+        "OnboardingOverlay",
+        "PausePanel",
+        "BagPanel",
+        "AlmanacPanel",
+        "CalendarPanel",
         "ShopPanel",
         "ShippingPanel",
         "DialoguePanel",
@@ -405,6 +396,9 @@ func test_legacy_640x360_ui_roots_fill_the_1080p_canvas() -> void:
         var modal := world.hud.get_node("HudRoot/%s" % panel_name) as Control
         assert_eq(modal.scale, Vector2.ONE)
         assert_eq(modal.get_global_rect(), canvas)
+    var opening := world.hud.get_node("HudRoot/OnboardingOverlay/OpeningPanel") as Control
+    assert_eq(opening.scale, Vector2.ONE)
+    assert_eq(opening.get_global_rect(), canvas)
 
 func test_title_keyboard_skips_disabled_continue_and_enter_starts_new_game() -> void:
     var repository := SaveRepository.new(TEST_PATH)
@@ -417,10 +411,7 @@ func test_title_keyboard_skips_disabled_continue_and_enter_starts_new_game() -> 
         return
     var title := app.get_node("TitleScreen") as TitleScreen
     assert_eq(title.selected_action(), &"new_game")
-    assert_eq(
-        (title.get_node("Panel/Status/Label") as Label).text,
-        "Save is incompatible; start a New Game.",
-    )
+    assert_eq(title.status_text(), "Save is incompatible; start a New Game.")
     _push_action(title, &"move_down")
     assert_eq(title.selected_action(), &"new_game")
     _push_action(title, &"ui_accept")
@@ -437,10 +428,9 @@ func test_incompatible_slot_refuses_continue_but_new_game_still_launches() -> vo
     if app == null:
         return
     var title := app.get_node("TitleScreen") as TitleScreen
-    var continue_button := title.get_node("Panel/Continue") as Button
-    var status := title.get_node("Panel/Status/Label") as Label
+    var continue_button := title.get_node("Menu/Continue") as Button
     assert_true(continue_button.disabled)
-    assert_ne(status.text, "")
+    assert_ne(title.status_text(), "")
 
     # Bypass the disabled Button and prove AppRoot itself refuses the launch.
     title.continue_requested.emit()
@@ -476,11 +466,8 @@ func test_schema_3_save_is_unavailable_and_new_game_still_launches() -> void:
     if app == null:
         return
     var title := app.get_node("TitleScreen") as TitleScreen
-    assert_true((title.get_node("Panel/Continue") as Button).disabled)
-    assert_eq(
-        (title.get_node("Panel/Status/Label") as Label).text,
-        "Save unavailable; start a New Game.",
-    )
+    assert_true((title.get_node("Menu/Continue") as Button).disabled)
+    assert_eq(title.status_text(), "Save unavailable; start a New Game.")
     title.continue_requested.emit()
     await get_tree().process_frame
     assert_null(app.get_node_or_null("World"))
@@ -506,10 +493,9 @@ func test_save_missing_ownership_disables_continue_and_refuses_launch() -> void:
     if app == null:
         return
     var title := app.get_node("TitleScreen") as TitleScreen
-    var continue_button := title.get_node("Panel/Continue") as Button
-    var status := title.get_node("Panel/Status/Label") as Label
+    var continue_button := title.get_node("Menu/Continue") as Button
     assert_true(continue_button.disabled)
-    assert_eq(status.text, "Save is incompatible; start a New Game.")
+    assert_eq(title.status_text(), "Save is incompatible; start a New Game.")
 
     # Bypass the disabled Button and prove AppRoot itself refuses the launch.
     title.continue_requested.emit()
@@ -529,11 +515,8 @@ func test_nonboolean_ownership_takes_the_same_incompatible_path() -> void:
     if app == null:
         return
     var title := app.get_node("TitleScreen") as TitleScreen
-    assert_true((title.get_node("Panel/Continue") as Button).disabled)
-    assert_eq(
-        (title.get_node("Panel/Status/Label") as Label).text,
-        "Save is incompatible; start a New Game.",
-    )
+    assert_true((title.get_node("Menu/Continue") as Button).disabled)
+    assert_eq(title.status_text(), "Save is incompatible; start a New Game.")
 
     title.continue_requested.emit()
     await get_tree().process_frame
@@ -545,7 +528,7 @@ func test_missing_save_disables_continue_and_refuses_launch() -> void:
     if app == null:
         return
     var title := app.get_node("TitleScreen") as TitleScreen
-    var continue_button := title.get_node("Panel/Continue") as Button
+    var continue_button := title.get_node("Menu/Continue") as Button
     assert_true(continue_button.disabled)
 
     title.continue_requested.emit()
@@ -565,10 +548,9 @@ func test_malformed_file_disables_continue_and_refuses_launch() -> void:
     if app == null:
         return
     var title := app.get_node("TitleScreen") as TitleScreen
-    var continue_button := title.get_node("Panel/Continue") as Button
-    var status := title.get_node("Panel/Status/Label") as Label
+    var continue_button := title.get_node("Menu/Continue") as Button
     assert_true(continue_button.disabled)
-    assert_ne(status.text, "")
+    assert_ne(title.status_text(), "")
 
     title.continue_requested.emit()
     await get_tree().process_frame
@@ -594,3 +576,36 @@ func test_new_game_keeps_valid_existing_slot_unchanged() -> void:
     var existing := repository.load()
     assert_eq(existing["status"], &"loaded")
     assert_eq(existing["state"], existing_before)
+
+func test_title_result_and_opening_render_as_native_1080p_controls() -> void:
+    var app := _spawn_app(SaveRepository.new(TEST_PATH))
+    if app == null:
+        return
+    var canvas := Rect2(Vector2.ZERO, Vector2(UiSettings.WINDOW_SIZE))
+    var title := app.get_node("TitleScreen") as TitleScreen
+    var result := app.get_node("ResultScreen") as ResultScreen
+    for root in [title, result] as Array[Control]:
+        assert_eq(root.scale, Vector2.ONE)
+        assert_eq(root.get_global_rect(), canvas)
+
+    var new_game := title.get_node_or_null("Menu/NewGame") as Button
+    var continue_button := title.get_node_or_null("Menu/Continue") as Button
+    assert_not_null(new_game)
+    assert_not_null(continue_button)
+    if new_game != null and continue_button != null:
+        assert_false(new_game.disabled)
+        assert_true(continue_button.disabled)
+    assert_not_null(title.get_node_or_null("Menu/Status/Row/Label") as Label)
+    assert_not_null(result.get_node_or_null("Actions/NewGame") as Button)
+    assert_not_null(result.get_node_or_null("Actions/ReturnToTitle") as Button)
+
+    title.new_game_requested.emit()
+    await get_tree().process_frame
+    var world := _stop_world_clock(app)
+    var overlay := world.hud.get_node("HudRoot/OnboardingOverlay") as Control
+    assert_eq(overlay.scale, Vector2.ONE)
+    assert_eq(overlay.get_global_rect(), canvas)
+    var opening := overlay.get_node("OpeningPanel") as Control
+    assert_true(opening.visible)
+    assert_eq(opening.scale, Vector2.ONE)
+    assert_eq(opening.get_global_rect(), canvas)

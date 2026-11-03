@@ -22,7 +22,7 @@ func test_new_game_reaches_world() -> void:
 	if is_failure():
 		return
 
-	assert_bool(await game.click_node("/root/AppRoot/TitleScreen/Panel/NewGame")).is_true()
+	assert_bool(await game.click_node("/root/AppRoot/TitleScreen/Menu/NewGame")).is_true()
 	if is_failure():
 		return
 
