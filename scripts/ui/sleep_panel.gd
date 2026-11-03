@@ -34,6 +34,7 @@ func present(snapshot: Dictionary) -> void:
 		else ""
 	)
 	_wake_day.text = tr("Day %d · wake up") % mini(day + 1, GameRules.MAX_DAY)
+	_wake_day.visible = not terminal
 
 func set_status_time(time_text: String) -> void:
 	_frame.set_status_time(time_text)
