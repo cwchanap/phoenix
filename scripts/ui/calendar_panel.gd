@@ -301,6 +301,7 @@ func _coming_up_row() -> PanelContainer:
 	line.add_child(icons)
 	var text := UiStyle.label("", 18, UiStyle.INK, 800)
 	text.name = "Text"
+	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	line.add_child(text)
