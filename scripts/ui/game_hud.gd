@@ -182,6 +182,9 @@ func render(snapshot: Dictionary) -> void:
     var day := int(snapshot["day"])
     var status_time := GameRules.format_time(int(snapshot["time_minutes"]))
     _pause_panel.set_status_time(status_time)
+    _bag_panel.set_status_time(status_time)
+    _almanac_panel.set_status_time(status_time)
+    _calendar_panel.set_status_time(status_time)
     _pause_panel.set_day_weather(day, snapshot["weather"])
     _day14_sleep_boundary.text = (
         "Day 14 — this ends the season and settles the bin."
@@ -587,9 +590,6 @@ func _build_modals() -> void:
     for panel: Control in [
         _shop_panel,
         _shipping_panel,
-        _bag_panel,
-        _almanac_panel,
-        _calendar_panel,
         _sleep_panel,
         _morning_summary_panel,
         _dialogue_panel,

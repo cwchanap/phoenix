@@ -843,7 +843,7 @@ func test_inventory_shortcuts_respect_opening_and_close_friend_blockers() -> voi
         assert_false(_panel(hud, "CalendarPanel").visible)
     hud.close_dialogue()
 
-func test_bag_all_pending_crops_use_compact_in_pane_payout_summary() -> void:
+func test_bag_all_pending_crops_show_bin_slots_and_one_payout_summary() -> void:
     var world := _world()
     if world == null:
         return
@@ -859,16 +859,12 @@ func test_bag_all_pending_crops_use_compact_in_pane_payout_summary() -> void:
     await _press_panel_action("move_down")
     await _press_panel_action("move_down")
     var bag := _panel(hud, "BagPanel") as BagPanel
-    var shelf := bag.get_node("Frame/Body/Left/Shelf_2") as Control
-    var compact := bag.get_node("Frame/Body/Left/PayoutCompact") as Control
-    assert_true((shelf.get_node("Slot_0") as Panel).visible)
-    assert_true((shelf.get_node("Slot_1") as Panel).visible)
-    assert_true((shelf.get_node("Slot_2") as Panel).visible)
-    assert_false((shelf.get_node("PayoutValue") as Label).visible)
-    assert_true(compact.visible)
-    assert_eq((compact.get_node("Value") as Label).text, "325G")
-    assert_eq((compact.get_node("Text") as Label).text, "Pays out tomorrow morning")
-    assert_true(compact.position.x + compact.size.x <= 270.0)
+    assert_true(bag.bin_slot_visible(GameRules.CropKind.TURNIP))
+    assert_true(bag.bin_slot_visible(GameRules.CropKind.POTATO))
+    assert_true(bag.bin_slot_visible(GameRules.CropKind.PUMPKIN))
+    assert_true(bag.bin_payout_visible())
+    assert_eq(bag.bin_payout_value_text(), "325G")
+    assert_eq(bag.bin_payout_note_text(), "Pays out tomorrow morning")
 
 func test_calendar_readiness_preserves_mixed_crop_kinds_per_day() -> void:
     var world := _world()
@@ -911,12 +907,10 @@ func test_calendar_readiness_preserves_mixed_crop_kinds_per_day() -> void:
     var calendar := _panel(hud, "CalendarPanel") as CalendarPanel
     var markers: Dictionary = calendar.call("_readiness_markers", 3)
     assert_eq(markers[6], [GameRules.CropKind.TURNIP, GameRules.CropKind.POTATO])
-    var day_six := calendar.get_node("Frame/Body/Day_06") as Panel
-    assert_true((day_six.get_node("ReadinessMultiIcon_1") as TextureRect).visible)
-    assert_true((day_six.get_node("ReadinessMultiIcon_2") as TextureRect).visible)
-    assert_false((day_six.get_node("ReadinessMultiIcon_3") as TextureRect).visible)
-    assert_true((day_six.get_node("ReadinessMultiLabel") as Label).visible)
-    assert_false((day_six.get_node("ReadinessIcon") as TextureRect).visible)
+    var day_six: Dictionary = calendar.day_state(6)
+    assert_eq(day_six["readiness_kinds"], [GameRules.CropKind.TURNIP, GameRules.CropKind.POTATO])
+    assert_eq(day_six["readiness_text"], "EARLIEST")
+    assert_eq(day_six["readiness_icon_path"], "")
 
 func test_calendar_day14_current_market_readiness_has_separate_authored_markers() -> void:
     var world := _world()
@@ -952,17 +946,12 @@ func test_calendar_day14_current_market_readiness_has_separate_authored_markers(
     hud.render(restored.snapshot())
     hud.open_calendar()
     var calendar := _panel(hud, "CalendarPanel") as CalendarPanel
-    var day_fourteen := calendar.get_node("Frame/Body/Day_14") as Panel
-    assert_true((day_fourteen.get_node("CombinedToday") as Label).visible)
-    assert_true((day_fourteen.get_node("CombinedMarket") as TextureRect).visible)
-    assert_true((day_fourteen.get_node("CombinedMarketLabel") as Label).visible)
-    assert_false((day_fourteen.get_node("Today") as Label).visible)
-    assert_false((day_fourteen.get_node("Market") as TextureRect).visible)
-    assert_false((day_fourteen.get_node("MarketLabel") as Label).visible)
-    assert_true((day_fourteen.get_node("ReadinessMultiIcon_1") as TextureRect).visible)
-    assert_true((day_fourteen.get_node("ReadinessMultiIcon_2") as TextureRect).visible)
-    assert_false((day_fourteen.get_node("ReadinessMultiIcon_3") as TextureRect).visible)
-    assert_true((day_fourteen.get_node("ReadinessMultiLabel") as Label).visible)
+    var day_fourteen: Dictionary = calendar.day_state(GameRules.MAX_DAY)
+    assert_true(day_fourteen["combined"])
+    assert_true(day_fourteen["today"])
+    assert_true(day_fourteen["market"])
+    assert_eq(day_fourteen["readiness_kinds"], [GameRules.CropKind.TURNIP, GameRules.CropKind.PUMPKIN])
+    assert_eq(day_fourteen["readiness_text"], "EARLIEST")
 
 func test_calendar_day14_current_market_layout_without_readiness() -> void:
     var world := _world()
@@ -982,16 +971,12 @@ func test_calendar_day14_current_market_layout_without_readiness() -> void:
     hud.render(restored.snapshot())
     hud.open_calendar()
     var calendar := _panel(hud, "CalendarPanel") as CalendarPanel
-    var day_fourteen := calendar.get_node("Frame/Body/Day_14") as Panel
-    assert_true((day_fourteen.get_node("CombinedToday") as Label).visible)
-    assert_true((day_fourteen.get_node("CombinedMarket") as TextureRect).visible)
-    assert_true((day_fourteen.get_node("CombinedMarketLabel") as Label).visible)
-    assert_false((day_fourteen.get_node("Today") as Label).visible)
-    assert_false((day_fourteen.get_node("Market") as TextureRect).visible)
-    assert_false((day_fourteen.get_node("MarketLabel") as Label).visible)
-    assert_false((day_fourteen.get_node("ReadinessIcon") as TextureRect).visible)
-    assert_false((day_fourteen.get_node("ReadinessLabel") as Label).visible)
-    assert_false((day_fourteen.get_node("ReadinessMultiLabel") as Label).visible)
+    var day_fourteen: Dictionary = calendar.day_state(GameRules.MAX_DAY)
+    assert_true(day_fourteen["combined"])
+    assert_true(day_fourteen["today"])
+    assert_true(day_fourteen["market"])
+    assert_eq(day_fourteen["readiness_kinds"], [])
+    assert_eq(day_fourteen["readiness_text"], "")
 
 func test_read_only_panels_render_rules_and_only_known_calendar_weather() -> void:
     var world := _world()
@@ -1026,34 +1011,30 @@ func test_read_only_panels_render_rules_and_only_known_calendar_weather() -> voi
     hud.render(restored.snapshot())
 
     hud.open_bag()
-    var bag := _panel(hud, "BagPanel")
-    assert_eq((bag.get_node("Frame/Body/Detail/Title") as Label).text, "Turnip seeds")
-    assert_eq((bag.get_node("Frame/Body/Detail/Economy") as Label).text, "20G buy · 35G sell")
-    assert_eq((bag.get_node("Frame/Body/Detail/Favourite") as Label).text, "Hana's favourite")
-    var description := bag.get_node("Frame/Body/Detail/Description") as Label
+    var bag := _panel(hud, "BagPanel") as BagPanel
+    assert_eq(bag.detail_title_text(), "Turnip seeds")
+    assert_eq(bag.detail_economy_text(), "20G buy · 35G sell")
+    assert_eq(bag.detail_favourite_text(), "Hana's favourite")
     await get_tree().process_frame
-    assert_eq(description.text, "Cheapest and fastest; the latest safe planting.")
-    assert_lte(description.get_line_count(), 2)
+    assert_eq(bag.detail_description_text(), "Cheapest and fastest; the latest safe planting.")
+    assert_lte(bag.detail_description_line_count(), 2)
     await _press_panel_action("move_right")
     assert_eq(bag.selected_kind(), GameRules.CropKind.POTATO)
-    assert_eq(description.text, "Best return per seed coin per night.")
-    assert_lte(description.get_line_count(), 2)
+    assert_eq(bag.detail_description_text(), "Best return per seed coin per night.")
+    assert_lte(bag.detail_description_line_count(), 2)
     await _press_panel_action("move_right")
     assert_eq(bag.selected_kind(), GameRules.CropKind.PUMPKIN)
     assert_eq(
-        description.text,
+        bag.detail_description_text(),
         "Best profit per stamina of tending in a sunny season.",
     )
-    assert_lte(description.get_line_count(), 2)
+    assert_lte(bag.detail_description_line_count(), 2)
     await _press_panel_action("move_down")
     await _press_panel_action("move_down")
-    assert_eq((bag.get_node("Frame/Body/Left/Shelf_2/PayoutValue") as Label).text, "140G")
-    assert_eq(
-        (bag.get_node("Frame/Body/Left/Shelf_2/PayoutText") as Label).text,
-        "Pays out tomorrow morning",
-    )
-    assert_true((bag.get_node("Frame/Body/Left/Shelf_2/Slot_0") as Panel).visible)
-    assert_false((bag.get_node("Frame/Body/Left/Shelf_2/Slot_1") as Panel).visible)
+    assert_eq(bag.bin_payout_value_text(), "140G")
+    assert_eq(bag.bin_payout_note_text(), "Pays out tomorrow morning")
+    assert_true(bag.bin_slot_visible(GameRules.CropKind.TURNIP))
+    assert_false(bag.bin_slot_visible(GameRules.CropKind.POTATO))
     hud.close_bag()
 
     var season_end_state := state.duplicate(true)
@@ -1068,17 +1049,11 @@ func test_read_only_panels_render_rules_and_only_known_calendar_weather() -> voi
     assert_true(season_end_pending.restore_state(season_end_state))
     hud.render(season_end_pending.snapshot())
     hud.open_bag()
-    bag = _panel(hud, "BagPanel")
+    bag = _panel(hud, "BagPanel") as BagPanel
     await _press_panel_action("move_down")
     await _press_panel_action("move_down")
-    assert_eq(
-        (bag.get_node("Frame/Body/Detail/Description") as Label).text,
-        "Payout is collected at season end.",
-    )
-    assert_eq(
-        (bag.get_node("Frame/Body/Left/Shelf_2/PayoutText") as Label).text,
-        "Paid at season end",
-    )
+    assert_eq(bag.detail_description_text(), "Payout is collected at season end.")
+    assert_eq(bag.bin_payout_note_text(), "Paid at season end")
     hud.close_bag()
 
     state["day"] = 3
@@ -1089,12 +1064,12 @@ func test_read_only_panels_render_rules_and_only_known_calendar_weather() -> voi
     assert_true(sparse_pending.restore_state(state))
     hud.render(sparse_pending.snapshot())
     hud.open_bag()
-    bag = _panel(hud, "BagPanel")
+    bag = _panel(hud, "BagPanel") as BagPanel
     await _press_panel_action("move_down")
     await _press_panel_action("move_down")
     assert_eq(bag.selected_kind(), GameRules.CropKind.POTATO)
-    assert_false((bag.get_node("Frame/Body/Left/Shelf_2/Slot_0") as Panel).visible)
-    assert_true((bag.get_node("Frame/Body/Left/Shelf_2/Slot_1") as Panel).visible)
+    assert_false(bag.bin_slot_visible(GameRules.CropKind.TURNIP))
+    assert_true(bag.bin_slot_visible(GameRules.CropKind.POTATO))
     await _press_panel_action("move_right")
     assert_eq(bag.selected_kind(), GameRules.CropKind.POTATO)
     hud.close_bag()
@@ -1104,35 +1079,40 @@ func test_read_only_panels_render_rules_and_only_known_calendar_weather() -> voi
     assert_true(empty_pending.restore_state(state))
     hud.render(empty_pending.snapshot())
     hud.open_bag()
-    bag = _panel(hud, "BagPanel")
+    bag = _panel(hud, "BagPanel") as BagPanel
     await _press_panel_action("move_down")
     await _press_panel_action("move_down")
-    assert_false((bag.get_node("Frame/Body/Left/Shelf_2/Slot_0") as Panel).visible)
-    assert_false((bag.get_node("Frame/Body/Left/Shelf_2/Slot_1") as Panel).visible)
-    assert_false((bag.get_node("Frame/Body/Left/Shelf_2/Slot_2") as Panel).visible)
-    assert_false((bag.get_node("Frame/Body/Left/Shelf_2/PayoutValue") as Label).visible)
+    assert_false(bag.bin_slot_visible(GameRules.CropKind.TURNIP))
+    assert_false(bag.bin_slot_visible(GameRules.CropKind.POTATO))
+    assert_false(bag.bin_slot_visible(GameRules.CropKind.PUMPKIN))
+    assert_false(bag.bin_payout_visible())
     hud.close_bag()
 
     hud.open_almanac()
-    var almanac := _panel(hud, "AlmanacPanel")
-    assert_eq((almanac.get_node("Frame/Body/Card_0/Name") as Label).text, "Turnip")
-    assert_eq((almanac.get_node("Frame/Body/Card_1/SeedValue") as Label).text, "30G")
-    assert_eq((almanac.get_node("Frame/Body/Card_1/SellValue") as Label).text, "75G")
-    assert_eq((almanac.get_node("Frame/Body/Card_1/MarginValue") as Label).text, "+45")
-    assert_eq((almanac.get_node("Frame/Body/Card_2/MarginValue") as Label).text, "+70")
+    var almanac := _panel(hud, "AlmanacPanel") as AlmanacPanel
+    assert_eq(almanac.selected_kind(), GameRules.CropKind.TURNIP)
+    assert_eq(almanac.crop_name_text(), "Turnip")
+    await _press_panel_action("move_right")
+    assert_eq(almanac.selected_kind(), GameRules.CropKind.POTATO)
+    assert_eq(almanac.crop_seed_text(), "30G")
+    assert_eq(almanac.crop_sell_text(), "75G")
+    assert_eq(almanac.crop_margin_text(), "+45")
+    await _press_panel_action("move_right")
+    assert_eq(almanac.selected_kind(), GameRules.CropKind.PUMPKIN)
+    assert_eq(almanac.crop_margin_text(), "+70")
     hud.close_almanac()
 
     hud.open_calendar()
-    var calendar := _panel(hud, "CalendarPanel")
-    assert_true((calendar.get_node("Frame/Body/Day_06/ReadinessIcon") as TextureRect).visible)
-    assert_eq((calendar.get_node("Frame/Body/Day_06/ReadinessLabel") as Label).text, "EARLIEST")
-    assert_true((calendar.get_node("Frame/Body/Day_09/ReadinessIcon") as TextureRect).visible)
-    assert_eq(
-        (calendar.get_node("Frame/Body/Day_09/ReadinessIcon") as TextureRect).texture.resource_path,
-        "res://assets/ui/crops/pumpkin.png",
-    )
-    assert_false((calendar.get_node("Frame/Body/Day_04/Weather") as TextureRect).visible)
-    assert_true((calendar.get_node("Frame/Body/Day_03/Weather") as TextureRect).visible)
+    var calendar := _panel(hud, "CalendarPanel") as CalendarPanel
+    var day_six: Dictionary = calendar.day_state(6)
+    assert_eq(day_six["readiness_kinds"], [GameRules.CropKind.TURNIP])
+    assert_eq(day_six["readiness_text"], "EARLIEST")
+    assert_eq(day_six["readiness_icon_path"], "res://assets/ui/crops/turnip.png")
+    var day_nine: Dictionary = calendar.day_state(9)
+    assert_eq(day_nine["readiness_kinds"], [GameRules.CropKind.PUMPKIN])
+    assert_eq(day_nine["readiness_icon_path"], "res://assets/ui/crops/pumpkin.png")
+    assert_false(calendar.day_state(4)["weather_known"])
+    assert_true(calendar.day_state(3)["weather_known"])
 
 func _press_panel_action(action: StringName) -> void:
     var press := InputEventAction.new()
@@ -2442,6 +2422,28 @@ func test_pause_status_bar_tracks_the_rendered_clock_and_day() -> void:
     hud.render(snapshot)
     assert_eq(pause.status_time_text(), GameRules.format_time(GameRules.DAY_START_MINUTES))
     assert_eq(pause.day_weather_text(), "Day 4 · Rainy")
+
+func test_phone_apps_status_bar_tracks_the_rendered_clock() -> void:
+    var world := _world()
+    var hud := _hud(world)
+    var bag := _panel(hud, "BagPanel") as BagPanel
+    var almanac := _panel(hud, "AlmanacPanel") as AlmanacPanel
+    var calendar := _panel(hud, "CalendarPanel") as CalendarPanel
+
+    var snapshot := world._session.snapshot()
+    snapshot["time_minutes"] = 9 * 60 + 30
+    hud.render(snapshot)
+    var expected := GameRules.format_time(9 * 60 + 30)
+    assert_eq(bag.status_time_text(), expected)
+    assert_eq(almanac.status_time_text(), expected)
+    assert_eq(calendar.status_time_text(), expected)
+
+    snapshot["time_minutes"] = GameRules.DAY_START_MINUTES
+    hud.render(snapshot)
+    expected = GameRules.format_time(GameRules.DAY_START_MINUTES)
+    assert_eq(bag.status_time_text(), expected)
+    assert_eq(almanac.status_time_text(), expected)
+    assert_eq(calendar.status_time_text(), expected)
 
 func test_settings_adjustment_persists_in_isolated_path_and_applies_audio() -> void:
     var world := _settings_world()
