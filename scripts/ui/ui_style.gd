@@ -156,6 +156,15 @@ static func rounded_gradient_texture(
 			image.fill_rect(Rect2i(0, step, size.x, 1), color)
 		else:
 			image.fill_rect(Rect2i(step, 0, 1, size.y), color)
+	apply_rounded_mask(image, radius_top, radius_bottom)
+	return ImageTexture.create_from_image(image)
+
+static func apply_rounded_mask(
+	image: Image, radius_top: int, radius_bottom: int = -1
+) -> void:
+	if radius_bottom < 0:
+		radius_bottom = radius_top
+	var size := image.get_size()
 	for y in image.get_height():
 		if y >= radius_top and y < size.y - radius_bottom:
 			continue
@@ -165,7 +174,6 @@ static func rounded_gradient_texture(
 				var pixel := image.get_pixel(x, y)
 				pixel.a *= alpha
 				image.set_pixel(x, y, pixel)
-	return ImageTexture.create_from_image(image)
 
 static func _rounded_coverage(
 	x: int, y: int, size: Vector2i, radius_top: int, radius_bottom: int
@@ -207,8 +215,14 @@ static func state_pip(size: Vector2, radius: int = 4) -> Control:
 		"panel", card(LINE, radius, [0, 0, 0, 0], false)
 	)
 	pip.add_child(off)
-	var on := gradient_rect(ACCENT_GRADIENT)
+	var on := TextureRect.new()
 	on.name = "On"
+	on.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	on.texture = rounded_gradient_texture(
+		ACCENT_GRADIENT, Vector2i(int(size.x), int(size.y)), radius
+	)
+	on.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	on.stretch_mode = TextureRect.STRETCH_SCALE
 	on.set_anchors_preset(Control.PRESET_FULL_RECT)
 	pip.add_child(on)
 	return pip

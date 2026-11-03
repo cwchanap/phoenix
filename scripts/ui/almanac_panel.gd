@@ -13,9 +13,12 @@ const ART_TEXTURES: Array[String] = [
 	"res://assets/ui/crops/pumpkin-art.png",
 ]
 const ART_GRADIENT: Array[Color] = [Color("bfe8ff"), Color("e9fbe8")]
+const ARTBOX_SIZE := Vector2i(488, 300)
+const ARTBOX_RADIUS := 24
 const HEART_ICON := preload("res://assets/ui/icons/heart-filled.png")
 
 var _snapshot: Dictionary = {}
+var _art_cache: Dictionary = {}
 var _selected_kind := GameRules.CropKind.TURNIP
 var _frame: PhoneFrame
 var _page: Label
@@ -137,23 +140,48 @@ func _art_box() -> PanelContainer:
 	var box := PanelContainer.new()
 	box.name = "ArtBox"
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.custom_minimum_size = Vector2(0, 300)
+	box.custom_minimum_size = Vector2(0, ARTBOX_SIZE.y)
 	box.add_theme_stylebox_override(
-		"panel", UiStyle.card(UiStyle.CARD, 24, [0, 0, 0, 0], false)
+		"panel", UiStyle.card(UiStyle.CARD, ARTBOX_RADIUS, [0, 0, 0, 0], false)
 	)
-	var sky := TextureRect.new()
-	sky.name = "Gradient"
-	sky.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sky.texture = UiStyle.rounded_gradient_texture(
-		ART_GRADIENT, Vector2i(488, 300), 24, 24, true
-	)
-	sky.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	sky.stretch_mode = TextureRect.STRETCH_SCALE
-	box.add_child(sky)
-	_art = UiStyle.icon(null, 0)
+	_art = TextureRect.new()
 	_art.name = "Art"
+	_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_art.stretch_mode = TextureRect.STRETCH_SCALE
 	box.add_child(_art)
 	return box
+
+func _art_texture(kind: int) -> ImageTexture:
+	if not _art_cache.has(kind):
+		_art_cache[kind] = _compose_art(kind)
+	return _art_cache[kind]
+
+func _compose_art(kind: int) -> ImageTexture:
+	var stops := Gradient.new()
+	stops.offsets = PackedFloat32Array([0.0, 1.0])
+	stops.colors = PackedColorArray(ART_GRADIENT)
+	var image := Image.create(ARTBOX_SIZE.x, ARTBOX_SIZE.y, false, Image.FORMAT_RGBA8)
+	for y in ARTBOX_SIZE.y:
+		image.fill_rect(
+			Rect2i(0, y, ARTBOX_SIZE.x, 1),
+			stops.sample(float(y) / float(ARTBOX_SIZE.y - 1)),
+		)
+	var art_image := (load(ART_TEXTURES[kind]) as Texture2D).get_image()
+	var art_scale := minf(
+		ARTBOX_SIZE.x / float(art_image.get_width()),
+		ARTBOX_SIZE.y / float(art_image.get_height()),
+	)
+	var art_size := Vector2i(
+		int(art_image.get_width() * art_scale),
+		int(art_image.get_height() * art_scale),
+	)
+	art_image.resize(art_size.x, art_size.y, Image.INTERPOLATE_NEAREST)
+	image.blend_rect(
+		art_image, Rect2i(Vector2i.ZERO, art_size), (ARTBOX_SIZE - art_size) / 2
+	)
+	UiStyle.apply_rounded_mask(image, ARTBOX_RADIUS)
+	return ImageTexture.create_from_image(image)
 
 func _name_row() -> HBoxContainer:
 	var row := UiStyle.hbox(10)
@@ -264,8 +292,14 @@ func _dots_row() -> HBoxContainer:
 			"panel", UiStyle.card(UiStyle.LINE, 5, [0, 0, 0, 0], false)
 		)
 		dot.add_child(off)
-		var on := UiStyle.gradient_rect(UiStyle.ACCENT_GRADIENT)
+		var on := TextureRect.new()
 		on.name = "On"
+		on.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		on.texture = UiStyle.rounded_gradient_texture(
+			UiStyle.ACCENT_GRADIENT, Vector2i(26, 10), 5
+		)
+		on.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		on.stretch_mode = TextureRect.STRETCH_SCALE
 		on.set_anchors_preset(Control.PRESET_FULL_RECT)
 		dot.add_child(on)
 		row.add_child(dot)
@@ -299,7 +333,7 @@ func _update_page() -> void:
 		return
 	var kind := _selected_kind
 	_page.text = tr("%d of %d") % [kind + 1, GameRules.CropKind.size()]
-	_art.texture = load(ART_TEXTURES[kind]) as Texture2D
+	_art.texture = _art_texture(kind)
 	_name.text = GameRules.crop_display_name(kind)
 	var favourite := VillagerRules.favourite_villager_for_crop(kind)
 	_favourite_value.text = tr("%s's favourite") % tr(VillagerRules.display_name(favourite))

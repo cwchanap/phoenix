@@ -11,6 +11,7 @@ const BEZEL_LINE := Color("2b303c")
 const SCREEN_RADIUS := 56
 const STATUS_HEIGHT := 58
 const HOME_HEIGHT := 26
+const BOTTOM_MIN_HEIGHT := 112
 const NOTCH_SIZE := Vector2(130, 36)
 const NOTCH_TOP := 14.0
 const BAR_HEIGHTS: Array[float] = [6.0, 9.0, 12.0, 16.0]
@@ -77,15 +78,34 @@ func _init() -> void:
 	_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(_content)
 
+	var bottom := PanelContainer.new()
+	bottom.name = "BottomBar"
+	bottom.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bottom.custom_minimum_size = Vector2(0, BOTTOM_MIN_HEIGHT)
+	var bottom_box := UiStyle.card(UiStyle.CARD, 0, [0, 0, 0, 0], false)
+	bottom_box.border_color = UiStyle.LINE
+	bottom_box.border_width_top = 1
+	bottom_box.corner_radius_bottom_left = SCREEN_RADIUS
+	bottom_box.corner_radius_bottom_right = SCREEN_RADIUS
+	bottom.add_theme_stylebox_override("panel", bottom_box)
+	column.add_child(bottom)
+	var bottom_rows := UiStyle.vbox(0)
+	bottom_rows.name = "Rows"
+	bottom.add_child(bottom_rows)
+	var bottom_spacer := Control.new()
+	bottom_spacer.name = "Spacer"
+	bottom_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bottom_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	bottom_rows.add_child(bottom_spacer)
+
 	_footer = PanelContainer.new()
 	_footer.name = "Footer"
 	_footer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var footer_box := UiStyle.card(UiStyle.CARD, 0, [26, 12, 26, 10], false)
-	footer_box.border_color = UiStyle.LINE
-	footer_box.border_width_top = 1
-	_footer.add_theme_stylebox_override("panel", footer_box)
+	_footer.add_theme_stylebox_override(
+		"panel", UiStyle.card(Color(1.0, 1.0, 1.0, 0.0), 0, [26, 12, 26, 10], false)
+	)
 	_footer.visible = false
-	column.add_child(_footer)
+	bottom_rows.add_child(_footer)
 	_footer_row = UiStyle.hbox(14)
 	_footer_row.name = "Row"
 	_footer.add_child(_footer_row)
@@ -96,11 +116,10 @@ func _init() -> void:
 	home.name = "HomeIndicator"
 	home.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	home.custom_minimum_size = Vector2(0, HOME_HEIGHT)
-	var home_box := UiStyle.card(UiStyle.CARD, 0, [0, 0, 0, 0], false)
-	home_box.corner_radius_bottom_left = SCREEN_RADIUS
-	home_box.corner_radius_bottom_right = SCREEN_RADIUS
-	home.add_theme_stylebox_override("panel", home_box)
-	column.add_child(home)
+	home.add_theme_stylebox_override(
+		"panel", UiStyle.card(Color(1.0, 1.0, 1.0, 0.0), 0, [0, 0, 0, 0], false)
+	)
+	bottom_rows.add_child(home)
 	var home_center := CenterContainer.new()
 	home_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	home.add_child(home_center)

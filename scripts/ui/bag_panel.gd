@@ -16,7 +16,7 @@ const SHELF_TEXTURES: Array[String] = [
 ]
 const SHIPPING_ICON := preload("res://assets/ui/icons/shipping.png")
 const HEART_ICON := preload("res://assets/ui/icons/heart-filled.png")
-const SLOT_SIZE := Vector2(96, 96)
+const SLOT_SIZE := Vector2(88, 88)
 const GLOW := Color(1.0, 0.24, 0.5, 0.38)
 const DIMMED := Color(1.0, 1.0, 1.0, 0.35)
 
@@ -179,11 +179,11 @@ func _build() -> void:
 	var layout := MarginContainer.new()
 	layout.name = "Layout"
 	layout.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for side in [["left", 22], ["top", -12], ["right", 22], ["bottom", 2]]:
+	for side in [["left", 22], ["top", -12], ["right", 22], ["bottom", 0]]:
 		layout.add_theme_constant_override("margin_" + side[0], side[1])
 	layout.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_frame.content_mount().add_child(layout)
-	var column := UiStyle.vbox(10)
+	var column := UiStyle.vbox(8)
 	column.name = "Column"
 	layout.add_child(column)
 
@@ -196,7 +196,7 @@ func _shelf_card(shelf: int) -> PanelContainer:
 	var card := PanelContainer.new()
 	card.name = "Shelf_%d" % shelf
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var box := UiStyle.card(UiStyle.CARD, 20, [16, 12, 16, 12], false)
+	var box := UiStyle.card(UiStyle.CARD, 20, [16, 10, 16, 10], false)
 	box.shadow_color = Color(0.16, 0.04, 0.16, 0.06)
 	box.shadow_size = 14
 	box.shadow_offset = Vector2(0, 4)
@@ -235,7 +235,7 @@ func _shelf_card(shelf: int) -> PanelContainer:
 		_bin_payout.name = "BinPayout"
 		_bin_payout.alignment = BoxContainer.ALIGNMENT_CENTER
 		column.add_child(_bin_payout)
-		var icon := UiStyle.icon(SHIPPING_ICON, 28)
+		var icon := UiStyle.icon(SHIPPING_ICON, 24)
 		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		_bin_payout.add_child(icon)
 		var info := UiStyle.vbox(2)
@@ -260,16 +260,16 @@ func _slot(kind: int) -> Dictionary:
 	slot.name = "Slot_%d" % kind
 	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	slot.custom_minimum_size = SLOT_SIZE
-	var icon := UiStyle.icon(null, 60)
+	var icon := UiStyle.icon(null, 56)
 	icon.name = "Icon"
 	icon.anchor_left = 0.5
 	icon.anchor_right = 0.5
 	icon.anchor_top = 0.5
 	icon.anchor_bottom = 0.5
-	icon.offset_left = -30.0
-	icon.offset_right = 30.0
-	icon.offset_top = -30.0
-	icon.offset_bottom = 30.0
+	icon.offset_left = -28.0
+	icon.offset_right = 28.0
+	icon.offset_top = -28.0
+	icon.offset_bottom = 28.0
 	icon.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	icon.grow_vertical = Control.GROW_DIRECTION_BOTH
 	slot.add_child(icon)
@@ -295,7 +295,7 @@ func _detail_card() -> PanelContainer:
 	card.name = "Detail"
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var box := UiStyle.card(UiStyle.CARD, 20, [16, 12, 16, 12], false)
+	var box := UiStyle.card(UiStyle.CARD, 20, [16, 10, 16, 10], false)
 	box.shadow_color = Color(0.16, 0.04, 0.16, 0.06)
 	box.shadow_size = 14
 	box.shadow_offset = Vector2(0, 4)

@@ -152,7 +152,7 @@ func test_bag_groups_grid_slots_and_counts_chip() -> void:
 		assert_eq(grid.columns, 4, "grid4 layout")
 		assert_true(grid.get_child_count() >= 3)
 		var slot := grid.get_child(0) as Control
-		assert_true(slot.size.x >= 96.0, "slots are thumb-sized")
+		assert_true(slot.size.x >= 88.0, "slots are thumb-sized")
 		assert_almost_eq(slot.size.x, slot.size.y, 3.0, "slots stay square")
 		assert_true(screen.get_global_rect().encloses(slot.get_global_rect()))
 		var icon := slot.find_child("Icon", true, false) as TextureRect
@@ -298,6 +298,169 @@ func test_bag_hints_live_in_the_phone_footer() -> void:
 		texts.append((hint as Label).text)
 	assert_true(texts.has("move"), "footer keeps the move hint")
 	assert_true(texts.has("close"), "footer keeps the close hint")
+
+func test_phone_bottom_bar_is_a_rounded_surface_tall_enough_for_its_corners() -> void:
+	var bag := _spawn_panel("res://scenes/ui/bag_panel.tscn") as BagPanel
+	if bag == null:
+		return
+	bag.open_panel(_snapshot())
+	await _settle()
+	var frame := _frame(bag)
+	var screen := frame.get_node("Screen") as Control
+	var bottom := frame.find_child("BottomBar", true, false) as PanelContainer
+	assert_not_null(bottom, "one bottom surface owns the rounded corners")
+	if bottom == null or screen == null:
+		return
+	assert_true(
+		bottom.size.y >= 112.0,
+		"bottom bar spans enough height for the 56px screen corners",
+	)
+	assert_true(
+		screen.get_global_rect().encloses(bottom.get_global_rect()),
+		"bottom bar stays inside the screen",
+	)
+	var box := bottom.get_theme_stylebox("panel") as StyleBoxFlat
+	assert_not_null(box)
+	if box == null:
+		return
+	assert_eq(
+		box.corner_radius_bottom_left,
+		PhoneFrame.SCREEN_RADIUS,
+		"bottom-left matches screen corner",
+	)
+	assert_eq(
+		box.corner_radius_bottom_right,
+		PhoneFrame.SCREEN_RADIUS,
+		"bottom-right matches screen corner",
+	)
+	var footer := frame.find_child("Footer", true, false) as PanelContainer
+	var home := frame.find_child("HomeIndicator", true, false) as PanelContainer
+	assert_not_null(footer)
+	assert_not_null(home)
+	if footer != null:
+		var footer_box := footer.get_theme_stylebox("panel") as StyleBoxFlat
+		assert_true(
+			footer_box == null or footer_box.bg_color.a < 0.05,
+			"footer paints no background of its own",
+		)
+	if home != null:
+		var home_box := home.get_theme_stylebox("panel") as StyleBoxFlat
+		assert_true(
+			home_box == null or home_box.bg_color.a < 0.05,
+			"home indicator paints no background of its own",
+		)
+
+func test_almanac_art_is_composited_inside_the_rounded_artbox() -> void:
+	var almanac := _spawn_panel("res://scenes/ui/almanac_panel.tscn") as AlmanacPanel
+	if almanac == null:
+		return
+	almanac.open_panel(_snapshot())
+	await _settle()
+	var art := almanac.find_child("Art", true, false) as TextureRect
+	assert_not_null(art)
+	if art == null:
+		return
+	var texture := art.texture as ImageTexture
+	assert_not_null(texture, "art surface is a composited image, not the raw PNG")
+	if texture == null:
+		return
+	var image := texture.get_image()
+	assert_not_null(image)
+	if image == null:
+		return
+	assert_eq(
+		image.get_size(), Vector2i(488, 300),
+		"composite covers the whole artbox (sky plus art)",
+	)
+	for corner in [
+		Vector2i(0, 0), Vector2i(487, 0), Vector2i(0, 299), Vector2i(487, 299)
+	]:
+		assert_almost_eq(
+			image.get_pixelv(corner).a,
+			0.0,
+			0.01,
+			"composite corner %s stays transparent" % corner,
+		)
+	assert_true(
+		image.get_pixel(244, 150).a > 0.5,
+		"composite centre is opaque",
+	)
+
+func test_growth_pips_and_page_dots_render_rounded_gradient_pills() -> void:
+	var almanac := _spawn_panel("res://scenes/ui/almanac_panel.tscn") as AlmanacPanel
+	if almanac == null:
+		return
+	almanac.open_panel(_snapshot())
+	await _settle()
+	var pips := almanac.find_child("GrowthPips", true, false) as Control
+	assert_not_null(pips)
+	if pips != null:
+		var on := pips.get_child(0).get_node("On") as TextureRect
+		assert_not_null(on)
+		if on != null:
+			var pip_texture := on.texture as ImageTexture
+			assert_not_null(
+				pip_texture, "growth pip on-state is a baked rounded pill"
+			)
+			if pip_texture != null:
+				var pip_image := pip_texture.get_image()
+				assert_almost_eq(
+					pip_image.get_pixel(0, 0).a, 0.0, 0.05,
+					"pip corner stays transparent",
+				)
+				assert_true(
+					pip_image.get_pixel(
+						int(pip_image.get_width() / 2.0),
+						int(pip_image.get_height() / 2.0),
+					).a > 0.9,
+					"pip centre stays opaque",
+				)
+	var dots := almanac.find_child("PageDots", true, false) as Control
+	assert_not_null(dots)
+	if dots != null:
+		var dot_on := dots.get_child(0).get_node("On") as TextureRect
+		assert_not_null(dot_on)
+		if dot_on != null:
+			var dot_texture := dot_on.texture as ImageTexture
+			assert_not_null(
+				dot_texture, "page marker on-state is a baked rounded pill"
+			)
+			if dot_texture != null:
+				var dot_image := dot_texture.get_image()
+				assert_almost_eq(
+					dot_image.get_pixel(0, 0).a, 0.0, 0.05,
+					"page marker corner stays transparent",
+				)
+
+func test_almanac_composes_each_crop_art_once_for_the_panel_lifetime() -> void:
+	var almanac := _spawn_panel("res://scenes/ui/almanac_panel.tscn") as AlmanacPanel
+	if almanac == null:
+		return
+	almanac.open_panel(_snapshot())
+	await _settle()
+	var art := almanac.find_child("Art", true, false) as TextureRect
+	assert_not_null(art)
+	if art == null:
+		return
+	var turnip := art.texture
+	almanac.present(_snapshot())
+	assert_same(
+		art.texture, turnip, "re-presenting the same page reuses the texture"
+	)
+	await _press("move_right")
+	await _settle()
+	var potato := art.texture
+	assert_true(potato != null and potato != turnip, "page turn swaps texture")
+	await _press("move_right")
+	await _settle()
+	var pumpkin := art.texture
+	assert_true(pumpkin != turnip and pumpkin != potato)
+	await _press("move_left")
+	await _settle()
+	assert_same(art.texture, potato, "revisiting a page reuses its cached texture")
+	await _press("move_left")
+	await _settle()
+	assert_same(art.texture, turnip, "first page keeps its cached texture")
 
 func test_almanac_renders_reference_surface() -> void:
 	var almanac := _spawn_panel("res://scenes/ui/almanac_panel.tscn") as AlmanacPanel
