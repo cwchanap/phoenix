@@ -136,6 +136,18 @@ LAST NIGHT,最後一晚,最後の夜
 watered    rain did it for you,已澆水    雨水幫你澆了,水やり済み    雨がやってくれた
 KNOWN WEATHER THROUGH DAY %d · EARLIEST READINESS,已知天氣至第 %d 天 · 最快收成日,%d 日目までの天気 · 最短の収穫日
 Coming Up,即將到來,もうすぐ
+Season,季節,シーズン
+MARKET IN %d,距離市集 %d 天,市まであと %d 日
+%s earliest harvest,%s 最早收成,%s の最短収穫
+%s ready today,%s 今日可收成,%s は今日収穫できる
++%d more earliest days,還有 %d 個最早收成日,あと %d 日分の最短収穫日
+Last night to grow,最後一晚生長,育てられる最後の夜
+Town harvest market,鎮上豐收市集,町の収穫市
+Weather is known through today.,天氣到今天為止已知。,天気は今日まで分かる。
+Weather is known through Day %d.,天氣到第 %d 天為止已知。,天気は %d 日目まで分かる。
+Weather is not recorded yet.,尚無天氣記錄。,天気の記録はまだない。
+Pink: today · Gold: market · Moon: last night · Crops: earliest days,粉紅：今天 · 金色：市集 · 月亮：最後一晚 · 作物：最早收成日,ピンク：今日・金色：市・月：最後の夜・作物：最短収穫日
+Earliest days need nightly watering.,最早收成日需要每晚澆水。,最短の収穫日には毎晩の水やりが必要。
 +%d relationship point,好感度 +%d,好感度 +%d
 +%d relationship points,好感度 +%d,好感度 +%d
 Favourite gift!,最愛的禮物！,大好物の贈り物！
@@ -247,6 +259,10 @@ Language,語言,言語
 DONE,完成,完了
 Save file: %s,存檔位置：%s,セーブファイル：%s
 Could not save settings.,無法儲存設定。,設定を保存できませんでした。
+Display,顯示,表示
+row,切換列,行を移動
+change,調整,変更
+done,完成,完了
 SHIPPING BIN,出貨箱,出荷箱
 Day 14 — only crops deposited here count toward the finale. Anything still in the bag scores nothing.,第 14 天——只有放進這裡的作物才會計入結局。還留在背包裡的不算分。,14日目——ここに入れた作物だけがフィナーレに数えられる。かばんに残ったものは点にならない。
 %d in bag · %dG each,背包內 %d 個 · 每個 %dG,所持 %d 個 · 1個 %dG

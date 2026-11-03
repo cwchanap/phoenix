@@ -1186,7 +1186,7 @@ func test_calendar_day_state_observes_the_rendered_cell_controls() -> void:
     assert_eq(day_nine["readiness_kinds"], [GameRules.CropKind.TURNIP])
     assert_eq(day_nine["readiness_icon_path"], "res://assets/ui/crops/turnip.png")
     single_icon.visible = false
-    (day_nine_cell["readiness_label"] as Label).visible = false
+    (day_nine_cell["readiness_row"] as Control).visible = false
     day_nine = calendar.day_state(9)
     assert_eq(day_nine["readiness_kinds"], [])
     assert_eq(day_nine["readiness_icon_path"], "")
@@ -1226,12 +1226,12 @@ func test_calendar_day_state_observes_the_rendered_cell_controls() -> void:
     assert_true(day_fourteen["today"])
     assert_true(day_fourteen["market"])
     assert_true(day_fourteen["combined"])
-    (market_cell["market_label"] as Label).visible = false
+    (market_cell["box"] as StyleBoxFlat).bg_color = UiStyle.SOFT
     day_fourteen = calendar.day_state(GameRules.MAX_DAY)
     assert_true(day_fourteen["today"])
     assert_false(day_fourteen["market"])
     assert_false(day_fourteen["combined"])
-    (market_cell["market_label"] as Label).visible = true
+    (market_cell["box"] as StyleBoxFlat).bg_color = UiStyle.SUN
     (market_cell["market"] as TextureRect).visible = false
     day_fourteen = calendar.day_state(GameRules.MAX_DAY)
     assert_true(day_fourteen["today"])

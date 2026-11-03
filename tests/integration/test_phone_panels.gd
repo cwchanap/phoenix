@@ -1,9 +1,12 @@
 extends GutTest
 
 const LOCALES := ["en", "zh_TW", "ja"]
+const SETTINGS_TEST_PATH := "user://phoenix-phone-panels-settings.cfg"
 
 func after_each() -> void:
 	TranslationServer.set_locale("en")
+	if FileAccess.file_exists(SETTINGS_TEST_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS_TEST_PATH))
 
 func _spawn_panel(scene: String) -> Control:
 	var panel := (load(scene) as PackedScene).instantiate() as Control
@@ -21,6 +24,96 @@ func _snapshot() -> Dictionary:
 	state["pending_shipment"] = {&"turnip": 1, &"potato": 2, &"pumpkin": 1}
 	assert_true(session.restore_state(state))
 	return session.snapshot()
+
+func _crop(kind: StringName, growth: int) -> Dictionary:
+	return {
+		"kind": kind,
+		"growth": growth,
+		"dry_nights": 0,
+		"watered_today": false,
+	}
+
+func _calendar_snapshot() -> Dictionary:
+	var session := GameSession.new()
+	var state := session.state()
+	state["day"] = 3
+	state["weather"] = &"sunny"
+	state["weather_history"] = [&"sunny", &"rainy", &"sunny"]
+	var farm: Array = state["farm"]
+	farm[0]["tilled"] = true
+	farm[0]["crop"] = _crop(&"turnip", 0)
+	farm[1]["tilled"] = true
+	farm[1]["crop"] = _crop(&"potato", 2)
+	farm[2]["tilled"] = true
+	farm[2]["crop"] = _crop(&"pumpkin", 1)
+	state["farm"] = farm
+	assert_true(session.restore_state(state))
+	return session.snapshot()
+
+func _busy_calendar_snapshot() -> Dictionary:
+	var session := GameSession.new()
+	var state := session.state()
+	state["day"] = 1
+	state["weather"] = &"sunny"
+	state["weather_history"] = [&"sunny"]
+	var farm: Array = state["farm"]
+	var crops: Array[Dictionary] = [
+		_crop(&"turnip", 3),
+		_crop(&"turnip", 2),
+		_crop(&"turnip", 1),
+		_crop(&"turnip", 0),
+		_crop(&"potato", 1),
+		_crop(&"potato", 0),
+		_crop(&"pumpkin", 1),
+		_crop(&"pumpkin", 0),
+	]
+	for index in crops.size():
+		farm[index]["tilled"] = true
+		farm[index]["crop"] = crops[index]
+	state["farm"] = farm
+	assert_true(session.restore_state(state))
+	return session.snapshot()
+
+func _season_end_snapshot() -> Dictionary:
+	var session := GameSession.new()
+	var state := session.state()
+	state["day"] = GameRules.MAX_DAY
+	state["weather"] = &"sunny"
+	state["weather_history"] = []
+	for _day in GameRules.MAX_DAY:
+		state["weather_history"].append(&"sunny")
+	var farm: Array = state["farm"]
+	farm[0]["tilled"] = true
+	farm[0]["crop"] = _crop(&"turnip", GameRules.growth_nights(GameRules.CropKind.TURNIP))
+	farm[1]["tilled"] = true
+	farm[1]["crop"] = _crop(&"pumpkin", 0)
+	state["farm"] = farm
+	assert_true(session.restore_state(state))
+	return session.snapshot()
+
+func _short_history_snapshot(history_size: int) -> Dictionary:
+	var history: Array = []
+	for index in history_size:
+		history.append(&"sunny")
+	return {"day": 3, "weather": &"sunny", "weather_history": history, "farm": []}
+
+func _screen_descendants(panel: Control) -> Array:
+	var screen := _frame(panel).get_node("Screen") as Control
+	return screen.find_children("*", "Control", true, false)
+
+func _assert_descendants_inside_screen(panel: Control, context: String) -> void:
+	var screen := _frame(panel).get_node("Screen") as Control
+	var screen_rect := screen.get_global_rect()
+	for node in _screen_descendants(panel):
+		var control := node as Control
+		if not control.is_visible_in_tree():
+			continue
+		if control.get_global_rect().has_area() == false:
+			continue
+		assert_true(
+			screen_rect.encloses(control.get_global_rect()),
+			"%s escapes the phone screen at %s" % [control.get_path(), context],
+		)
 
 func _settle() -> void:
 	await get_tree().process_frame
@@ -574,7 +667,11 @@ func test_phone_apps_keep_localized_titles_and_fixed_jp_subtitles() -> void:
 func test_localized_phone_layouts_stay_inside_the_screen() -> void:
 	for locale in LOCALES:
 		TranslationServer.set_locale(locale)
-		for scene in ["res://scenes/ui/bag_panel.tscn", "res://scenes/ui/almanac_panel.tscn"]:
+		for scene in [
+			"res://scenes/ui/bag_panel.tscn",
+			"res://scenes/ui/almanac_panel.tscn",
+			"res://scenes/ui/calendar_panel.tscn",
+		]:
 			var panel := _spawn_panel(scene)
 			assert_not_null(panel)
 			if panel == null:
@@ -627,3 +724,766 @@ func test_content_mount_and_status_time_keep_working_for_other_panels() -> void:
 	assert_not_null(app_bar)
 	if app_bar != null:
 		assert_false(app_bar.visible, "app bar stays hidden without an app header")
+
+func test_calendar_integrated_header_and_market_tag() -> void:
+	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
+	if calendar == null:
+		return
+	calendar.open_panel(_calendar_snapshot())
+	calendar.set_status_time("09:20")
+	await _settle()
+	var frame := _frame(calendar)
+	var title := frame.find_child("AppTitle", true, false) as Label
+	assert_not_null(title, "calendar uses the shared app header")
+	if title != null:
+		assert_eq(title.text, "Season")
+		assert_true(title.get_theme_font_size("font_size") >= 34)
+	var jp := frame.find_child("JpSubtitle", true, false) as Label
+	assert_not_null(jp, "Japanese app subtitle")
+	if jp != null:
+		assert_eq(jp.text, "カレンダー")
+	var gradient := frame.find_child("Gradient", true, false) as TextureRect
+	assert_not_null(gradient, "header band gradient")
+	if gradient != null:
+		assert_true(gradient.visible)
+	var tag := frame.find_child("MarketTag", true, false) as Control
+	assert_not_null(tag, "market countdown accessory on the header")
+	if tag != null:
+		assert_true(tag.visible)
+		var tag_text := tag.find_child("Text", true, false) as Label
+		assert_not_null(tag_text)
+		if tag_text != null:
+			assert_eq(tag_text.text, "MARKET IN 11")
+	var time := frame.find_child("Time", true, false) as Label
+	assert_not_null(time)
+	if time != null:
+		assert_eq(time.text, "09:20")
+		assert_eq(time.get_theme_color("font_color"), UiStyle.CARD)
+	calendar.present(_season_end_snapshot())
+	var tag_text := tag.find_child("Text", true, false) as Label
+	assert_eq(tag_text.text, "MARKET TODAY")
+
+func test_calendar_grid_cells_match_reference_with_legible_markers() -> void:
+	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
+	if calendar == null:
+		return
+	calendar.open_panel(_calendar_snapshot())
+	await _settle()
+	var grid := calendar.find_child("Days", true, false) as GridContainer
+	assert_not_null(grid, "7-column season grid")
+	if grid == null:
+		return
+	assert_eq(grid.columns, 7)
+	assert_eq(grid.get_child_count(), GameRules.MAX_DAY)
+	var screen := _frame(calendar).get_node("Screen") as Control
+	for index in grid.get_child_count():
+		var cell := grid.get_child(index) as Control
+		assert_true(cell.size.x >= 56.0, "day cell %d stays thumb-readable" % (index + 1))
+		assert_true(cell.size.y >= 78.0, "day cell %d matches the reference height" % (index + 1))
+		assert_true(
+			screen.get_global_rect().encloses(cell.get_global_rect()),
+			"day cell %d stays inside the screen" % (index + 1),
+		)
+		for node in cell.find_children("*", "Label", true, false):
+			var label := node as Label
+			assert_true(
+				label.get_theme_font_size("font_size") >= 11,
+				"%s marker text must stay readable at 960x540" % label.get_path(),
+			)
+			if not label.is_visible_in_tree():
+				continue
+			if label.get_global_rect().has_area() == false:
+				continue
+			assert_true(
+				cell.get_global_rect().encloses(label.get_global_rect()),
+				"%s marker text must sit inside its day cell" % label.get_path(),
+			)
+		var day_label := cell.find_child("Day", true, false) as Label
+		assert_not_null(day_label)
+		if day_label != null:
+			assert_true(
+				day_label.get_theme_font_size("font_size") >= 18,
+				"day number is the reference 20px weight",
+			)
+		var weather := cell.find_child("Weather", true, false) as TextureRect
+		assert_not_null(weather)
+		if weather != null:
+			assert_true(weather.custom_minimum_size.x >= 20.0, "weather icon is legible")
+
+func test_calendar_cell_markers_never_overlap_neighbor_cells() -> void:
+	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
+	if calendar == null:
+		return
+	for snapshot in [_calendar_snapshot(), _season_end_snapshot(), _busy_calendar_snapshot()]:
+		calendar.present(snapshot)
+		await _settle()
+		var grid := calendar.find_child("Days", true, false) as GridContainer
+		assert_not_null(grid)
+		if grid == null:
+			continue
+		for cell_node in grid.get_children():
+			var cell := cell_node as Control
+			var cell_rect := cell.get_global_rect()
+			for node in cell.find_children("*", "Control", true, false):
+				var child := node as Control
+				if not child.is_visible_in_tree():
+					continue
+				if child.get_global_rect().has_area() == false:
+					continue
+				assert_true(
+					cell_rect.encloses(child.get_global_rect()),
+					"%s overlaps its day cell at day %d" % [child.get_path(), int(snapshot["day"])],
+				)
+
+func test_calendar_event_markers_use_legible_icons_not_tiny_text() -> void:
+	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
+	if calendar == null:
+		return
+	calendar.open_panel(_busy_calendar_snapshot())
+	await _settle()
+	var grid := calendar.find_child("Days", true, false) as GridContainer
+	assert_not_null(grid)
+	if grid == null:
+		return
+	var last_night_cell := grid.get_child(GameRules.MAX_DAY - 2) as Control
+	var moon := last_night_cell.find_child("Moon", true, false) as TextureRect
+	assert_not_null(moon, "last night marks with a real icon, not 5px text")
+	if moon != null:
+		assert_true(moon.visible)
+		assert_true(moon.custom_minimum_size.x >= 18.0, "moon icon legible at 960x540")
+	var market_cell := grid.get_child(GameRules.MAX_DAY - 1) as Control
+	var market := market_cell.find_child("Market", true, false) as TextureRect
+	assert_not_null(market)
+	if market != null:
+		assert_true(market.visible)
+		assert_true(market.custom_minimum_size.x >= 20.0, "market icon legible at 960x540")
+	var day_one := grid.get_child(0) as Control
+	var readiness := day_one.find_child("ReadinessIcon", true, false) as TextureRect
+	assert_not_null(readiness)
+	if readiness != null:
+		assert_true(readiness.visible)
+		assert_true(readiness.custom_minimum_size.x >= 16.0, "readiness icon legible at 960x540")
+	var weather := day_one.find_child("Weather", true, false) as TextureRect
+	assert_not_null(weather)
+	if weather != null:
+		assert_true(weather.visible)
+		assert_true(weather.custom_minimum_size.x >= 20.0, "weather icon legible at 960x540")
+	var day_state := calendar.day_state(GameRules.MAX_DAY - 1)
+	assert_true(day_state["last_night"], "the moon keeps the last-night seam")
+	assert_eq(
+		calendar.day_state(1)["readiness_text"],
+		"EARLIEST",
+		"the day_state seam derives readiness wording from real icons",
+	)
+
+func test_calendar_caption_reports_actual_weather_history_depth() -> void:
+	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
+	if calendar == null:
+		return
+	var caption := calendar.find_child("Caption", true, false) as Label
+	assert_not_null(caption)
+	if caption == null:
+		return
+	calendar.open_panel(_short_history_snapshot(1))
+	await _settle()
+	assert_eq(
+		caption.text.left(len("Weather is known through Day 1.")),
+		"Weather is known through Day 1.",
+		"short history must not claim weather is known through today",
+	)
+	calendar.present(_short_history_snapshot(0))
+	assert_eq(
+		caption.text.left(len("Weather is not recorded yet.")),
+		"Weather is not recorded yet.",
+		"empty history must not claim known weather",
+	)
+	calendar.present(_calendar_snapshot())
+	assert_eq(
+		caption.text.left(len("Weather is known through today.")),
+		"Weather is known through today.",
+		"full history still claims through-today weather",
+	)
+
+func test_calendar_coming_up_labels_are_sized_for_960x540() -> void:
+	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
+	if calendar == null:
+		return
+	calendar.open_panel(_calendar_snapshot())
+	await _settle()
+	var card := calendar.find_child("ComingUp", true, false) as Control
+	assert_not_null(card)
+	if card == null:
+		return
+	var title := card.find_child("Title", true, false) as Label
+	assert_not_null(title)
+	if title != null:
+		assert_true(title.get_theme_font_size("font_size") >= 14)
+	var rows := card.find_child("Rows", true, false) as Control
+	assert_not_null(rows)
+	if rows == null:
+		return
+	for row in rows.get_children():
+		var text := (row as Control).find_child("Text", true, false) as Label
+		assert_not_null(text)
+		if text != null:
+			assert_true(
+				text.get_theme_font_size("font_size") >= 17,
+				"coming-up event text must stay readable at 960x540",
+			)
+	var caption := calendar.find_child("Caption", true, false) as Label
+	assert_not_null(caption)
+	if caption != null:
+		assert_true(
+			caption.get_theme_font_size("font_size") >= 14,
+			"the marker legend must stay readable at 960x540",
+		)
+
+func test_calendar_cells_render_no_hidden_marker_labels() -> void:
+	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
+	if calendar == null:
+		return
+	calendar.open_panel(_season_end_snapshot())
+	await _settle()
+	var grid := calendar.find_child("Days", true, false) as GridContainer
+	assert_not_null(grid)
+	if grid == null:
+		return
+	for cell_node in grid.get_children():
+		var cell := cell_node as Control
+		var labels := cell.find_children("*", "Label", true, false)
+		assert_eq(
+			labels.size(),
+			1,
+			"%s may only render the day-number label, not fake seam carriers"
+			% cell.name,
+		)
+		if labels.size() == 1:
+			assert_eq((labels[0] as Label).name, "Day")
+
+func test_calendar_day_state_tracks_only_rendered_controls() -> void:
+	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
+	if calendar == null:
+		return
+	calendar.open_panel(_season_end_snapshot())
+	await _settle()
+	var grid := calendar.find_child("Days", true, false) as GridContainer
+	assert_not_null(grid)
+	if grid == null:
+		return
+	var cell := grid.get_child(GameRules.MAX_DAY - 1) as Control
+	var fill := cell.find_child("TodayFill", true, false) as TextureRect
+	assert_not_null(fill)
+	if fill == null:
+		return
+	assert_true(calendar.day_state(GameRules.MAX_DAY)["today"])
+	fill.visible = false
+	assert_false(
+		calendar.day_state(GameRules.MAX_DAY)["today"],
+		"today must track the rendered today fill",
+	)
+	fill.visible = true
+	var market := cell.find_child("Market", true, false) as TextureRect
+	assert_not_null(market)
+	if market == null:
+		return
+	assert_true(calendar.day_state(GameRules.MAX_DAY)["market"])
+	market.visible = false
+	assert_false(
+		calendar.day_state(GameRules.MAX_DAY)["market"],
+		"market must track the rendered icon",
+	)
+	market.visible = true
+	var night_cell := grid.get_child(GameRules.MAX_DAY - 2) as Control
+	var moon := night_cell.find_child("Moon", true, false) as TextureRect
+	assert_not_null(moon)
+	if moon == null:
+		return
+	assert_true(calendar.day_state(GameRules.MAX_DAY - 1)["last_night"])
+	moon.visible = false
+	assert_false(
+		calendar.day_state(GameRules.MAX_DAY - 1)["last_night"],
+		"last night must track the rendered moon",
+	)
+	moon.visible = true
+	var icons_row := cell.find_child("ReadinessIcons", true, false) as Control
+	assert_not_null(icons_row)
+	if icons_row == null:
+		return
+	assert_ne(calendar.day_state(GameRules.MAX_DAY)["readiness_text"], "")
+	icons_row.visible = false
+	assert_eq(
+		calendar.day_state(GameRules.MAX_DAY)["readiness_kinds"],
+		[],
+		"hiding the icons row removes the readiness markers",
+	)
+	assert_eq(
+		calendar.day_state(GameRules.MAX_DAY)["readiness_text"],
+		"",
+		"hiding the icons row clears the readiness wording",
+	)
+
+func test_calendar_legend_is_localized_and_legible_in_all_locales() -> void:
+	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
+	if calendar == null:
+		return
+	var sun_words := {"en": "Sun", "zh_TW": "太陽", "ja": "太陽"}
+	var market_words := {"en": "market", "zh_TW": "市集", "ja": "市"}
+	for locale in ["en", "zh_TW", "ja"]:
+		TranslationServer.set_locale(locale)
+		calendar.present(_calendar_snapshot())
+		await _settle()
+		var grid := calendar.find_child("Days", true, false) as GridContainer
+		assert_not_null(grid)
+		if grid == null:
+			continue
+		var weather := (
+			(grid.get_child(0) as Control).find_child("Weather", true, false)
+			as TextureRect
+		)
+		assert_not_null(weather)
+		if weather != null:
+			assert_true(
+				weather.visible,
+				"%s cell 1 renders a real sun weather icon during this check"
+					% locale,
+			)
+		var legend := calendar.find_child("Legend", true, false) as Label
+		assert_not_null(legend, "a compact legend line exists")
+		if legend == null:
+			continue
+		assert_false(
+			legend.text.contains(sun_words[locale]),
+			(
+				"%s legend must not call the rendered weather sun a market marker"
+				% locale
+			),
+		)
+		assert_true(
+			legend.text.contains(market_words[locale]),
+			"%s legend still names the market event unambiguously" % locale,
+		)
+		if locale != "en":
+			assert_false(
+				legend.text.contains("Pink")
+					or legend.text.contains("Gold")
+					or legend.text.contains("Sun")
+					or legend.text.contains("Moon")
+					or legend.text.contains("Crops")
+					or legend.text.contains("market"),
+				"%s legend must translate, not render English" % locale,
+			)
+		assert_true(
+			legend.get_theme_font_size("font_size") >= 15,
+			"legend readable at 960x540",
+		)
+	var caption := calendar.find_child("Caption", true, false) as Label
+	assert_not_null(caption)
+	if caption != null:
+		assert_true(
+			caption.get_theme_font_size("font_size") >= 16,
+			"weather caption readable at 960x540",
+		)
+	TranslationServer.set_locale("en")
+
+func test_calendar_today_cell_uses_the_gradient_and_past_days_dim() -> void:
+	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
+	if calendar == null:
+		return
+	calendar.open_panel(_calendar_snapshot())
+	await _settle()
+	var grid := calendar.find_child("Days", true, false) as GridContainer
+	assert_not_null(grid)
+	if grid == null:
+		return
+	var today := grid.get_child(2) as PanelContainer
+	var today_fill := today.find_child("TodayFill", true, false) as TextureRect
+	assert_not_null(today_fill, "today paints the accent gradient, not a flat fill")
+	if today_fill != null:
+		assert_true(today_fill.visible)
+		var fill_texture := today_fill.texture as ImageTexture
+		assert_not_null(fill_texture, "gradient texture")
+		if fill_texture != null:
+			var mid := fill_texture.get_image().get_pixel(
+				int(fill_texture.get_width() * 0.1),
+				int(fill_texture.get_height() * 0.5),
+			)
+			var end := fill_texture.get_image().get_pixel(
+				int(fill_texture.get_width() * 0.9),
+				int(fill_texture.get_height() * 0.5),
+			)
+			assert_true(mid.r != end.r or mid.g != end.g or mid.b != end.b,
+				"today fill is a real gradient")
+	var other_fill := (grid.get_child(5) as PanelContainer).find_child(
+		"TodayFill", true, false
+	) as TextureRect
+	assert_not_null(other_fill)
+	if other_fill != null:
+		assert_false(other_fill.visible, "only today paints the gradient")
+	var past := grid.get_child(0) as PanelContainer
+	assert_true(past.modulate.a < 0.99, "past days dim like the reference")
+	var market := grid.get_child(GameRules.MAX_DAY - 1) as PanelContainer
+	var market_box := market.get_theme_stylebox("panel") as StyleBoxFlat
+	assert_not_null(market_box)
+	if market_box != null:
+		assert_eq(market_box.bg_color, UiStyle.SUN, "market day uses the sun fill")
+
+func test_calendar_coming_up_lists_real_readiness_and_events() -> void:
+	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
+	if calendar == null:
+		return
+	calendar.open_panel(_calendar_snapshot())
+	await _settle()
+	var rows := calendar.coming_up_row_texts()
+	assert_eq(rows.size(), 4, "crop days, last night and market rows")
+	if rows.size() != 4:
+		return
+	assert_eq(rows[0], "Turnip · Potato earliest harvest")
+	assert_eq(rows[1], "Pumpkin earliest harvest")
+	assert_eq(rows[2], "Last night to grow")
+	assert_eq(rows[3], "Town harvest market")
+	var day_labels := calendar.coming_up_day_texts()
+	assert_eq(day_labels, ["Day 6", "Day 9", "Day 13", "Day 14"])
+
+func test_calendar_coming_up_row_icons_and_day_badges_render() -> void:
+	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
+	if calendar == null:
+		return
+	calendar.open_panel(_calendar_snapshot())
+	await _settle()
+	var card := calendar.find_child("ComingUp", true, false) as Control
+	assert_not_null(card)
+	if card == null:
+		return
+	var rows := card.find_child("Rows", true, false) as Control
+	assert_not_null(rows)
+	if rows == null:
+		return
+	var first := rows.get_child(0) as Control
+	var icons := first.find_children("*", "TextureRect", true, false)
+	var shown := 0
+	for icon in icons:
+		if (icon as TextureRect).visible and (icon as TextureRect).texture != null:
+			shown += 1
+	assert_eq(shown, 2, "a shared readiness day shows both crop icons")
+	var day := first.find_child("Day", true, false) as Label
+	assert_not_null(day)
+	if day != null:
+		assert_true(day.get_theme_font_size("font_size") >= 14)
+		assert_true(day.custom_minimum_size.x >= 56.0, "day badge keeps its column")
+
+func test_calendar_coming_up_caps_crop_days_with_an_overflow_row() -> void:
+	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
+	if calendar == null:
+		return
+	calendar.open_panel(_busy_calendar_snapshot())
+	await _settle()
+	var texts := calendar.coming_up_row_texts()
+	assert_eq(texts.size(), 6, "3 crop days + overflow + last night + market")
+	if texts.size() != 6:
+		return
+	assert_eq(texts[3], "+5 more earliest days")
+	assert_eq(texts[4], "Last night to grow")
+	assert_eq(texts[5], "Town harvest market")
+	_assert_descendants_inside_screen(calendar, "busy day-1 calendar")
+
+func test_calendar_coming_up_marks_today_readiness_as_factual() -> void:
+	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
+	if calendar == null:
+		return
+	calendar.open_panel(_busy_calendar_snapshot())
+	await _settle()
+	var texts := calendar.coming_up_row_texts()
+	assert_eq(texts[0], "Turnip ready today", "a mature crop is stated, not forecast")
+
+func test_calendar_footer_mounts_the_close_hint() -> void:
+	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
+	if calendar == null:
+		return
+	calendar.open_panel(_calendar_snapshot())
+	await _settle()
+	var frame := _frame(calendar)
+	var footer := frame.find_child("Footer", true, false) as Control
+	assert_not_null(footer)
+	if footer == null:
+		return
+	assert_true(footer.visible)
+	var home := frame.find_child("HomeIndicator", true, false) as Control
+	assert_not_null(home)
+	if home != null:
+		assert_almost_eq(
+			footer.get_global_rect().end.y,
+			home.get_global_rect().position.y,
+			2.0,
+			"footer sits directly above the home indicator",
+		)
+	var labels := footer.find_children("*", "Label", true, false)
+	var texts: Array[String] = []
+	for label in labels:
+		texts.append((label as Label).text)
+	assert_true(texts.has("close"), "calendar closes with C")
+	var keycaps := footer.find_children("*", "PanelContainer", true, false)
+	var keys: Array[String] = []
+	for keycap in keycaps:
+		var caption := (keycap as Control).find_child("Key", true, false) as Label
+		if caption != null:
+			keys.append(caption.text)
+	assert_true(keys.has("C"), "the C keycap rides along")
+
+func test_calendar_day14_and_busy_farm_stay_inside_the_screen_in_all_locales() -> void:
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		for snapshot in [_season_end_snapshot(), _busy_calendar_snapshot()]:
+			var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
+			assert_not_null(calendar)
+			if calendar == null:
+				continue
+			calendar.open_panel(snapshot)
+			await _settle()
+			_assert_descendants_inside_screen(
+				calendar, "calendar %s day %d" % [locale, int(snapshot["day"])],
+			)
+			calendar.queue_free()
+			await _settle()
+
+func test_settings_integrated_header_and_grouped_rows() -> void:
+	var settings := _spawn_panel("res://scenes/ui/settings_panel.tscn") as SettingsPanel
+	if settings == null:
+		return
+	settings.open_panel(UiSettings.new(SETTINGS_TEST_PATH))
+	await _settle()
+	var frame := _frame(settings)
+	var title := frame.find_child("AppTitle", true, false) as Label
+	assert_not_null(title, "settings uses the shared app header")
+	if title != null:
+		assert_eq(title.text, "Settings")
+		assert_true(title.get_theme_font_size("font_size") >= 34)
+	var jp := frame.find_child("JpSubtitle", true, false) as Label
+	assert_not_null(jp, "Japanese app subtitle")
+	if jp != null:
+		assert_eq(jp.text, "設定")
+	var gradient := frame.find_child("Gradient", true, false) as TextureRect
+	assert_not_null(gradient)
+	if gradient != null:
+		assert_true(gradient.visible)
+	var sound_group := settings.find_child("SoundGroup", true, false) as Control
+	var display_group := settings.find_child("DisplayGroup", true, false) as Control
+	assert_not_null(sound_group, "the sound section card")
+	assert_not_null(display_group, "the display section card")
+	if sound_group == null or display_group == null:
+		return
+	var rows := sound_group.find_children("*Row", "PanelContainer", true, false)
+	var row_names: Array[String] = []
+	for row in rows:
+		row_names.append((row as Control).name)
+	assert_true(row_names.has("MusicRow"), "sound group keeps the music row")
+	assert_true(row_names.has("SoundRow"), "sound group keeps the sound row")
+	rows = display_group.find_children("*Row", "PanelContainer", true, false)
+	row_names = []
+	for row in rows:
+		row_names.append((row as Control).name)
+	for expected in ["WindowRow", "TipsRow", "LanguageRow"]:
+		assert_true(row_names.has(expected), "display group keeps %s" % expected)
+
+func test_settings_section_headings_clear_the_header_band() -> void:
+	var settings := _spawn_panel("res://scenes/ui/settings_panel.tscn") as SettingsPanel
+	if settings == null:
+		return
+	settings.open_panel(UiSettings.new(SETTINGS_TEST_PATH))
+	await _settle()
+	var frame := _frame(settings)
+	var band := frame.find_child("HeaderBand", true, false) as Control
+	assert_not_null(band)
+	if band == null:
+		return
+	var band_bottom := band.get_global_rect().end.y
+	for section_name in ["SoundSection", "DisplaySection"]:
+		var section := settings.find_child(section_name, true, false) as Control
+		assert_not_null(section, "%s heading" % section_name)
+		if section == null:
+			continue
+		assert_true(
+			section.get_global_rect().position.y >= band_bottom,
+			"%s heading must start below the gradient header band, not paint over it"
+			% section_name,
+		)
+
+func test_settings_sliders_render_numeric_levels_and_fill() -> void:
+	var settings := _spawn_panel("res://scenes/ui/settings_panel.tscn") as SettingsPanel
+	if settings == null:
+		return
+	var ui_settings := UiSettings.new(SETTINGS_TEST_PATH)
+	ui_settings.music = 4
+	ui_settings.sound = 7
+	settings.open_panel(ui_settings)
+	await _settle()
+	for entry in [
+		{"name": "Music", "level": 4},
+		{"name": "Sound", "level": 7},
+	]:
+		var slider := settings.find_child(
+			"%sSlider" % entry["name"], true, false
+		) as Control
+		assert_not_null(slider, "%s slider" % entry["name"])
+		if slider == null:
+			continue
+		assert_true(
+			slider.custom_minimum_size.x >= 170.0,
+			"%s slider matches the reference track width" % entry["name"],
+		)
+		var track := slider.find_child("Track", true, false) as Control
+		assert_not_null(track, "%s slider track" % entry["name"])
+		var fill := slider.find_child("Fill", true, false) as Control
+		assert_not_null(fill, "%s slider gradient fill" % entry["name"])
+		if fill != null:
+			assert_almost_eq(
+				fill.anchor_right,
+				float(entry["level"]) / 10.0,
+				0.01,
+				"%s fill tracks the stored level" % entry["name"],
+			)
+		var knob := slider.find_child("Knob", true, false) as Control
+		assert_not_null(knob, "%s slider knob" % entry["name"])
+		if knob != null:
+			assert_almost_eq(
+				knob.anchor_left,
+				float(entry["level"]) / 10.0,
+				0.01,
+				"%s knob sits on the level" % entry["name"],
+			)
+		var level := settings.find_child(
+			"%sLevel" % entry["name"], true, false
+		) as Label
+		assert_not_null(level, "%s numeric level" % entry["name"])
+		if level != null:
+			assert_eq(level.text, "%d" % entry["level"])
+			assert_true(
+				level.get_theme_font_size("font_size") >= 16,
+				"%s level is readable" % entry["name"],
+			)
+	await _press("move_right")
+	var music_level := settings.find_child("MusicLevel", true, false) as Label
+	assert_eq(music_level.text, "5", "A/D adjusts the numeric level")
+	var music_slider := settings.find_child("MusicSlider", true, false) as Control
+	assert_not_null(music_slider)
+	if music_slider != null:
+		var fill := music_slider.find_child("Fill", true, false) as Control
+		assert_not_null(fill)
+		if fill != null:
+			assert_almost_eq(fill.anchor_right, 0.5, 0.01)
+
+func test_settings_window_tips_language_controls() -> void:
+	var settings := _spawn_panel("res://scenes/ui/settings_panel.tscn") as SettingsPanel
+	if settings == null:
+		return
+	var ui_settings := UiSettings.new(SETTINGS_TEST_PATH)
+	ui_settings.tutorial_cards = true
+	settings.open_panel(ui_settings)
+	await _settle()
+	var window_seg := settings.find_child("WindowSeg", true, false) as Control
+	assert_not_null(window_seg, "window segmented control")
+	if window_seg != null:
+		var chips := window_seg.find_children("Option_*", "PanelContainer", true, false)
+		assert_eq(chips.size(), 2, "1080p / Full options")
+		var captions: Array[String] = []
+		for chip in chips:
+			var caption := (chip as Control).find_child("Label", true, false) as Label
+			captions.append(caption.text)
+		assert_eq(captions, ["1080p", "FULL"])
+	var tips := settings.find_child("TipsSwitch", true, false) as Control
+	assert_not_null(tips, "tips on/off switch")
+	if tips != null:
+		var knob := tips.find_child("Knob", true, false) as Control
+		var on := tips.find_child("On", true, false) as Control
+		assert_not_null(knob)
+		assert_not_null(on)
+		if knob != null and on != null:
+			assert_true(on.visible, "tips on shows the gradient track")
+			assert_true(knob.position.x > 20.0, "tips on parks the knob right")
+	var language := settings.find_child("LanguageSeg", true, false) as Control
+	assert_not_null(language, "the required language row keeps its options")
+	if language != null:
+		var chips := language.find_children("Option_*", "PanelContainer", true, false)
+		assert_eq(chips.size(), 3)
+		var captions: Array[String] = []
+		for chip in chips:
+			var caption := (chip as Control).find_child("Label", true, false) as Label
+			captions.append(caption.text)
+		assert_eq(captions, ["English", "繁體中文", "日本語"])
+
+func test_settings_tips_switch_flips_with_the_setting() -> void:
+	var settings := _spawn_panel("res://scenes/ui/settings_panel.tscn") as SettingsPanel
+	if settings == null:
+		return
+	var ui_settings := UiSettings.new(SETTINGS_TEST_PATH)
+	ui_settings.tutorial_cards = true
+	settings.open_panel(ui_settings)
+	await _settle()
+	assert_eq(settings.selected_setting_name(), &"music")
+	await _press("move_down")
+	await _press("move_down")
+	await _press("move_down")
+	assert_eq(settings.selected_setting_name(), &"tutorial_cards")
+	await _press("move_left")
+	assert_false(ui_settings.tutorial_cards)
+	var tips := settings.find_child("TipsSwitch", true, false) as Control
+	assert_not_null(tips)
+	var knob := tips.find_child("Knob", true, false) as Control
+	var on := tips.find_child("On", true, false) as Control
+	assert_not_null(knob)
+	assert_not_null(on)
+	if knob != null:
+		assert_true(knob.position.x < 10.0, "tips off parks the knob left")
+	if on != null:
+		assert_false(on.visible, "tips off hides the gradient track")
+
+func test_settings_selection_ring_and_footer_hints() -> void:
+	var settings := _spawn_panel("res://scenes/ui/settings_panel.tscn") as SettingsPanel
+	if settings == null:
+		return
+	settings.open_panel(UiSettings.new(SETTINGS_TEST_PATH))
+	await _settle()
+	var music_row := settings.find_child("MusicRow", true, false) as PanelContainer
+	assert_not_null(music_row)
+	if music_row != null:
+		var box := music_row.get_theme_stylebox("panel") as StyleBoxFlat
+		assert_not_null(box)
+		if box != null:
+			assert_eq(box.border_color, UiStyle.ACCENT, "selected row wears the ring")
+			assert_true(box.get_border_width_min() >= 2)
+	await _press("move_down")
+	var sound_row := settings.find_child("SoundRow", true, false) as PanelContainer
+	assert_not_null(sound_row)
+	if sound_row != null:
+		var box := sound_row.get_theme_stylebox("panel") as StyleBoxFlat
+		assert_not_null(box)
+		if box != null:
+			assert_eq(box.border_color, UiStyle.ACCENT)
+	var frame := _frame(settings)
+	var footer := frame.find_child("Footer", true, false) as Control
+	assert_not_null(footer)
+	if footer == null:
+		return
+	assert_true(footer.visible)
+	var labels := footer.find_children("*", "Label", true, false)
+	var texts: Array[String] = []
+	for label in labels:
+		texts.append((label as Label).text)
+	for hint in ["row", "change", "done"]:
+		assert_true(texts.has(hint), "footer keeps the %s hint" % hint)
+
+func test_settings_stays_inside_the_screen_in_all_locales() -> void:
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		var settings := _spawn_panel("res://scenes/ui/settings_panel.tscn") as SettingsPanel
+		assert_not_null(settings)
+		if settings == null:
+			continue
+		settings.open_panel(UiSettings.new(SETTINGS_TEST_PATH))
+		await _settle()
+		_assert_descendants_inside_screen(settings, "settings %s" % locale)
+		assert_eq(
+			settings.save_path_text(),
+			tr("Save file: %s") % SaveRepository.DEFAULT_PATH,
+		)
+		settings.queue_free()
+		await _settle()
