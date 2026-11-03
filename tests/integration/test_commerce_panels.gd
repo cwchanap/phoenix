@@ -170,7 +170,12 @@ func _assert_gradient_header_band(panel: Control) -> void:
 	assert_gt(band_rect.size.y, 90.0, "header band is a large band, not a row")
 	var gradient := band.find_child("Gradient", true, false) as TextureRect
 	assert_not_null(gradient, "the band renders a gradient texture")
-	if gradient == null or gradient.texture == null:
+	if gradient == null:
+		return
+	assert_not_null(
+		gradient.texture, "the gradient TextureRect carries a baked texture"
+	)
+	if gradient.texture == null:
 		return
 	assert_true(
 		gradient.texture is ImageTexture,

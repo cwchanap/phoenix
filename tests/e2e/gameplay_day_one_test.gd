@@ -355,7 +355,7 @@ func test_continue_seeded_save_buys_upgrade_and_waters_with_one_stamina() -> voi
 		assert_bool(await game.input_action("move_down", false)).is_true()
 	assert_str(
 		await game.call_method(HUD + "/ShopPanel", "selected_action_text")
-	).is_equal("BUY · 200G")
+	).is_equal("Buy 1 · 200G")
 
 	# One Enter buys through the real panel request path: 255 - 200 = 55.
 	assert_bool(await game.input_action("ui_accept", true)).is_true()
