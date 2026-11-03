@@ -20,6 +20,10 @@ var _status_time: Label
 var _status_bars: Array[Panel] = []
 var _battery_outline: StyleBoxFlat
 var _battery_fill: StyleBoxFlat
+var _backplate: TextureRect
+var _screen_box: StyleBoxFlat
+var _bottom_box: StyleBoxFlat
+var _home_box: StyleBoxFlat
 var _band_gradient: TextureRect
 var _app_bar: MarginContainer
 var _title: Label
@@ -39,12 +43,20 @@ func _init() -> void:
 	bezel.set_border_width_all(3)
 	add_theme_stylebox_override("panel", bezel)
 
+	_backplate = TextureRect.new()
+	_backplate.name = "Backplate"
+	_backplate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_backplate.visible = false
+	_backplate.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_backplate.stretch_mode = TextureRect.STRETCH_SCALE
+	_backplate.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	add_child(_backplate)
+
 	var screen := PanelContainer.new()
 	screen.name = "Screen"
 	screen.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	screen.add_theme_stylebox_override(
-		"panel", UiStyle.card(UiStyle.SOFT, SCREEN_RADIUS, [0, 0, 0, 0], false)
-	)
+	_screen_box = UiStyle.card(UiStyle.SOFT, SCREEN_RADIUS, [0, 0, 0, 0], false)
+	screen.add_theme_stylebox_override("panel", _screen_box)
 	add_child(screen)
 
 	var column := VBoxContainer.new()
@@ -82,12 +94,12 @@ func _init() -> void:
 	bottom.name = "BottomBar"
 	bottom.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bottom.custom_minimum_size = Vector2(0, BOTTOM_MIN_HEIGHT)
-	var bottom_box := UiStyle.card(UiStyle.CARD, 0, [0, 0, 0, 0], false)
-	bottom_box.border_color = UiStyle.LINE
-	bottom_box.border_width_top = 1
-	bottom_box.corner_radius_bottom_left = SCREEN_RADIUS
-	bottom_box.corner_radius_bottom_right = SCREEN_RADIUS
-	bottom.add_theme_stylebox_override("panel", bottom_box)
+	_bottom_box = UiStyle.card(UiStyle.CARD, 0, [0, 0, 0, 0], false)
+	_bottom_box.border_color = UiStyle.LINE
+	_bottom_box.border_width_top = 1
+	_bottom_box.corner_radius_bottom_left = SCREEN_RADIUS
+	_bottom_box.corner_radius_bottom_right = SCREEN_RADIUS
+	bottom.add_theme_stylebox_override("panel", _bottom_box)
 	column.add_child(bottom)
 	var bottom_rows := UiStyle.vbox(0)
 	bottom_rows.name = "Rows"
@@ -126,9 +138,8 @@ func _init() -> void:
 	var bar := Panel.new()
 	bar.name = "Bar"
 	bar.custom_minimum_size = Vector2(160, 6)
-	bar.add_theme_stylebox_override(
-		"panel", UiStyle.card(UiStyle.LINE, 3, [0, 0, 0, 0], false)
-	)
+	_home_box = UiStyle.card(UiStyle.LINE, 3, [0, 0, 0, 0], false)
+	bar.add_theme_stylebox_override("panel", _home_box)
 	home_center.add_child(bar)
 
 	var notch := Control.new()
@@ -282,6 +293,34 @@ func set_status_time(time_text: String) -> void:
 
 func status_time_text() -> String:
 	return _status_time.text
+
+func set_status_time_visible(is_visible: bool) -> void:
+	_status_time.visible = is_visible
+
+func set_screen_backplate(
+	texture: Texture2D = null,
+	fill := Color(0.0, 0.0, 0.0, 0.0),
+	status_ink := UiStyle.CARD,
+	home_ink := Color(1.0, 1.0, 1.0, 0.45),
+) -> void:
+	_backplate.texture = texture
+	_backplate.visible = texture != null
+	_screen_box.bg_color = fill if texture == null else Color(0.0, 0.0, 0.0, 0.0)
+	_bottom_box.bg_color = Color(0.0, 0.0, 0.0, 0.0)
+	_bottom_box.border_color = Color(0.0, 0.0, 0.0, 0.0)
+	_bottom_box.border_width_top = 0
+	_home_box.bg_color = home_ink
+	set_status_tint(status_ink)
+
+func clear_screen_backplate() -> void:
+	_backplate.texture = null
+	_backplate.visible = false
+	_screen_box.bg_color = UiStyle.SOFT
+	_bottom_box.bg_color = UiStyle.CARD
+	_bottom_box.border_color = UiStyle.LINE
+	_bottom_box.border_width_top = 1
+	_home_box.bg_color = UiStyle.LINE
+	set_status_tint(UiStyle.INK)
 
 func set_status_tint(color: Color) -> void:
 	_status_time.add_theme_color_override("font_color", color)

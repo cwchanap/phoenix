@@ -460,6 +460,89 @@ static func commerce_footer(max_hint: String = "max") -> HBoxContainer:
 	pill_row.add_child(action)
 	return footer
 
+static func wallpaper_texture(
+	source: Texture2D,
+	size: Vector2i,
+	corner_radius: int,
+	dim_top := Color(0.0, 0.0, 0.0, 0.0),
+	dim_bottom := Color(0.0, 0.0, 0.0, 0.0),
+) -> Texture2D:
+	if source == null or size.x < 2 or size.y < 2:
+		return null
+	var source_size := source.get_size()
+	if source_size.x <= 0.0 or source_size.y <= 0.0:
+		return null
+	var cover := maxf(size.x / source_size.x, size.y / source_size.y)
+	var scaled := Vector2i(
+		maxi(1, int(ceil(source_size.x * cover))),
+		maxi(1, int(ceil(source_size.y * cover)))
+	)
+	var image := source.get_image()
+	image.resize(scaled.x, scaled.y, Image.INTERPOLATE_NEAREST)
+	image.convert(Image.FORMAT_RGBA8)
+	var composed := Image.create(size.x, size.y, false, Image.FORMAT_RGBA8)
+	composed.blit_rect(
+		image,
+		Rect2i((scaled - size) / 2, size),
+		Vector2i.ZERO,
+	)
+	var span := float(maxi(size.y - 1, 1))
+	if dim_top != dim_bottom:
+		var veil := Image.create(size.x, 1, false, Image.FORMAT_RGBA8)
+		for y in size.y:
+			veil.fill(dim_top.lerp(dim_bottom, float(y) / span))
+			composed.blend_rect(veil, Rect2i(0, 0, size.x, 1), Vector2i(0, y))
+	elif dim_top.a > 0.0:
+		var veil := Image.create(size.x, size.y, false, Image.FORMAT_RGBA8)
+		veil.fill(dim_top)
+		composed.blend_rect(veil, Rect2i(Vector2i.ZERO, size), Vector2i.ZERO)
+	apply_rounded_mask(composed, corner_radius)
+	return ImageTexture.create_from_image(composed)
+
+static func primary_action_pill(key_text: String, caption: String) -> PanelContainer:
+	var pill := gradient_surface(ACCENT_GRADIENT, PILL_RADIUS, [8, 7, 24, 7])
+	pill.name = "Pill"
+	var row := hbox(12)
+	row.name = "Row"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	pill.add_child(row)
+	var cap := PanelContainer.new()
+	cap.name = "Key"
+	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cap.custom_minimum_size = Vector2(38, 38)
+	var cap_box := card(Color(1.0, 1.0, 1.0, 0.22), 10, [10, 0, 10, 0], false)
+	cap_box.border_color = Color(1.0, 1.0, 1.0, 0.45)
+	cap_box.set_border_width_all(1)
+	cap.add_theme_stylebox_override("panel", cap_box)
+	var cap_label := label(key_text, 15, CARD, 800)
+	cap_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cap_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	cap.add_child(cap_label)
+	row.add_child(cap)
+	var text := label(caption, 22, CARD, 900)
+	text.name = "Text"
+	text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(text)
+	return pill
+
+static func primary_action(key_text: String, caption: String) -> Button:
+	var button := Button.new()
+	button.focus_mode = Control.FOCUS_NONE
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+		button.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	var pill := primary_action_pill(key_text, caption)
+	pill.set_anchors_preset(Control.PRESET_FULL_RECT)
+	button.add_child(pill)
+	button.custom_minimum_size = Vector2(200, 52).max(
+		pill.get_combined_minimum_size()
+	)
+	button.button_down.connect(
+		func() -> void: pill.self_modulate = Color(0.88, 0.88, 0.88)
+	)
+	button.button_up.connect(func() -> void: pill.self_modulate = Color.WHITE)
+	return button
+
 ## HPA-680 stopgap: the title, result, intro, and modal panels are still
 ## authored for the old 640x360 canvas. Pin them to that size and draw them 3x
 ## so they fill the 1920x1080 base viewport until HPA-682 rebuilds them

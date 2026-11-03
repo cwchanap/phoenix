@@ -1729,7 +1729,10 @@ func test_task8_fixture_values_render_in_social_and_morning_panels() -> void:
     var state := summary.summary_state()
     assert_false(state["withered_visible"])
     assert_eq(state["day_text"], "Day 3 → Day 4")
-    assert_eq(state["card_values"], ["+2", "RAINY", "20", "+70"])
+    assert_eq(
+        state["card_values"],
+        ["Rain all day", "2 crops grew overnight", "Shipping payout +70G"],
+    )
     assert_eq(state["shipment_mode"], "single")
     assert_eq(state["shipments"].size(), 1)
     assert_eq(state["shipments"][0]["name"], "Turnip ×2")
@@ -1771,24 +1774,24 @@ func test_task8_fixture_values_render_in_social_and_morning_panels() -> void:
 
     await get_tree().process_frame
     await get_tree().process_frame
-    var content := summary.get_node(
-        "Center/PhoneFrame/Screen/Column/Content"
+    var screen := summary.get_node(
+        "Center/PhoneFrame/Screen"
     ) as Control
     var compact_rows := summary.find_child(
         "CompactShipmentRows", true, false
     ) as Control
     var summary_footer := summary.find_child("Footer", true, false) as Control
-    var bin_card := summary.find_child("BinCard", true, false) as Control
-    assert_not_null(content)
+    var bank_card := summary.find_child("BankCard", true, false) as Control
+    assert_not_null(screen)
     assert_not_null(compact_rows)
     assert_not_null(summary_footer)
-    assert_not_null(bin_card)
-    if content == null or compact_rows == null or summary_footer == null or bin_card == null:
+    assert_not_null(bank_card)
+    if screen == null or compact_rows == null or summary_footer == null or bank_card == null:
         return
     assert_true(
-        content.get_global_rect().encloses(compact_rows.get_global_rect())
-        and content.get_global_rect().encloses(bin_card.get_global_rect())
-        and content.get_global_rect().encloses(summary_footer.get_global_rect()),
+        screen.get_global_rect().encloses(compact_rows.get_global_rect())
+        and screen.get_global_rect().encloses(bank_card.get_global_rect())
+        and screen.get_global_rect().encloses(summary_footer.get_global_rect()),
         "compact payout rows and footer must stay inside the phone screen",
     )
 
@@ -1809,24 +1812,27 @@ func test_morning_summary_fact_text_columns_fill_the_card_row() -> void:
     await get_tree().process_frame
     await get_tree().process_frame
     var summary := _panel(hud, "MorningSummaryPanel")
-    var grid := summary.find_child("FactsGrid", true, false) as Control
-    assert_not_null(grid)
-    if grid == null:
-        return
-    for index in 4:
-        var card := grid.get_node("Fact_%d" % index) as Control
+    for card_name in ["WeatherCard", "FarmCard", "BankCard"]:
+        var card := summary.find_child(card_name, true, false) as Control
+        assert_not_null(card, "%s exists" % card_name)
+        if card == null:
+            continue
         var row := card.get_child(0) as Control
-        var pair := row.get_child(1) as Control
-        var caption := pair.get_node("Caption") as Label
+        var lines := row.find_child("Lines", true, false) as Control
+        var headline := lines.find_child("Headline", true, false) as Label
+        assert_not_null(lines)
+        assert_not_null(headline)
+        if lines == null or headline == null:
+            continue
         assert_almost_eq(
-            pair.get_global_rect().end.x,
+            lines.get_global_rect().end.x,
             row.get_global_rect().end.x,
             0.5,
-            "fact %d text column fills the card row beside the icon" % index,
+            "%s text column fills the card row beside the tile" % card_name,
         )
         assert_lte(
-            caption.get_line_count(), 2,
-            "fact %d caption keeps its authored line count" % index,
+            headline.get_line_count(), 2,
+            "%s headline keeps its authored line count" % card_name,
         )
 
 func test_public_primary_opens_are_denied_while_morning_summary_is_visible() -> void:

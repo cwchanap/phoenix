@@ -441,5 +441,5 @@ func test_sleep_keeps_morning_and_reports_save_failure() -> void:
     var state := world._session.state()
     assert_eq(int(state["day"]), 2)
     assert_not_null(state["pending_morning_summary"])
-    var status := world.hud.get_node("HudRoot/MorningSummaryPanel/SaveStatus") as Label
-    assert_eq(status.text, "Save failed — this morning is not persisted.")
+    var summary := world.hud.get_node("HudRoot/MorningSummaryPanel") as MorningSummaryPanel
+    assert_eq(summary.save_status_text(), "Save failed — this morning is not persisted.")
