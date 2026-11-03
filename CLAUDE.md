@@ -11,7 +11,8 @@ There is no JavaScript or Tauri runtime in the current checkout.
 
 - E interacts with villagers as well as shop/bed/shipping.
 - I/B/C open and close Bag, Almanac, and Calendar while the world is available;
-  each panel gates movement and closes on its matching key.
+  each panel gates movement and closes on its matching key, and the same keys
+  also open that app while Pause is up.
 - Every `2` press advances the selected seed; M
   chooses the maximum quantity in Shop or Shipping; O opens Settings from
   Pause only.
@@ -91,6 +92,16 @@ There is no JavaScript or Tauri runtime in the current checkout.
   clips, so keep gradient surfaces out of another clip parent), `keycap()`,
   `pin()`, and `SlantTag`. One font, M PLUS 1, with the Noto JP/TC
   fallbacks.
+- HPA-682 City Pop menus: every non-HUD surface is a native 1920x1080
+  code-built control tree on a root-plus-script `.tscn`, HudChrome-style —
+  no authored contents with runtime stylers, no 3x canvas scale. The seven
+  phone-app panels (Pause, Settings, Bag, Almanac, Calendar, Sleep, and the
+  morning summary) mount their content in the shared `PhoneFrame`
+  (`scripts/ui/phone_frame.gd`): bezel, status-bar time, home indicator,
+  and one content mount only; each panel owns its own app header/footer.
+  Shop, shipping, dialogue, title, result, and the intro overlay are native
+  without the frame. `GameHud` remains the modal owner — no navigation
+  framework or second session holder.
 - DialoguePanel owns transient line/focus/gift-choice presentation only.
 - OnboardingOverlay is code-built under `GameHud` (like DialoguePanel) and
   forwards opening/tutorial visibility through the existing
@@ -194,10 +205,10 @@ The project renders at a single 1080p: a `1920x1080` base viewport with
 nearest filtering, and a minimum `960x540` window (`UiSettings`). The world
 Camera2D zooms by `WorldContract.CAMERA_ZOOM` (`3`), so the camera still frames
 a `640x360` world view and one art pixel is `3x3` screen pixels; a higher-res
-art set changes only that constant. The gameplay HUD is native (HPA-681);
-until HPA-682 rebuilds them, the 640x360-authored title, result, modal
-panels (`fit_legacy_layout()` per panel), and intro card
-(`fit_legacy_control()`) draw at 3x (HPA-680 stopgap).
+art set changes only that constant. Every UI surface is native on the
+1920x1080 canvas — the HPA-681 gameplay HUD plus the HPA-682 title, result,
+introduction, and modal panels all draw at scale 1; the HPA-680 3x stopgap
+and its `fit_legacy_*` helpers are gone.
 
 ## Current boundary
 
@@ -231,6 +242,10 @@ check remain open.
   0.5 s/min rate is final.
 - HPA-598 owns serialization; HPA-594 defines no save schema.
 - HPA-599 owns balance/polish/export.
+- HPA-682 rebuilt every non-HUD surface natively — title, result, intro,
+  Pause, Settings, Bag, Almanac, Calendar, Sleep, morning summary, Shop,
+  Shipping, and Dialogue — with the seven phone apps on the shared
+  `PhoneFrame`; HPA-684 owns diary/result copy and HPA-687 new art.
 - The starting-farm expansion replaced the HPA-590 `12x12` proof ground with
   the locked `24x20` homestead — house, `6x5` farm, river/forest, workbench
   yard, and eastbound village road — rendered from the approved committed art;

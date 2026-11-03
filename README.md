@@ -53,7 +53,8 @@ there is no post-game or free play.
 | `O` | Open Settings from Pause |
 
 Every `2` press advances the selected seed, including the first press.
-Bag, Almanac, and Calendar each gate movement and close with the same key.
+Bag, Almanac, and Calendar each gate movement and close with the same key;
+pressed while Pause is up, the same keys open that app in the modal slot.
 Settings edits Music and Sound from `0..10`, Window at `1080p` or `FULL`,
 Tutorial Cards `ON` or `OFF`, and Language (English, 繁體中文,
 日本語); `O` is handled only by Pause.
@@ -153,6 +154,13 @@ desktop window, and nearest texture filtering, so text draws at full
 resolution. The world camera zooms by `WorldContract.CAMERA_ZOOM` (`3`): it
 still frames a `640x360` world view and each art pixel is `3x3` screen pixels.
 The windowed size is `1920x1080`, shrunk only when the screen cannot hold it.
+Every UI surface draws natively on the 1920x1080 canvas — the gameplay HUD,
+the title and result screens, the introduction, and every modal panel; no
+surface is scaled up from a legacy canvas. The seven phone-app modals
+(Pause, Settings, Bag, Almanac, Calendar, Sleep, and the morning summary)
+build their content inside the shared code-built `PhoneFrame` chrome —
+bezel, status-bar time, home indicator, and one content mount only; each
+panel owns its own app header, rows, and footer.
 
 ## World contract
 

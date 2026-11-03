@@ -1754,6 +1754,66 @@ func test_task8_fixture_values_render_in_social_and_morning_panels() -> void:
     assert_eq(state["shipments"][2]["name"], "Pumpkin ×3")
     assert_eq(state["shipments"][2]["amount"], "300G")
 
+    await get_tree().process_frame
+    await get_tree().process_frame
+    var content := summary.get_node(
+        "Center/PhoneFrame/Screen/Column/Content"
+    ) as Control
+    var compact_rows := summary.find_child(
+        "CompactShipmentRows", true, false
+    ) as Control
+    var summary_footer := summary.find_child("Footer", true, false) as Control
+    var bin_card := summary.find_child("BinCard", true, false) as Control
+    assert_not_null(content)
+    assert_not_null(compact_rows)
+    assert_not_null(summary_footer)
+    assert_not_null(bin_card)
+    if content == null or compact_rows == null or summary_footer == null or bin_card == null:
+        return
+    assert_true(
+        content.get_global_rect().encloses(compact_rows.get_global_rect())
+        and content.get_global_rect().encloses(bin_card.get_global_rect())
+        and content.get_global_rect().encloses(summary_footer.get_global_rect()),
+        "compact payout rows and footer must stay inside the phone screen",
+    )
+
+func test_morning_summary_fact_text_columns_fill_the_card_row() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var snapshot := world._session.snapshot()
+    snapshot["pending_morning_summary"] = {
+        "completed_day": 3,
+        "next_day": 4,
+        "next_weather": GameRules.weather_key(GameRules.Weather.RAINY),
+    }
+    hud.render(snapshot)
+    await get_tree().process_frame
+    await get_tree().process_frame
+    var summary := _panel(hud, "MorningSummaryPanel")
+    var grid := summary.find_child("FactsGrid", true, false) as Control
+    assert_not_null(grid)
+    if grid == null:
+        return
+    for index in 4:
+        var card := grid.get_node("Fact_%d" % index) as Control
+        var row := card.get_child(0) as Control
+        var pair := row.get_child(1) as Control
+        var caption := pair.get_node("Caption") as Label
+        assert_almost_eq(
+            pair.get_global_rect().end.x,
+            row.get_global_rect().end.x,
+            0.5,
+            "fact %d text column fills the card row beside the icon" % index,
+        )
+        assert_lte(
+            caption.get_line_count(), 2,
+            "fact %d caption keeps its authored line count" % index,
+        )
+
 func test_public_primary_opens_are_denied_while_morning_summary_is_visible() -> void:
     var world := _world()
     if world == null:
