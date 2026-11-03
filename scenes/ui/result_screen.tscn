@@ -6,9 +6,9 @@
 [ext_resource type="Texture2D" path="res://assets/ui/crops/turnip.png" id="4_turnip"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/coin-stack.png" id="5_coin"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/money-bag.png" id="6_money"]
-[ext_resource type="Texture2D" path="res://assets/ui/portraits/mira.png" id="7_mira"]
-[ext_resource type="Texture2D" path="res://assets/ui/portraits/rowan.png" id="8_rowan"]
-[ext_resource type="Texture2D" path="res://assets/ui/portraits/june.png" id="9_june"]
+[ext_resource type="Texture2D" path="res://assets/ui/portraits/sato.png" id="7_mira"]
+[ext_resource type="Texture2D" path="res://assets/ui/portraits/gen.png" id="8_rowan"]
+[ext_resource type="Texture2D" path="res://assets/ui/portraits/hana.png" id="9_june"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/heart-filled.png" id="10_heart"]
 [ext_resource type="Texture2D" path="res://assets/ui/icons/heart-outline.png" id="11_heart_outline"]
 
@@ -220,8 +220,8 @@ clip_contents = true
 [node name="Portrait" type="TextureRect" parent="Panel/Card_Shopkeeper/PortraitClip"]
 layout_mode = 0
 offset_right = 171.0
-offset_top = -60.0
-offset_bottom = 159.0
+offset_top = -29.0
+offset_bottom = 211.0
 mouse_filter = 2
 texture = ExtResource("7_mira")
 expand_mode = 1
@@ -341,8 +341,8 @@ clip_contents = true
 [node name="Portrait" type="TextureRect" parent="Panel/Card_Farmer/PortraitClip"]
 layout_mode = 0
 offset_right = 171.0
-offset_top = -55.0
-offset_bottom = 159.0
+offset_top = -37.0
+offset_bottom = 203.0
 mouse_filter = 2
 texture = ExtResource("8_rowan")
 expand_mode = 1
@@ -462,8 +462,8 @@ clip_contents = true
 [node name="Portrait" type="TextureRect" parent="Panel/Card_Resident/PortraitClip"]
 layout_mode = 0
 offset_right = 172.0
-offset_top = -59.0
-offset_bottom = 159.0
+offset_top = -29.0
+offset_bottom = 211.0
 mouse_filter = 2
 texture = ExtResource("9_june")
 expand_mode = 1
