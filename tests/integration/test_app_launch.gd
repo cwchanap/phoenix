@@ -392,6 +392,11 @@ func test_legacy_640x360_ui_roots_fill_the_1080p_canvas() -> void:
     var pause := world.hud.get_node("HudRoot/PausePanel") as Control
     assert_eq(pause.scale, Vector2.ONE)
     assert_eq(pause.get_global_rect(), canvas)
+    # HPA-682 Phase 2: the Bag/Almanac/Calendar phone apps are native too.
+    for panel_name in ["BagPanel", "AlmanacPanel", "CalendarPanel"]:
+        var app_panel := world.hud.get_node("HudRoot/%s" % panel_name) as Control
+        assert_eq(app_panel.scale, Vector2.ONE)
+        assert_eq(app_panel.get_global_rect(), canvas)
 
 func test_title_keyboard_skips_disabled_continue_and_enter_starts_new_game() -> void:
     var repository := SaveRepository.new(TEST_PATH)
