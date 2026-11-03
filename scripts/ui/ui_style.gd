@@ -534,9 +534,15 @@ static func primary_action(key_text: String, caption: String) -> Button:
 	var pill := primary_action_pill(key_text, caption)
 	pill.set_anchors_preset(Control.PRESET_FULL_RECT)
 	button.add_child(pill)
-	button.custom_minimum_size = Vector2(200, 52).max(
-		pill.get_combined_minimum_size()
-	)
+	var sync_hitbox := func() -> void:
+		if not is_instance_valid(button) or not is_instance_valid(pill):
+			return
+		button.custom_minimum_size = Vector2(200, 52).max(
+			pill.get_combined_minimum_size()
+		)
+	pill.minimum_size_changed.connect(sync_hitbox)
+	sync_hitbox.call()
+	sync_hitbox.call_deferred()
 	button.button_down.connect(
 		func() -> void: pill.self_modulate = Color(0.88, 0.88, 0.88)
 	)

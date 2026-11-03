@@ -1,6 +1,10 @@
 extends GutTest
 
 const TITLE_ART := preload("res://assets/ui/backgrounds/title.png")
+const LOCALES := ["en", "zh_TW", "ja"]
+
+func after_each() -> void:
+	TranslationServer.set_locale("en")
 
 class UnhandledSpy:
 	extends Node
@@ -43,44 +47,89 @@ func _screen_rect(panel: Control) -> Rect2:
 		return Rect2()
 	return screen.get_global_rect()
 
-func _assert_controls_inside(panel: Control, context: String) -> void:
-	var screen := _screen(panel)
-	assert_not_null(screen)
-	if screen == null:
-		return
-	var offenders: Array[String] = []
-	for control in panel.find_children("*", "Control", true, false) as Array[Control]:
-		if not (control is Button or control is Label):
-			continue
-		if not control.visible:
-			continue
-		if screen.is_ancestor_of(control) or control.is_ancestor_of(screen):
-			continue
-		var scroll_bound := false
-		var ancestor := control.get_parent()
-		while ancestor != null and ancestor != panel:
-			if ancestor is ScrollContainer:
-				scroll_bound = true
-				break
-			ancestor = ancestor.get_parent()
-		if scroll_bound:
-			continue
-		if control.get_global_rect().has_area():
-			offenders.append("%s(%s)" % [control.name, control.get_class()])
-	assert_eq(offenders, [], "%s has detached controls outside the phone" % context)
+func _scroll_clip(control: Control) -> ScrollContainer:
+	var ancestor := control.get_parent()
+	while ancestor != null:
+		if ancestor is ScrollContainer:
+			return ancestor as ScrollContainer
+		ancestor = ancestor.get_parent()
+	return null
 
-func _click(control: Control) -> void:
-	var center := control.get_global_rect().get_center()
+func _containment_report(panel: Control) -> Dictionary:
+	var report := {"offenders": [] as Array[String], "checked": 0}
+	var screen := _screen(panel)
+	if screen == null:
+		return report
+	var screen_rect := screen.get_global_rect()
+	for control in panel.find_children("*", "Control", true, false) as Array[Control]:
+		if control == screen or control.is_ancestor_of(screen):
+			continue
+		if not control.is_visible_in_tree():
+			continue
+		var rect := control.get_global_rect()
+		if screen.is_ancestor_of(control):
+			var clip := _scroll_clip(control)
+			if clip != null and screen_rect.encloses(clip.get_global_rect()):
+				continue
+			if not rect.has_area():
+				continue
+			report["checked"] += 1
+			if not screen_rect.encloses(rect):
+				(report["offenders"] as Array[String]).append(
+					"%s(%s) %s outside %s" % [
+						control.name, control.get_class(), rect, screen_rect,
+					]
+				)
+		elif (control is Button or control is Label) and rect.has_area():
+			report["checked"] += 1
+			(report["offenders"] as Array[String]).append(
+				"%s(%s) detached at %s" % [control.name, control.get_class(), rect]
+			)
+	return report
+
+func _assert_controls_inside(panel: Control, context: String) -> void:
+	var report := _containment_report(panel)
+	assert_gt(
+		report["checked"] as int, 0, "%s found no visible controls to check" % context
+	)
+	assert_eq(
+		report["offenders"] as Array[String],
+		[] as Array[String],
+		"%s has controls painting outside the phone screen" % context,
+	)
+
+func _click_at(global_pos: Vector2) -> void:
 	var press := InputEventMouseButton.new()
 	press.button_index = MOUSE_BUTTON_LEFT
 	press.pressed = true
-	press.position = center
+	press.position = global_pos
 	get_viewport().push_input(press)
 	await get_tree().process_frame
 	var release := InputEventMouseButton.new()
 	release.button_index = MOUSE_BUTTON_LEFT
 	release.pressed = false
-	release.position = center
+	release.position = global_pos
+	get_viewport().push_input(release)
+	await get_tree().process_frame
+
+func _click(control: Control) -> void:
+	await _click_at(control.get_global_rect().get_center())
+
+func _press_at_release_outside(global_pos: Vector2) -> void:
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = global_pos
+	get_viewport().push_input(press)
+	await get_tree().process_frame
+	var motion := InputEventMouseMotion.new()
+	motion.position = Vector2(40, 40)
+	get_viewport().push_input(motion)
+	await get_tree().process_frame
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = Vector2(40, 40)
 	get_viewport().push_input(release)
 	await get_tree().process_frame
 
@@ -999,3 +1048,290 @@ func test_morning_day14_summary_stays_inside_the_phone() -> void:
 	_assert_controls_inside(summary, "morning day 14")
 	var state := summary.summary_state()
 	assert_eq(state["action_text"], "START DAY 14")
+
+func _primary_pill(button: Button) -> Control:
+	assert_not_null(button)
+	if button == null:
+		return null
+	return button.find_child("Pill", true, false) as Control
+
+func _primary_specs() -> Array[Dictionary]:
+	return [
+		{"kind": "pause", "button": "Resume", "signal": &"resume_requested"},
+		{"kind": "morning", "button": "Acknowledge", "signal": &"acknowledged"},
+		{"kind": "sleep", "button": "Confirm", "signal": &"sleep_requested"},
+	]
+
+func _primary_panel(kind: String) -> Control:
+	match kind:
+		"pause":
+			return _pause_panel()
+		"morning":
+			return _morning_panel()
+		"sleep":
+			return _sleep_panel(4)
+	return null
+
+func test_primary_action_pills_paint_exactly_over_their_native_hitboxes() -> void:
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		for spec in _primary_specs():
+			var panel := _primary_panel(spec["kind"])
+			assert_not_null(panel, "%s %s panel" % [locale, spec["button"]])
+			if panel == null:
+				continue
+			await _settle()
+			var button := panel.find_child(
+				spec["button"], true, false
+			) as Button
+			var pill := _primary_pill(button)
+			assert_not_null(pill, "%s %s paints a pill" % [locale, spec["button"]])
+			if pill == null:
+				continue
+			var pill_rect := pill.get_global_rect()
+			var button_rect := button.get_global_rect()
+			assert_almost_eq(
+				pill_rect.position.x, button_rect.position.x, 0.5,
+				"%s %s painted pill starts where the hitbox starts"
+					% [locale, spec["button"]],
+			)
+			assert_almost_eq(
+				pill_rect.end.x, button_rect.end.x, 0.5,
+				"%s %s painted pill right edge is clickable"
+					% [locale, spec["button"]],
+			)
+			assert_almost_eq(
+				pill_rect.position.y, button_rect.position.y, 0.5,
+				"%s %s painted pill top edge is clickable"
+					% [locale, spec["button"]],
+			)
+			assert_almost_eq(
+				pill_rect.end.y, button_rect.end.y, 0.5,
+				"%s %s painted pill bottom edge is clickable"
+					% [locale, spec["button"]],
+			)
+			assert_almost_eq(
+				pill_rect.get_center().x, button_rect.get_center().x, 0.5,
+				"%s %s paint and hitbox share a center"
+					% [locale, spec["button"]],
+			)
+			panel.visible = false
+
+func test_primary_action_pill_painted_edges_take_native_presses() -> void:
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		for spec in _primary_specs():
+			var panel := _primary_panel(spec["kind"])
+			assert_not_null(panel, "%s %s panel" % [locale, spec["button"]])
+			if panel == null:
+				continue
+			await _settle()
+			var button := panel.find_child(
+				spec["button"], true, false
+			) as Button
+			var pill := _primary_pill(button)
+			assert_not_null(pill, "%s %s paints a pill" % [locale, spec["button"]])
+			if pill == null:
+				continue
+			var pill_rect := pill.get_global_rect()
+			var mid := pill_rect.size.y * 0.5
+			watch_signals(panel)
+			await _click_at(pill_rect.position + Vector2(4, mid))
+			await _click_at(pill_rect.end - Vector2(4, mid))
+			assert_signal_emit_count(
+				panel, spec["signal"], 2,
+				(
+					"%s %s presses at both painted edges of the pill"
+					% [locale, spec["button"]]
+				),
+			)
+			panel.visible = false
+
+func test_primary_action_pill_release_outside_cancels_the_press() -> void:
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		for spec in _primary_specs():
+			var panel := _primary_panel(spec["kind"])
+			assert_not_null(panel, "%s %s panel" % [locale, spec["button"]])
+			if panel == null:
+				continue
+			await _settle()
+			var button := panel.find_child(
+				spec["button"], true, false
+			) as Button
+			var pill := _primary_pill(button)
+			if pill == null:
+				continue
+			var pill_rect := pill.get_global_rect()
+			var mid := pill_rect.size.y * 0.5
+			watch_signals(panel)
+			await _press_at_release_outside(
+				pill_rect.end - Vector2(4, mid)
+			)
+			assert_signal_not_emitted(
+				panel, spec["signal"],
+				(
+					"%s %s release outside cancels the painted right edge press"
+					% [locale, spec["button"]]
+				),
+			)
+			panel.visible = false
+
+func test_morning_acknowledge_hitbox_tracks_caption_changes() -> void:
+	var summary := _morning_panel()
+	if summary == null:
+		return
+	await _settle()
+	var acknowledge := summary.find_child(
+		"Acknowledge", true, false
+	) as Button
+	var pill := _primary_pill(acknowledge)
+	assert_not_null(pill)
+	if pill == null:
+		return
+	assert_almost_eq(
+		pill.get_global_rect().size.x,
+		acknowledge.get_global_rect().size.x,
+		0.5,
+		"present() lands the caption inside the hitbox",
+	)
+	var caption := pill.find_child("Text", true, false) as Label
+	assert_not_null(caption)
+	if caption == null:
+		return
+	caption.text = (
+		"Save failed — this morning is not persisted. The storage card is full"
+	)
+	await _settle()
+	assert_almost_eq(
+		pill.get_global_rect().size.x,
+		acknowledge.get_global_rect().size.x,
+		0.5,
+		"a longer caption keeps the hitbox synced to the paint",
+	)
+	assert_almost_eq(
+		pill.get_global_rect().get_center().x,
+		acknowledge.get_global_rect().get_center().x,
+		0.5,
+		"paint and hitbox stay centered after the caption changes",
+	)
+
+func test_sleep_wake_day_only_promises_a_morning_that_exists() -> void:
+	for day in [1, 13]:
+		var sleep := _sleep_panel(day)
+		if sleep == null:
+			continue
+		await _settle()
+		var wake := sleep.find_child("WakeDay", true, false) as Label
+		assert_not_null(wake)
+		if wake == null:
+			continue
+		assert_true(
+			wake.is_visible_in_tree(),
+			"day %d alarm still names tomorrow" % day,
+		)
+		assert_eq(
+			wake.text,
+			tr("Day %d · wake up") % (day + 1),
+			"day %d names day %d as the wake day" % [day, day + 1],
+		)
+		assert_false(
+			sleep.day14_warning_visible(),
+			"day %d keeps the terminal warning hidden" % day,
+		)
+	var finale := _sleep_panel(GameRules.MAX_DAY)
+	if finale == null:
+		return
+	await _settle()
+	var alarm := finale.find_child("AlarmTime", true, false) as Label
+	assert_not_null(alarm)
+	if alarm != null:
+		assert_eq(
+			alarm.text,
+			GameRules.format_time(GameRules.DAY_START_MINUTES),
+			"day 14 keeps the 06:00 alarm target",
+		)
+	assert_true(
+		finale.day14_warning_visible(),
+		"day 14 keeps the terminal warning",
+	)
+	var wake := finale.find_child("WakeDay", true, false) as Label
+	assert_not_null(wake)
+	if wake == null:
+		return
+	assert_false(
+		wake.is_visible_in_tree(),
+		"day 14 promises no next morning: sleep goes straight to the finale",
+	)
+
+func test_containment_assertion_checks_real_rects_not_ancestry() -> void:
+	var summary := _morning_panel()
+	if summary == null:
+		return
+	await _settle()
+	var healthy := _containment_report(summary)
+	assert_gt(
+		int(healthy["checked"]),
+		0,
+		"the check inspects visible controls, not just ancestry",
+	)
+	assert_eq(
+		healthy["offenders"], [],
+		"a healthy lock screen has no out-of-screen controls",
+	)
+	var screen_rect := _screen_rect(summary)
+	var lock := summary.find_child("LockTime", true, false) as Control
+	assert_not_null(lock)
+	if lock == null:
+		return
+	lock.global_position = Vector2(
+		screen_rect.end.x - 6.0, lock.global_position.y
+	)
+	var flagged := _containment_report(summary)
+	var names := ""
+	for offender in flagged["offenders"] as Array[String]:
+		names += offender + ";"
+	assert_true(
+		names.contains("LockTime"),
+		"a screen descendant protruding the edge must be flagged",
+	)
+
+func test_containment_assertion_exempts_only_clipped_scroll_content() -> void:
+	var summary := _morning_panel()
+	if summary == null:
+		return
+	summary.set_save_status(
+		&"error",
+		(
+			"Save failed — this morning is not persisted. The storage card is "
+			+ "full after the long festival season and the ledger could not be "
+			+ "written; keep playing and try again."
+		),
+	)
+	await _settle()
+	var scroll := summary.find_child(
+		"SaveStatusScroll", true, false
+	) as ScrollContainer
+	var status := summary.find_child("SaveStatus", true, false) as Label
+	assert_not_null(scroll)
+	assert_not_null(status)
+	if scroll == null or status == null:
+		return
+	var screen_rect := _screen_rect(summary)
+	assert_true(
+		screen_rect.encloses(scroll.get_global_rect()),
+		"the scroll viewport itself is inside the screen",
+	)
+	assert_true(
+		status.get_global_rect().size.y > scroll.get_global_rect().size.y,
+		"the long label is genuinely clipped by the scroll viewport",
+	)
+	var report := _containment_report(summary)
+	var names := ""
+	for offender in report["offenders"] as Array[String]:
+		names += offender + ";"
+	assert_false(
+		names.contains("SaveStatus"),
+		"content clipped inside a verified viewport is exempt",
+	)
+	assert_gt(int(report["checked"]), 0, "the check really ran")
