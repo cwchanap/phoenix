@@ -587,6 +587,13 @@ func _input(event: InputEvent) -> void:
 	var kind := int(code) - int(KEY_1)
 	if kind < 0 or kind >= _gift_buttons.size():
 		return
+	if (
+		key_event.ctrl_pressed
+		or key_event.alt_pressed
+		or key_event.shift_pressed
+		or key_event.meta_pressed
+	):
+		return
 	var chip := _gift_buttons[kind]
 	if not chip.visible or chip.disabled:
 		return
