@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" path="res://scripts/ui/onboarding_overlay.gd" id="1_onboarding"]
 [ext_resource type="Texture2D" path="res://assets/ui/backgrounds/intro.png" id="2_intro"]
-[ext_resource type="Texture2D" path="res://assets/ui/portraits/mira.png" id="3_mira"]
+[ext_resource type="Texture2D" path="res://assets/ui/portraits/sato.png" id="3_mira"]
 
 [sub_resource type="Gradient" id="Gradient_intro_shade"]
 offsets = PackedFloat32Array(0, 0.55, 1)
