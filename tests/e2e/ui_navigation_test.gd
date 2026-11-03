@@ -24,7 +24,7 @@ func test_real_keys_navigate_pause_and_settings() -> void:
 	if game == null or is_failure():
 		return
 
-	assert_bool(await game.click_node("/root/AppRoot/TitleScreen/Panel/NewGame")).is_true()
+	assert_bool(await game.click_node("/root/AppRoot/TitleScreen/Menu/NewGame")).is_true()
 	assert_bool(await game.input_action("ui_accept", true)).is_true()
 	assert_bool(await game.input_action("ui_accept", false)).is_true()
 	assert_bool(await game.wait_for_node(WORLD, 10.0)).is_true()

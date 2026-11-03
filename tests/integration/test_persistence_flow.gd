@@ -289,10 +289,11 @@ func test_terminal_settlement_pays_pending_once_and_keeps_carried_crops() -> voi
     await _await_world_teardown(app)
     var result := app.get_node("ResultScreen") as ResultScreen
     assert_eq(
-        (result.get_node("Panel/Shipped") as Label).text,
-        "Shipped: %d crops · %dG" % [
-            int(expected_result["shipped_count"]),
-            int(expected_result["shipped_value"]),
+        result.result_state()["stats"],
+        [
+            "%d" % int(expected_result["shipped_count"]),
+            "%dG" % int(expected_result["shipped_value"]),
+            "%dG" % int(expected_result["final_money"]),
         ],
     )
 
@@ -326,7 +327,7 @@ func test_finale_save_failure_still_completes_and_shows_unsaved_result() -> void
     assert_null(app.get_node_or_null("World"))
     var result := app.get_node("ResultScreen") as ResultScreen
     assert_true(result.visible)
-    assert_eq((result.get_node("Panel/SaveStatus") as Label).text, "Final result was not saved.")
+    assert_eq(result.result_state()["save_status"], "Final result was not saved.")
 
 func test_result_return_to_title_reloads_save_and_new_game_keeps_slot() -> void:
     _seed_slot(_day14_pre_final_state())
@@ -340,11 +341,11 @@ func test_result_return_to_title_reloads_save_and_new_game_keeps_slot() -> void:
     var result := app.get_node("ResultScreen") as ResultScreen
     assert_true(result.visible)
 
-    (result.get_node("Panel/ReturnToTitle") as Button).pressed.emit()
+    (result.get_node("Actions/ReturnToTitle") as Button).pressed.emit()
     var title := app.get_node("TitleScreen") as TitleScreen
     assert_true(title.visible)
     assert_false(result.visible)
-    assert_false((title.get_node("Panel/Continue") as Button).disabled)
+    assert_false((title.get_node("Menu/Continue") as Button).disabled)
 
     title.continue_requested.emit()
     assert_null(app.get_node_or_null("World"))
@@ -352,7 +353,7 @@ func test_result_return_to_title_reloads_save_and_new_game_keeps_slot() -> void:
 
     # The old World was removed before queue_free(), so the guard already
     # cleared and a same-frame New Game launches a fresh run.
-    (result.get_node("Panel/NewGame") as Button).pressed.emit()
+    (result.get_node("Actions/NewGame") as Button).pressed.emit()
     var fresh_world := app.get_node("World") as WorldShell
     assert_eq(fresh_world._session.state()["day"], 1)
     assert_false(fresh_world._session.state()["finale_triggered"])

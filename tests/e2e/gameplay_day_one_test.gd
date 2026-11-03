@@ -44,7 +44,7 @@ func _start_new_game() -> Variant:
 	if game == null or is_failure():
 		return null
 	assert_bool(
-		await game.click_node("/root/AppRoot/TitleScreen/Panel/NewGame")
+		await game.click_node("/root/AppRoot/TitleScreen/Menu/NewGame")
 	).is_true()
 	assert_bool(await game.input_action("ui_accept", true)).is_true()
 	assert_bool(await game.input_action("ui_accept", false)).is_true()
@@ -324,7 +324,7 @@ func _continue_seeded_game() -> Variant:
 	OS.unset_environment("PHOENIX_SETTINGS_PATH")
 	if game == null or is_failure():
 		return null
-	assert_bool(await game.click_node("/root/AppRoot/TitleScreen/Panel/Continue")).is_true()
+	assert_bool(await game.click_node("/root/AppRoot/TitleScreen/Menu/Continue")).is_true()
 	assert_bool(await game.wait_for_node(WORLD, 10.0)).is_true()
 	assert_bool(
 		await game.wait_for_property(DAY, "text", "Day 1", 10.0)

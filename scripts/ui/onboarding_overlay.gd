@@ -5,12 +5,15 @@ signal intro_acknowledged
 signal blocking_state_changed
 
 const TUTORIAL_ICON := preload("res://assets/ui/icons/tutorial.png")
+const INTRO_BACKGROUND := preload("res://assets/ui/backgrounds/intro.png")
+const SATO_PORTRAIT := preload("res://assets/ui/portraits/sato.png")
 
 var _dismissed: Array[StringName] = []
 var _intro_background: TextureRect
 var _intro_shade: ColorRect
 var _intro_gradient: TextureRect
 var _opening_panel: Control
+var _accept: Button
 var _tutorial_card: Control
 var _tutorial_title: Label
 var _tutorial_body: Label
@@ -19,17 +22,9 @@ var _current_prompt_id: StringName = &""
 var _tutorial_cards_enabled := true
 
 func _ready() -> void:
-    _intro_background = $IntroBackground as TextureRect
-    _intro_shade = $IntroShade as ColorRect
-    _intro_gradient = $IntroGradient as TextureRect
-    _opening_panel = $OpeningPanel as Control
+    _build_opening()
     # HPA-680 stopgap: the opening card is still 640x360-authored (HPA-682).
-    UiStyle.fit_legacy_control(_opening_panel)
-    ($OpeningPanel/Intro as Label).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    ($OpeningPanel/MiraCard/Guide as Label).autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    _style_authored_tree(self)
-    _apply_authored_style()
-    ($OpeningPanel/Footer/Accept as Button).pressed.connect(func() -> void: intro_acknowledged.emit())
+    _accept.pressed.connect(func() -> void: intro_acknowledged.emit())
     _build_tutorial_card()
     _intro_background.visible = false
     _intro_shade.visible = false
@@ -37,32 +32,143 @@ func _ready() -> void:
     _opening_panel.visible = false
     _tutorial_card.visible = false
 
-func _style_authored_tree(node: Node) -> void:
-    for child in node.get_children():
-        if child is Label:
-            UiStyle.text(child as Label)
-        elif child is Button:
-            UiStyle.button(child as Button)
-        _style_authored_tree(child)
+func _build_opening() -> void:
+    _intro_background = TextureRect.new()
+    _intro_background.name = "IntroBackground"
+    _intro_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _intro_background.set_anchors_preset(Control.PRESET_FULL_RECT)
+    _intro_background.texture = INTRO_BACKGROUND
+    _intro_background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+    _intro_background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+    add_child(_intro_background)
 
-func _apply_authored_style() -> void:
-    ($OpeningPanel as Panel).add_theme_stylebox_override(
-        "panel",
-        UiStyle.panel(UiStyle.PRIMARY, UiStyle.BORDER_LIGHT, 2),
+    _intro_shade = ColorRect.new()
+    _intro_shade.name = "IntroShade"
+    _intro_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _intro_shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+    _intro_shade.color = Color(0.027, 0.035, 0.047, 0.12)
+    add_child(_intro_shade)
+
+    _intro_gradient = TextureRect.new()
+    _intro_gradient.name = "IntroGradient"
+    _intro_gradient.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _intro_gradient.set_anchors_preset(Control.PRESET_FULL_RECT)
+    _intro_gradient.texture = _bottom_fade()
+    _intro_gradient.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+    _intro_gradient.stretch_mode = TextureRect.STRETCH_SCALE
+    add_child(_intro_gradient)
+
+    _opening_panel = Control.new()
+    _opening_panel.name = "OpeningPanel"
+    _opening_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+    _opening_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+    add_child(_opening_panel)
+
+    var top_bar := ColorRect.new()
+    top_bar.name = "LetterboxTop"
+    top_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    top_bar.anchor_right = 1.0
+    top_bar.offset_bottom = 96.0
+    top_bar.color = Color(UiStyle.INK, 0.94)
+    _opening_panel.add_child(top_bar)
+
+    var bottom_bar := ColorRect.new()
+    bottom_bar.name = "LetterboxBottom"
+    bottom_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    bottom_bar.anchor_top = 1.0
+    bottom_bar.anchor_right = 1.0
+    bottom_bar.anchor_bottom = 1.0
+    bottom_bar.offset_top = -330.0
+    bottom_bar.color = Color(UiStyle.INK, 0.94)
+    bottom_bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
+    _opening_panel.add_child(bottom_bar)
+
+    var content := MarginContainer.new()
+    content.name = "Content"
+    content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    content.anchor_top = 1.0
+    content.anchor_right = 1.0
+    content.anchor_bottom = 1.0
+    content.offset_top = -330.0
+    content.grow_vertical = Control.GROW_DIRECTION_BEGIN
+    for side in [["left", 72], ["top", 30], ["right", 72], ["bottom", 30]]:
+        content.add_theme_constant_override("margin_" + side[0], side[1])
+    _opening_panel.add_child(content)
+
+    var row := UiStyle.hbox(36)
+    row.name = "Row"
+    content.add_child(row)
+    var portrait := TextureRect.new()
+    portrait.name = "Portrait"
+    portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    portrait.custom_minimum_size = Vector2(190, 266)
+    portrait.texture = SATO_PORTRAIT
+    portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+    portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+    portrait.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+    row.add_child(portrait)
+
+    var column := UiStyle.vbox(12)
+    column.name = "Column"
+    column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    row.add_child(column)
+    var header := UiStyle.hbox(14)
+    header.name = "Header"
+    column.add_child(header)
+    var name_tag := SlantTag.new("SATO-SAN", UiStyle.ACCENT_GRADIENT, UiStyle.CARD, 20)
+    name_tag.name = "NameTag"
+    header.add_child(name_tag)
+    var day_tag := SlantTag.new(tr("Day %d") % 1, [UiStyle.VIOLET], UiStyle.CARD, 16)
+    day_tag.name = "DayTag"
+    day_tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+    header.add_child(day_tag)
+
+    var intro := UiStyle.label(
+        "This farm has been quiet for a while. It is yours now — bring it back one day at a time.",
+        21, UiStyle.CARD, 500,
     )
-    ($OpeningPanel/MiraCard as Panel).add_theme_stylebox_override(
-        "panel",
-        UiStyle.panel(UiStyle.INSET, UiStyle.BORDER, 1),
+    intro.name = "Intro"
+    intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    column.add_child(intro)
+    var guide := UiStyle.label(
+        "The village harvest market is on Day 14. Grow what you can, and get to know the village before then.",
+        18, UiStyle.ACCENT_SOFT, 500,
     )
-    ($OpeningPanel/Footer as Panel).add_theme_stylebox_override(
-        "panel",
-        UiStyle.panel(UiStyle.HEADER, UiStyle.BORDER, 2),
-    )
-    UiStyle.text($OpeningPanel/Intro as Label, 16, UiStyle.CREAM, 400)
-    UiStyle.text($OpeningPanel/MiraCard/Name as Label, 9, UiStyle.GOLD, 700)
-    UiStyle.text($OpeningPanel/MiraCard/Guide as Label, 10, UiStyle.TEXT, 400)
-    UiStyle.text($OpeningPanel/Footer/Begin as Label, 10, UiStyle.GOLD, 700)
-    UiStyle.button($OpeningPanel/Footer/Accept as Button, 9, true)
+    guide.name = "Guide"
+    guide.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    column.add_child(guide)
+    var spacer := Control.new()
+    spacer.name = "Spacer"
+    spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    column.add_child(spacer)
+    var footer := UiStyle.hbox(12)
+    footer.name = "FooterRow"
+    footer.alignment = BoxContainer.ALIGNMENT_END
+    column.add_child(footer)
+    var enter := UiStyle.keycap("Enter", true, true)
+    enter.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+    footer.add_child(enter)
+    _accept = UiStyle.action_button("BEGIN DAY 1")
+    _accept.name = "Accept"
+    _accept.custom_minimum_size = Vector2(300, 64)
+    footer.add_child(_accept)
+
+func _bottom_fade() -> GradientTexture2D:
+    var gradient := Gradient.new()
+    gradient.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
+    gradient.colors = PackedColorArray([
+        Color(0, 0, 0, 0.10),
+        Color(0, 0, 0, 0.26),
+        Color(0, 0, 0, 0.58),
+    ])
+    var texture := GradientTexture2D.new()
+    texture.gradient = gradient
+    texture.width = 1920
+    texture.height = 1080
+    texture.fill_from = Vector2(0.5, 0)
+    texture.fill_to = Vector2(0.5, 1)
+    return texture
 
 ## The tutorial card as a phone-style notification at the top right (HPA-681).
 func _build_tutorial_card() -> void:
