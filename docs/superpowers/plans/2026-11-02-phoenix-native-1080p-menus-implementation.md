@@ -83,7 +83,7 @@ This order supersedes the old "migrate UI, then update tests and stopgap in Task
 - Opening: replace 640×360-scaled opening card with native code-built Day 1 letterbox and visual-novel introduction; leave the already-native tutorial card intact. Preserve `OnboardingOverlay` signals and gating.
 - Remove `fit_legacy_layout(self)` from Title/Result and `fit_legacy_control(_opening_panel)` from onboarding **as each is migrated**. The scene/resource root names and app launch routes remain unchanged.
 
-**Tests:** New Game, invalid-save Continue disabled, completed-run Continue→Result, result buttons, intro acknowledgement and tutorial behavior, native root scale/rect; verify clean.
+**Tests:** New Game, invalid-save Continue disabled, completed-run Continue→Result, result buttons, intro acknowledgement and tutorial behavior, native root scale/rect; verify clean. **Preserve real pointer-click coverage** in `tests/e2e/ui_navigation_test.gd`: its existing `game.click_node("/root/AppRoot/TitleScreen/Panel/NewGame")` selector will break when Title becomes code-built, so update the clicked control's selector to its new runtime path and continue asserting that clicking New Game launches the world. Do not replace the click with only keyboard input or rely on the stable `TitleScreen` root alone.
 
 ## Phase 6 — Final cleanup and full validation
 
@@ -103,7 +103,7 @@ Commit and run the full existing verification lanes:
 
 In the configured godot-e2e environment, `./addons/gdUnit4/runtest.sh -a tests/e2e -c`
 
-Review CI from `.github/workflows/unit-tests.yml` and `.github/workflows/e2e-tests.yml`. Update assertions, not coverage policy. The clean script archives `HEAD`: uncommitted changes are not validated.
+Review **all three existing CI workflows**, including `.github/workflows/ci.yml` (Godot release-checkout import and unsigned macOS `Phoenix.zip` export), `.github/workflows/unit-tests.yml` (GdUnit4), and `.github/workflows/e2e-tests.yml` (godot-e2e). Require the existing import/export job to pass along with the test jobs; the local clean verifier alone does **not** prove that the macOS export succeeds. Update assertions, not coverage policy. The clean script archives `HEAD`: uncommitted changes are not validated.
 
 ## Visual verification / completion
 
