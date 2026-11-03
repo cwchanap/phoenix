@@ -1,140 +1,116 @@
 # HPA-682 — Native 1080p menus and panels: single-PR implementation plan
 
-**Status:** Planning-only draft, 2026-11-02  
-**Design:** [Native 1080p menus design](../specs/2026-11-02-phoenix-native-1080p-menus-design.md)  
+**Status:** Revised after PR #35 design review, 2026-11-02. Planning-only; no implementation or test execution claimed.  
+**Design:** [Native 1080p menus specification](../specs/2026-11-02-phoenix-native-1080p-menus-design.md)  
 **Linear:** https://linear.app/cwchanap/issue/HPA-682/restyle-phoenix-menus-and-panels-for-1080p  
-**Base:** current `main`, after HPA-680, HPA-681, HPA-713 and the new village cast work.  
-**Delivery:** Continue implementation in **this same HPA-682 draft PR** after reviewing this plan; do not create an implementation follow-up PR for this issue.
+**Delivery:** Implement **on this same draft PR**, one cohesive issue → one PR. Do not create a separate implementation PR.
 
-## Scope and guardrails
+## Non-negotiable contracts
 
-This is a native Godot Control and presentation refactor. Keep the current scene hierarchy roots as far as useful, panel public APIs and signal payloads, `GameHud` single-modal gating, `WorldShell` authority, keyboard commands, preferences, saved-state schema, translation format, and gameplay values. No art generation, SFX, story rewrite, backend, or new UI framework.
+- Godot 4.7.1 and native 1920×1080 `Control` rendering. No canvas-size, camera zoom, gameplay, save, balance or rule changes.
+- Every non-HUD surface uses a **code-built control tree**, following `HudChrome`, not a new mix of authored scene contents with runtime stylers. Keep each `.tscn` file as a root plus attached existing script. Keep each root name, public panel method and signal shape.
+- One lean code-built `PhoneFrame` class: bezel, status-bar time, home indicator and content mount **only**. Each panel builds its own app-header/footer if applicable. `GameHud` remains the modal owner; no navigation framework, app mode registry or new session owner.
+- Reuse `UiStyle` and existing images. All added player-facing English strings receive zh_TW/ja values in the existing CSV, including Settings' **Language** control.
+- HPA-684 owns actual diary lines and opening/result story rewrite; HPA-687 owns new art; town changes remain HPA-683/685/686.
+- PR #29 removed screenshot goldens. Do not reintroduce them.
 
-The older ticket's instruction to re-bless screenshots is obsolete. PR #29 removed the screenshot-golden gate; use the existing automated lanes and manual visual review, never recreate the golden system.
+## Commit rule: each migrated surface family is green
 
-## Implementation sequence (all changes on one branch/one PR)
+Keep this one PR, but group commits into coherent screen families. **For each family in the sequence below:**
 
-### Task 1 — Establish a stable UI baseline and shared frame
+1. Code-build its screen roots and delete the old `_style_tree` / node-path styling code.
+2. In the **same commit**, remove those screen roots from `GameHud._build_modals()`'s legacy scale loop (or their standalone `fit_legacy_*` calls); don't scale a rebuilt panel.
+3. Migrate affected GUT/GdUnit4/e2e assertions in that commit. Prefer existing `selected_*` accessors or a narrow read-only value seam (current line, selected price/action, known calendar day, sleep boundary), **not** hundreds of new internal node paths. Keep current behavioral assertions.
+4. Extend the **existing** `tests/integration/test_app_launch.gd::test_legacy_640x360_ui_roots_fill_the_1080p_canvas` progressively: migrated surfaces have `scale == Vector2.ONE` and a full native `Rect2(0,0,1920,1080)`. Unmigrated surfaces retain their valid legacy assertions. Rename it to the native-root test when none remain.
+5. Update the translation CSV for every new label from this family.
+6. **Commit first**, then run `./tools/verify-clean.sh`, which archives committed `HEAD`. Fix failures, commit, rerun. Also run the relevant GdUnit4/e2e suites for affected input and navigation paths. Do not leave a long-lived red intermediate migration state.
 
-**Primary files**
-- `scripts/ui/ui_style.gd`, `scripts/ui/slant_tag.gd` (reuse, only minimal shared helpers)
-- New `scenes/ui/phone_frame.tscn`; small `scripts/ui/phone_frame.gd` if header, footer and body mounting need a shared API
-- `scripts/ui/game_hud.gd` for the narrow, existing modal instantiation/wiring points
+This order supersedes the old "migrate UI, then update tests and stopgap in Task 5" plan.
 
-**Steps**
-1. Record the current UI controls and callback contracts before changing node trees: `GameHud.open_*` / `close_*`, `_open_modal`, `_esc_close_order`, `modal_state_changed`; title/result buttons; `PausePanel.settings_requested`; `SettingsPanel.settings_changed`; acknowledgements, purchases, deposits and gifts.
-2. Implement the centered native-size phone shell: dim, rounded surface, gradient header/title/subtitle, content slot and one footer hint row. Make it a purely visual child owned by each existing panel; it must not handle game input or own another controller.
-3. Reuse `UiStyle.card`, `gradient_surface`, `keycap`, font fallbacks and `SlantTag`. Add a helper only for visual patterns repeated by multiple panels; avoid copying large style-tree traversals into a new common superclass.
-4. Use anchors/containers at the 1920×1080 base size; leave `project.godot` resolution, `WorldContract.CAMERA_ZOOM` and `UiSettings.apply_window` intact.
+## Phase 1 — PhoneFrame and Pause home
 
-**Check:** Instantiate each candidate phone shell at native size without node-path warnings, clipping or double-scaling. Confirm `HudRoot` remains full-screen and under existing `GameHud` control.
+**Files:** `scripts/ui/phone_frame.gd` (new), `scripts/ui/pause_panel.gd`, `scenes/ui/pause_panel.tscn`, `scripts/ui/game_hud.gd`, `scripts/ui/ui_style.gd` (small shared builders only), matching tests, CSV.
 
-### Task 2 — Migrate the seven phone surfaces
+- Implement the `PhoneFrame` node as a code class with status-bar `Label` and content mount. No `phone_frame.tscn` or editable-children scene inheritance.
+- Build Pause wallpaper, four app tiles and Controls widget via `UiStyle`. No app-header variant flag. Give tiles truthful I/B/C/O hints; connect the tile requests to **existing** `GameHud.open_bag`/`open_almanac`/`open_calendar`/`open_settings`.
+- In `GameHud._unhandled_input`, allow I/B/C when no modal is open **or Pause is open**; keep blocks for every other primary modal. Closing Bag/Almanac/Calendar goes back to the world, not Pause. Settings continues to return to Pause.
+- Have `GameHud.render(snapshot)` format `GameRules.format_time(int(snapshot["time_minutes"]))` once and supply it through a narrow phone-panel time setter. Supply Pause day/weather from the same render path; no snapshot parameter on `open_pause` or other `open_*`.
+- Remove Pause from the legacy-scale loop in this commit. Do not affect non-Pause panels.
 
-**Files**
-- `scenes/ui/{pause,bag,almanac,calendar,settings,morning_summary,sleep}_panel.tscn`
-- Matching `scripts/ui/*_panel.gd` files; `scripts/ui/game_hud.gd` for signal wiring only
+**Tests:** Reuse existing Pause→Settings→Pause→World navigation; add one GUT interaction test for Pause→I→Bag, Pause hidden and world gated, plus B/C equivalent smoke if low cost. Assert new native root rect/scale and truthful status-time source. Run `./tools/verify-clean.sh` on committed HEAD; relevant e2e navigation lane.
 
-**Steps**
-1. **Pause:** build home icons (Bag/Almanac/Calendar/Settings), Controls widget, footer; retain Esc/O. Tile clicks may emit narrow open requests to `GameHud`, which routes through existing `open_*`. Do not relax current world-only I/B/C shortcut checks or allow two modals.
-2. **Bag:** show seed/harvest grids, carried quantities, shipping payout and selected item details from the existing snapshot. Preserve selection and close behavior.
-3. **Almanac:** change presentation from three simultaneously visible cards to one selected crop page. Reuse the existing `_selected_kind`, A/D handling, crop art and pure `GameRules` facts; do not add crop state.
-4. **Calendar:** keep its current day/weather/harvest computations and put them into a 7-column, 14-day grid with Coming Up; never fabricate future weather.
-5. **Settings:** display Music/Sound (0–10), Window (1080p/Full), Tips, **and existing Language**. Keep row selection, A/D updates, save-error display, existing separate settings file, and per-locale rendering. The slider appearance does not require a second pointer-driven settings model.
-6. **Morning Summary:** use a 06:00 lock-screen shell; present weather, farming, shipments, bank total, withering notice, Saved/save-error status and Enter to start the next day. Leave diary authoring and any new diary snapshot data to HPA-684; do not fake a diary line.
-7. **Sleep:** show 06:00 alarm and current Day 14 ending warning; preserve Enter confirm, Esc cancel and current summary transition.
+## Phase 2 — Phone apps: Bag, Almanac, Calendar
 
-**Check:** The panels still expose the same `open_panel`/`present`/`selected_*`/`set_save_status` methods where they exist. The initial opening/closing transitions, focus, modal visibility and downstream signal payloads remain unchanged.
+**Files:** each existing `scenes/ui/{bag,almanac,calendar}_panel.tscn` and corresponding `scripts/ui/*_panel.gd`, `scripts/ui/game_hud.gd` scaling entries/status-time setter wiring, integration tests, CSV.
 
-### Task 3 — Migrate interaction cards and dialogue
+- Bag: seeds/harvest grid, currently selected item detail, bin payout; preserve current `open_panel`/`present` selection and snapshot semantics.
+- Almanac: one selected crop at a time, A/D navigation, crop art and real game rules; preserve `selected_kind()`.
+- Calendar: fixed 7×2 day grid and Coming Up; use existing `weather_history`/day-known flags, never a future forecast.
+- Each panel instantiates its own `PhoneFrame` and app header/footer with shared builders; it does not hand input control to the frame.
+- Stopgap/test/translation updates land with each migrated surface or this tightly grouped family, not after all screens.
 
-**Files**
-- `scenes/ui/shop_panel.tscn`, `scripts/ui/shop_panel.gd`
-- `scenes/ui/shipping_panel.tscn`, `scripts/ui/shipping_panel.gd`
-- `scenes/ui/dialogue_panel.tscn`, `scripts/ui/dialogue_panel.gd`
+**Tests:** Keep value assertions (quantity, growth, known days, selection/close) via existing selectors or minimum read seams. Extend the native-root test per surface. Verify clean + targeted navigation.
 
-**Steps**
-1. Give Shop and Shipping a consistent rounded card, gradient header, selected pink row, quantity controls and one prominent action pill. Compute its displayed exact action and amount from the panel's existing selected quantity/snapshot state; never execute a purchase or deposit while merely rendering.
-2. Keep the current M maximum shortcut, quantity bounds, disabled/upgraded states, and `buy_requested` / `upgrade_requested` / `deposit_requested` payloads. A pointer click and Enter must request the same action.
-3. Restyle Dialogue as a visual-novel box with left portrait, slanted name tag, role, friendship hearts/value, dialogue text and gift chips. Preserve close-friend line handling, relationship rendering, gift availability, selected-gift focus and `gift_requested`.
-4. Reuse existing icons and portraits; remove old 640x360 offsets rather than scaling old scene roots.
+## Phase 3 — Phone Settings, Sleep and Morning Summary
 
-**Check:** Same session outcomes for buy/upgrade/deposit/gift with normal, insufficient-resource and unavailable-action states. Dialogue line progression and Esc behavior unaffected.
+**Files:** `scenes/ui/{settings,sleep,morning_summary}_panel.tscn`, matching `scripts/ui` files, `scripts/ui/game_hud.gd`, tests, CSV.
 
-### Task 4 — Native standalone screens and onboarding
+- Settings: retain all five rows Music/Sound/Window/Tips/**Language**, persistence and A/D controls. The current on-screen values must always match `UiSettings`. Only the presentation changes.
+- Sleep: 06:00 alarm app and Day 14 warning; keep `sleep_requested` and Enter/Esc flow. The status bar shows current session time fed by `GameHud.render()`, while the **alarm target** is fixed at 06:00.
+- Morning Summary: lock-screen view of current summary facts, shipments, withering, bank and saved/error status. No diary content, no added snapshot field.
+- Remove the duplicated sleep boundary handling from `GameHud`: delete `_day14_sleep_boundary`, `get_node("Boundary")` and redundant `render()` text assignment. `SleepPanel.present(snapshot)` alone computes/updates this notice. Provide a narrow `day14_warning_visible()` or equivalent observable if existing tests used the node directly.
+- Preserve Settings→Pause and morning-summary blocking behavior.
 
-**Files**
-- `scenes/ui/{title_screen,result_screen,onboarding_overlay}.tscn`
-- `scripts/ui/{title_screen,result_screen,onboarding_overlay}.gd`
+**Tests:** Existing preference persistence and language tests, save error/saved notice, sleep Day 14 boundary and summary acknowledgement. Add status-time and native-root assertions; run the per-commit verifier.
 
-**Steps**
-1. Title: native 1920×1080, existing hero art with a left fade, New Game/Continue gradient selection, unchanged disabled Continue and save-error status.
-2. Opening: native letterbox, Day 1 `SlantTag`, existing introduction dialogue styling; preserve the blocking acknowledgement, tutorial-card logic and `blocking_state_changed` callback.
-3. Result: native SEASON COMPLETE treatment, current scoreboard values, three existing residents/portraits, dynamic finale text, and existing new-game/return actions.
-4. Do not land HPA-684 diary/story copy, change cast names, or add artwork to satisfy the design reference.
+## Phase 4 — World cards: Shop, Shipping, Dialogue
 
-**Check:** A first-run intro remains blocking; continue for valid/completed saves follows the existing path; final result works from market or Day 14 sleep.
+**Files:** `scenes/ui/{shop,shipping,dialogue}_panel.tscn`, matching `scripts/ui`, `scripts/ui/game_hud.gd` legacy entries, `tests/integration/test_gameplay_shell.gd` and other relevant GUT/e2e tests, CSV.
 
-### Task 5 — Remove stopgap and reconcile tests
+- Shop and Shipping: use one simple repeated **visual** card style, selected-row tint, native stepper controls and dynamic exact-action pill. Keep M=max, quantity bounds, disabled actions, upgrade availability, signals and money/inventory math unchanged.
+- Avoid rewriting tests to target new `Frame/Body/Row_0/Price` paths. Expose read-only **display** seams where real user feedback is asserted: e.g. `selected_action_text()`, `display_price_for_row(index)`. Prefer current state/snapshot methods for pure numerical facts.
+- Dialogue: current portraits, slanted name tag, relationship and gifts, with no input/line behavior changes. Expose a narrow `current_line_text()` for tests that read `Panel/Line`. Preserve the close-friend flow, gift focus and signal payload.
+- Remove these three roots from the legacy loop and update native-root assertions **with** their code migration.
 
-**Files**
-- `scripts/ui/game_hud.gd` (remove ten-panel legacy scaling loop)
-- `scripts/ui/ui_style.gd` (remove unused `LEGACY_LAYOUT_SIZE` / `fit_legacy_layout` / `fit_legacy_control` and legacy dark-only palette/style helpers after migrating all call sites)
-- `scripts/ui/title_screen.gd`, `scripts/ui/result_screen.gd`, `scripts/ui/onboarding_overlay.gd` (remove standalone scaling)
-- `assets/i18n/strings.csv`, `tests/unit/test_localisation.gd`
-- Affected `tests/integration/test_gameplay_shell.gd`, `tests/integration/test_app_launch.gd`, `tests/headless/world_shell_smoke.gd`, `tests/e2e/ui_navigation_test.gd`, `tests/e2e/gameplay_day_one_test.gd`, and `tests/gdunit/*` as required
-- `README.md` and `CLAUDE.md` for the updated UI contract
+**Tests:** Purchase, upgrade, deposit and gifting request arguments; insufficient money/stock and disabled-action states; Day 14 shipping/market warning; selected action text; dialogue line progression. Verify clean per family/commit.
 
-**Steps**
-1. Search every runtime use of `fit_legacy_*`, old palette/style constants, 640×360 UI offsets, and stale panel node paths. Remove the stopgap only after all migrated screens load. Keep shared `UiStyle` functions still used by HUD or unaffected controls.
-2. Rewire tests to native scene paths only where intentionally changed; preserve behavior assertions rather than weakening or deleting them. Keep the existing `HudRoot/BagPanel` etc. modal root names where feasible.
-3. Add every new English UI string to the existing translation CSV with `zh_TW` and `ja` columns; use `tr(...)` for formatted dynamic strings and verify fallback-font fit. The existing localization unit suite does not enumerate UI literals, so explicitly cover the new labels (or document and review an exhaustive source-string inventory) instead of assuming the existing rules-string test catches them.
-4. Update README/CLAUDE to state that title, result, intro and all modals are authored natively at 1080p and that the golden gate remains removed.
+## Phase 5 — Title, Result, Opening
 
-**Check:** The repository no longer uses the temporary UI scaling helpers, and translations do not introduce missing keys or placeholder mismatches.
+**Files:** `scenes/ui/{title_screen,result_screen,onboarding_overlay}.tscn`, matching `scripts/ui/*`, `scripts/app/app_root.gd` only if unavoidable, tests, CSV.
 
-## Validation plan
+- Title: reuse existing key art and Continue/new-game behavior; native left fade and gradient selected action. Keep save-error and unavailable-Continue behavior. Add a narrow `status_text()` only if needed to replace old `Panel/Status/Label` test lookups.
+- Result: render current season totals, three villager cards, finale tier and existing new game/title controls with no content changes.
+- Opening: replace 640×360-scaled opening card with native code-built Day 1 letterbox and visual-novel introduction; leave the already-native tutorial card intact. Preserve `OnboardingOverlay` signals and gating.
+- Remove `fit_legacy_layout(self)` from Title/Result and `fit_legacy_control(_opening_panel)` from onboarding **as each is migrated**. The scene/resource root names and app launch routes remain unchanged.
 
-### Automated
+**Tests:** New Game, invalid-save Continue disabled, completed-run Continue→Result, result buttons, intro acknowledgement and tutorial behavior, native root scale/rect; verify clean.
 
-Run the existing supported lanes (not new infrastructure):
+## Phase 6 — Final cleanup and full validation
 
-1. `./tools/verify-clean.sh` — clean archived HEAD, Godot import, GUT rules/integration, project/world smoke and audio source sanity.
-2. After `./tools/bootstrap-gdunit.sh`, run `./addons/gdUnit4/runtest.sh -a tests/gdunit -c` — existing GdUnit4 behavior tests.
-3. In the configured godot-e2e environment, run `./addons/gdUnit4/runtest.sh -a tests/e2e -c` — real-key UI navigation and Day 1 gameplay. CI definitions: `.github/workflows/unit-tests.yml` and `.github/workflows/e2e-tests.yml`.
+**Files:** `scripts/ui/ui_style.gd`, `scripts/ui/game_hud.gd`, `scripts/world/farm_action_effects.gd`, docs, and any remaining references found by search.
 
-Minimum changed assertions:
-- Opening/closing Pause→Settings→Pause→World with Esc/O; modal signals and movement gate.
-- Bag/Almanac/Calendar access from world, A/D crop navigation and Esc closure.
-- Shop/Shipping steppers, M max, accurate request arguments and available/disabled action visuals.
-- Settings five rows, persistent Music/Sound/Window/Tips/Language; switch locale and keep text legible.
-- Morning summary saved/error state and Day 14 sleep/finale; Dialogue gift selection and result screen actions.
-- Native-size roots and absence of 3× UI scale on every screen family.
+1. Search whole repository (production and tests) for `fit_legacy_layout`, `fit_legacy_control`, `LEGACY_LAYOUT_SIZE`, `UiStyle.GOLD`, other legacy colors, `UiStyle.panel`/`UiStyle.button`, `font(..., _mono)`, old direct `Frame/...` lookups and remaining assumed 640×360 panel geometry.
+2. Delete the now-empty ten-modal legacy loop and the obsolete layout helpers. Prune legacy `UiStyle` theme palette and styling methods **only when all callers have been converted**. Retarget `UiStyle.text()`'s default from legacy `TEXT` to `INK`, and migrate `scripts/world/farm_action_effects.gd`'s harvest `+1` color from `UiStyle.GOLD` to a retained City Pop hue.
+3. Keep `UiStyle` primitives used by existing `HudChrome`/`OnboardingOverlay` untouched; avoid broad styling refactors.
+4. Rename the existing native-root integration test and verify native `scale == Vector2.ONE` + full-screen rect for all 13 surfaces.
+5. Update `README.md`/`CLAUDE.md` to document no legacy 3× UI scale, phone-frame ownership, Pause I/B/C behavior and the lack of screenshot-golden CI.
 
-Keep the existing integration tests' business-state assertions intact. If a test asserts an old scene-internal `Frame/...` path, update that selector rather than weakening the observed behavior.
+Commit and run the full existing verification lanes:
 
-### Manual visual acceptance (human review required)
+`./tools/verify-clean.sh`
 
-Check the 14 source mockup states in the actual Godot game at **1920×1080** and representative **960×540** window scaling. Exercise English, Traditional Chinese and Japanese; dense Calendar/Settings/Dialogue text; short and long crop names; selected/unselected/disabled states; shop insufficient funds; empty inventory; shipment warnings; save failure and Day 14 boundary. Check font fallback, focus highlight, clipping, dim layer, footer/hotkey accuracy and exact-action pill labels.
+`./tools/bootstrap-gdunit.sh`, then `./addons/gdUnit4/runtest.sh -a tests/gdunit -c`
 
-There is **no screenshot-golden re-bless or screenshot CI**. The PR should include a short manual review checklist and any non-blocking visual differences for human sign-off.
+In the configured godot-e2e environment, `./addons/gdUnit4/runtest.sh -a tests/e2e -c`
 
-## Completion definition
+Review CI from `.github/workflows/unit-tests.yml` and `.github/workflows/e2e-tests.yml`. Update assertions, not coverage policy. The clean script archives `HEAD`: uncommitted changes are not validated.
 
-- Native 1080p presentation on all targeted surfaces, with one reused phone frame and the approved City Pop style.
-- No active `fit_legacy_*` call sites or remaining dependency on 640×360 panel coordinates.
-- Existing gameplay/session and keyboard/modality behavior is preserved; no new persistent data, art or audio.
-- Strings translated into zh_TW and ja, existing automated verification lanes passing, and 14 reference states visually reviewed.
-- PR remains **one HPA-682 PR** from design through implementation. No split follow-up PRs; separate story/art issues remain independently owned.
+## Visual verification / completion
 
-## Out-of-scope follow-ups
+Check the fixed **13 HPA-682 reference states** in the design spec:
 
-HPA-684 supplies the 14 diary lines and story-specific intro/result copy. HPA-683/685/686 move farm/town responsibilities. HPA-687 owns town/kei-truck art. Any new icons/portraits/SFX should be ticketed separately rather than bundled with this UI code change.
+`02-seed-shop`, `03-shipping-day14`, `04-bag`, `05-almanac`, `06-calendar`, `07-dialogue`, `08-morning-summary`, `09-sleep`, `10-pause`, `11-settings`, `12-intro`, `13-title`, `14-result-heart-of-harvest`.
 
-## Implementation notes / risk register
+HPA-681 owns `01-hud` and the native tutorial-card tab. Compare HPA-682 views to the mockup at **1920×1080 and 960×540**, including **English, zh_TW and ja**; check accurate buttons/hotkeys, dense localized text, clipping, font fallback, selected/disabled action states, Day 14 warnings, save failure, and end-tier stats. Manually review visuals; no new golden tests or art-generation task.
 
-- **Risk: scene path churn breaks tests.** Keep each existing panel root stable and refactor one UI family at a time; update selectors with the panel's actual behavior test.
-- **Risk: phone frame clipping hides text.** Keep gradient layers behind text, don't nest clips, and test zh_TW/ja labels at minimum viewport.
-- **Risk: Pause app icon behavior differs from reference.** Keep current shortcut gating; navigate tiles by narrow signals and request UX review before broadening keyboard semantics.
-- **Risk: diary depends on HPA-684.** Leave content blank/omit until its data exists; do not create premature model fields.
-- **Risk: presentation PR changes state handling.** Treat all `GameSession`, `WorldShell`, `UiSettings` persistence and `GameHud` modal gating as fixed contracts; review any incidental changes as a red flag.
+**Done when:** all targeted surfaces native, legacy scale/palette removed without orphaned callers, existing gameplay/input/save behavior preserved, the translation CSV complete, all existing automated lanes green, and visual review complete. Implementation remains on **PR #35**.
