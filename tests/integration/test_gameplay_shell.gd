@@ -1408,17 +1408,23 @@ func _press_and_release_outside(control: Control) -> void:
     await get_tree().process_frame
     await _mouse_left(outside, false)
 
-func _press_physical_key(keycode: Key) -> void:
-    var press := InputEventKey.new()
-    press.keycode = keycode
-    press.physical_keycode = keycode
-    press.pressed = true
-    get_viewport().push_input(press)
-    var release := InputEventKey.new()
-    release.keycode = keycode
-    release.physical_keycode = keycode
-    release.pressed = false
-    get_viewport().push_input(release)
+func _press_physical_key(
+    keycode: Key,
+    ctrl := false,
+    alt := false,
+    shift := false,
+    meta := false,
+) -> void:
+    for pressed in [true, false]:
+        var key := InputEventKey.new()
+        key.keycode = keycode
+        key.physical_keycode = keycode
+        key.pressed = pressed
+        key.ctrl_pressed = ctrl
+        key.alt_pressed = alt
+        key.shift_pressed = shift
+        key.meta_pressed = meta
+        get_viewport().push_input(key)
     await get_tree().process_frame
 
 func test_primary_modal_registry_keeps_surfaces_exclusive() -> void:
@@ -2537,6 +2543,57 @@ func test_gift_number_key_gives_the_numbered_chip() -> void:
         int(world._session.snapshot()["relationships"][&"resident"]["points"]),
         points_before + VillagerRules.gift_points(june, GameRules.CropKind.POTATO),
     )
+    hud.close_dialogue()
+
+func test_gift_number_key_ignores_modified_digit_chords() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var june := VillagerRules.VillagerId.RESIDENT
+    var seeded: Array[int] = [1, 1, 1]
+    world._session.set("_harvested_counts", seeded)
+
+    await _place_target(world, WorldContract.villager_cell(june))
+    world.interact()
+    var panel := _panel(hud, "DialoguePanel") as DialoguePanel
+    assert_eq(_visible_gift_count(panel), 3)
+    var points_before := int(
+        world._session.snapshot()["relationships"][&"resident"]["points"]
+    )
+
+    for chord in [
+        [true, false, false, false],
+        [false, true, false, false],
+        [false, false, true, false],
+        [false, false, false, true],
+    ]:
+        for digit in [KEY_1, KEY_2, KEY_3]:
+            await _press_physical_key(
+                digit, chord[0], chord[1], chord[2], chord[3]
+            )
+
+    var snapshot := world._session.snapshot()
+    assert_eq(int(snapshot["harvested"][&"turnip"]), 1)
+    assert_eq(int(snapshot["harvested"][&"potato"]), 1)
+    assert_eq(int(snapshot["harvested"][&"pumpkin"]), 1)
+    assert_eq(
+        int(snapshot["relationships"][&"resident"]["points"]),
+        points_before,
+    )
+    assert_false(bool(snapshot["relationships"][&"resident"]["gifted_today"]))
+
+    await _press_physical_key(KEY_2)
+    snapshot = world._session.snapshot()
+    assert_eq(int(snapshot["harvested"][&"potato"]), 0)
+    assert_eq(
+        int(snapshot["relationships"][&"resident"]["points"]),
+        points_before
+            + VillagerRules.gift_points(june, GameRules.CropKind.POTATO),
+    )
+    assert_true(bool(snapshot["relationships"][&"resident"]["gifted_today"]))
     hud.close_dialogue()
 
 func _visible_gift_count(dialogue: DialoguePanel) -> int:
