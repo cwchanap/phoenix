@@ -72,6 +72,9 @@ func _input(event: InputEvent) -> void:
 	elif event.is_action_pressed("panel_max"):
 		_select_max()
 	elif event.is_action_pressed("ui_accept"):
+		var owner := get_viewport().gui_get_focus_owner()
+		if owner != null and is_ancestor_of(owner):
+			return
 		_deposit()
 	else:
 		return
@@ -337,7 +340,8 @@ func _footer() -> PanelContainer:
 	bar.add_theme_stylebox_override("panel", bar_box)
 	var footer := UiStyle.commerce_footer("all")
 	bar.add_child(footer)
-	_action = footer.get_node("Action/Row/Text") as Label
+	(footer.get_node("Action") as Button).pressed.connect(_deposit)
+	_action = footer.get_node("Action/Pill/Row/Text") as Label
 	return bar
 
 func _update_rows() -> void:

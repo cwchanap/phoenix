@@ -443,9 +443,8 @@ static func commerce_footer(max_hint: String = "max") -> HBoxContainer:
 	leave.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	footer.add_child(leave)
 	var pill := gradient_surface(ACCENT_GRADIENT, PILL_RADIUS, [8, 7, 24, 7])
-	pill.name = "Action"
+	pill.name = "Pill"
 	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	footer.add_child(pill)
 	var pill_row := hbox(12)
 	pill_row.name = "Row"
 	pill_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -458,6 +457,11 @@ static func commerce_footer(max_hint: String = "max") -> HBoxContainer:
 	action.name = "Text"
 	action.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	pill_row.add_child(action)
+	var action_button := hit_button(pill)
+	action_button.name = "Action"
+	action_button.focus_mode = Control.FOCUS_CLICK
+	action_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	footer.add_child(action_button)
 	return footer
 
 static func wallpaper_texture(
@@ -528,7 +532,10 @@ static func primary_action_pill(key_text: String, caption: String) -> PanelConta
 	row.add_child(text)
 	return pill
 
-static func _pill_button(pill: PanelContainer, floor_size: Vector2 = Vector2(200, 52)) -> Button:
+static func hit_button(child: Control, floor_size: Vector2 = Vector2.ZERO) -> Button:
+	return _pill_button(child, floor_size)
+
+static func _pill_button(pill: Control, floor_size: Vector2 = Vector2(200, 52)) -> Button:
 	var button := Button.new()
 	button.focus_mode = Control.FOCUS_NONE
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND

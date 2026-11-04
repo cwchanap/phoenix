@@ -35,6 +35,7 @@ var _feedback_value: Label
 var _gift_status: Label
 var _gift_hint: Label
 var _esc_text: Label
+var _leave_row: HBoxContainer
 var _action_text: Label
 var _action: Button
 var _continue: Button
@@ -342,15 +343,15 @@ func _footer_block() -> VBoxContainer:
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(spacer)
-	var leave_row := UiStyle.hbox(8)
-	leave_row.name = "LeaveRow"
-	leave_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	footer.add_child(leave_row)
-	leave_row.add_child(UiStyle.keycap("Esc", true))
+	_leave_row = UiStyle.hbox(8)
+	_leave_row.name = "LeaveRow"
+	_leave_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	footer.add_child(_leave_row)
+	_leave_row.add_child(UiStyle.keycap("Esc", true))
 	_esc_text = UiStyle.label("leave", 17, UiStyle.INK_MUTED, 800)
 	_esc_text.name = "EscText"
 	_esc_text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	leave_row.add_child(_esc_text)
+	_leave_row.add_child(_esc_text)
 	_action = UiStyle.primary_action("Enter", "")
 	_action.name = "Action"
 	var pill := _action.find_child("Pill", true, false) as PanelContainer
@@ -401,7 +402,7 @@ func _render() -> void:
 	_continue.visible = more_lines
 	var locked := _close_friend_sequence and more_lines
 	_close.visible = not locked
-	_esc_text.text = "continue" if locked else "leave"
+	_leave_row.visible = not locked
 	_render_relationship(relationship)
 	_render_gift_buttons(locked)
 
