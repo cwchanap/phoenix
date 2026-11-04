@@ -8,7 +8,10 @@ func after_each() -> void:
 	TranslationServer.set_locale("en")
 
 func _spawn_panel(scene: String) -> Control:
-	get_window().size = UiSettings.WINDOW_SIZE
+	return _spawn_panel_at(scene, UiSettings.WINDOW_SIZE)
+
+func _spawn_panel_at(scene: String, window_size: Vector2i) -> Control:
+	get_window().size = window_size
 	var panel := (load(scene) as PackedScene).instantiate() as Control
 	assert_not_null(panel)
 	if panel == null:
@@ -18,6 +21,9 @@ func _spawn_panel(scene: String) -> Control:
 	add_child_autoqfree(top)
 	top.add_child(panel)
 	return panel
+
+func _window_point(logical: Vector2) -> Vector2:
+	return get_window().get_final_transform() * logical
 
 func _counts(partial: Dictionary) -> Dictionary:
 	var result := {&"turnip": 0, &"potato": 0, &"pumpkin": 0}
@@ -92,6 +98,42 @@ func _press_and_release_outside(control: Control) -> void:
 	release.button_index = MOUSE_BUTTON_LEFT
 	release.pressed = false
 	release.position = Vector2(40, 40)
+	get_viewport().push_input(release)
+	await get_tree().process_frame
+
+func _press_at_release_outside_at(global_pos: Vector2) -> void:
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = global_pos
+	get_viewport().push_input(press)
+	await get_tree().process_frame
+	var motion := InputEventMouseMotion.new()
+	motion.position = Vector2(40, 40)
+	get_viewport().push_input(motion)
+	await get_tree().process_frame
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = Vector2(40, 40)
+	get_viewport().push_input(release)
+	await get_tree().process_frame
+
+func _press_outside_release_at(global_pos: Vector2) -> void:
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = Vector2(40, 40)
+	get_viewport().push_input(press)
+	await get_tree().process_frame
+	var motion := InputEventMouseMotion.new()
+	motion.position = global_pos
+	get_viewport().push_input(motion)
+	await get_tree().process_frame
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = global_pos
 	get_viewport().push_input(release)
 	await get_tree().process_frame
 
@@ -1032,30 +1074,180 @@ func test_shop_disabled_steppers_ignore_clicks() -> void:
 func test_action_button_click_works_in_all_locales() -> void:
 	for locale in LOCALES:
 		TranslationServer.set_locale(locale)
-		var shop := _spawn_panel(SHOP_SCENE) as ShopPanel
-		if shop == null:
-			return
-		shop.open_panel(_shop_snapshot(150, {&"turnip": 3}))
-		await _settle()
-		var shop_action := _action_button(shop)
-		if shop_action == null:
-			return
-		watch_signals(shop)
-		await _click(shop_action)
-		assert_signal_emitted(shop, "buy_requested", "%s shop click" % locale)
-		shop.visible = false
-		var shipping := _spawn_panel(SHIPPING_SCENE) as ShippingPanel
-		if shipping == null:
-			return
-		shipping.open_panel(_shipping_snapshot({&"turnip": 7}))
-		await _settle()
-		var shipping_action := _action_button(shipping)
-		if shipping_action == null:
-			return
-		watch_signals(shipping)
-		await _click(shipping_action)
-		assert_signal_emitted(
-			shipping, "deposit_requested", "%s shipping click" % locale
-		)
-		shipping.visible = false
-		await _settle()
+		for size in [UiSettings.WINDOW_SIZE, UiSettings.MIN_WINDOW_SIZE]:
+			var context := "%s %s" % [size, locale]
+			var shop := _spawn_panel_at(SHOP_SCENE, size) as ShopPanel
+			if shop == null:
+				return
+			shop.open_panel(_shop_snapshot(150, {&"turnip": 3}))
+			await _settle()
+			assert_eq(
+				get_window().size, size,
+				"%s: the test runs on the requested native window" % context,
+			)
+			var shop_action := _action_button(shop)
+			if shop_action == null:
+				return
+			watch_signals(shop)
+			await _click_at(
+				_window_point(shop_action.get_global_rect().get_center())
+			)
+			assert_signal_emitted(shop, "buy_requested", "%s shop click" % context)
+			shop.visible = false
+			var shipping := _spawn_panel_at(SHIPPING_SCENE, size) as ShippingPanel
+			if shipping == null:
+				return
+			shipping.open_panel(_shipping_snapshot({&"turnip": 7}))
+			await _settle()
+			var shipping_action := _action_button(shipping)
+			if shipping_action == null:
+				return
+			watch_signals(shipping)
+			await _click_at(
+				_window_point(shipping_action.get_global_rect().get_center())
+			)
+			assert_signal_emitted(
+				shipping, "deposit_requested", "%s shipping click" % context
+			)
+			shipping.visible = false
+			await _settle()
+	get_window().size = UiSettings.WINDOW_SIZE
+
+func test_action_button_edges_cancel_and_enter_at_both_sizes() -> void:
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		for size in [UiSettings.WINDOW_SIZE, UiSettings.MIN_WINDOW_SIZE]:
+			var context := "%s %s" % [size, locale]
+			var shop := _spawn_panel_at(SHOP_SCENE, size) as ShopPanel
+			if shop == null:
+				return
+			shop.open_panel(_shop_snapshot(150, {&"turnip": 3}))
+			await _settle()
+			assert_eq(
+				get_window().size, size,
+				"%s: the test runs on the requested native window" % context,
+			)
+			var expected := 0.5 if size == UiSettings.MIN_WINDOW_SIZE else 1.0
+			assert_almost_eq(
+				get_window().get_final_transform().x.x, expected, 0.01,
+				"%s: the canvas transform scales to the native window" % context,
+			)
+			var action := _action_button(shop)
+			if action == null:
+				return
+			var rect := action.get_global_rect()
+			var mid := rect.size.y * 0.5
+			watch_signals(shop)
+			await _click_at(
+				_window_point(rect.position + Vector2(4, mid))
+			)
+			assert_signal_emitted_with_parameters(
+				shop, "buy_requested", [GameRules.CropKind.TURNIP, 1]
+			)
+			await _click_at(
+				_window_point(rect.end - Vector2(4, mid))
+			)
+			assert_signal_emit_count(
+				shop, "buy_requested", 2,
+				"%s: both painted edges dispatch the request" % context,
+			)
+			await _press_at_release_outside_at(
+				_window_point(rect.get_center())
+			)
+			assert_signal_emit_count(
+				shop, "buy_requested", 2,
+				"%s: release outside cancels" % context,
+			)
+			await _press_outside_release_at(
+				_window_point(rect.get_center())
+			)
+			assert_signal_emit_count(
+				shop, "buy_requested", 2,
+				"%s: a press starting outside never arms the button" % context,
+			)
+			assert_eq(
+				get_viewport().gui_get_focus_owner(), action,
+				"%s: the edge clicks focused the native button" % context,
+			)
+			await _press("ui_accept")
+			assert_signal_emit_count(
+				shop, "buy_requested", 3,
+				"%s: focused Enter dispatches exactly once" % context,
+			)
+			action.release_focus()
+			await _settle()
+			await _press("ui_accept")
+			assert_signal_emit_count(
+				shop, "buy_requested", 4,
+				"%s: unfocused Enter dispatches once via the panel" % context,
+			)
+			shop.visible = false
+			await _settle()
+	get_window().size = UiSettings.WINDOW_SIZE
+
+func test_shipping_action_button_edges_and_cancel_at_both_sizes() -> void:
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		for size in [UiSettings.WINDOW_SIZE, UiSettings.MIN_WINDOW_SIZE]:
+			var context := "%s %s" % [size, locale]
+			var shipping := _spawn_panel_at(SHIPPING_SCENE, size) as ShippingPanel
+			if shipping == null:
+				return
+			shipping.open_panel(_shipping_snapshot({&"turnip": 7}))
+			await _settle()
+			assert_eq(
+				get_window().size, size,
+				"%s: the test runs on the requested native window" % context,
+			)
+			var action := _action_button(shipping)
+			if action == null:
+				return
+			var rect := action.get_global_rect()
+			var mid := rect.size.y * 0.5
+			watch_signals(shipping)
+			await _click_at(
+				_window_point(rect.position + Vector2(4, mid))
+			)
+			assert_signal_emitted_with_parameters(
+				shipping, "deposit_requested", [GameRules.CropKind.TURNIP, 1]
+			)
+			await _click_at(
+				_window_point(rect.end - Vector2(4, mid))
+			)
+			assert_signal_emit_count(
+				shipping, "deposit_requested", 2,
+				"%s: both painted edges dispatch the request" % context,
+			)
+			await _press_at_release_outside_at(
+				_window_point(rect.get_center())
+			)
+			assert_signal_emit_count(
+				shipping, "deposit_requested", 2,
+				"%s: release outside cancels" % context,
+			)
+			await _press_outside_release_at(
+				_window_point(rect.get_center())
+			)
+			assert_signal_emit_count(
+				shipping, "deposit_requested", 2,
+				"%s: a press starting outside never arms the button" % context,
+			)
+			assert_eq(
+				get_viewport().gui_get_focus_owner(), action,
+				"%s: the edge clicks focused the native button" % context,
+			)
+			await _press("ui_accept")
+			assert_signal_emit_count(
+				shipping, "deposit_requested", 3,
+				"%s: focused Enter dispatches exactly once" % context,
+			)
+			action.release_focus()
+			await _settle()
+			await _press("ui_accept")
+			assert_signal_emit_count(
+				shipping, "deposit_requested", 4,
+				"%s: unfocused Enter dispatches once via the panel" % context,
+			)
+			shipping.visible = false
+			await _settle()
+	get_window().size = UiSettings.WINDOW_SIZE

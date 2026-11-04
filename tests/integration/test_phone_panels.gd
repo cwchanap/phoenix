@@ -9,7 +9,10 @@ func after_each() -> void:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS_TEST_PATH))
 
 func _spawn_panel(scene: String) -> Control:
-	get_window().size = UiSettings.WINDOW_SIZE
+	return _spawn_panel_at(scene, UiSettings.WINDOW_SIZE)
+
+func _spawn_panel_at(scene: String, window_size: Vector2i) -> Control:
+	get_window().size = window_size
 	var panel := (load(scene) as PackedScene).instantiate() as Control
 	assert_not_null(panel)
 	if panel == null:
@@ -19,6 +22,9 @@ func _spawn_panel(scene: String) -> Control:
 	add_child_autoqfree(top)
 	top.add_child(panel)
 	return panel
+
+func _window_point(logical: Vector2) -> Vector2:
+	return get_window().get_final_transform() * logical
 
 func _snapshot() -> Dictionary:
 	var session := GameSession.new()
@@ -229,6 +235,60 @@ func _release_outside_then_inside(control: Control) -> void:
 	release.button_index = MOUSE_BUTTON_LEFT
 	release.pressed = false
 	release.position = center
+	get_viewport().push_input(release)
+	await get_tree().process_frame
+
+func _press_at_release_outside_at(global_pos: Vector2) -> void:
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = global_pos
+	get_viewport().push_input(press)
+	await get_tree().process_frame
+	var motion := InputEventMouseMotion.new()
+	motion.position = Vector2(40, 40)
+	get_viewport().push_input(motion)
+	await get_tree().process_frame
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = Vector2(40, 40)
+	get_viewport().push_input(release)
+	await get_tree().process_frame
+
+func _press_outside_release_at(global_pos: Vector2) -> void:
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = Vector2(40, 40)
+	get_viewport().push_input(press)
+	await get_tree().process_frame
+	var motion := InputEventMouseMotion.new()
+	motion.position = global_pos
+	get_viewport().push_input(motion)
+	await get_tree().process_frame
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = global_pos
+	get_viewport().push_input(release)
+	await get_tree().process_frame
+
+func _drag_at(from_pos: Vector2, to_pos: Vector2) -> void:
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = from_pos
+	get_viewport().push_input(press)
+	await get_tree().process_frame
+	var motion := InputEventMouseMotion.new()
+	motion.position = to_pos
+	get_viewport().push_input(motion)
+	await get_tree().process_frame
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = to_pos
 	get_viewport().push_input(release)
 	await get_tree().process_frame
 
@@ -1811,6 +1871,34 @@ func _settings_panel() -> SettingsPanel:
 	var panel := _spawn_panel("res://scenes/ui/settings_panel.tscn") as SettingsPanel
 	return panel
 
+func _settings_panel_at(window_size: Vector2i) -> SettingsPanel:
+	var panel := _spawn_panel_at(
+		"res://scenes/ui/settings_panel.tscn", window_size
+	) as SettingsPanel
+	return panel
+
+func test_settings_spawn_window_size_is_truthful() -> void:
+	for window_size in [UiSettings.WINDOW_SIZE, UiSettings.MIN_WINDOW_SIZE]:
+		var settings := _settings_panel_at(window_size)
+		assert_not_null(settings)
+		if settings == null:
+			continue
+		await _settle()
+		assert_eq(
+			get_window().size, window_size,
+			"%s: the spawned panel keeps the requested native window"
+				% window_size,
+		)
+		var expected := 0.5 if window_size == UiSettings.MIN_WINDOW_SIZE else 1.0
+		assert_almost_eq(
+			get_window().get_final_transform().x.x, expected, 0.01,
+			"%s: the canvas transform scales to the native window"
+				% window_size,
+		)
+		settings.queue_free()
+		await _settle()
+	get_window().size = UiSettings.WINDOW_SIZE
+
 func _slider_rect(settings: Control, slider_name: String) -> Rect2:
 	var slider := settings.find_child(
 		"%sSlider" % slider_name, true, false
@@ -2076,41 +2164,291 @@ func test_settings_keyboard_row_and_adjust_survive_pointer_clicks() -> void:
 	await _press("move_right")
 	assert_eq(ui_settings.sound, 8)
 
-func test_settings_clicks_work_in_all_locales_at_min_window() -> void:
-	var window := get_window()
+func test_settings_clicks_work_in_all_locales_at_both_sizes() -> void:
 	for size in [UiSettings.WINDOW_SIZE, UiSettings.MIN_WINDOW_SIZE]:
-		window.size = size
 		for locale in LOCALES:
 			TranslationServer.set_locale(locale)
-			var settings := _settings_panel()
+			var context := "%s %s" % [size, locale]
+			var settings := _settings_panel_at(size)
 			assert_not_null(settings)
 			if settings == null:
 				continue
 			var ui_settings := UiSettings.new(SETTINGS_TEST_PATH)
 			ui_settings.music = 4
+			ui_settings.sound = 4
 			ui_settings.tutorial_cards = true
 			ui_settings.language = locale
 			settings.open_panel(ui_settings)
 			await _settle()
+			assert_eq(
+				get_window().size, size,
+				"%s: the test runs on the requested native window" % context,
+			)
+			var expected_scale := (
+				0.5 if size == UiSettings.MIN_WINDOW_SIZE else 1.0
+			)
+			assert_almost_eq(
+				get_window().get_final_transform().x.x, expected_scale, 0.01,
+				"%s: the canvas transform scales to the native window" % context,
+			)
 			var rect := _slider_rect(settings, "Music")
 			if not rect.has_area():
 				settings.queue_free()
 				await _settle()
 				continue
+			watch_signals(settings)
 			await _click_at(
-				rect.position + Vector2(rect.size.x * 0.8, rect.size.y * 0.5)
+				_window_point(
+					rect.position + Vector2(rect.size.x * 0.8, rect.size.y * 0.5)
+				)
 			)
 			assert_eq(
 				ui_settings.music, 8,
-				"%s %s: slider click maps position to level" % [size, locale],
+				"%s: slider click maps position to level" % context,
 			)
-			var chip_rect := _seg_chip_rect(settings, "WindowSeg", 1)
-			await _click_at(chip_rect.get_center())
+			assert_signal_emit_count(
+				settings, "settings_changed", 1,
+				"%s: one settings_changed per pointer commit" % context,
+			)
+			var sound_rect := _slider_rect(settings, "Sound")
+			await _click_at(
+				_window_point(
+					sound_rect.position
+						+ Vector2(sound_rect.size.x * 0.2, sound_rect.size.y * 0.5)
+				)
+			)
+			assert_eq(
+				ui_settings.sound, 2,
+				"%s: the sound track maps position to level" % context,
+			)
+			var reloaded := UiSettings.load(SETTINGS_TEST_PATH)
+			assert_eq(
+				reloaded.music, 8, "%s: the music click persists" % context
+			)
+			assert_eq(
+				reloaded.sound, 2, "%s: the sound click persists" % context
+			)
+			var full_rect := _seg_chip_rect(settings, "WindowSeg", 1)
+			await _click_at(_window_point(full_rect.get_center()))
 			assert_true(
 				ui_settings.fullscreen,
-				"%s %s: FULL chip click applies" % [size, locale],
+				"%s: the FULL chip applies" % context,
 			)
-			settings.queue_free()
+			var windowed_rect := _seg_chip_rect(settings, "WindowSeg", 0)
+			await _click_at(_window_point(windowed_rect.get_center()))
+			assert_false(
+				ui_settings.fullscreen,
+				"%s: the 1080p chip applies" % context,
+			)
+			var languages: Array = UiSettings.LANGUAGES
+			for chip in range(languages.size()):
+				var lang_rect := _seg_chip_rect(settings, "LanguageSeg", chip)
+				await _click_at(_window_point(lang_rect.get_center()))
+				assert_eq(
+					ui_settings.language, languages[chip],
+					"%s: language chip %d applies" % [context, chip],
+				)
+				assert_eq(
+					TranslationServer.get_locale(), languages[chip],
+					"%s: language chip %d applies the locale live"
+						% [context, chip],
+				)
+			reloaded = UiSettings.load(SETTINGS_TEST_PATH)
+			assert_eq(
+				reloaded.language, languages[languages.size() - 1],
+				"%s: the last language chip persists" % context,
+			)
+			var tips := settings.find_child("TipsSwitch", true, false) as Control
+			var tips_rect := tips.get_global_rect()
+			await _click_at(_window_point(tips_rect.get_center()))
+			assert_false(
+				ui_settings.tutorial_cards,
+				"%s: tips switch click toggles" % context,
+			)
+			reloaded = UiSettings.load(SETTINGS_TEST_PATH)
+			assert_false(
+				reloaded.tutorial_cards,
+				"%s: the tips click persists" % context,
+			)
+			assert_signal_emit_count(
+				settings, "settings_changed", 8,
+				"%s: every pointer commit emits once, no doubles" % context,
+			)
+	get_window().size = UiSettings.WINDOW_SIZE
+
+func test_settings_cancel_gestures_at_both_sizes() -> void:
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		for size in [UiSettings.WINDOW_SIZE, UiSettings.MIN_WINDOW_SIZE]:
+			var context := "%s %s" % [size, locale]
+			var settings := _settings_panel_at(size)
+			assert_not_null(settings)
+			if settings == null:
+				continue
+			var ui_settings := UiSettings.new(SETTINGS_TEST_PATH)
+			ui_settings.music = 4
+			ui_settings.fullscreen = false
+			ui_settings.tutorial_cards = true
+			settings.open_panel(ui_settings)
 			await _settle()
-	window.size = UiSettings.WINDOW_SIZE
+			var slider_rect := _slider_rect(settings, "Music")
+			var chip_rect := _seg_chip_rect(settings, "WindowSeg", 1)
+			var tips := settings.find_child("TipsSwitch", true, false) as Control
+			var tips_rect := tips.get_global_rect()
+			watch_signals(settings)
+			await _press_at_release_outside_at(
+				_window_point(slider_rect.get_center())
+			)
+			await _press_at_release_outside_at(
+				_window_point(chip_rect.get_center())
+			)
+			await _press_at_release_outside_at(
+				_window_point(tips_rect.get_center())
+			)
+			assert_eq(ui_settings.music, 4, "%s: slider cancel-outside" % context)
+			assert_false(ui_settings.fullscreen, "%s: chip cancel-outside" % context)
+			assert_true(ui_settings.tutorial_cards, "%s: tips cancel-outside" % context)
+			await _press_outside_release_at(
+				_window_point(slider_rect.get_center())
+			)
+			await _press_outside_release_at(
+				_window_point(chip_rect.get_center())
+			)
+			await _press_outside_release_at(
+				_window_point(tips_rect.get_center())
+			)
+			assert_eq(
+				ui_settings.music, 4,
+				"%s: outside press never arms the slider" % context,
+			)
+			assert_false(
+				ui_settings.fullscreen,
+				"%s: outside press never arms the chip" % context,
+			)
+			assert_true(
+				ui_settings.tutorial_cards,
+				"%s: outside press never arms the switch" % context,
+			)
+			assert_signal_not_emitted(
+				settings, "settings_changed",
+				"%s: cancelled gestures emit nothing" % context,
+			)
+			var start := _window_point(
+				chip_rect.position + Vector2(chip_rect.size.x * 0.25, chip_rect.size.y * 0.5)
+			)
+			var end := _window_point(
+				chip_rect.position + Vector2(chip_rect.size.x * 0.75, chip_rect.size.y * 0.5)
+			)
+			var press := InputEventMouseButton.new()
+			press.button_index = MOUSE_BUTTON_LEFT
+			press.pressed = true
+			press.position = start
+			get_viewport().push_input(press)
+			await get_tree().process_frame
+			var motion := InputEventMouseMotion.new()
+			motion.position = end
+			get_viewport().push_input(motion)
+			await get_tree().process_frame
+			var release := InputEventMouseButton.new()
+			release.button_index = MOUSE_BUTTON_LEFT
+			release.pressed = false
+			release.position = end
+			get_viewport().push_input(release)
+			await get_tree().process_frame
+			assert_true(
+				ui_settings.fullscreen,
+				"%s: inside-to-inside drag still commits" % context,
+			)
+			assert_signal_emit_count(
+				settings, "settings_changed", 1,
+				"%s: the drag commits once" % context,
+			)
+	get_window().mode = Window.MODE_WINDOWED
+	get_window().size = UiSettings.WINDOW_SIZE
+	TranslationServer.set_locale("en")
+
+func test_settings_slider_track_drag_commits_the_release_position() -> void:
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		for window_size in [UiSettings.WINDOW_SIZE, UiSettings.MIN_WINDOW_SIZE]:
+			var context := "%s %s" % [window_size, locale]
+			var settings := _settings_panel_at(window_size)
+			assert_not_null(settings)
+			if settings == null:
+				continue
+			var ui_settings := UiSettings.new(SETTINGS_TEST_PATH)
+			ui_settings.music = 5
+			ui_settings.sound = 3
+			settings.open_panel(ui_settings)
+			await _settle()
+			assert_eq(
+				get_window().size, window_size,
+				"%s: the test runs on the requested native window" % context,
+			)
+			var expected_scale := (
+				0.5 if window_size == UiSettings.MIN_WINDOW_SIZE else 1.0
+			)
+			assert_almost_eq(
+				get_window().get_final_transform().x.x, expected_scale, 0.01,
+				"%s: the canvas transform scales to the native window" % context,
+			)
+			watch_signals(settings)
+			var music_rect := _slider_rect(settings, "Music")
+			await _drag_at(
+				_window_point(
+					music_rect.position
+						+ Vector2(music_rect.size.x * 0.2, music_rect.size.y * 0.5)
+				),
+				_window_point(
+					music_rect.position
+						+ Vector2(music_rect.size.x * 0.8, music_rect.size.y * 0.5)
+				)
+			)
+			assert_eq(
+				ui_settings.music, 8,
+				"%s: the music drag commits the release position" % context,
+			)
+			var music_slider := settings.find_child(
+				"MusicSlider", true, false
+			) as Control
+			var music_fill := music_slider.find_child(
+				"Fill", true, false
+			) as Control
+			assert_almost_eq(
+				music_fill.anchor_right, 0.8, 0.01,
+				"%s: the music fill tracks the dragged level" % context,
+			)
+			var reloaded := UiSettings.load(SETTINGS_TEST_PATH)
+			assert_eq(
+				reloaded.music, 8, "%s: the music drag persists" % context
+			)
+			assert_signal_emit_count(
+				settings, "settings_changed", 1,
+				"%s: the music drag commits exactly once" % context,
+			)
+			var sound_rect := _slider_rect(settings, "Sound")
+			await _drag_at(
+				_window_point(
+					sound_rect.position
+						+ Vector2(sound_rect.size.x * 0.2, sound_rect.size.y * 0.5)
+				),
+				_window_point(
+					sound_rect.position
+						+ Vector2(sound_rect.size.x * 0.8, sound_rect.size.y * 0.5)
+				)
+			)
+			assert_eq(
+				ui_settings.sound, 8,
+				"%s: the sound drag commits the release position" % context,
+			)
+			reloaded = UiSettings.load(SETTINGS_TEST_PATH)
+			assert_eq(
+				reloaded.sound, 8, "%s: the sound drag persists" % context
+			)
+			assert_signal_emit_count(
+				settings, "settings_changed", 2,
+				"%s: each slider drag emits exactly one commit" % context,
+			)
+	get_window().mode = Window.MODE_WINDOWED
+	get_window().size = UiSettings.WINDOW_SIZE
 	TranslationServer.set_locale("en")
