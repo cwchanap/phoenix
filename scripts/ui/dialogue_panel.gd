@@ -45,6 +45,8 @@ func _ready() -> void:
 	_build()
 	_continue.pressed.connect(_on_continue_pressed)
 	_close.pressed.connect(func() -> void: close_requested.emit())
+	_continue.focus_entered.connect(_render_action_caption)
+	_close.focus_entered.connect(_render_action_caption)
 	for kind in _gift_buttons.size():
 		_gift_buttons[kind].pressed.connect(_on_gift_button_pressed.bind(kind))
 		_gift_buttons[kind].focus_entered.connect(_on_gift_focus_entered.bind(kind))
@@ -437,7 +439,11 @@ func _render_gift_buttons(suppressed: bool) -> void:
 		var is_selected := kind == _selected_gift_kind
 		button.visible = true
 		button.disabled = quantity < 1
-		button.focus_mode = Control.FOCUS_ALL
+		button.focus_mode = (
+			Control.FOCUS_NONE if button.disabled else Control.FOCUS_ALL
+		)
+		if button.disabled and get_viewport().gui_get_focus_owner() == button:
+			button.release_focus()
 		button.modulate = Color.WHITE if quantity > 0 else DIMMED
 		var card_style := UiStyle.card(
 			UiStyle.ACCENT_SOFT if is_selected else UiStyle.SOFT, 18, [0, 0, 0, 0], false
@@ -495,6 +501,11 @@ func _primary_gift_kind() -> int:
 	return -1
 
 func _primary_action_kind() -> StringName:
+	var focused := get_viewport().gui_get_focus_owner()
+	if focused == _close:
+		return &"close"
+	if focused == _continue:
+		return &"continue"
 	if _line_index < _lines.size() - 1:
 		return &"continue"
 	var relationship := _relationship_snapshot()
@@ -551,7 +562,9 @@ func _on_gift_button_pressed(crop_kind: int) -> void:
 
 func _on_gift_focus_entered(crop_kind: int) -> void:
 	_selected_gift_kind = crop_kind
-	if visible and not _close_friend_sequence:
+	if visible and not (
+		_close_friend_sequence and _line_index < _lines.size() - 1
+	):
 		_render_gift_buttons(false)
 
 func _on_continue_pressed() -> void:

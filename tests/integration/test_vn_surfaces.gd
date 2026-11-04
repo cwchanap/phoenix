@@ -999,6 +999,268 @@ func test_dialogue_action_pill_click_works_in_all_locales() -> void:
 		assert_signal_emitted(panel, "gift_requested", "%s click gifts" % locale)
 		panel.hide()
 
+func test_dialogue_final_close_friend_line_repaints_focused_chip() -> void:
+	var panel := _present_dialogue(
+		{
+			"code": GameRules.CommandCode.VILLAGER_TALKED,
+			"lines": VillagerRules.close_friend_dialogue_lines(
+				VillagerRules.VillagerId.SHOPKEEPER,
+			),
+			"points_gained": 0,
+			"gift_reaction": &"",
+			"close_friend_sequence": true,
+			"selected_crop_kind": GameRules.CropKind.POTATO,
+		},
+		_dialogue_snapshot(),
+	)
+	if panel == null:
+		return
+	await _settle()
+	var turnip := panel.gift_chip(GameRules.CropKind.TURNIP)
+	var potato := panel.gift_chip(GameRules.CropKind.POTATO)
+	assert_false(turnip.visible, "gifts stay suppressed on locked lines")
+	var pill := panel.find_child("ActionPill", true, false) as Control
+	await _click(pill)
+	assert_eq(panel._line_index, 1, "last close-friend line reached")
+	assert_true(turnip.visible, "the final line reopens gifts")
+	turnip.grab_focus()
+	await _settle()
+	assert_eq(panel._selected_gift_kind, GameRules.CropKind.TURNIP)
+	assert_eq(
+		panel.action_text(),
+		"GIVE TURNIP",
+		"caption follows the focused chip on the final line",
+	)
+	var turnip_box := turnip.get_theme_stylebox("normal") as StyleBoxFlat
+	assert_not_null(turnip_box)
+	if turnip_box != null:
+		assert_eq(
+			turnip_box.border_color,
+			UiStyle.ACCENT,
+			"focused chip repaints its accent ring",
+		)
+	watch_signals(panel)
+	await _click(pill)
+	assert_signal_emitted_with_parameters(
+		panel,
+		"gift_requested",
+		[VillagerRules.VillagerId.SHOPKEEPER, GameRules.CropKind.TURNIP],
+	)
+	assert_signal_emit_count(panel, "gift_requested", 1)
+	potato.grab_focus()
+	await _settle()
+	assert_eq(panel.action_text(), "GIVE POTATO")
+
+func test_dialogue_caption_and_click_follow_the_focused_action() -> void:
+	var panel := _dialogue()
+	if panel == null:
+		return
+	await _settle()
+	assert_eq(panel.action_text(), "GIVE POTATO")
+	var pill := panel.find_child("ActionPill", true, false) as Control
+	for step in range(4):
+		if get_viewport().gui_get_focus_owner() == panel.close_control():
+			break
+		await _press(&"ui_focus_next")
+	assert_eq(
+		get_viewport().gui_get_focus_owner(),
+		panel.close_control(),
+		"Tab can reach the close anchor",
+	)
+	assert_eq(
+		panel.action_text(),
+		"CLOSE",
+		"caption tracks the anchored action once it owns focus",
+	)
+	watch_signals(panel)
+	await _click(pill)
+	assert_signal_emitted(panel, "close_requested")
+	assert_signal_emit_count(panel, "close_requested", 1)
+	assert_signal_not_emitted(panel, "gift_requested")
+	await _press(&"ui_accept")
+	assert_signal_emit_count(panel, "close_requested", 2)
+	for step in range(4):
+		if (
+			get_viewport().gui_get_focus_owner()
+			== panel.gift_chip(GameRules.CropKind.TURNIP)
+		):
+			break
+		await _press(&"ui_focus_next")
+	assert_eq(
+		get_viewport().gui_get_focus_owner(),
+		panel.gift_chip(GameRules.CropKind.TURNIP),
+		"Tab wraps back to the first chip",
+	)
+	assert_eq(panel.action_text(), "GIVE TURNIP")
+	assert_eq(panel._selected_gift_kind, GameRules.CropKind.TURNIP)
+
+func test_dialogue_disabled_chips_never_take_focus() -> void:
+	var panel := _dialogue()
+	if panel == null:
+		return
+	await _settle()
+	var pumpkin := panel.gift_chip(GameRules.CropKind.PUMPKIN)
+	assert_true(pumpkin.disabled, "empty stock disables the chip")
+	assert_eq(
+		pumpkin.focus_mode,
+		Control.FOCUS_NONE,
+		"sold-out chips leave the keyboard focus chain",
+	)
+	for step in range(6):
+		await _press_keycode(KEY_TAB)
+		assert_ne(
+			get_viewport().gui_get_focus_owner(),
+			pumpkin,
+			"Tab never lands on the sold-out chip (stop %d)" % step,
+		)
+
+func test_dialogue_enter_click_and_caption_agree_at_each_tab_stop() -> void:
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		var panel := _dialogue()
+		if panel == null:
+			continue
+		await _settle()
+		watch_signals(panel)
+		var seen: Array = []
+		for step in range(7):
+			var owner := get_viewport().gui_get_focus_owner()
+			if owner == null or seen.has(owner):
+				break
+			seen.append(owner)
+			var where := "%s stop %d %s" % [locale, step, owner.name]
+			var chip_index := -1
+			if owner is Button and String(owner.name).begins_with("Gift_"):
+				chip_index = String(owner.name).trim_prefix("Gift_").to_int()
+			var gifts_before: int = get_signal_emit_count(panel, "gift_requested")
+			var closes_before: int = get_signal_emit_count(panel, "close_requested")
+			await _press_keycode(KEY_ENTER)
+			if owner == panel.close_control():
+				assert_eq(
+					panel.action_text(), "CLOSE",
+					"%s caption matches the anchored action" % where,
+				)
+				assert_eq(
+					get_signal_emit_count(panel, "close_requested"),
+					closes_before + 1,
+					"%s Enter closes once" % where,
+				)
+				assert_eq(
+					get_signal_emit_count(panel, "gift_requested"),
+					gifts_before,
+					"%s Enter never gifts" % where,
+				)
+			elif chip_index >= 0:
+				var expected := (
+					tr("GIVE %s")
+					% tr(GameRules.crop_display_name(chip_index)).to_upper()
+				)
+				assert_eq(
+					panel.action_text(), expected,
+					"%s caption names the focused crop" % where,
+				)
+				var gifts_after: int = get_signal_emit_count(
+					panel, "gift_requested"
+				)
+				assert_eq(
+					gifts_after, gifts_before + 1,
+					"%s Enter gifts exactly once" % where,
+				)
+				var params: Array = get_signal_parameters(
+					panel, "gift_requested", gifts_after - 1
+				)
+				assert_eq(
+					params,
+					[VillagerRules.VillagerId.SHOPKEEPER, chip_index],
+					"%s Enter gifts the focused crop" % where,
+				)
+				assert_eq(
+					get_signal_emit_count(panel, "close_requested"),
+					closes_before,
+					"%s Enter never closes" % where,
+				)
+			await _press_keycode(KEY_TAB)
+		panel.hide()
+
+func test_dialogue_stock_change_releases_focus_from_a_disabled_chip() -> void:
+	var panel := _dialogue()
+	if panel == null:
+		return
+	await _settle()
+	var turnip := panel.gift_chip(GameRules.CropKind.TURNIP)
+	turnip.grab_focus()
+	await _settle()
+	assert_eq(get_viewport().gui_get_focus_owner(), turnip)
+	var snapshot := _dialogue_snapshot()
+	snapshot["harvested"] = {&"turnip": 0, &"potato": 2, &"pumpkin": 0}
+	panel.present(
+		VillagerRules.VillagerId.SHOPKEEPER,
+		{
+			"code": GameRules.CommandCode.VILLAGER_TALKED,
+			"lines": [
+				"You stopped asking which seeds are best. Now you ask which are right.",
+			],
+			"points_gained": 1,
+			"gift_reaction": &"",
+			"close_friend_sequence": false,
+			"selected_crop_kind": GameRules.CropKind.POTATO,
+		},
+		snapshot,
+	)
+	await _settle()
+	assert_true(turnip.disabled, "empty stock disables the chip")
+	var owner := get_viewport().gui_get_focus_owner()
+	assert_ne(owner, turnip, "focus cannot linger on the now-disabled chip")
+	assert_eq(
+		owner,
+		panel.gift_chip(GameRules.CropKind.POTATO),
+		"focus lands on the next live gift",
+	)
+	assert_eq(panel.action_text(), "GIVE POTATO")
+	watch_signals(panel)
+	await _press_keycode(KEY_ENTER)
+	assert_signal_emitted_with_parameters(
+		panel,
+		"gift_requested",
+		[VillagerRules.VillagerId.SHOPKEEPER, GameRules.CropKind.POTATO],
+	)
+
+func test_dialogue_zero_inventory_enter_closes_from_the_anchor() -> void:
+	var snapshot := _dialogue_snapshot()
+	snapshot["harvested"] = {&"turnip": 0, &"potato": 0, &"pumpkin": 0}
+	var panel := _present_dialogue(
+		{
+			"code": GameRules.CommandCode.VILLAGER_TALKED,
+			"lines": ["Nothing in the bag today."],
+			"points_gained": 0,
+			"gift_reaction": &"",
+			"close_friend_sequence": false,
+		},
+		snapshot,
+	)
+	if panel == null:
+		return
+	await _settle()
+	assert_eq(
+		get_viewport().gui_get_focus_owner(),
+		panel.close_control(),
+		"empty bag focuses the close anchor",
+	)
+	assert_eq(panel.action_text(), "CLOSE")
+	for step in range(4):
+		await _press_keycode(KEY_TAB)
+		var owner := get_viewport().gui_get_focus_owner()
+		for kind in GameRules.CropKind.size():
+			assert_ne(
+				owner,
+				panel.gift_chip(kind),
+				"no disabled chip is reachable (stop %d)" % step,
+			)
+	watch_signals(panel)
+	await _press_keycode(KEY_ENTER)
+	assert_signal_emitted(panel, "close_requested")
+	assert_signal_not_emitted(panel, "gift_requested")
+
 func test_dialogue_gift_number_keys_ignore_modifiers() -> void:
 	var panel := _dialogue()
 	if panel == null:
@@ -1064,6 +1326,74 @@ func test_title_warning_label_is_20px_and_stays_clear_of_menu() -> void:
 					)
 	window.size = UiSettings.WINDOW_SIZE
 	await _settle()
+
+func test_result_featured_card_paints_its_ring_over_the_portrait_band() -> void:
+	var screen := _result()
+	if screen == null:
+		return
+	await _settle()
+	var state := screen.result_state()
+	var featured: Dictionary = state["featured"]
+	var featured_key := ""
+	for key in featured.keys():
+		if featured[key]:
+			featured_key = String(key)
+	assert_ne(featured_key, "", "one card is featured")
+	for id in range(VillagerRules.VillagerId.size()):
+		var key := VillagerRules.villager_key(id)
+		var card := screen.find_child(
+			"Card_%s" % String(key).capitalize(), true, false
+		) as PanelContainer
+		assert_not_null(card, "%s card exists" % key)
+		if card == null:
+			continue
+		var frame := card.find_child("Frame", true, false) as PanelContainer
+		var where := "card %s" % key
+		if key == featured_key:
+			assert_not_null(
+				frame,
+				"%s: the featured accent ring survives the portrait band" % where,
+			)
+			if frame == null:
+				continue
+			assert_true(frame.visible, "%s: ring is painted" % where)
+			assert_almost_eq(
+				frame.get_global_rect().position,
+				card.get_global_rect().position,
+				Vector2(1, 1),
+				"%s: ring hugs the card edge" % where,
+			)
+			assert_almost_eq(
+				frame.get_global_rect().size,
+				card.get_global_rect().size,
+				Vector2(1, 1),
+				"%s: ring hugs the card edge" % where,
+			)
+			var clip := card.find_child("PortraitClip", true, false) as Control
+			if clip != null:
+				var band_top := clip.get_global_rect().position.y + 2.0
+				assert_true(
+					frame.get_global_rect().has_point(
+						Vector2(card.get_global_rect().get_center().x, band_top)
+					),
+					"%s: ring spans the band that used to hide it" % where,
+				)
+			var frame_box := frame.get_theme_stylebox("panel") as StyleBoxFlat
+			assert_not_null(frame_box)
+			if frame_box != null:
+				assert_gte(
+					frame_box.border_width_top, 4,
+					"%s: ring keeps the accent weight" % where,
+				)
+				assert_eq(
+					frame_box.border_color, UiStyle.ACCENT,
+					"%s: ring keeps the accent colour" % where,
+				)
+		elif frame != null:
+			assert_false(
+				frame.visible,
+				"%s: non-featured cards keep the plain border only" % where,
+			)
 
 func test_result_warning_label_is_20px_and_stays_clear_of_actions() -> void:
 	var screen := _result(ERR_CANT_CREATE)
