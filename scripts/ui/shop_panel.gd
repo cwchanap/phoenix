@@ -23,6 +23,7 @@ var _quantity := 1
 var _sub: Label
 var _money: Label
 var _action: Label
+var _action_button: Button
 var _rows: Array[Dictionary] = []
 var _row_boxes: Array[StyleBoxFlat] = []
 
@@ -111,6 +112,8 @@ func _buy() -> void:
 	if _selected_row == UPGRADE_ROW:
 		if not bool(_snapshot.get("watering_can_upgraded", false)):
 			upgrade_requested.emit()
+		return
+	if _quantity <= 0:
 		return
 	buy_requested.emit(_selected_kind, _quantity)
 
@@ -334,7 +337,8 @@ func _footer() -> PanelContainer:
 	bar.add_theme_stylebox_override("panel", bar_box)
 	var footer := UiStyle.commerce_footer()
 	bar.add_child(footer)
-	(footer.get_node("Action") as Button).pressed.connect(_buy)
+	_action_button = footer.get_node("Action") as Button
+	_action_button.pressed.connect(_buy)
 	_action = footer.get_node("Action/Pill/Row/Text") as Label
 	return bar
 
@@ -373,6 +377,12 @@ func _update_rows() -> void:
 		)
 		_style_row(kind, selected)
 	_update_upgrade_row()
+	var owned := bool(_snapshot.get("watering_can_upgraded", false))
+	_action_button.disabled = (
+		(_selected_row != UPGRADE_ROW and _quantity <= 0)
+		or (_selected_row == UPGRADE_ROW and owned)
+	)
+	_action_button.modulate = DIMMED if _action_button.disabled else Color.WHITE
 
 func _style_row(index: int, selected: bool) -> void:
 	var row_box := _row_boxes[index]

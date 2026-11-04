@@ -19,6 +19,7 @@ var _quantity := 1
 var _sub: Label
 var _pending: Label
 var _action: Label
+var _action_button: Button
 var _warning: PanelContainer
 var _warning_text: Label
 var _rows: Array[Dictionary] = []
@@ -94,6 +95,8 @@ func _select_max() -> void:
 	_update_rows()
 
 func _deposit() -> void:
+	if _quantity <= 0:
+		return
 	deposit_requested.emit(_selected_kind, _quantity)
 
 func _clamped_quantity(quantity: int) -> int:
@@ -340,7 +343,8 @@ func _footer() -> PanelContainer:
 	bar.add_theme_stylebox_override("panel", bar_box)
 	var footer := UiStyle.commerce_footer("all")
 	bar.add_child(footer)
-	(footer.get_node("Action") as Button).pressed.connect(_deposit)
+	_action_button = footer.get_node("Action") as Button
+	_action_button.pressed.connect(_deposit)
 	_action = footer.get_node("Action/Pill/Row/Text") as Label
 	return bar
 
@@ -361,6 +365,8 @@ func _update_rows() -> void:
 	_action.text = tr("Ship %d · %dG") % [
 		_quantity, GameRules.sale_value(_selected_kind) * _quantity,
 	]
+	_action_button.disabled = _quantity <= 0
+	_action_button.modulate = DIMMED if _action_button.disabled else Color.WHITE
 	var harvested: Dictionary = _snapshot.get("harvested", {})
 	for kind in range(GameRules.CropKind.size()):
 		var row := _rows[kind]

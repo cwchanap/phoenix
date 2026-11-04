@@ -777,6 +777,26 @@ func test_almanac_still_pages_with_move_keys() -> void:
 	if chip != null:
 		assert_eq(chip.text, "2 of 3")
 
+func test_almanac_page_dots_page_with_a_pointer() -> void:
+	var almanac := _spawn_panel("res://scenes/ui/almanac_panel.tscn") as AlmanacPanel
+	if almanac == null:
+		return
+	almanac.open_panel(_snapshot())
+	await _settle()
+	var dots := almanac.find_child("PageDots", true, false) as Control
+	assert_not_null(dots)
+	if dots == null:
+		return
+	await _click(dots.get_child(2) as Control)
+	assert_eq(almanac.selected_kind(), GameRules.CropKind.PUMPKIN)
+	assert_eq(almanac.crop_name_text(), "Pumpkin")
+	var chip := _frame(almanac).find_child("PageChip", true, false) as Label
+	if chip != null:
+		assert_eq(chip.text, "3 of 3")
+	await _click(dots.get_child(0) as Control)
+	assert_eq(almanac.selected_kind(), GameRules.CropKind.TURNIP)
+	assert_eq(almanac.crop_name_text(), "Turnip")
+
 func test_phone_apps_keep_localized_titles_and_fixed_jp_subtitles() -> void:
 	for locale in LOCALES:
 		TranslationServer.set_locale(locale)
@@ -1250,9 +1270,13 @@ func test_calendar_event_markers_use_legible_icons_not_tiny_text() -> void:
 	var day_state := calendar.day_state(GameRules.MAX_DAY - 1)
 	assert_true(day_state["last_night"], "the moon keeps the last-night seam")
 	assert_eq(
-		calendar.day_state(1)["readiness_text"],
-		"EARLIEST",
-		"the day_state seam derives readiness wording from real icons",
+		calendar.day_state(1)["readiness_kinds"],
+		[GameRules.CropKind.TURNIP],
+		"the day_state seam reads the painted readiness icons",
+	)
+	assert_true(
+		calendar.coming_up_row_texts().has("Turnip ready today"),
+		"the Coming Up card paints the readiness words",
 	)
 
 func test_calendar_caption_reports_actual_weather_history_depth() -> void:
@@ -1388,17 +1412,12 @@ func test_calendar_day_state_tracks_only_rendered_controls() -> void:
 	assert_not_null(icons_row)
 	if icons_row == null:
 		return
-	assert_ne(calendar.day_state(GameRules.MAX_DAY)["readiness_text"], "")
+	assert_ne(calendar.day_state(GameRules.MAX_DAY)["readiness_kinds"], [])
 	icons_row.visible = false
 	assert_eq(
 		calendar.day_state(GameRules.MAX_DAY)["readiness_kinds"],
 		[],
 		"hiding the icons row removes the readiness markers",
-	)
-	assert_eq(
-		calendar.day_state(GameRules.MAX_DAY)["readiness_text"],
-		"",
-		"hiding the icons row clears the readiness wording",
 	)
 
 func test_calendar_legend_is_localized_and_legible_in_all_locales() -> void:
