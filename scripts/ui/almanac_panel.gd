@@ -77,13 +77,16 @@ func _input(event: InputEvent) -> void:
 	if not visible or not event.is_pressed() or event.is_echo():
 		return
 	if event.is_action_pressed("move_left"):
-		_selected_kind = posmod(_selected_kind - 1, GameRules.CropKind.size())
+		_select_kind(_selected_kind - 1)
 	elif event.is_action_pressed("move_right"):
-		_selected_kind = posmod(_selected_kind + 1, GameRules.CropKind.size())
+		_select_kind(_selected_kind + 1)
 	else:
 		return
-	_update_page()
 	get_viewport().set_input_as_handled()
+
+func _select_kind(kind: int) -> void:
+	_selected_kind = posmod(kind, GameRules.CropKind.size())
+	_update_page()
 
 func _build() -> void:
 	var dim := ColorRect.new()
@@ -302,6 +305,19 @@ func _dots_row() -> HBoxContainer:
 		on.stretch_mode = TextureRect.STRETCH_SCALE
 		on.set_anchors_preset(Control.PRESET_FULL_RECT)
 		dot.add_child(on)
+		var hit := Button.new()
+		hit.name = "Hit"
+		hit.focus_mode = Control.FOCUS_NONE
+		hit.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+			hit.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+		hit.set_anchors_preset(Control.PRESET_FULL_RECT)
+		hit.offset_left = -4
+		hit.offset_top = -4
+		hit.offset_right = 4
+		hit.offset_bottom = 4
+		hit.pressed.connect(_select_kind.bind(kind))
+		dot.add_child(hit)
 		row.add_child(dot)
 		_dots.append({"dot": dot, "on": on, "off": off})
 	return row

@@ -159,8 +159,10 @@ the title and result screens, the introduction, and every modal panel; no
 surface is scaled up from a legacy canvas. The seven phone-app modals
 (Pause, Settings, Bag, Almanac, Calendar, Sleep, and the morning summary)
 build their content inside the shared code-built `PhoneFrame` chrome —
-bezel, status-bar time, home indicator, and one content mount only; each
-panel owns its own app header, rows, and footer.
+bezel, status-bar time, home indicator, app-header band, footer row, and one
+content mount. Panels that show a header call `set_app_header()` and add
+accessories through `app_header_accessory()`, add footer controls through
+`footer_mount()`, and build body rows inside the content mount.
 
 ## World contract
 

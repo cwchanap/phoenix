@@ -509,6 +509,13 @@ func _primary_action_kind() -> StringName:
 		return &"close"
 	if focused == _continue:
 		return &"continue"
+	if (
+		focused is Button
+		and _gift_buttons.has(focused)
+		and focused.visible
+		and not focused.disabled
+	):
+		return &"gift"
 	if _anchor_intent != &"":
 		return _anchor_intent
 	if _line_index < _lines.size() - 1:

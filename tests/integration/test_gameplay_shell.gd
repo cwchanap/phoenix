@@ -788,7 +788,7 @@ func test_shop_stepper_mouse_press_cancel_and_bound_disabled_states() -> void:
     assert_eq(String(panel.call("selected_action_text")), "Buy 2 · 40G")
     hud.close_shop()
 
-func test_shop_stepper_disabled_and_enter_still_requests_when_unaffordable() -> void:
+func test_shop_stepper_disabled_and_enter_never_requests_a_zero_buy() -> void:
     var world := _world()
     if world == null:
         return
@@ -818,7 +818,7 @@ func test_shop_stepper_disabled_and_enter_still_requests_when_unaffordable() -> 
     await _click_control(plus)
     assert_eq(int(panel.call("selected_quantity")), 0)
     await _press_panel_action("ui_accept")
-    assert_eq(requests, [{"kind": GameRules.CropKind.TURNIP, "quantity": 0}])
+    assert_eq(requests, [], "a zero-quantity buy is never requested")
     hud.close_shop()
 
 func test_shipping_keyboard_rows_update_quantity_max_and_enter_request() -> void:
@@ -1076,7 +1076,10 @@ func test_calendar_readiness_preserves_mixed_crop_kinds_per_day() -> void:
     assert_eq(markers[6], [GameRules.CropKind.TURNIP, GameRules.CropKind.POTATO])
     var day_six: Dictionary = calendar.day_state(6)
     assert_eq(day_six["readiness_kinds"], [GameRules.CropKind.TURNIP, GameRules.CropKind.POTATO])
-    assert_eq(day_six["readiness_text"], "EARLIEST")
+    assert_true(
+        calendar.coming_up_row_texts().has("Turnip · Potato earliest harvest"),
+        "the Coming Up row paints the readiness words",
+    )
     assert_eq(day_six["readiness_icon_path"], "")
 
 func test_calendar_day14_current_market_readiness_has_separate_authored_markers() -> void:
@@ -1118,7 +1121,10 @@ func test_calendar_day14_current_market_readiness_has_separate_authored_markers(
     assert_true(day_fourteen["today"])
     assert_true(day_fourteen["market"])
     assert_eq(day_fourteen["readiness_kinds"], [GameRules.CropKind.TURNIP, GameRules.CropKind.PUMPKIN])
-    assert_eq(day_fourteen["readiness_text"], "EARLIEST")
+    assert_true(
+        calendar.coming_up_row_texts().has("Turnip · Pumpkin ready today"),
+        "readiness on the current day paints as ready today",
+    )
 
 func test_calendar_day14_current_market_layout_without_readiness() -> void:
     var world := _world()
@@ -1143,7 +1149,11 @@ func test_calendar_day14_current_market_layout_without_readiness() -> void:
     assert_true(day_fourteen["today"])
     assert_true(day_fourteen["market"])
     assert_eq(day_fourteen["readiness_kinds"], [])
-    assert_eq(day_fourteen["readiness_text"], "")
+    assert_eq(
+        calendar.coming_up_row_texts(),
+        ["Town harvest market"],
+        "no crop rows paint without readiness markers",
+    )
 
 func test_calendar_day_state_observes_the_rendered_cell_controls() -> void:
     var world := _world()
@@ -1189,7 +1199,6 @@ func test_calendar_day_state_observes_the_rendered_cell_controls() -> void:
     var day_nine: Dictionary = calendar.day_state(9)
     assert_eq(day_nine["readiness_kinds"], [GameRules.CropKind.PUMPKIN])
     assert_eq(day_nine["readiness_icon_path"], "res://assets/ui/crops/pumpkin.png")
-    assert_eq(day_nine["readiness_text"], "EARLIEST")
     var single_icon := day_nine_cell["readiness_icon"] as TextureRect
     single_icon.texture = load("res://assets/ui/crops/turnip.png") as Texture2D
     day_nine = calendar.day_state(9)
@@ -1200,7 +1209,6 @@ func test_calendar_day_state_observes_the_rendered_cell_controls() -> void:
     day_nine = calendar.day_state(9)
     assert_eq(day_nine["readiness_kinds"], [])
     assert_eq(day_nine["readiness_icon_path"], "")
-    assert_eq(day_nine["readiness_text"], "")
 
     var day_six_cell: Dictionary = calendar._cells[5]
     assert_eq(
@@ -1376,7 +1384,10 @@ func test_read_only_panels_render_rules_and_only_known_calendar_weather() -> voi
     var calendar := _panel(hud, "CalendarPanel") as CalendarPanel
     var day_six: Dictionary = calendar.day_state(6)
     assert_eq(day_six["readiness_kinds"], [GameRules.CropKind.TURNIP])
-    assert_eq(day_six["readiness_text"], "EARLIEST")
+    assert_true(
+        calendar.coming_up_row_texts().has("Turnip earliest harvest"),
+        "the Coming Up row paints the readiness words",
+    )
     assert_eq(day_six["readiness_icon_path"], "res://assets/ui/crops/turnip.png")
     var day_nine: Dictionary = calendar.day_state(9)
     assert_eq(day_nine["readiness_kinds"], [GameRules.CropKind.PUMPKIN])

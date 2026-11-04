@@ -915,7 +915,7 @@ func test_shop_action_button_click_outside_does_not_buy() -> void:
 	)
 	assert_signal_emit_count(shop, "buy_requested", 2)
 
-func test_shop_action_button_zero_quantity_click_emits_zero() -> void:
+func test_shop_action_button_zero_quantity_stays_inert() -> void:
 	var shop := _spawn_panel(SHOP_SCENE) as ShopPanel
 	if shop == null:
 		return
@@ -925,12 +925,34 @@ func test_shop_action_button_zero_quantity_click_emits_zero() -> void:
 	var action := _action_button(shop)
 	if action == null:
 		return
+	assert_true(action.disabled, "a zero-quantity buy cannot be committed")
 	watch_signals(shop)
 	await _click(action)
-	assert_signal_emitted_with_parameters(
-		shop,
-		"buy_requested",
-		[GameRules.CropKind.TURNIP, 0],
+	assert_signal_not_emitted(shop, "buy_requested")
+	await _press("ui_accept")
+	assert_signal_not_emitted(
+		shop, "buy_requested", "Enter never emits a zero-quantity buy"
+	)
+
+func test_shipping_action_button_zero_quantity_stays_inert() -> void:
+	var shipping := _spawn_panel(SHIPPING_SCENE) as ShippingPanel
+	if shipping == null:
+		return
+	shipping.open_panel(
+		_shipping_snapshot({&"turnip": 0, &"potato": 0, &"pumpkin": 0})
+	)
+	await _settle()
+	assert_eq(shipping.selected_quantity(), 0)
+	var action := _action_button(shipping)
+	if action == null:
+		return
+	assert_true(action.disabled, "a zero-quantity deposit cannot be committed")
+	watch_signals(shipping)
+	await _click(action)
+	assert_signal_not_emitted(shipping, "deposit_requested")
+	await _press("ui_accept")
+	assert_signal_not_emitted(
+		shipping, "deposit_requested", "Enter never emits a zero-quantity deposit"
 	)
 
 func test_shop_action_button_upgrade_click_emits_upgrade() -> void:

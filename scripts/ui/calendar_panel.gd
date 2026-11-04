@@ -111,7 +111,6 @@ func day_state(day: int) -> Dictionary:
 			if readiness_row and readiness_icon.visible and readiness_icon.texture != null
 			else ""
 		),
-		"readiness_text": "EARLIEST" if not readiness_kinds.is_empty() else "",
 	}
 
 func _kind_for_icon(icon: TextureRect) -> int:

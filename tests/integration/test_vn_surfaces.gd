@@ -891,6 +891,39 @@ func test_dialogue_action_pill_continues_lines_then_gifts() -> void:
 	await _click(pill)
 	assert_signal_emitted(panel, "gift_requested")
 
+func test_dialogue_focused_chip_caption_and_enter_agree_mid_lines() -> void:
+	var panel := _present_dialogue(
+		{
+			"code": GameRules.CommandCode.VILLAGER_TALKED,
+			"lines": ["First line.", "Second line."],
+			"points_gained": 0,
+			"gift_reaction": &"",
+			"close_friend_sequence": false,
+			"selected_crop_kind": GameRules.CropKind.POTATO,
+		},
+		_dialogue_snapshot(),
+	)
+	if panel == null:
+		return
+	await _settle()
+	var turnip := panel.gift_chip(GameRules.CropKind.TURNIP)
+	turnip.grab_focus()
+	await _settle()
+	assert_eq(
+		panel.action_text(),
+		"GIVE TURNIP",
+		"the caption names the focused chip even with lines remaining",
+	)
+	watch_signals(panel)
+	await _press_keycode(KEY_ENTER)
+	assert_signal_emitted_with_parameters(
+		panel,
+		"gift_requested",
+		[VillagerRules.VillagerId.SHOPKEEPER, GameRules.CropKind.TURNIP],
+	)
+	assert_signal_emit_count(panel, "gift_requested", 1)
+	assert_signal_not_emitted(panel, "close_requested")
+
 func test_dialogue_action_pill_continues_locked_sequence_while_escape_gated() -> void:
 	var panel := _present_dialogue(
 		{
