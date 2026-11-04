@@ -16,6 +16,8 @@ var _alarm_time: Label
 var _wake_day: Label
 var _warning: PanelContainer
 var _warning_text: Label
+var _question: Label
+var _hint: Label
 var _confirm: Button
 
 func _ready() -> void:
@@ -35,6 +37,10 @@ func present(snapshot: Dictionary) -> void:
 	)
 	_wake_day.text = tr("Day %d · wake up") % mini(day + 1, GameRules.MAX_DAY)
 	_wake_day.visible = not terminal
+	_question.text = (
+		"Finish the season?" if terminal else "Sleep until morning?"
+	)
+	_hint.visible = not terminal
 
 func set_status_time(time_text: String) -> void:
 	_frame.set_status_time(time_text)
@@ -185,15 +191,15 @@ func _prompt() -> VBoxContainer:
 	icon_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	prompt.add_child(icon_row)
 	icon_row.add_child(UiStyle.icon(BED_ICON, 96))
-	var question := UiStyle.label("Sleep until morning?", 32, UiStyle.CARD, 900)
-	question.name = "Question"
-	question.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	prompt.add_child(question)
-	var hint := UiStyle.label("Crops you watered today grow overnight.", 18, SUB_DARK, 600)
-	hint.name = "Hint"
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	prompt.add_child(hint)
+	_question = UiStyle.label("Sleep until morning?", 32, UiStyle.CARD, 900)
+	_question.name = "Question"
+	_question.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	prompt.add_child(_question)
+	_hint = UiStyle.label("Crops you watered today grow overnight.", 18, SUB_DARK, 600)
+	_hint.name = "Hint"
+	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	prompt.add_child(_hint)
 	return prompt
 
 func _warning_card() -> PanelContainer:
