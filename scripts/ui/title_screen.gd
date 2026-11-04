@@ -73,14 +73,10 @@ func _refresh_selection() -> void:
     var continue_selected := _selected_index == 1
     _new_game_gradient.visible = new_selected
     _continue_gradient.visible = continue_selected
-    _new_game_label.add_theme_color_override(
-        "font_color", UiStyle.CARD if new_selected else UiStyle.INK
-    )
+    _new_game_label.add_theme_color_override("font_color", UiStyle.CARD)
     _continue_label.add_theme_color_override(
         "font_color",
-        UiStyle.CARD if continue_selected
-        else UiStyle.INK if _continue_available
-        else UiStyle.INK_MUTED,
+        UiStyle.CARD if _continue_available else Color(1.0, 1.0, 1.0, 0.45),
     )
     _new_game_keycap.visible = new_selected
     _continue_keycap.visible = continue_selected
@@ -107,17 +103,17 @@ func _build() -> void:
     var logo := TextureRect.new()
     logo.name = "Logo"
     logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    logo.position = Vector2(140, 140)
-    logo.size = Vector2(560, 240)
+    logo.position = Vector2(130, 130)
+    logo.size = Vector2(600, 600.0 * LOGO.get_size().y / LOGO.get_size().x)
     logo.texture = LOGO
     logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
     logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
     add_child(logo)
 
-    var menu := UiStyle.vbox(18)
+    var menu := UiStyle.vbox(12)
     menu.name = "Menu"
-    menu.position = Vector2(140, 500)
-    menu.size = Vector2(640, 500)
+    menu.position = Vector2(140, 470)
+    menu.size = Vector2(520, 420)
     add_child(menu)
 
     var new_row := _action_row("NewGame", GROWTH_ICON, "NEW GAME")
@@ -136,17 +132,17 @@ func _build() -> void:
     _status_pill = PanelContainer.new()
     _status_pill.name = "Status"
     _status_pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    var status_box := UiStyle.card(UiStyle.BAD_SOFT, UiStyle.PILL_RADIUS, [18, 12, 18, 12], false)
-    status_box.border_color = UiStyle.BAD
-    status_box.set_border_width_all(2)
-    _status_pill.add_theme_stylebox_override("panel", status_box)
-    var status_row := UiStyle.hbox(12)
+    _status_pill.add_theme_stylebox_override(
+        "panel", UiStyle.card(UiStyle.WARN, 14, [16, 10, 16, 10], false)
+    )
+    var status_row := UiStyle.hbox(10)
     status_row.name = "Row"
     _status_pill.add_child(status_row)
-    var status_icon := UiStyle.icon(WARNING_ICON, 26)
+    var status_icon := UiStyle.icon(WARNING_ICON, 32)
+    status_icon.name = "Icon"
     status_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
     status_row.add_child(status_icon)
-    _status_label = UiStyle.label("", 17, UiStyle.BAD, 800)
+    _status_label = UiStyle.label("", 20, UiStyle.WARN_INK, 700)
     _status_label.name = "Label"
     _status_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
     _status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -154,25 +150,23 @@ func _build() -> void:
     status_row.add_child(_status_label)
     menu.add_child(_status_pill)
 
-    var footer := UiStyle.hbox(10)
+    var footer := UiStyle.hbox(16)
     footer.name = "Footer"
-    footer.alignment = BoxContainer.ALIGNMENT_BEGIN
-    menu.add_child(footer)
-    var w_key := UiStyle.keycap("W", true)
-    w_key.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-    footer.add_child(w_key)
-    var s_key := UiStyle.keycap("S", true)
-    s_key.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-    footer.add_child(s_key)
-    var choose := UiStyle.label("choose", 16, UiStyle.ACCENT_SOFT, 800)
+    add_child(footer)
+    UiStyle.pin(footer, CORNER_BOTTOM_LEFT, Vector2(160, 40))
+    var caps := UiStyle.hbox(4)
+    caps.name = "Caps"
+    caps.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+    footer.add_child(caps)
+    caps.add_child(UiStyle.keycap("W", true))
+    caps.add_child(UiStyle.keycap("S", true))
+    var choose := UiStyle.label("choose", 16, Color(1.0, 1.0, 1.0, 0.7), 700)
     choose.name = "Choose"
     choose.size_flags_vertical = Control.SIZE_SHRINK_CENTER
     footer.add_child(choose)
-    var spacer := Control.new()
-    spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    footer.add_child(spacer)
-    var version := UiStyle.label("Godot 4.7.1 · 1080p", 14, UiStyle.ACCENT_SOFT, 600)
+    var version := UiStyle.label(
+        "Godot 4.7.1 · 1080p", 16, Color(1.0, 1.0, 1.0, 0.7), 700
+    )
     version.name = "Version"
     version.size_flags_vertical = Control.SIZE_SHRINK_CENTER
     footer.add_child(version)
@@ -182,56 +176,57 @@ func _action_row(
 ) -> Dictionary:
     var button := Button.new()
     button.name = row_name
-    button.custom_minimum_size = Vector2(640, 104)
+    button.custom_minimum_size = Vector2(520, 80)
     button.focus_mode = Control.FOCUS_NONE
     button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-    var normal := UiStyle.card(UiStyle.HUD_CARD, 24)
-    normal.border_color = UiStyle.LINE
-    normal.set_border_width_all(2)
-    var hover := UiStyle.card(UiStyle.CARD, 24)
-    hover.border_color = UiStyle.ACCENT
-    hover.set_border_width_all(2)
+    var normal := UiStyle.card(Color(1.0, 1.0, 1.0, 0.0), 20, [0, 0, 0, 0], false)
+    var hover := UiStyle.card(Color(1.0, 1.0, 1.0, 0.14), 20, [0, 0, 0, 0], false)
+    var pressed := UiStyle.card(Color(1.0, 1.0, 1.0, 0.22), 20, [0, 0, 0, 0], false)
     button.add_theme_stylebox_override("normal", normal)
     button.add_theme_stylebox_override("hover", hover)
-    button.add_theme_stylebox_override("pressed", UiStyle.card(UiStyle.ACCENT_SOFT, 24))
+    button.add_theme_stylebox_override("pressed", pressed)
     button.add_theme_stylebox_override("focus", normal)
-    button.add_theme_stylebox_override("disabled", UiStyle.card(UiStyle.LINE, 24))
+    button.add_theme_stylebox_override("disabled", normal)
 
-    var gradient := UiStyle.gradient_surface(UiStyle.ACCENT_GRADIENT, 24)
+    var gradient := UiStyle.gradient_surface(UiStyle.ACCENT_GRADIENT, 20)
     gradient.name = "Gradient"
     gradient.set_anchors_preset(Control.PRESET_FULL_RECT)
     gradient.visible = false
+    var gradient_box := gradient.get_theme_stylebox("panel") as StyleBoxFlat
+    gradient_box.shadow_size = 18
+    gradient_box.shadow_offset = Vector2(0, 12)
+    gradient_box.shadow_color = Color(1.0, 0.24, 0.5, 0.38)
     button.add_child(gradient)
 
-    var icon := UiStyle.icon(icon_texture, 44)
+    var icon := UiStyle.icon(icon_texture, 48)
     icon.name = "Icon"
-    icon.position = Vector2(30, 30)
-    icon.size = Vector2(44, 44)
+    icon.position = Vector2(24, 16)
+    icon.size = Vector2(48, 48)
     button.add_child(icon)
 
-    var label := UiStyle.label(text_value, 30, UiStyle.INK, 900)
+    var label := UiStyle.label(text_value, 30, UiStyle.CARD, 900)
     label.name = "Label"
-    label.position = Vector2(96, 0)
-    label.size = Vector2(400, 104)
+    label.position = Vector2(88, 0)
+    label.size = Vector2(370, 80)
     label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     button.add_child(label)
 
-    var keycap := UiStyle.keycap("Enter")
+    var keycap := UiStyle.translucent_keycap("Enter")
     keycap.name = "Keycap"
     keycap.visible = false
     button.add_child(keycap)
     keycap.reset_size()
-    keycap.position = Vector2(616 - keycap.size.x, (104 - keycap.size.y) / 2.0)
+    keycap.position = Vector2(496 - keycap.size.x, (80 - keycap.size.y) / 2.0)
 
     return {"button": button, "gradient": gradient, "label": label, "keycap": keycap}
 
 func _left_fade() -> GradientTexture2D:
     var gradient := Gradient.new()
-    gradient.offsets = PackedFloat32Array([0.0, 0.45, 1.0])
+    gradient.offsets = PackedFloat32Array([0.0, 0.32, 0.58])
     gradient.colors = PackedColorArray([
-        Color(0.015, 0.02, 0.025, 0.78),
-        Color(0.015, 0.02, 0.025, 0.28),
-        Color(0.015, 0.02, 0.025, 0.08),
+        Color(0.059, 0.039, 0.137, 0.78),
+        Color(0.059, 0.039, 0.137, 0.5),
+        Color(0.059, 0.039, 0.137, 0.0),
     ])
     var texture := GradientTexture2D.new()
     texture.gradient = gradient

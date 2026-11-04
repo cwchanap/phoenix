@@ -272,6 +272,7 @@ Day 14 — only crops deposited here count toward the finale. Anything still in 
 M ALL,M 全部,M 全部
 VALUE,價值,金額
 choose crop,選擇作物,作物を選ぶ
+choose gift,選擇禮物,贈り物を選ぶ
 Ship %d · %dG,出貨 %d · %dG,出荷 %d · %dG
 SEED SHOP,種子行,種屋
 Seeds and tools,種子與工具,種と道具

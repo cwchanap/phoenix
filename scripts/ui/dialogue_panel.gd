@@ -9,7 +9,7 @@ const PORTRAIT_NAMES: Array[String] = ["sato", "gen", "hana"]
 
 const HEART_FILLED_ICON := preload("res://assets/ui/icons/heart-filled.png")
 const HEART_OUTLINE_ICON := preload("res://assets/ui/icons/heart-outline.png")
-const DIMMED := Color(0.5, 0.54, 0.62, 1.0)
+const DIMMED := Color(1.0, 1.0, 1.0, 0.45)
 
 var _villager_id := -1
 var _lines: Array[String] = []
@@ -21,9 +21,6 @@ var _snapshot: Dictionary = {}
 var _selected_gift_kind := -1
 var _gift_buttons: Array[Button] = []
 var _gift_icons: Array[TextureRect] = []
-var _gift_keycaps: Array[PanelContainer] = []
-var _gift_keys: Array[Label] = []
-var _gift_badges: Array[PanelContainer] = []
 var _gift_counts: Array[Label] = []
 var _gift_values: Array[Label] = []
 var _portrait: TextureRect
@@ -31,7 +28,6 @@ var _name: Label
 var _role: Label
 var _relationship: Label
 var _hearts: Array[TextureRect] = []
-var _progress_fill: Control
 var _line: Label
 var _feedback: Label
 var _feedback_badge: PanelContainer
@@ -40,6 +36,7 @@ var _gift_status: Label
 var _gift_hint: Label
 var _esc_text: Label
 var _action_text: Label
+var _action: Button
 var _continue: Button
 var _close: Button
 
@@ -111,7 +108,7 @@ func close_control() -> Button:
 func _build() -> void:
 	var dim := ColorRect.new()
 	dim.name = "Dim"
-	dim.color = Color(UiStyle.INK, 0.45)
+	dim.color = Color(0.047, 0.071, 0.125, 0.25)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
@@ -124,40 +121,95 @@ func _build() -> void:
 	_portrait.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_portrait.anchor_top = 1.0
 	_portrait.anchor_bottom = 1.0
-	_portrait.offset_left = 96.0
-	_portrait.offset_top = -620.0
-	_portrait.offset_right = 536.0
-	_portrait.offset_bottom = -30.0
+	_portrait.offset_left = 140.0
+	_portrait.offset_top = -940.0
+	_portrait.offset_right = 812.0
+	_portrait.offset_bottom = 0.0
 	_portrait.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	add_child(_portrait)
 
-	var panel := PanelContainer.new()
-	panel.name = "Panel"
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.anchor_top = 1.0
-	panel.anchor_right = 1.0
-	panel.anchor_bottom = 1.0
-	panel.offset_left = 560.0
-	panel.offset_top = -420.0
-	panel.offset_right = -64.0
-	panel.offset_bottom = -40.0
-	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	panel.add_theme_stylebox_override(
-		"panel", UiStyle.card(UiStyle.HUD_CARD, 24, [24, 18, 24, 16])
-	)
-	add_child(panel)
-	var column := UiStyle.vbox(12)
-	column.name = "Column"
-	panel.add_child(column)
-	column.add_child(_header())
-	_line = UiStyle.label("", 24, UiStyle.INK, 500)
+	var dock := UiStyle.vn_dock(40.0)
+	add_child(dock)
+	var content := dock.find_child("Content", true, false) as VBoxContainer
+	var overlay := dock.find_child("Overlay", true, false) as Control
+
+	_line = UiStyle.label("", 32, UiStyle.INK, 700)
 	_line.name = "Line"
 	_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_line.custom_minimum_size = Vector2(0, 104)
-	column.add_child(_line)
-	column.add_child(_feedback_row())
-	column.add_child(_gift_area())
-	column.add_child(_footer())
+	_line.custom_minimum_size = Vector2(0, 100)
+	content.add_child(_line)
+	_feedback = UiStyle.label("", 18, UiStyle.LEAF_DEEP, 700)
+	_feedback.name = "Feedback"
+	_feedback.visible = false
+	content.add_child(_feedback)
+	content.add_child(_gift_area())
+	content.add_child(_footer_block())
+
+	var name_row := UiStyle.hbox(14)
+	name_row.name = "NameRow"
+	overlay.add_child(name_row)
+	UiStyle.pin(name_row, CORNER_TOP_LEFT, Vector2(40, -28))
+	var name_tag := SlantTag.new("", UiStyle.ACCENT_GRADIENT, UiStyle.CARD, 30)
+	name_tag.name = "NameTag"
+	var tag_pad := StyleBoxEmpty.new()
+	tag_pad.content_margin_left = 26
+	tag_pad.content_margin_right = 26
+	tag_pad.content_margin_top = 6
+	tag_pad.content_margin_bottom = 6
+	name_tag.add_theme_stylebox_override("panel", tag_pad)
+	name_row.add_child(name_tag)
+	_name = name_tag.get_node("Text") as Label
+	var role_pill := PanelContainer.new()
+	role_pill.name = "RolePill"
+	role_pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	role_pill.add_theme_stylebox_override(
+		"panel", UiStyle.card(UiStyle.CARD, UiStyle.PILL_RADIUS, [16, 6, 16, 6])
+	)
+	role_pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	name_row.add_child(role_pill)
+	_role = UiStyle.label("", 16, UiStyle.INK_MUTED, 800)
+	_role.name = "Role"
+	role_pill.add_child(_role)
+
+	var rel_pill := PanelContainer.new()
+	rel_pill.name = "RelPill"
+	rel_pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rel_pill.add_theme_stylebox_override(
+		"panel", UiStyle.card(UiStyle.CARD, UiStyle.PILL_RADIUS, [18, 8, 18, 8])
+	)
+	overlay.add_child(rel_pill)
+	UiStyle.pin(rel_pill, CORNER_TOP_RIGHT, Vector2(40, -24))
+	var rel_row := UiStyle.hbox(12)
+	rel_row.name = "Row"
+	rel_pill.add_child(rel_row)
+	var hearts := UiStyle.hbox(4)
+	hearts.name = "Hearts"
+	hearts.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	rel_row.add_child(hearts)
+	for index in 3:
+		var heart := UiStyle.icon(null, 24)
+		heart.name = "Heart_%d" % index
+		hearts.add_child(heart)
+		_hearts.append(heart)
+	_relationship = UiStyle.label("", 16, UiStyle.INK, 800)
+	_relationship.name = "Relationship"
+	_relationship.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	rel_row.add_child(_relationship)
+	_feedback_badge = PanelContainer.new()
+	_feedback_badge.name = "FeedbackBadge"
+	_feedback_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_feedback_badge.add_theme_stylebox_override(
+		"panel",
+		UiStyle.card(
+			Color(UiStyle.LEAF, 0.15), UiStyle.PILL_RADIUS, [12, 4, 12, 4], false
+		),
+	)
+	_feedback_badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_feedback_badge.visible = false
+	rel_row.add_child(_feedback_badge)
+	_feedback_value = UiStyle.label("+1", 15, UiStyle.LEAF, 800)
+	_feedback_value.name = "Value"
+	_feedback_badge.add_child(_feedback_value)
 
 	_continue = _ghost_button("Continue")
 	_continue.name = "Continue"
@@ -169,108 +221,23 @@ func _build() -> void:
 func _ghost_button(text_value: String) -> Button:
 	var button := Button.new()
 	button.text = text_value
-	button.position = Vector2(584, 986)
-	button.size = Vector2(120, 36)
+	button.position = Vector2(1540, 950)
+	button.size = Vector2(200, 56)
 	button.focus_mode = Control.FOCUS_ALL
+	button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.modulate = Color(1, 1, 1, 0)
 	return button
 
-func _header() -> HBoxContainer:
-	var header := UiStyle.hbox(14)
-	header.name = "Header"
-	var identity := UiStyle.vbox(6)
-	identity.name = "Identity"
-	header.add_child(identity)
-	var name_tag := SlantTag.new("", UiStyle.ACCENT_GRADIENT, UiStyle.CARD, 22)
-	name_tag.name = "NameTag"
-	name_tag.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	identity.add_child(name_tag)
-	_name = name_tag.get_node("Text") as Label
-	_role = UiStyle.label("", 15, UiStyle.INK_MUTED, 800)
-	_role.name = "Role"
-	identity.add_child(_role)
-	var spacer := Control.new()
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(spacer)
-	var rel := UiStyle.vbox(6)
-	rel.name = "Relationship"
-	header.add_child(rel)
-	var rel_row := UiStyle.hbox(8)
-	rel_row.alignment = BoxContainer.ALIGNMENT_END
-	rel.add_child(rel_row)
-	var hearts := UiStyle.hbox(4)
-	hearts.name = "Hearts"
-	hearts.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	rel_row.add_child(hearts)
-	for index in 3:
-		var heart := UiStyle.icon(null, 22)
-		heart.name = "Heart_%d" % index
-		hearts.add_child(heart)
-		_hearts.append(heart)
-	_relationship = UiStyle.label("", 16, UiStyle.ACCENT_DEEP, 800)
-	_relationship.name = "Label"
-	_relationship.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	rel_row.add_child(_relationship)
-	var progress := Panel.new()
-	progress.name = "Progress"
-	progress.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	progress.custom_minimum_size = Vector2(180, 8)
-	progress.add_theme_stylebox_override(
-		"panel", UiStyle.card(UiStyle.LINE, UiStyle.PILL_RADIUS, [0, 0, 0, 0], false)
-	)
-	rel.add_child(progress)
-	var fill := Panel.new()
-	fill.name = "Fill"
-	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	fill.add_theme_stylebox_override(
-		"panel", UiStyle.card(UiStyle.ACCENT, UiStyle.PILL_RADIUS, [0, 0, 0, 0], false)
-	)
-	fill.anchor_right = 0.0
-	fill.anchor_bottom = 1.0
-	progress.add_child(fill)
-	_progress_fill = fill
-	return header
-
-func _feedback_row() -> HBoxContainer:
-	var row := UiStyle.hbox(10)
-	row.name = "FeedbackRow"
-	_feedback_badge = PanelContainer.new()
-	_feedback_badge.name = "FeedbackBadge"
-	_feedback_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_feedback_badge.add_theme_stylebox_override(
-		"panel",
-		UiStyle.outlined(
-			UiStyle.card(UiStyle.MINT, UiStyle.PILL_RADIUS, [10, 4, 12, 4], false),
-			UiStyle.LEAF,
-			1,
-		),
-	)
-	_feedback_badge.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	row.add_child(_feedback_badge)
-	var badge_row := UiStyle.hbox(6)
-	_feedback_badge.add_child(badge_row)
-	badge_row.add_child(UiStyle.icon(HEART_FILLED_ICON, 16))
-	_feedback_value = UiStyle.label("+1", 16, UiStyle.LEAF_DEEP, 900)
-	_feedback_value.name = "Value"
-	badge_row.add_child(_feedback_value)
-	_feedback = UiStyle.label("", 18, UiStyle.LEAF_DEEP, 700)
-	_feedback.name = "Text"
-	_feedback.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(_feedback)
-	return row
-
-func _gift_area() -> VBoxContainer:
-	var area := UiStyle.vbox(6)
-	area.name = "GiftArea"
-	_gift_status = UiStyle.label("", 14, UiStyle.INK_MUTED, 800)
-	_gift_status.name = "GiftStatus"
-	area.add_child(_gift_status)
+func _gift_area() -> HBoxContainer:
 	var row := UiStyle.hbox(12)
 	row.name = "GiftRow"
-	area.add_child(row)
-	var chips := UiStyle.hbox(10)
+	_gift_status = UiStyle.label("", 14, UiStyle.INK_MUTED, 900)
+	_gift_status.name = "GiftStatus"
+	_gift_status.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(_gift_status)
+	var chips := UiStyle.hbox(12)
 	chips.name = "GiftButtons"
+	chips.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(chips)
 	for kind in range(GameRules.CropKind.size()):
 		var chip := _gift_chip_button(kind)
@@ -282,83 +249,113 @@ func _gift_area() -> VBoxContainer:
 	_gift_hint.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_gift_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(_gift_hint)
-	return area
+	return row
 
 func _gift_chip_button(kind: int) -> Button:
 	var button := Button.new()
 	button.name = "Gift_%d" % kind
-	button.custom_minimum_size = Vector2(96, 96)
 	button.focus_mode = Control.FOCUS_ALL
-	var keycap := PanelContainer.new()
-	keycap.name = "Keycap"
-	keycap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	keycap.position = Vector2(5, 5)
-	keycap.size = Vector2(26, 26)
-	keycap.add_theme_stylebox_override(
-		"panel", UiStyle.card(UiStyle.SOFT, 9, [0, 0, 0, 0], false)
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	var row := UiStyle.hbox(10)
+	row.name = "Row"
+	row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	row.offset_left = 6
+	row.offset_top = 6
+	row.offset_right = -16
+	row.offset_bottom = -6
+	button.add_child(row)
+	var tile := PanelContainer.new()
+	tile.name = "Tile"
+	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tile.custom_minimum_size = Vector2(60, 60)
+	tile.add_theme_stylebox_override(
+		"panel", UiStyle.card(UiStyle.CARD, 14, [6, 6, 6, 6], false)
 	)
-	button.add_child(keycap)
-	var key := UiStyle.label("%d" % (kind + 1), 13, UiStyle.INK, 900)
-	key.name = "Key"
-	key.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	key.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	keycap.add_child(key)
+	tile.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(tile)
 	var icon := UiStyle.icon(null, 48)
 	icon.name = "Icon"
-	icon.position = Vector2(24, 18)
-	icon.size = Vector2(48, 48)
-	button.add_child(icon)
-	var badge := PanelContainer.new()
-	badge.name = "CountBadge"
-	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	badge.position = Vector2(64, 5)
-	badge.size = Vector2(27, 20)
-	badge.add_theme_stylebox_override(
-		"panel", UiStyle.card(UiStyle.INK_MUTED, UiStyle.PILL_RADIUS, [0, 0, 0, 0], false)
-	)
-	button.add_child(badge)
-	var count := UiStyle.label("0", 13, UiStyle.CARD, 800)
+	tile.add_child(icon)
+	var stack := UiStyle.vbox(2)
+	stack.name = "TextStack"
+	stack.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(stack)
+	var name_line := UiStyle.hbox(2)
+	name_line.name = "NameRow"
+	stack.add_child(name_line)
+	var crop_name := UiStyle.label(GameRules.crop_display_name(kind), 18, UiStyle.INK, 800)
+	crop_name.name = "Name"
+	name_line.add_child(crop_name)
+	var times := UiStyle.label("×", 15, UiStyle.INK_MUTED, 800)
+	times.name = "Times"
+	times.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	name_line.add_child(times)
+	var count := UiStyle.label("0", 18, UiStyle.INK, 800)
 	count.name = "Count"
-	count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	badge.add_child(count)
-	var value := UiStyle.label("", 13, UiStyle.INK_MUTED, 800)
+	name_line.add_child(count)
+	var value := UiStyle.label("", 14, UiStyle.INK_MUTED, 800)
 	value.name = "Value"
-	value.position = Vector2(4, 74)
-	value.size = Vector2(88, 18)
-	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	button.add_child(value)
+	stack.add_child(value)
+	var sync_size := func() -> void:
+		if not is_instance_valid(button) or not is_instance_valid(row):
+			return
+		button.custom_minimum_size = (
+			row.get_combined_minimum_size() + Vector2(22, 12)
+		)
+	row.minimum_size_changed.connect(sync_size)
+	sync_size.call()
+	sync_size.call_deferred()
 	_gift_icons.append(icon)
-	_gift_keycaps.append(keycap)
-	_gift_keys.append(key)
-	_gift_badges.append(badge)
 	_gift_counts.append(count)
 	_gift_values.append(value)
 	return button
 
-func _footer() -> HBoxContainer:
-	var footer := UiStyle.hbox(8)
+func _footer_block() -> VBoxContainer:
+	var block := UiStyle.vbox(14)
+	block.name = "FooterBlock"
+	var separator := Panel.new()
+	separator.name = "Separator"
+	separator.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	separator.custom_minimum_size = Vector2(0, 2)
+	separator.add_theme_stylebox_override(
+		"panel", UiStyle.card(UiStyle.LINE, 0, [0, 0, 0, 0], false)
+	)
+	block.add_child(separator)
+	var footer := UiStyle.hbox(18)
 	footer.name = "Footer"
-	footer.alignment = BoxContainer.ALIGNMENT_END
-	var escape := UiStyle.keycap("Esc", true)
-	escape.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	footer.add_child(escape)
-	_esc_text = UiStyle.label("leave", 15, UiStyle.INK_MUTED, 700)
+	block.add_child(footer)
+	var gift_keys := UiStyle.hbox(4)
+	gift_keys.name = "GiftKeys"
+	gift_keys.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	footer.add_child(gift_keys)
+	gift_keys.add_child(UiStyle.keycap("A", true))
+	gift_keys.add_child(UiStyle.keycap("D", true))
+	var choose := UiStyle.label("choose gift", 17, UiStyle.INK_MUTED, 800)
+	choose.name = "ChooseGift"
+	choose.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	footer.add_child(choose)
+	var spacer := Control.new()
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	footer.add_child(spacer)
+	var leave_row := UiStyle.hbox(8)
+	leave_row.name = "LeaveRow"
+	leave_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	footer.add_child(leave_row)
+	leave_row.add_child(UiStyle.keycap("Esc", true))
+	_esc_text = UiStyle.label("leave", 17, UiStyle.INK_MUTED, 800)
 	_esc_text.name = "EscText"
 	_esc_text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	footer.add_child(_esc_text)
-	var gap := Control.new()
-	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	gap.custom_minimum_size = Vector2(24, 0)
-	footer.add_child(gap)
-	var enter := UiStyle.keycap("Enter", true)
-	enter.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	footer.add_child(enter)
-	_action_text = UiStyle.label("", 16, UiStyle.ACCENT_DEEP, 800)
-	_action_text.name = "ActionText"
-	_action_text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	footer.add_child(_action_text)
-	return footer
+	leave_row.add_child(_esc_text)
+	_action = UiStyle.primary_action("Enter", "")
+	_action.name = "Action"
+	var pill := _action.find_child("Pill", true, false) as PanelContainer
+	pill.name = "ActionPill"
+	_action.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_action.pressed.connect(_on_action_pressed)
+	footer.add_child(_action)
+	_action_text = pill.get_node("Row/Text") as Label
+	return block
 
 func _render() -> void:
 	_portrait.texture = load(
@@ -411,32 +408,28 @@ func _render_relationship(relationship: Dictionary) -> void:
 		_hearts[index].texture = (
 			HEART_FILLED_ICON if index < filled else HEART_OUTLINE_ICON
 		)
-	_progress_fill.anchor_right = clampf(
-		float(points) / float(VillagerRules.CLOSE_FRIEND_POINTS), 0.0, 1.0
-	)
 
 func _render_gift_buttons(suppressed: bool) -> void:
 	if suppressed:
 		_gift_status.text = ""
 		_gift_hint.visible = false
-		_action_text.text = "CONTINUE"
 		for button in _gift_buttons:
 			button.visible = false
+		_render_action_caption()
 		return
 
 	var relationship := _relationship_snapshot()
 	if bool(relationship.get("gifted_today", false)):
 		_gift_status.text = "GIFT GIVEN TODAY"
 		_gift_hint.visible = false
-		_action_text.text = "CLOSE"
 		for button in _gift_buttons:
 			button.visible = false
+		_render_action_caption()
 		return
 
 	var harvested: Dictionary = _snapshot.get("harvested", {})
 	_gift_status.text = "GIVE A GIFT  ·  ONE PER DAY"
 	_gift_hint.visible = false
-	_action_text.text = "GIVE"
 	for kind in _gift_buttons.size():
 		var button := _gift_buttons[kind]
 		var quantity := int(harvested.get(GameRules.crop_key(kind), 0))
@@ -447,39 +440,18 @@ func _render_gift_buttons(suppressed: bool) -> void:
 		button.focus_mode = Control.FOCUS_ALL
 		button.modulate = Color.WHITE if quantity > 0 else DIMMED
 		var card_style := UiStyle.card(
-			UiStyle.ACCENT_SOFT if is_selected else UiStyle.CARD, 14, [0, 0, 0, 0], false
+			UiStyle.ACCENT_SOFT if is_selected else UiStyle.SOFT, 18, [0, 0, 0, 0], false
 		)
-		card_style.border_color = UiStyle.ACCENT if is_selected else UiStyle.LINE
-		card_style.set_border_width_all(2 if is_selected else 1)
-		for state in ["normal", "focus", "hover", "pressed"]:
+		card_style.border_color = (
+			UiStyle.ACCENT if is_selected else Color(1.0, 1.0, 1.0, 0.0)
+		)
+		card_style.set_border_width_all(3)
+		for state in ["normal", "focus", "hover", "pressed", "disabled"]:
 			button.add_theme_stylebox_override(state, card_style)
-		var keycap := _gift_keycaps[kind]
-		keycap.visible = quantity > 0
-		var keycap_style := UiStyle.card(
-			UiStyle.ACCENT_SOFT if is_selected else UiStyle.SOFT, 9, [0, 0, 0, 0], false
-		)
-		keycap_style.border_color = UiStyle.ACCENT if is_selected else UiStyle.LINE
-		keycap_style.set_border_width_all(1)
-		keycap.add_theme_stylebox_override("panel", keycap_style)
-		_gift_keys[kind].add_theme_color_override(
-			"font_color", UiStyle.ACCENT_DEEP if is_selected else UiStyle.INK
-		)
-		var count_badge := _gift_badges[kind]
-		count_badge.visible = quantity > 0
-		count_badge.add_theme_stylebox_override(
-			"panel",
-			UiStyle.card(
-				UiStyle.ACCENT if is_selected else UiStyle.INK_MUTED,
-				UiStyle.PILL_RADIUS,
-				[0, 0, 0, 0],
-				false,
-			),
-		)
 		_gift_icons[kind].texture = load(
 			"res://assets/ui/crops/%s.png" % GameRules.crop_key(kind)
 		) as Texture2D
 		_gift_counts[kind].text = "%d" % quantity
-		_gift_counts[kind].visible = quantity > 0
 		_gift_values[kind].text = (
 			"+%d ♥" % VillagerRules.gift_points(_villager_id, kind)
 			if quantity > 0 and favourite
@@ -489,7 +461,9 @@ func _render_gift_buttons(suppressed: bool) -> void:
 		)
 		_gift_values[kind].add_theme_color_override(
 			"font_color",
-			UiStyle.ACCENT_DEEP if quantity > 0 and favourite else UiStyle.INK_MUTED,
+			UiStyle.ACCENT_DEEP
+			if quantity > 0 and (favourite or is_selected)
+			else UiStyle.INK_MUTED,
 		)
 	if _selected_gift_kind >= 0 and _selected_gift_kind < _gift_buttons.size():
 		var selected := _gift_buttons[_selected_gift_kind]
@@ -499,7 +473,6 @@ func _render_gift_buttons(suppressed: bool) -> void:
 		))
 		if selected.visible and not selected.disabled:
 			var selected_name := tr(GameRules.crop_display_name(_selected_gift_kind))
-			_action_text.text = tr("GIVE %s") % selected_name.to_upper()
 			if VillagerRules.is_favourite_crop(_villager_id, _selected_gift_kind):
 				_gift_hint.text = tr("%s is %s's favourite — worth %d instead of %d.") % [
 					selected_name,
@@ -508,6 +481,45 @@ func _render_gift_buttons(suppressed: bool) -> void:
 					VillagerRules.GIFT_POINTS,
 				]
 				_gift_hint.visible = selected_quantity > 0
+	_render_action_caption()
+
+func _primary_gift_kind() -> int:
+	if _selected_gift_kind >= 0 and _selected_gift_kind < _gift_buttons.size():
+		var selected := _gift_buttons[_selected_gift_kind]
+		if selected.visible and not selected.disabled:
+			return _selected_gift_kind
+	for index in _gift_buttons.size():
+		var chip := _gift_buttons[index]
+		if chip.visible and not chip.disabled:
+			return index
+	return -1
+
+func _primary_action_kind() -> StringName:
+	if _line_index < _lines.size() - 1:
+		return &"continue"
+	var relationship := _relationship_snapshot()
+	if not bool(relationship.get("gifted_today", false)) and _primary_gift_kind() >= 0:
+		return &"gift"
+	return &"close"
+
+func _render_action_caption() -> void:
+	match _primary_action_kind():
+		&"continue":
+			_action_text.text = "CONTINUE"
+		&"gift":
+			var selected_name := tr(GameRules.crop_display_name(_primary_gift_kind()))
+			_action_text.text = tr("GIVE %s") % selected_name.to_upper()
+		&"close":
+			_action_text.text = "CLOSE"
+
+func _on_action_pressed() -> void:
+	match _primary_action_kind():
+		&"continue":
+			_on_continue_pressed()
+		&"gift":
+			_on_gift_button_pressed(_primary_gift_kind())
+		&"close":
+			close_requested.emit()
 
 func _select_first_available_gift() -> void:
 	var harvested: Dictionary = _snapshot.get("harvested", {})

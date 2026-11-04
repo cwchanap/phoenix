@@ -6,12 +6,9 @@ signal blocking_state_changed
 
 const TUTORIAL_ICON := preload("res://assets/ui/icons/tutorial.png")
 const INTRO_BACKGROUND := preload("res://assets/ui/backgrounds/intro.png")
-const SATO_PORTRAIT := preload("res://assets/ui/portraits/sato.png")
 
 var _dismissed: Array[StringName] = []
 var _intro_background: TextureRect
-var _intro_shade: ColorRect
-var _intro_gradient: TextureRect
 var _opening_panel: Control
 var _accept: Button
 var _tutorial_card: Control
@@ -27,8 +24,6 @@ func _ready() -> void:
     _accept.pressed.connect(func() -> void: intro_acknowledged.emit())
     _build_tutorial_card()
     _intro_background.visible = false
-    _intro_shade.visible = false
-    _intro_gradient.visible = false
     _opening_panel.visible = false
     _tutorial_card.visible = false
 
@@ -42,22 +37,6 @@ func _build_opening() -> void:
     _intro_background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
     add_child(_intro_background)
 
-    _intro_shade = ColorRect.new()
-    _intro_shade.name = "IntroShade"
-    _intro_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    _intro_shade.set_anchors_preset(Control.PRESET_FULL_RECT)
-    _intro_shade.color = Color(0.027, 0.035, 0.047, 0.12)
-    add_child(_intro_shade)
-
-    _intro_gradient = TextureRect.new()
-    _intro_gradient.name = "IntroGradient"
-    _intro_gradient.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    _intro_gradient.set_anchors_preset(Control.PRESET_FULL_RECT)
-    _intro_gradient.texture = _bottom_fade()
-    _intro_gradient.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-    _intro_gradient.stretch_mode = TextureRect.STRETCH_SCALE
-    add_child(_intro_gradient)
-
     _opening_panel = Control.new()
     _opening_panel.name = "OpeningPanel"
     _opening_panel.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -68,8 +47,8 @@ func _build_opening() -> void:
     top_bar.name = "LetterboxTop"
     top_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
     top_bar.anchor_right = 1.0
-    top_bar.offset_bottom = 96.0
-    top_bar.color = Color(UiStyle.INK, 0.94)
+    top_bar.offset_bottom = 90.0
+    top_bar.color = Color.BLACK
     _opening_panel.add_child(top_bar)
 
     var bottom_bar := ColorRect.new()
@@ -78,97 +57,74 @@ func _build_opening() -> void:
     bottom_bar.anchor_top = 1.0
     bottom_bar.anchor_right = 1.0
     bottom_bar.anchor_bottom = 1.0
-    bottom_bar.offset_top = -330.0
-    bottom_bar.color = Color(UiStyle.INK, 0.94)
+    bottom_bar.offset_top = -90.0
+    bottom_bar.color = Color.BLACK
     bottom_bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
     _opening_panel.add_child(bottom_bar)
 
-    var content := MarginContainer.new()
-    content.name = "Content"
-    content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    content.anchor_top = 1.0
-    content.anchor_right = 1.0
-    content.anchor_bottom = 1.0
-    content.offset_top = -330.0
-    content.grow_vertical = Control.GROW_DIRECTION_BEGIN
-    for side in [["left", 72], ["top", 30], ["right", 72], ["bottom", 30]]:
-        content.add_theme_constant_override("margin_" + side[0], side[1])
-    _opening_panel.add_child(content)
-
-    var row := UiStyle.hbox(36)
-    row.name = "Row"
-    content.add_child(row)
-    var portrait := TextureRect.new()
-    portrait.name = "Portrait"
-    portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    portrait.custom_minimum_size = Vector2(190, 266)
-    portrait.texture = SATO_PORTRAIT
-    portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-    portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-    portrait.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-    row.add_child(portrait)
-
-    var column := UiStyle.vbox(12)
-    column.name = "Column"
-    column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    row.add_child(column)
-    var header := UiStyle.hbox(14)
-    header.name = "Header"
-    column.add_child(header)
-    var name_tag := SlantTag.new("SATO-SAN", UiStyle.ACCENT_GRADIENT, UiStyle.CARD, 20)
-    name_tag.name = "NameTag"
-    header.add_child(name_tag)
-    var day_tag := SlantTag.new(tr("Day %d") % 1, [UiStyle.VIOLET], UiStyle.CARD, 16)
+    var day_tag := SlantTag.new(
+        (tr("Day %d") % 1).to_upper(), [UiStyle.ACCENT_2], UiStyle.CARD, 17
+    )
     day_tag.name = "DayTag"
-    day_tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-    header.add_child(day_tag)
+    _opening_panel.add_child(day_tag)
+    UiStyle.pin(day_tag, CORNER_TOP_LEFT, Vector2(120, 130))
+
+    var dock := UiStyle.vn_dock(130.0)
+    _opening_panel.add_child(dock)
+    var content := dock.find_child("Content", true, false) as VBoxContainer
+    var overlay := dock.find_child("Overlay", true, false) as Control
 
     var intro := UiStyle.label(
         "This farm has been quiet for a while. It is yours now — bring it back one day at a time.",
-        21, UiStyle.CARD, 500,
+        32, UiStyle.INK, 700,
     )
     intro.name = "Intro"
     intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    column.add_child(intro)
+    content.add_child(intro)
     var guide := UiStyle.label(
         "The village harvest market is on Day 14. Grow what you can, and get to know the village before then.",
-        18, UiStyle.ACCENT_SOFT, 500,
+        20, UiStyle.INK_MUTED, 500,
     )
     guide.name = "Guide"
     guide.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    column.add_child(guide)
+    content.add_child(guide)
+
+    var footer := UiStyle.hbox(18)
+    footer.name = "Footer"
+    content.add_child(footer)
     var spacer := Control.new()
-    spacer.name = "Spacer"
     spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-    column.add_child(spacer)
-    var footer := UiStyle.hbox(12)
-    footer.name = "FooterRow"
-    footer.alignment = BoxContainer.ALIGNMENT_END
-    column.add_child(footer)
-    var enter := UiStyle.keycap("Enter", true, true)
-    enter.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-    footer.add_child(enter)
-    _accept = UiStyle.action_button("BEGIN DAY 1")
+    spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    footer.add_child(spacer)
+    _accept = UiStyle.primary_action("Enter", "BEGIN DAY 1")
     _accept.name = "Accept"
-    _accept.custom_minimum_size = Vector2(300, 64)
+    _accept.size_flags_vertical = Control.SIZE_SHRINK_CENTER
     footer.add_child(_accept)
 
-func _bottom_fade() -> GradientTexture2D:
-    var gradient := Gradient.new()
-    gradient.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
-    gradient.colors = PackedColorArray([
-        Color(0, 0, 0, 0.10),
-        Color(0, 0, 0, 0.26),
-        Color(0, 0, 0, 0.58),
-    ])
-    var texture := GradientTexture2D.new()
-    texture.gradient = gradient
-    texture.width = 1920
-    texture.height = 1080
-    texture.fill_from = Vector2(0.5, 0)
-    texture.fill_to = Vector2(0.5, 1)
-    return texture
+    var name_row := UiStyle.hbox(14)
+    name_row.name = "NameRow"
+    overlay.add_child(name_row)
+    UiStyle.pin(name_row, CORNER_TOP_LEFT, Vector2(40, -28))
+    var name_tag := SlantTag.new("SATO-SAN", UiStyle.ACCENT_GRADIENT, UiStyle.CARD, 30)
+    name_tag.name = "NameTag"
+    var tag_pad := StyleBoxEmpty.new()
+    tag_pad.content_margin_left = 26
+    tag_pad.content_margin_right = 26
+    tag_pad.content_margin_top = 6
+    tag_pad.content_margin_bottom = 6
+    name_tag.add_theme_stylebox_override("panel", tag_pad)
+    name_row.add_child(name_tag)
+    var role_pill := PanelContainer.new()
+    role_pill.name = "RolePill"
+    role_pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    role_pill.add_theme_stylebox_override(
+        "panel", UiStyle.card(UiStyle.CARD, UiStyle.PILL_RADIUS, [16, 6, 16, 6])
+    )
+    role_pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+    name_row.add_child(role_pill)
+    var role := UiStyle.label("Seed-shop keeper", 16, UiStyle.INK_MUTED, 800)
+    role.name = "Role"
+    role_pill.add_child(role)
 
 ## The tutorial card as a phone-style notification at the top right (HPA-681).
 func _build_tutorial_card() -> void:
@@ -237,8 +193,6 @@ func render(snapshot: Dictionary) -> void:
     var was_blocking := _opening_panel.visible
     _opening_panel.visible = not bool(snapshot["intro_acknowledged"])
     _intro_background.visible = _opening_panel.visible
-    _intro_shade.visible = _opening_panel.visible
-    _intro_gradient.visible = _opening_panel.visible
     if _opening_panel.visible:
         _tutorial_card.visible = false
     elif not _tutorial_cards_enabled:
