@@ -24,6 +24,7 @@ var _card_names: Array[Label] = []
 var _card_levels: Array[Label] = []
 var _card_quotes: Array[Label] = []
 var _card_panels: Array[PanelContainer] = []
+var _card_frames: Array[PanelContainer] = []
 var _hearts: Array = []
 
 func _ready() -> void:
@@ -69,6 +70,7 @@ func present(result: Dictionary, save_error: int = OK) -> void:
         box.border_color = UiStyle.ACCENT if featured else UiStyle.LINE
         box.set_border_width_all(4 if featured else 1)
         _card_panels[id].add_theme_stylebox_override("panel", box)
+        _card_frames[id].visible = featured
         _card_names[id].add_theme_color_override(
             "font_color", UiStyle.ACCENT_DEEP if featured else UiStyle.INK
         )
@@ -300,6 +302,16 @@ func _villager_card(id: int) -> PanelContainer:
     var column := UiStyle.vbox(0)
     column.name = "Column"
     card.add_child(column)
+    var frame := PanelContainer.new()
+    frame.name = "Frame"
+    frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    var frame_box := UiStyle.card(Color(1.0, 1.0, 1.0, 0.0), 26, [0, 0, 0, 0], false)
+    frame_box.border_color = UiStyle.ACCENT
+    frame_box.set_border_width_all(4)
+    frame.add_theme_stylebox_override("panel", frame_box)
+    frame.visible = false
+    card.add_child(frame)
+    _card_frames.append(frame)
     var clip := Control.new()
     clip.name = "PortraitClip"
     clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
