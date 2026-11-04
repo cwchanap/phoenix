@@ -34,6 +34,8 @@ var _feedback_badge: PanelContainer
 var _feedback_value: Label
 var _gift_status: Label
 var _gift_hint: Label
+var _gift_keys: HBoxContainer
+var _choose_gift: Label
 var _esc_text: Label
 var _leave_row: HBoxContainer
 var _action_text: Label
@@ -333,16 +335,16 @@ func _footer_block() -> VBoxContainer:
 	var footer := UiStyle.hbox(18)
 	footer.name = "Footer"
 	block.add_child(footer)
-	var gift_keys := UiStyle.hbox(4)
-	gift_keys.name = "GiftKeys"
-	gift_keys.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	footer.add_child(gift_keys)
-	gift_keys.add_child(UiStyle.keycap("A", true))
-	gift_keys.add_child(UiStyle.keycap("D", true))
-	var choose := UiStyle.label("choose gift", 17, UiStyle.INK_MUTED, 800)
-	choose.name = "ChooseGift"
-	choose.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	footer.add_child(choose)
+	_gift_keys = UiStyle.hbox(4)
+	_gift_keys.name = "GiftKeys"
+	_gift_keys.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	footer.add_child(_gift_keys)
+	_gift_keys.add_child(UiStyle.keycap("A", true))
+	_gift_keys.add_child(UiStyle.keycap("D", true))
+	_choose_gift = UiStyle.label("choose gift", 17, UiStyle.INK_MUTED, 800)
+	_choose_gift.name = "ChooseGift"
+	_choose_gift.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	footer.add_child(_choose_gift)
 	var spacer := Control.new()
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -422,6 +424,8 @@ func _render_gift_buttons(suppressed: bool) -> void:
 	if suppressed:
 		_gift_status.text = ""
 		_gift_hint.visible = false
+		_gift_keys.visible = false
+		_choose_gift.visible = false
 		for button in _gift_buttons:
 			button.visible = false
 		_render_action_caption()
@@ -431,6 +435,8 @@ func _render_gift_buttons(suppressed: bool) -> void:
 	if bool(relationship.get("gifted_today", false)):
 		_gift_status.text = "GIFT GIVEN TODAY"
 		_gift_hint.visible = false
+		_gift_keys.visible = false
+		_choose_gift.visible = false
 		for button in _gift_buttons:
 			button.visible = false
 		_render_action_caption()
@@ -439,6 +445,7 @@ func _render_gift_buttons(suppressed: bool) -> void:
 	var harvested: Dictionary = _snapshot.get("harvested", {})
 	_gift_status.text = "GIVE A GIFT  ·  ONE PER DAY"
 	_gift_hint.visible = false
+	var any_selectable := false
 	for kind in _gift_buttons.size():
 		var button := _gift_buttons[kind]
 		var quantity := int(harvested.get(GameRules.crop_key(kind), 0))
@@ -446,6 +453,7 @@ func _render_gift_buttons(suppressed: bool) -> void:
 		var is_selected := kind == _selected_gift_kind
 		button.visible = true
 		button.disabled = quantity < 1
+		any_selectable = any_selectable or not button.disabled
 		button.focus_mode = (
 			Control.FOCUS_NONE if button.disabled else Control.FOCUS_ALL
 		)
@@ -494,6 +502,8 @@ func _render_gift_buttons(suppressed: bool) -> void:
 					VillagerRules.GIFT_POINTS,
 				]
 				_gift_hint.visible = selected_quantity > 0
+	_gift_keys.visible = any_selectable
+	_choose_gift.visible = any_selectable
 	_render_action_caption()
 
 func _primary_gift_kind() -> int:

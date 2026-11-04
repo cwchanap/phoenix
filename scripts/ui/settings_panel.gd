@@ -2,6 +2,7 @@ class_name SettingsPanel
 extends Control
 
 signal settings_changed(error: int)
+signal close_requested
 
 # Window row options, in display order: 1080p windowed, then fullscreen.
 const WINDOW_VALUES := [false, true]
@@ -497,9 +498,14 @@ func _build_footer() -> void:
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(spacer)
-	var done_cap := UiStyle.keycap("Esc", true)
-	done_cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	footer.add_child(done_cap)
+	var done_cluster := UiStyle.hbox(4)
+	done_cluster.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	done_cluster.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	done_cluster.add_child(UiStyle.keycap("Esc", true))
 	var done := UiStyle.label("done", 15, UiStyle.INK_MUTED, 800)
 	done.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	footer.add_child(done)
+	done_cluster.add_child(done)
+	var done_button := UiStyle.hit_button(done_cluster)
+	done_button.name = "CloseButton"
+	done_button.pressed.connect(close_requested.emit)
+	footer.add_child(done_button)

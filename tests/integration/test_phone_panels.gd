@@ -2476,3 +2476,51 @@ func test_settings_slider_track_drag_commits_the_release_position() -> void:
 	get_window().mode = Window.MODE_WINDOWED
 	get_window().size = UiSettings.WINDOW_SIZE
 	TranslationServer.set_locale("en")
+
+func test_phone_app_footer_close_buttons_emit_with_a_pointer() -> void:
+	for scene_path in [
+		"res://scenes/ui/bag_panel.tscn",
+		"res://scenes/ui/almanac_panel.tscn",
+		"res://scenes/ui/calendar_panel.tscn",
+	]:
+		var panel := _spawn_panel(scene_path)
+		if panel == null:
+			continue
+		panel.open_panel(_snapshot())
+		await _settle()
+		var close := panel.find_child("CloseButton", true, false) as Button
+		assert_not_null(
+			close, "%s keeps a pointer close control" % scene_path
+		)
+		if close == null:
+			continue
+		watch_signals(panel)
+		await _click(close)
+		assert_signal_emitted(
+			panel,
+			"close_requested",
+			"%s: the footer close emits through the panel contract"
+				% scene_path,
+		)
+		panel.visible = false
+		await _settle()
+
+func test_settings_footer_done_button_emits_with_a_pointer() -> void:
+	var settings := _spawn_panel(
+		"res://scenes/ui/settings_panel.tscn"
+	) as SettingsPanel
+	if settings == null:
+		return
+	settings.open_panel(UiSettings.new(SETTINGS_TEST_PATH))
+	await _settle()
+	var close := settings.find_child("CloseButton", true, false) as Button
+	assert_not_null(close, "settings keeps a pointer done control")
+	if close == null:
+		return
+	watch_signals(settings)
+	await _click(close)
+	assert_signal_emitted(
+		settings,
+		"close_requested",
+		"the done footer emits through the settings contract",
+	)
