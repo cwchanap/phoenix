@@ -1335,3 +1335,157 @@ func test_containment_assertion_exempts_only_clipped_scroll_content() -> void:
 		"content clipped inside a verified viewport is exempt",
 	)
 	assert_gt(int(report["checked"]), 0, "the check really ran")
+
+func _window_point(logical: Vector2) -> Vector2:
+	return get_window().get_final_transform() * logical
+
+func _sleep_panel_at(window_size: Vector2i, day: int) -> SleepPanel:
+	var sleep := _sleep_panel(day)
+	if sleep == null:
+		return null
+	get_window().size = window_size
+	return sleep
+
+func test_sleep_confirm_pill_spans_the_phone_interior() -> void:
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		for window_size in [UiSettings.WINDOW_SIZE, UiSettings.MIN_WINDOW_SIZE]:
+			for day in [4, GameRules.MAX_DAY]:
+				var sleep := _sleep_panel_at(window_size, day)
+				assert_not_null(
+					sleep,
+					"%s %s day %d sleep panel" % [locale, window_size, day],
+				)
+				if sleep == null:
+					continue
+				await _settle()
+				var screen_rect := _screen_rect(sleep)
+				var confirm := sleep.find_child(
+					"Confirm", true, false
+				) as Button
+				var pill := _primary_pill(confirm)
+				assert_not_null(
+					pill,
+					"%s %s day %d paints a confirm pill"
+						% [locale, window_size, day],
+				)
+				if pill == null:
+					continue
+				var context := "%s %s day %d" % [locale, window_size, day]
+				var pill_rect := pill.get_global_rect()
+				var button_rect := confirm.get_global_rect()
+				assert_almost_eq(
+					pill_rect.position.x, button_rect.position.x, 0.5,
+					"%s native click rect starts where the paint starts"
+						% context,
+				)
+				assert_almost_eq(
+					pill_rect.end.x, button_rect.end.x, 0.5,
+					"%s native click rect ends where the paint ends" % context,
+				)
+				assert_almost_eq(
+					pill_rect.size.x, button_rect.size.x, 0.5,
+					"%s click rect is exactly as wide as the paint" % context,
+				)
+				var pill_ratio := pill_rect.size.x / screen_rect.size.x
+				assert_almost_eq(
+					pill_ratio, 0.9, 0.05,
+					(
+						"%s confirm pill spans ~90%% of the phone interior "
+						+ "(ratio %.3f)"
+					) % [context, pill_ratio],
+				)
+				var button_ratio := button_rect.size.x / screen_rect.size.x
+				assert_almost_eq(
+					button_ratio, 0.9, 0.05,
+					(
+						"%s confirm hitbox spans ~90%% of the phone interior "
+						+ "(ratio %.3f)"
+					) % [context, button_ratio],
+				)
+				assert_almost_eq(
+					pill_rect.get_center().x, screen_rect.get_center().x, 0.5,
+					"%s pill is centered on the screen" % context,
+				)
+				assert_true(
+					screen_rect.encloses(pill_rect),
+					"%s wide pill stays inside the phone screen" % context,
+				)
+				sleep.visible = false
+		get_window().size = UiSettings.WINDOW_SIZE
+
+func test_sleep_confirm_edges_take_native_presses_at_both_sizes() -> void:
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		for window_size in [UiSettings.WINDOW_SIZE, UiSettings.MIN_WINDOW_SIZE]:
+			for day in [4, GameRules.MAX_DAY]:
+				var sleep := _sleep_panel_at(window_size, day)
+				assert_not_null(
+					sleep,
+					"%s %s day %d sleep panel" % [locale, window_size, day],
+				)
+				if sleep == null:
+					continue
+				await _settle()
+				var confirm := sleep.find_child(
+					"Confirm", true, false
+				) as Button
+				var pill := _primary_pill(confirm)
+				if pill == null:
+					continue
+				var pill_rect := pill.get_global_rect()
+				var mid := pill_rect.size.y * 0.5
+				watch_signals(sleep)
+				await _click_at(
+					_window_point(pill_rect.position + Vector2(4, mid))
+				)
+				await _click_at(
+					_window_point(pill_rect.end - Vector2(4, mid))
+				)
+				assert_signal_emit_count(
+					sleep,
+					&"sleep_requested",
+					2,
+					(
+						"%s %s day %d presses at both painted edges of the "
+						+ "wide pill"
+					) % [locale, window_size, day],
+				)
+				sleep.visible = false
+		get_window().size = UiSettings.WINDOW_SIZE
+
+func test_sleep_confirm_release_outside_cancels_at_both_sizes() -> void:
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		for window_size in [UiSettings.WINDOW_SIZE, UiSettings.MIN_WINDOW_SIZE]:
+			for day in [4, GameRules.MAX_DAY]:
+				var sleep := _sleep_panel_at(window_size, day)
+				assert_not_null(
+					sleep,
+					"%s %s day %d sleep panel" % [locale, window_size, day],
+				)
+				if sleep == null:
+					continue
+				await _settle()
+				var confirm := sleep.find_child(
+					"Confirm", true, false
+				) as Button
+				var pill := _primary_pill(confirm)
+				if pill == null:
+					continue
+				var pill_rect := pill.get_global_rect()
+				var mid := pill_rect.size.y * 0.5
+				watch_signals(sleep)
+				await _press_at_release_outside(
+					_window_point(pill_rect.end - Vector2(4, mid))
+				)
+				assert_signal_not_emitted(
+					sleep,
+					&"sleep_requested",
+					(
+						"%s %s day %d release outside cancels the painted "
+						+ "right edge press"
+					) % [locale, window_size, day],
+				)
+				sleep.visible = false
+		get_window().size = UiSettings.WINDOW_SIZE

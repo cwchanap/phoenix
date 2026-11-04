@@ -101,22 +101,13 @@ func _build() -> void:
 	column.add_child(spacer)
 
 	var footer := _frame.footer_mount()
-	var lead := Control.new()
-	lead.name = "Lead"
-	lead.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	lead.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	footer.add_child(lead)
 	var actions := UiStyle.vbox(10)
 	actions.name = "Actions"
+	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(actions)
-	var trail := Control.new()
-	trail.name = "Trail"
-	trail.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	trail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	footer.add_child(trail)
 	_confirm = UiStyle.primary_action("Enter", "Sleep")
 	_confirm.name = "Confirm"
-	_confirm.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_confirm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	actions.add_child(_confirm)
 	var ghost := UiStyle.hbox(8)
 	ghost.name = "CancelRow"
