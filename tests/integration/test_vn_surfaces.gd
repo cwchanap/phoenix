@@ -1767,3 +1767,89 @@ func test_result_warning_label_is_20px_and_stays_clear_of_actions() -> void:
 				)
 	window.size = UiSettings.WINDOW_SIZE
 	await _settle()
+
+func test_dialogue_locked_close_friend_hides_the_gated_esc_hint() -> void:
+	var panel := _present_dialogue(
+		{
+			"code": GameRules.CommandCode.VILLAGER_TALKED,
+			"lines": ["One.", "Two.", "Three."],
+			"points_gained": 0,
+			"gift_reaction": &"",
+			"close_friend_sequence": true,
+			"selected_crop_kind": GameRules.CropKind.POTATO,
+		},
+		_dialogue_snapshot(),
+	)
+	if panel == null:
+		return
+	await _settle()
+	var leave_row := panel.find_child("LeaveRow", true, false) as Control
+	var esc_text := panel.find_child("EscText", true, false) as Label
+	assert_not_null(leave_row, "the Esc leave hint row exists")
+	assert_not_null(esc_text, "the Esc hint label exists")
+	if leave_row == null or esc_text == null:
+		return
+	assert_false(
+		leave_row.is_visible_in_tree(),
+		"Esc is gated on locked close-friend lines, so its hint must not show",
+	)
+	watch_signals(panel)
+	await _press(&"ui_cancel")
+	assert_signal_not_emitted(
+		panel, "close_requested", "Esc stays gated on the locked line"
+	)
+	var pill := panel.find_child("ActionPill", true, false) as Control
+	await _click(pill)
+	assert_eq(panel._line_index, 1)
+	assert_false(
+		leave_row.is_visible_in_tree(),
+		"the middle line keeps the gated Esc hint hidden",
+	)
+	await _press(&"ui_cancel")
+	assert_signal_not_emitted(panel, "close_requested")
+	await _click(pill)
+	assert_eq(panel._line_index, 2)
+	assert_true(
+		leave_row.is_visible_in_tree(),
+		"the final line restores the leave hint",
+	)
+	assert_eq(
+		esc_text.text, "leave",
+		"the restored hint names Esc's real behavior",
+	)
+	await _press(&"ui_cancel")
+	assert_signal_emitted(
+		panel, "close_requested", "Esc really leaves on the final line"
+	)
+
+func test_dialogue_unlocked_lines_keep_the_truthful_leave_hint() -> void:
+	var panel := _present_dialogue(
+		{
+			"code": GameRules.CommandCode.VILLAGER_TALKED,
+			"lines": ["One.", "Two."],
+			"points_gained": 0,
+			"gift_reaction": &"",
+			"close_friend_sequence": false,
+			"selected_crop_kind": GameRules.CropKind.POTATO,
+		},
+		_dialogue_snapshot(),
+	)
+	if panel == null:
+		return
+	await _settle()
+	var leave_row := panel.find_child("LeaveRow", true, false) as Control
+	var esc_text := panel.find_child("EscText", true, false) as Label
+	assert_not_null(leave_row)
+	assert_not_null(esc_text)
+	if leave_row == null or esc_text == null:
+		return
+	assert_true(
+		leave_row.is_visible_in_tree(),
+		"unlocked lines keep the leave hint, and Esc works there",
+	)
+	assert_eq(esc_text.text, "leave")
+	watch_signals(panel)
+	await _press(&"ui_cancel")
+	assert_signal_emitted(
+		panel, "close_requested", "the hint is truthful: Esc closes"
+	)

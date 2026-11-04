@@ -814,6 +814,7 @@ func test_shop_stepper_disabled_and_enter_still_requests_when_unaffordable() -> 
     assert_true(max_button.disabled)
     assert_eq(String(panel.call("selected_action_text")), "Buy 0 · 0G")
 
+    await get_tree().process_frame
     await _click_control(plus)
     assert_eq(int(panel.call("selected_quantity")), 0)
     await _press_panel_action("ui_accept")

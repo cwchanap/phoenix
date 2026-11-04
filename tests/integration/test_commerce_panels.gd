@@ -8,11 +8,15 @@ func after_each() -> void:
 	TranslationServer.set_locale("en")
 
 func _spawn_panel(scene: String) -> Control:
+	get_window().size = UiSettings.WINDOW_SIZE
 	var panel := (load(scene) as PackedScene).instantiate() as Control
 	assert_not_null(panel)
 	if panel == null:
 		return null
-	add_child_autoqfree(panel)
+	var top := CanvasLayer.new()
+	top.layer = 128
+	add_child_autoqfree(top)
+	top.add_child(panel)
 	return panel
 
 func _counts(partial: Dictionary) -> Dictionary:
@@ -52,6 +56,42 @@ func _press(action: StringName) -> void:
 	var release := InputEventAction.new()
 	release.action = action
 	release.pressed = false
+	get_viewport().push_input(release)
+	await get_tree().process_frame
+
+func _click_at(global_pos: Vector2) -> void:
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = global_pos
+	get_viewport().push_input(press)
+	await get_tree().process_frame
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = global_pos
+	get_viewport().push_input(release)
+	await get_tree().process_frame
+
+func _click(control: Control) -> void:
+	await _click_at(control.get_global_rect().get_center())
+
+func _press_and_release_outside(control: Control) -> void:
+	var center := control.get_global_rect().get_center()
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = center
+	get_viewport().push_input(press)
+	await get_tree().process_frame
+	var motion := InputEventMouseMotion.new()
+	motion.position = Vector2(40, 40)
+	get_viewport().push_input(motion)
+	await get_tree().process_frame
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = Vector2(40, 40)
 	get_viewport().push_input(release)
 	await get_tree().process_frame
 
@@ -691,3 +731,331 @@ func test_action_pills_translate_in_all_locales() -> void:
 				sub.text, "Seeds and tools",
 				"%s subtitle is localized, not English fallback" % locale,
 			)
+
+func _action_button(panel: Control) -> Button:
+	var action := _card(panel).find_child("Action", true, false) as Button
+	assert_not_null(action, "the painted action pill is a native Button")
+	return action
+
+func test_shop_action_pill_is_a_native_button_over_the_painted_pill() -> void:
+	var shop := _spawn_panel(SHOP_SCENE) as ShopPanel
+	if shop == null:
+		return
+	shop.open_panel(_shop_snapshot(150, {&"turnip": 3}))
+	await _settle()
+	var action := _action_button(shop)
+	if action == null:
+		return
+	var pill := action.find_child("Pill", true, false) as Control
+	assert_not_null(pill, "the gradient pill paints inside the button")
+	var text := action.find_child("Text", true, false) as Label
+	assert_not_null(text, "the quantity/total label still renders")
+	var enter := action.find_child("Enter", true, false) as Control
+	assert_not_null(enter, "the Enter keycap still renders")
+	if pill == null or text == null:
+		return
+	assert_almost_eq(
+		action.get_global_rect().size.x,
+		pill.get_global_rect().size.x,
+		1.0,
+		"the hitbox spans the whole painted pill",
+	)
+	assert_almost_eq(
+		action.get_global_rect().size.y,
+		pill.get_global_rect().size.y,
+		1.0,
+		"the hitbox is as tall as the painted pill",
+	)
+
+func test_shop_action_button_click_buys_the_shown_quantity() -> void:
+	var shop := _spawn_panel(SHOP_SCENE) as ShopPanel
+	if shop == null:
+		return
+	shop.open_panel(_shop_snapshot(150, {&"turnip": 3}))
+	await _settle()
+	var action := _action_button(shop)
+	if action == null:
+		return
+	watch_signals(shop)
+	await _click(action)
+	assert_signal_emitted_with_parameters(
+		shop,
+		"buy_requested",
+		[GameRules.CropKind.TURNIP, 1],
+	)
+	assert_signal_emit_count(shop, "buy_requested", 1)
+	await _press("move_right")
+	await _press("move_right")
+	await _click(action)
+	assert_signal_emitted_with_parameters(
+		shop,
+		"buy_requested",
+		[GameRules.CropKind.TURNIP, 3],
+	)
+	assert_signal_emit_count(shop, "buy_requested", 2)
+
+func test_shipping_action_button_click_deposits_the_shown_quantity() -> void:
+	var shipping := _spawn_panel(SHIPPING_SCENE) as ShippingPanel
+	if shipping == null:
+		return
+	shipping.open_panel(
+		_shipping_snapshot({&"turnip": 7, &"potato": 2, &"pumpkin": 0})
+	)
+	await _settle()
+	var action := _action_button(shipping)
+	if action == null:
+		return
+	watch_signals(shipping)
+	await _press("panel_max")
+	await _click(action)
+	assert_signal_emitted_with_parameters(
+		shipping,
+		"deposit_requested",
+		[GameRules.CropKind.TURNIP, 7],
+	)
+	assert_signal_emit_count(shipping, "deposit_requested", 1)
+	await _press("move_down")
+	await _press("panel_max")
+	await _click(action)
+	assert_signal_emitted_with_parameters(
+		shipping,
+		"deposit_requested",
+		[GameRules.CropKind.POTATO, 2],
+	)
+
+func test_shop_action_button_release_outside_cancels() -> void:
+	var shop := _spawn_panel(SHOP_SCENE) as ShopPanel
+	if shop == null:
+		return
+	shop.open_panel(_shop_snapshot(150, {&"turnip": 3}))
+	await _settle()
+	var action := _action_button(shop)
+	if action == null:
+		return
+	watch_signals(shop)
+	await _press_and_release_outside(action)
+	assert_signal_not_emitted(shop, "buy_requested")
+	await _click(action)
+	assert_signal_emitted(shop, "buy_requested")
+
+func test_shipping_action_button_release_outside_cancels() -> void:
+	var shipping := _spawn_panel(SHIPPING_SCENE) as ShippingPanel
+	if shipping == null:
+		return
+	shipping.open_panel(_shipping_snapshot({&"turnip": 7}))
+	await _settle()
+	var action := _action_button(shipping)
+	if action == null:
+		return
+	watch_signals(shipping)
+	await _press_and_release_outside(action)
+	assert_signal_not_emitted(shipping, "deposit_requested")
+	await _click(action)
+	assert_signal_emitted(shipping, "deposit_requested")
+
+func test_shop_action_button_click_outside_does_not_buy() -> void:
+	var shop := _spawn_panel(SHOP_SCENE) as ShopPanel
+	if shop == null:
+		return
+	shop.open_panel(_shop_snapshot(150, {&"turnip": 3}))
+	await _settle()
+	var action := _action_button(shop)
+	if action == null:
+		return
+	watch_signals(shop)
+	var rect := action.get_global_rect()
+	await _click_at(rect.position + Vector2(-6.0, rect.size.y * 0.5))
+	assert_signal_not_emitted(shop, "buy_requested")
+	await _click_at(rect.position + Vector2(6.0, rect.size.y * 0.5))
+	assert_signal_emitted(shop, "buy_requested")
+	await _click_at(
+		Vector2(rect.end.x - 6.0, rect.position.y + 4.0)
+	)
+	assert_signal_emit_count(shop, "buy_requested", 2)
+
+func test_shop_action_button_zero_quantity_click_emits_zero() -> void:
+	var shop := _spawn_panel(SHOP_SCENE) as ShopPanel
+	if shop == null:
+		return
+	shop.open_panel(_shop_snapshot(15))
+	await _settle()
+	assert_eq(shop.selected_quantity(), 0)
+	var action := _action_button(shop)
+	if action == null:
+		return
+	watch_signals(shop)
+	await _click(action)
+	assert_signal_emitted_with_parameters(
+		shop,
+		"buy_requested",
+		[GameRules.CropKind.TURNIP, 0],
+	)
+
+func test_shop_action_button_upgrade_click_emits_upgrade() -> void:
+	var shop := _spawn_panel(SHOP_SCENE) as ShopPanel
+	if shop == null:
+		return
+	shop.open_panel(_shop_snapshot(255))
+	await _settle()
+	for _i in range(3):
+		await _press("move_down")
+	assert_eq(shop.selected_row(), 3)
+	var action := _action_button(shop)
+	if action == null:
+		return
+	watch_signals(shop)
+	await _click(action)
+	assert_signal_emitted(shop, "upgrade_requested")
+	assert_signal_emit_count(shop, "upgrade_requested", 1)
+	assert_signal_not_emitted(shop, "buy_requested")
+
+func test_shop_action_button_owned_upgrade_click_emits_nothing() -> void:
+	var shop := _spawn_panel(SHOP_SCENE) as ShopPanel
+	if shop == null:
+		return
+	shop.open_panel(_shop_snapshot(55, {}, true))
+	await _settle()
+	for _i in range(3):
+		await _press("move_down")
+	assert_eq(shop.selected_action_text(), "OWNED")
+	var action := _action_button(shop)
+	if action == null:
+		return
+	watch_signals(shop)
+	await _click(action)
+	assert_signal_not_emitted(shop, "upgrade_requested")
+	assert_signal_not_emitted(shop, "buy_requested")
+
+func test_action_buttons_do_nothing_while_the_panel_is_hidden() -> void:
+	var shop := _spawn_panel(SHOP_SCENE) as ShopPanel
+	var shipping := _spawn_panel(SHIPPING_SCENE) as ShippingPanel
+	if shop == null or shipping == null:
+		return
+	shop.open_panel(_shop_snapshot(150))
+	shipping.open_panel(_shipping_snapshot({&"turnip": 7}))
+	await _settle()
+	var shop_action := _action_button(shop)
+	var shipping_action := _action_button(shipping)
+	if shop_action == null or shipping_action == null:
+		return
+	var shop_center := shop_action.get_global_rect().get_center()
+	var ship_center := shipping_action.get_global_rect().get_center()
+	watch_signals(shop)
+	watch_signals(shipping)
+	shop.visible = false
+	shipping.visible = false
+	await _settle()
+	await _click_at(shop_center)
+	assert_signal_not_emitted(shop, "buy_requested")
+	await _click_at(ship_center)
+	assert_signal_not_emitted(shipping, "deposit_requested")
+	await _press("ui_accept")
+	assert_signal_not_emitted(shop, "buy_requested")
+	assert_signal_not_emitted(shipping, "deposit_requested")
+
+func test_shop_enter_activates_the_focused_button_exactly_once() -> void:
+	var shop := _spawn_panel(SHOP_SCENE) as ShopPanel
+	if shop == null:
+		return
+	shop.open_panel(_shop_snapshot(150, {&"turnip": 3}))
+	await _settle()
+	var action := _action_button(shop)
+	if action == null:
+		return
+	watch_signals(shop)
+	await _click(action)
+	assert_signal_emit_count(shop, "buy_requested", 1)
+	assert_eq(
+		get_viewport().gui_get_focus_owner(),
+		action,
+		"the click gives the native button focus",
+	)
+	await _press("ui_accept")
+	assert_signal_emit_count(
+		shop,
+		"buy_requested",
+		2,
+		"Enter on the focused button dispatches once, not through both paths",
+	)
+	action.release_focus()
+	await _settle()
+	await _press("ui_accept")
+	assert_signal_emit_count(
+		shop,
+		"buy_requested",
+		3,
+		"unfocused Enter still dispatches once through the panel path",
+	)
+
+func test_shipping_enter_activates_the_focused_button_exactly_once() -> void:
+	var shipping := _spawn_panel(SHIPPING_SCENE) as ShippingPanel
+	if shipping == null:
+		return
+	shipping.open_panel(_shipping_snapshot({&"turnip": 7}))
+	await _settle()
+	var action := _action_button(shipping)
+	if action == null:
+		return
+	watch_signals(shipping)
+	await _click(action)
+	assert_signal_emit_count(shipping, "deposit_requested", 1)
+	assert_eq(get_viewport().gui_get_focus_owner(), action)
+	await _press("ui_accept")
+	assert_signal_emit_count(
+		shipping,
+		"deposit_requested",
+		2,
+		"Enter on the focused button dispatches once, not through both paths",
+	)
+
+func test_shop_disabled_steppers_ignore_clicks() -> void:
+	var shop := _spawn_panel(SHOP_SCENE) as ShopPanel
+	if shop == null:
+		return
+	shop.open_panel(_shop_snapshot(15))
+	await _settle()
+	var minus := shop.stepper_button(0, &"minus")
+	var plus := shop.stepper_button(0, &"plus")
+	var max_button := shop.stepper_button(0, &"max")
+	assert_true(minus.disabled)
+	assert_true(plus.disabled)
+	assert_true(max_button.disabled)
+	await _click(minus)
+	await _click(plus)
+	await _click(max_button)
+	assert_eq(
+		shop.selected_quantity(),
+		0,
+		"disabled steppers keep their native no-op semantics",
+	)
+
+func test_action_button_click_works_in_all_locales() -> void:
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		var shop := _spawn_panel(SHOP_SCENE) as ShopPanel
+		if shop == null:
+			return
+		shop.open_panel(_shop_snapshot(150, {&"turnip": 3}))
+		await _settle()
+		var shop_action := _action_button(shop)
+		if shop_action == null:
+			return
+		watch_signals(shop)
+		await _click(shop_action)
+		assert_signal_emitted(shop, "buy_requested", "%s shop click" % locale)
+		shop.visible = false
+		var shipping := _spawn_panel(SHIPPING_SCENE) as ShippingPanel
+		if shipping == null:
+			return
+		shipping.open_panel(_shipping_snapshot({&"turnip": 7}))
+		await _settle()
+		var shipping_action := _action_button(shipping)
+		if shipping_action == null:
+			return
+		watch_signals(shipping)
+		await _click(shipping_action)
+		assert_signal_emitted(
+			shipping, "deposit_requested", "%s shipping click" % locale
+		)
+		shipping.visible = false
+		await _settle()

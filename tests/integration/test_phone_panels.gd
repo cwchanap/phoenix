@@ -9,11 +9,15 @@ func after_each() -> void:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS_TEST_PATH))
 
 func _spawn_panel(scene: String) -> Control:
+	get_window().size = UiSettings.WINDOW_SIZE
 	var panel := (load(scene) as PackedScene).instantiate() as Control
 	assert_not_null(panel)
 	if panel == null:
 		return null
-	add_child_autoqfree(panel)
+	var top := CanvasLayer.new()
+	top.layer = 128
+	add_child_autoqfree(top)
+	top.add_child(panel)
 	return panel
 
 func _snapshot() -> Dictionary:
@@ -170,6 +174,61 @@ func _press(action: StringName) -> void:
 	var release := InputEventAction.new()
 	release.action = action
 	release.pressed = false
+	get_viewport().push_input(release)
+	await get_tree().process_frame
+
+func _click_at(global_pos: Vector2) -> void:
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = global_pos
+	get_viewport().push_input(press)
+	await get_tree().process_frame
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = global_pos
+	get_viewport().push_input(release)
+	await get_tree().process_frame
+
+func _click(control: Control) -> void:
+	await _click_at(control.get_global_rect().get_center())
+
+func _press_and_release_outside(control: Control) -> void:
+	var center := control.get_global_rect().get_center()
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = center
+	get_viewport().push_input(press)
+	await get_tree().process_frame
+	var motion := InputEventMouseMotion.new()
+	motion.position = Vector2(40, 40)
+	get_viewport().push_input(motion)
+	await get_tree().process_frame
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = Vector2(40, 40)
+	get_viewport().push_input(release)
+	await get_tree().process_frame
+
+func _release_outside_then_inside(control: Control) -> void:
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = Vector2(40, 40)
+	get_viewport().push_input(press)
+	await get_tree().process_frame
+	var center := control.get_global_rect().get_center()
+	var motion := InputEventMouseMotion.new()
+	motion.position = center
+	get_viewport().push_input(motion)
+	await get_tree().process_frame
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = center
 	get_viewport().push_input(release)
 	await get_tree().process_frame
 
@@ -1747,3 +1806,311 @@ func test_settings_stays_inside_the_screen_in_all_locales() -> void:
 		)
 		settings.queue_free()
 		await _settle()
+
+func _settings_panel() -> SettingsPanel:
+	var panel := _spawn_panel("res://scenes/ui/settings_panel.tscn") as SettingsPanel
+	return panel
+
+func _slider_rect(settings: Control, slider_name: String) -> Rect2:
+	var slider := settings.find_child(
+		"%sSlider" % slider_name, true, false
+	) as Control
+	assert_not_null(slider, "%s slider exists" % slider_name)
+	if slider == null:
+		return Rect2()
+	return slider.get_global_rect()
+
+func _seg_chip_rect(settings: Control, seg_name: String, index: int) -> Rect2:
+	var seg := settings.find_child(seg_name, true, false) as Control
+	assert_not_null(seg, "%s exists" % seg_name)
+	if seg == null:
+		return Rect2()
+	var chip := seg.find_child("Option_%d" % index, true, false) as Control
+	assert_not_null(chip, "%s option %d exists" % [seg_name, index])
+	if chip == null:
+		return Rect2()
+	return chip.get_global_rect()
+
+func test_settings_music_slider_click_sets_numeric_level() -> void:
+	var settings := _settings_panel()
+	if settings == null:
+		return
+	var ui_settings := UiSettings.new(SETTINGS_TEST_PATH)
+	ui_settings.music = 4
+	settings.open_panel(ui_settings)
+	await _settle()
+	var rect := _slider_rect(settings, "Music")
+	assert_true(rect.has_area())
+	if not rect.has_area():
+		return
+	watch_signals(settings)
+	await _click_at(
+		rect.position + Vector2(rect.size.x * 0.7, rect.size.y * 0.5)
+	)
+	assert_eq(
+		ui_settings.music, 7,
+		"clicking 70% along the track sets level 7",
+	)
+	assert_eq(
+		settings.selected_setting_name(), &"music",
+		"clicking the track selects the music row",
+	)
+	assert_signal_emitted_with_parameters(settings, "settings_changed", [OK])
+	var level := settings.find_child("MusicLevel", true, false) as Label
+	assert_not_null(level)
+	if level != null:
+		assert_eq(level.text, "7")
+	var slider := settings.find_child("MusicSlider", true, false) as Control
+	var fill := slider.find_child("Fill", true, false) as Control
+	if fill != null:
+		assert_almost_eq(fill.anchor_right, 0.7, 0.01)
+	var knob := slider.find_child("Knob", true, false) as Control
+	if knob != null:
+		assert_almost_eq(knob.anchor_left, 0.7, 0.01)
+	var reloaded := UiSettings.load(SETTINGS_TEST_PATH)
+	assert_eq(reloaded.music, 7, "the click persists through the settings file")
+
+func test_settings_sound_slider_click_maps_discrete_levels() -> void:
+	var settings := _settings_panel()
+	if settings == null:
+		return
+	var ui_settings := UiSettings.new(SETTINGS_TEST_PATH)
+	ui_settings.sound = 5
+	settings.open_panel(ui_settings)
+	await _settle()
+	var rect := _slider_rect(settings, "Sound")
+	if not rect.has_area():
+		return
+	var mid_y := rect.position.y + rect.size.y * 0.5
+	await _click_at(Vector2(rect.position.x + 2.0, mid_y))
+	assert_eq(ui_settings.sound, 0, "the track's left edge maps to 0")
+	await _click_at(Vector2(rect.end.x - 2.0, mid_y))
+	assert_eq(ui_settings.sound, 10, "the track's right edge maps to 10")
+	await _click_at(rect.get_center())
+	assert_eq(ui_settings.sound, 5, "the track centre maps to 5")
+	assert_eq(settings.selected_setting_name(), &"sound")
+
+func test_settings_slider_release_outside_cancels() -> void:
+	var settings := _settings_panel()
+	if settings == null:
+		return
+	var ui_settings := UiSettings.new(SETTINGS_TEST_PATH)
+	ui_settings.music = 4
+	settings.open_panel(ui_settings)
+	await _settle()
+	var rect := _slider_rect(settings, "Music")
+	if not rect.has_area():
+		return
+	watch_signals(settings)
+	var slider := settings.find_child("MusicSlider", true, false) as Control
+	await _press_and_release_outside(slider)
+	assert_eq(ui_settings.music, 4, "release outside cancels the slider")
+	assert_signal_not_emitted(settings, "settings_changed")
+	await _release_outside_then_inside(slider)
+	assert_eq(
+		ui_settings.music, 4,
+		"a release inside without a press inside cannot set a level",
+	)
+	assert_signal_not_emitted(settings, "settings_changed")
+
+func test_settings_window_chip_click_switches_mode() -> void:
+	var settings := _settings_panel()
+	if settings == null:
+		return
+	var ui_settings := UiSettings.new(SETTINGS_TEST_PATH)
+	ui_settings.fullscreen = false
+	settings.open_panel(ui_settings)
+	await _settle()
+	var full_rect := _seg_chip_rect(settings, "WindowSeg", 1)
+	var windowed_rect := _seg_chip_rect(settings, "WindowSeg", 0)
+	if not full_rect.has_area() or not windowed_rect.has_area():
+		return
+	watch_signals(settings)
+	await _click_at(full_rect.get_center())
+	assert_true(
+		ui_settings.fullscreen, "clicking FULL applies the fullscreen option"
+	)
+	assert_eq(settings.selected_setting_name(), &"fullscreen")
+	assert_signal_emitted_with_parameters(settings, "settings_changed", [OK])
+	var reloaded := UiSettings.load(SETTINGS_TEST_PATH)
+	assert_true(reloaded.fullscreen, "the click persists fullscreen")
+	var window_seg := settings.find_child("WindowSeg", true, false) as Control
+	var ons := window_seg.find_children("On", "TextureRect", true, false)
+	assert_eq(ons.size(), 2)
+	if ons.size() == 2:
+		assert_false(ons[0].visible, "1080p chip reads unselected")
+		assert_true(ons[1].visible, "FULL chip reads selected")
+	await _click_at(windowed_rect.get_center())
+	assert_false(ui_settings.fullscreen)
+	reloaded = UiSettings.load(SETTINGS_TEST_PATH)
+	assert_false(reloaded.fullscreen)
+
+func test_settings_language_chip_click_applies_live_locale() -> void:
+	var settings := _settings_panel()
+	if settings == null:
+		return
+	var ui_settings := UiSettings.new(SETTINGS_TEST_PATH)
+	ui_settings.language = "en"
+	settings.open_panel(ui_settings)
+	await _settle()
+	var ja_rect := _seg_chip_rect(settings, "LanguageSeg", 2)
+	if not ja_rect.has_area():
+		return
+	watch_signals(settings)
+	await _click_at(ja_rect.get_center())
+	assert_eq(ui_settings.language, "ja")
+	assert_eq(
+		TranslationServer.get_locale(), "ja",
+		"clicking 日本語 applies the locale live like A/D does",
+	)
+	assert_eq(settings.selected_setting_name(), &"language")
+	assert_signal_emitted_with_parameters(settings, "settings_changed", [OK])
+	var reloaded := UiSettings.load(SETTINGS_TEST_PATH)
+	assert_eq(reloaded.language, "ja")
+	var zh_rect := _seg_chip_rect(settings, "LanguageSeg", 1)
+	await _click_at(zh_rect.get_center())
+	assert_eq(ui_settings.language, "zh_TW")
+	assert_eq(TranslationServer.get_locale(), "zh_TW")
+	var en_rect := _seg_chip_rect(settings, "LanguageSeg", 0)
+	await _click_at(en_rect.get_center())
+	assert_eq(ui_settings.language, "en")
+	assert_eq(TranslationServer.get_locale(), "en")
+
+func test_settings_tips_switch_click_toggles() -> void:
+	var settings := _settings_panel()
+	if settings == null:
+		return
+	var ui_settings := UiSettings.new(SETTINGS_TEST_PATH)
+	ui_settings.tutorial_cards = true
+	settings.open_panel(ui_settings)
+	await _settle()
+	var tips := settings.find_child("TipsSwitch", true, false) as Control
+	assert_not_null(tips)
+	if tips == null:
+		return
+	watch_signals(settings)
+	await _click(tips)
+	assert_false(ui_settings.tutorial_cards)
+	assert_eq(settings.selected_setting_name(), &"tutorial_cards")
+	assert_signal_emitted_with_parameters(settings, "settings_changed", [OK])
+	var reloaded := UiSettings.load(SETTINGS_TEST_PATH)
+	assert_false(reloaded.tutorial_cards, "the tap persists the switch")
+	var knob := tips.find_child("Knob", true, false) as Control
+	var on := tips.find_child("On", true, false) as Control
+	if knob != null:
+		assert_true(knob.position.x < 10.0, "switch off parks the knob left")
+	if on != null:
+		assert_false(on.visible, "switch off hides the gradient track")
+	await _click(tips)
+	assert_true(ui_settings.tutorial_cards)
+	if knob != null:
+		assert_true(knob.position.x > 20.0, "switch on parks the knob right")
+
+func test_settings_tips_switch_release_outside_cancels() -> void:
+	var settings := _settings_panel()
+	if settings == null:
+		return
+	var ui_settings := UiSettings.new(SETTINGS_TEST_PATH)
+	ui_settings.tutorial_cards = true
+	settings.open_panel(ui_settings)
+	await _settle()
+	var tips := settings.find_child("TipsSwitch", true, false) as Control
+	if tips == null:
+		return
+	watch_signals(settings)
+	await _press_and_release_outside(tips)
+	assert_true(ui_settings.tutorial_cards, "release outside cancels the tap")
+	assert_signal_not_emitted(settings, "settings_changed")
+
+func test_settings_clicks_do_nothing_while_hidden() -> void:
+	var settings := _settings_panel()
+	if settings == null:
+		return
+	var ui_settings := UiSettings.new(SETTINGS_TEST_PATH)
+	ui_settings.music = 4
+	ui_settings.tutorial_cards = true
+	settings.open_panel(ui_settings)
+	await _settle()
+	var music_rect := _slider_rect(settings, "Music")
+	var chip_rect := _seg_chip_rect(settings, "WindowSeg", 1)
+	var language_rect := _seg_chip_rect(settings, "LanguageSeg", 1)
+	var tips := settings.find_child("TipsSwitch", true, false) as Control
+	var tips_rect := tips.get_global_rect()
+	var language_before := ui_settings.language
+	watch_signals(settings)
+	settings.visible = false
+	await _settle()
+	await _click_at(music_rect.get_center())
+	assert_eq(ui_settings.music, 4)
+	await _click_at(chip_rect.get_center())
+	assert_false(ui_settings.fullscreen)
+	await _click_at(language_rect.get_center())
+	assert_eq(ui_settings.language, language_before)
+	await _click_at(tips_rect.get_center())
+	assert_true(ui_settings.tutorial_cards)
+	assert_signal_not_emitted(settings, "settings_changed")
+
+func test_settings_keyboard_row_and_adjust_survive_pointer_clicks() -> void:
+	var settings := _settings_panel()
+	if settings == null:
+		return
+	var ui_settings := UiSettings.new(SETTINGS_TEST_PATH)
+	ui_settings.music = 4
+	ui_settings.sound = 5
+	settings.open_panel(ui_settings)
+	await _settle()
+	var rect := _slider_rect(settings, "Sound")
+	if not rect.has_area():
+		return
+	await _click_at(
+		rect.position + Vector2(rect.size.x * 0.7, rect.size.y * 0.5)
+	)
+	assert_eq(ui_settings.sound, 7)
+	assert_eq(settings.selected_setting_name(), &"sound")
+	await _press("move_up")
+	assert_eq(settings.selected_setting_name(), &"music")
+	await _press("move_left")
+	assert_eq(ui_settings.music, 3, "A/D still steps the selected row")
+	await _press("move_down")
+	assert_eq(settings.selected_setting_name(), &"sound")
+	await _press("move_right")
+	assert_eq(ui_settings.sound, 8)
+
+func test_settings_clicks_work_in_all_locales_at_min_window() -> void:
+	var window := get_window()
+	for size in [UiSettings.WINDOW_SIZE, UiSettings.MIN_WINDOW_SIZE]:
+		window.size = size
+		for locale in LOCALES:
+			TranslationServer.set_locale(locale)
+			var settings := _settings_panel()
+			assert_not_null(settings)
+			if settings == null:
+				continue
+			var ui_settings := UiSettings.new(SETTINGS_TEST_PATH)
+			ui_settings.music = 4
+			ui_settings.tutorial_cards = true
+			ui_settings.language = locale
+			settings.open_panel(ui_settings)
+			await _settle()
+			var rect := _slider_rect(settings, "Music")
+			if not rect.has_area():
+				settings.queue_free()
+				await _settle()
+				continue
+			await _click_at(
+				rect.position + Vector2(rect.size.x * 0.8, rect.size.y * 0.5)
+			)
+			assert_eq(
+				ui_settings.music, 8,
+				"%s %s: slider click maps position to level" % [size, locale],
+			)
+			var chip_rect := _seg_chip_rect(settings, "WindowSeg", 1)
+			await _click_at(chip_rect.get_center())
+			assert_true(
+				ui_settings.fullscreen,
+				"%s %s: FULL chip click applies" % [size, locale],
+			)
+			settings.queue_free()
+			await _settle()
+	window.size = UiSettings.WINDOW_SIZE
+	TranslationServer.set_locale("en")

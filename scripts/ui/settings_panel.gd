@@ -105,12 +105,58 @@ func _adjust(delta: int) -> void:
 			var next_language := posmod(languages.find(_settings.language) + delta, languages.size())
 			error = _settings.set_language(languages[next_language])
 			_settings.apply_language()
+	_commit_setting(error)
+
+func _commit_setting(error: int) -> void:
 	if error == OK:
 		_status.text = ""
 	else:
 		_status.text = tr("Could not save settings.")
 	_refresh()
 	settings_changed.emit(error)
+
+func _on_slider_pressed(hit: Button, index: int, target: Dictionary) -> void:
+	if _settings == null:
+		return
+	var fraction := 0.0
+	if hit.size.x > 0.0:
+		var local: Vector2 = target.get("hit_pos", Vector2.ZERO)
+		fraction = clampf(local.x / hit.size.x, 0.0, 1.0)
+	_apply_level(index, clampi(roundi(fraction * 10.0), 0, 10))
+
+func _apply_level(index: int, level: int) -> void:
+	if _settings == null:
+		return
+	_selected_index = index
+	var error := OK
+	match index:
+		0:
+			error = _settings.set_music(level)
+		1:
+			error = _settings.set_sound(level)
+	_commit_setting(error)
+
+func _choose_option(index: int, option: int) -> void:
+	if _settings == null:
+		return
+	_selected_index = index
+	var error := OK
+	match index:
+		2:
+			if option >= 0 and option < WINDOW_VALUES.size():
+				error = _settings.set_fullscreen(WINDOW_VALUES[option])
+		4:
+			var languages := UiSettings.LANGUAGES
+			if option >= 0 and option < languages.size():
+				error = _settings.set_language(languages[option])
+				_settings.apply_language()
+	_commit_setting(error)
+
+func _toggle_tips() -> void:
+	if _settings == null:
+		return
+	_selected_index = 3
+	_commit_setting(_settings.set_tutorial_cards(not _settings.tutorial_cards))
 
 func _refresh() -> void:
 	if _settings == null or _rows.is_empty():
@@ -258,24 +304,32 @@ func _setting_row(index: int) -> PanelContainer:
 func _row_control(index: int) -> Control:
 	match index:
 		0:
-			return _slider_row("Music", _music_slider)
+			return _slider_row("Music", _music_slider, 0)
 		1:
-			return _slider_row("Sound", _sound_slider)
+			return _slider_row("Sound", _sound_slider, 1)
 		2:
-			return _seg("WindowSeg", ["1080p", "FULL"], _window_chips)
+			return _seg("WindowSeg", ["1080p", "FULL"], _window_chips, true, 2)
 		3:
 			return _tips_switch()
 		_:
-			return _seg("LanguageSeg", LANGUAGE_LABELS, _language_chips, false)
+			return _seg("LanguageSeg", LANGUAGE_LABELS, _language_chips, false, 4)
 
-func _slider_row(slider_name: String, target: Dictionary) -> HBoxContainer:
+func _slider_row(slider_name: String, target: Dictionary, index: int) -> HBoxContainer:
 	var wrap := UiStyle.hbox(10)
 	wrap.name = "%sControl" % slider_name
 	var slider := Control.new()
 	slider.name = "%sSlider" % slider_name
 	slider.custom_minimum_size = Vector2(190, 28)
 	slider.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wrap.add_child(slider)
+	var slider_hit := UiStyle.hit_button(slider)
+	slider_hit.name = "%sSliderHit" % slider_name
+	slider_hit.gui_input.connect(
+		func(event: InputEvent) -> void:
+			if event is InputEventMouse:
+				target["hit_pos"] = (event as InputEventMouse).position
+	)
+	slider_hit.pressed.connect(_on_slider_pressed.bind(slider_hit, index, target))
+	wrap.add_child(slider_hit)
 	var track := Panel.new()
 	track.name = "Track"
 	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -331,7 +385,8 @@ func _seg(
 	seg_name: String,
 	texts: Array,
 	target: Array[Dictionary],
-	translate := true,
+	translate: bool,
+	row_index: int,
 ) -> PanelContainer:
 	var seg := PanelContainer.new()
 	seg.name = seg_name
@@ -365,7 +420,10 @@ func _seg(
 		if not translate:
 			label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 		chip.add_child(label)
-		row.add_child(chip)
+		var chip_hit := UiStyle.hit_button(chip)
+		chip_hit.name = "OptionHit_%d" % index
+		chip_hit.pressed.connect(_choose_option.bind(row_index, index))
+		row.add_child(chip_hit)
 		target.append({"chip": chip, "label": label, "on": on})
 	return seg
 
@@ -401,7 +459,10 @@ func _tips_switch() -> Control:
 		"panel", UiStyle.card(UiStyle.CARD, 13, [0, 0, 0, 0])
 	)
 	sw.add_child(_tips_knob)
-	return sw
+	var hit := UiStyle.hit_button(sw)
+	hit.name = "TipsSwitchHit"
+	hit.pressed.connect(_toggle_tips)
+	return hit
 
 func _note() -> VBoxContainer:
 	var info := UiStyle.vbox(2)
