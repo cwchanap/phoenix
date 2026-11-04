@@ -1336,6 +1336,168 @@ func test_containment_assertion_exempts_only_clipped_scroll_content() -> void:
 	)
 	assert_gt(int(report["checked"]), 0, "the check really ran")
 
+func test_sleep_terminal_day_shows_truthful_prompt_copy() -> void:
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		for day in [1, 13]:
+			var sleep := _sleep_panel(day)
+			assert_not_null(sleep, "%s day %d sleep panel" % [locale, day])
+			if sleep == null:
+				continue
+			await _settle()
+			var question := sleep.find_child(
+				"Question", true, false
+			) as Label
+			var hint := sleep.find_child("Hint", true, false) as Label
+			assert_not_null(question)
+			assert_not_null(hint)
+			if question == null or hint == null:
+				continue
+			var context := "%s day %d" % [locale, day]
+			assert_eq(
+				question.tr(question.text),
+				tr("Sleep until morning?"),
+				"%s keeps the truthful normal-day question" % context,
+			)
+			assert_true(
+				hint.is_visible_in_tree(),
+				"%s keeps the overnight-growth hint" % context,
+			)
+			assert_eq(
+				hint.tr(hint.text),
+				tr("Crops you watered today grow overnight."),
+				"%s keeps the overnight-growth copy" % context,
+			)
+			assert_false(
+				sleep.day14_warning_visible(),
+				"%s keeps the terminal warning hidden" % context,
+			)
+			sleep.visible = false
+		var finale := _sleep_panel(GameRules.MAX_DAY)
+		assert_not_null(finale, "%s day 14 sleep panel" % locale)
+		if finale == null:
+			continue
+		await _settle()
+		var question := finale.find_child("Question", true, false) as Label
+		var hint := finale.find_child("Hint", true, false) as Label
+		assert_not_null(question)
+		assert_not_null(hint)
+		if question == null or hint == null:
+			continue
+		var context := "%s day 14" % locale
+		assert_ne(
+			question.tr(question.text),
+			tr("Sleep until morning?"),
+			(
+				"%s must not promise a morning the terminal sleep "
+				+ "never reaches"
+			) % context,
+		)
+		assert_eq(
+			question.tr(question.text),
+			tr("Finish the season?"),
+			"%s asks the truthful terminal question" % context,
+		)
+		if locale != "en":
+			assert_ne(
+				question.tr(question.text),
+				"Finish the season?",
+				"%s terminal question is localized, not raw English" % context,
+			)
+		assert_false(
+			hint.is_visible_in_tree(),
+			(
+				"%s must not claim watered crops grow overnight — "
+				+ "the season ends in the finale"
+			) % context,
+		)
+		assert_true(
+			finale.day14_warning_visible(),
+			"%s keeps the terminal warning" % context,
+		)
+		var alarm := finale.find_child("AlarmTime", true, false) as Label
+		assert_not_null(alarm)
+		if alarm != null:
+			assert_eq(
+				alarm.text,
+				GameRules.format_time(GameRules.DAY_START_MINUTES),
+				"%s keeps the 06:00 alarm target" % context,
+			)
+		var confirm := finale.find_child("Confirm", true, false) as Button
+		var pill := _primary_pill(confirm)
+		assert_not_null(pill)
+		if pill != null:
+			assert_almost_eq(
+				pill.get_global_rect().size.x,
+				confirm.get_global_rect().size.x,
+				0.5,
+				"%s native hitbox still matches the wide painted pill" % context,
+			)
+			watch_signals(finale)
+			await _click(confirm)
+			assert_signal_emitted(
+				finale,
+				&"sleep_requested",
+				"%s confirm still emits the sleep request" % context,
+			)
+		finale.visible = false
+
+func test_sleep_prompt_copy_restores_when_present_moves_between_days() -> void:
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		var sleep := _sleep_panel(4)
+		assert_not_null(sleep, "%s sleep panel" % locale)
+		if sleep == null:
+			continue
+		await _settle()
+		var question := sleep.find_child("Question", true, false) as Label
+		var hint := sleep.find_child("Hint", true, false) as Label
+		assert_not_null(question)
+		assert_not_null(hint)
+		if question == null or hint == null:
+			continue
+		var context := "%s" % locale
+		assert_eq(
+			question.tr(question.text),
+			tr("Sleep until morning?"),
+			"%s starts on the normal question" % context,
+		)
+		sleep.present({"day": GameRules.MAX_DAY})
+		await _settle()
+		assert_eq(
+			question.tr(question.text),
+			tr("Finish the season?"),
+			"%s re-present on day 14 swaps to terminal copy" % context,
+		)
+		assert_false(
+			hint.is_visible_in_tree(),
+			"%s day 14 hides the overnight-growth hint" % context,
+		)
+		sleep.present({"day": 4})
+		await _settle()
+		assert_eq(
+			question.tr(question.text),
+			tr("Sleep until morning?"),
+			"%s re-present on day 4 restores the normal question" % context,
+		)
+		assert_true(
+			hint.is_visible_in_tree(),
+			"%s day 4 restores the overnight-growth hint" % context,
+		)
+		assert_eq(
+			hint.tr(hint.text),
+			tr("Crops you watered today grow overnight."),
+			"%s day 4 restores the overnight-growth copy" % context,
+		)
+		sleep.present({"day": GameRules.MAX_DAY})
+		await _settle()
+		assert_eq(
+			question.tr(question.text),
+			tr("Finish the season?"),
+			"%s second terminal present still tells the truth" % context,
+		)
+		sleep.visible = false
+
 func _window_point(logical: Vector2) -> Vector2:
 	return get_window().get_final_transform() * logical
 
