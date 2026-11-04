@@ -583,6 +583,7 @@ func _build_modals() -> void:
     _settings_panel = SETTINGS_SCENE.instantiate() as SettingsPanel
     _root.add_child(_settings_panel)
     _settings_panel.settings_changed.connect(_on_settings_changed)
+    _settings_panel.close_requested.connect(close_settings)
     _shop_panel.visible = false
     _shipping_panel.visible = false
     _bag_panel.visible = false

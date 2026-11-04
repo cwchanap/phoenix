@@ -355,12 +355,17 @@ func _build_footer() -> void:
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(spacer)
-	var cap := UiStyle.keycap("C", true)
-	cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	footer.add_child(cap)
+	var close_cluster := UiStyle.hbox(4)
+	close_cluster.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	close_cluster.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	close_cluster.add_child(UiStyle.keycap("C", true))
 	var close := UiStyle.label("close", 15, UiStyle.INK_MUTED, 800)
 	close.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	footer.add_child(close)
+	close_cluster.add_child(close)
+	var close_button := UiStyle.hit_button(close_cluster)
+	close_button.name = "CloseButton"
+	close_button.pressed.connect(close_requested.emit)
+	footer.add_child(close_button)
 
 func _update_calendar() -> void:
 	if _frame == null:

@@ -277,6 +277,10 @@ func test_dialogue_footer_has_choose_hint_esc_and_primary_pill() -> void:
 	assert_not_null(choose, "the A/D choose-gift hint sits in the footer")
 	if choose != null:
 		assert_eq(choose.text, "choose gift")
+		assert_true(
+			choose.visible,
+			"the choose-gift hint shows while a gift is available",
+		)
 	var pill := panel.find_child("ActionPill", true, false) as PanelContainer
 	assert_not_null(pill, "the Enter action is the gradient primary pill")
 	if pill == null:
@@ -400,8 +404,10 @@ func test_intro_vn_box_keeps_authored_name_role_and_copy() -> void:
 	var intro := opening.find_child("Intro", true, false) as Label
 	assert_not_null(intro)
 	if intro != null:
-		assert_true(
-			intro.text.contains("quiet for a while") or intro.text.length() > 0,
+		assert_eq(
+			intro.text,
+			"This farm has been quiet for a while. "
+				+ "It is yours now — bring it back one day at a time.",
 			"intro copy is the authored story line",
 		)
 	var guide := opening.find_child("Guide", true, false) as Label
@@ -1904,3 +1910,75 @@ func test_freeing_dialogue_before_first_frame_skips_deferred_chip_sync() -> void
 	panel.free()
 	await _settle()
 	pass_test("the deferred gift-chip size sync skipped its freed captures")
+
+func test_dialogue_gift_hint_hides_after_todays_gift() -> void:
+	var snapshot := _dialogue_snapshot()
+	snapshot["relationships"][&"shopkeeper"]["gifted_today"] = true
+	var panel := _present_dialogue(
+		{
+			"code": GameRules.CommandCode.VILLAGER_TALKED,
+			"lines": ["Already got yours."],
+			"points_gained": 0,
+			"gift_reaction": &"",
+			"close_friend_sequence": false,
+			"selected_crop_kind": GameRules.CropKind.POTATO,
+		},
+		snapshot,
+	)
+	if panel == null:
+		return
+	await _settle()
+	var keys := panel.find_child("GiftKeys", true, false) as Control
+	var choose := panel.find_child("ChooseGift", true, false) as Control
+	assert_not_null(keys)
+	assert_not_null(choose)
+	if keys != null:
+		assert_false(keys.visible, "a spent gift day hides the A/D hint")
+	if choose != null:
+		assert_false(choose.visible, "a spent gift day hides choose gift")
+
+func test_dialogue_gift_hint_hides_on_locked_close_friend_lines() -> void:
+	var panel := _present_dialogue(
+		{
+			"code": GameRules.CommandCode.VILLAGER_TALKED,
+			"lines": ["Locked first.", "Locked second."],
+			"points_gained": 0,
+			"gift_reaction": &"",
+			"close_friend_sequence": true,
+			"selected_crop_kind": GameRules.CropKind.POTATO,
+		},
+		_dialogue_snapshot(),
+	)
+	if panel == null:
+		return
+	await _settle()
+	var keys := panel.find_child("GiftKeys", true, false) as Control
+	var choose := panel.find_child("ChooseGift", true, false) as Control
+	if keys != null:
+		assert_false(keys.visible, "locked lines hide the A/D hint")
+	if choose != null:
+		assert_false(choose.visible, "locked lines hide choose gift")
+
+func test_dialogue_gift_hint_hides_with_zero_inventory() -> void:
+	var snapshot := _dialogue_snapshot()
+	snapshot["harvested"] = {&"turnip": 0, &"potato": 0, &"pumpkin": 0}
+	var panel := _present_dialogue(
+		{
+			"code": GameRules.CommandCode.VILLAGER_TALKED,
+			"lines": ["Nothing to offer."],
+			"points_gained": 0,
+			"gift_reaction": &"",
+			"close_friend_sequence": false,
+			"selected_crop_kind": GameRules.CropKind.POTATO,
+		},
+		snapshot,
+	)
+	if panel == null:
+		return
+	await _settle()
+	var keys := panel.find_child("GiftKeys", true, false) as Control
+	var choose := panel.find_child("ChooseGift", true, false) as Control
+	if keys != null:
+		assert_false(keys.visible, "empty hands hide the A/D hint")
+	if choose != null:
+		assert_false(choose.visible, "empty hands hide choose gift")
