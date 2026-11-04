@@ -2240,6 +2240,23 @@ func test_settings_clicks_work_in_all_locales_at_both_sizes() -> void:
 				ui_settings.fullscreen,
 				"%s: the 1080p chip applies" % context,
 			)
+			assert_eq(
+				TranslationServer.get_locale(), locale,
+				"%s: the live locale is still the loop locale before tips"
+					% context,
+			)
+			var tips := settings.find_child("TipsSwitch", true, false) as Control
+			var tips_rect := tips.get_global_rect()
+			await _click_at(_window_point(tips_rect.get_center()))
+			assert_false(
+				ui_settings.tutorial_cards,
+				"%s: tips switch click toggles" % context,
+			)
+			reloaded = UiSettings.load(SETTINGS_TEST_PATH)
+			assert_false(
+				reloaded.tutorial_cards,
+				"%s: the tips click persists" % context,
+			)
 			var languages: Array = UiSettings.LANGUAGES
 			for chip in range(languages.size()):
 				var lang_rect := _seg_chip_rect(settings, "LanguageSeg", chip)
@@ -2257,18 +2274,6 @@ func test_settings_clicks_work_in_all_locales_at_both_sizes() -> void:
 			assert_eq(
 				reloaded.language, languages[languages.size() - 1],
 				"%s: the last language chip persists" % context,
-			)
-			var tips := settings.find_child("TipsSwitch", true, false) as Control
-			var tips_rect := tips.get_global_rect()
-			await _click_at(_window_point(tips_rect.get_center()))
-			assert_false(
-				ui_settings.tutorial_cards,
-				"%s: tips switch click toggles" % context,
-			)
-			reloaded = UiSettings.load(SETTINGS_TEST_PATH)
-			assert_false(
-				reloaded.tutorial_cards,
-				"%s: the tips click persists" % context,
 			)
 			assert_signal_emit_count(
 				settings, "settings_changed", 8,
