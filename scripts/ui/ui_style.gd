@@ -543,12 +543,14 @@ static func _pill_button(pill: Control, floor_size: Vector2 = Vector2(200, 52)) 
 		button.add_theme_stylebox_override(state, StyleBoxEmpty.new())
 	pill.set_anchors_preset(Control.PRESET_FULL_RECT)
 	button.add_child(pill)
+	var button_ref: WeakRef = weakref(button)
+	var pill_ref: WeakRef = weakref(pill)
 	var sync_hitbox := func() -> void:
-		if not is_instance_valid(button) or not is_instance_valid(pill):
+		var b := button_ref.get_ref() as Button
+		var p := pill_ref.get_ref() as Control
+		if b == null or p == null:
 			return
-		button.custom_minimum_size = floor_size.max(
-			pill.get_combined_minimum_size()
-		)
+		b.custom_minimum_size = floor_size.max(p.get_combined_minimum_size())
 	pill.minimum_size_changed.connect(sync_hitbox)
 	sync_hitbox.call()
 	sync_hitbox.call_deferred()

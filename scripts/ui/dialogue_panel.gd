@@ -301,11 +301,15 @@ func _gift_chip_button(kind: int) -> Button:
 	var value := UiStyle.label("", 14, UiStyle.INK_MUTED, 800)
 	value.name = "Value"
 	stack.add_child(value)
+	var button_ref: WeakRef = weakref(button)
+	var row_ref: WeakRef = weakref(row)
 	var sync_size := func() -> void:
-		if not is_instance_valid(button) or not is_instance_valid(row):
+		var b := button_ref.get_ref() as Button
+		var r := row_ref.get_ref() as Control
+		if b == null or r == null:
 			return
-		button.custom_minimum_size = (
-			row.get_combined_minimum_size() + Vector2(22, 12)
+		b.custom_minimum_size = (
+			r.get_combined_minimum_size() + Vector2(22, 12)
 		)
 	row.minimum_size_changed.connect(sync_size)
 	sync_size.call()

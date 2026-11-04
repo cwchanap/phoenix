@@ -98,7 +98,9 @@ There is no JavaScript or Tauri runtime in the current checkout.
   phone-app panels (Pause, Settings, Bag, Almanac, Calendar, Sleep, and the
   morning summary) mount their content in the shared `PhoneFrame`
   (`scripts/ui/phone_frame.gd`): bezel, status-bar time, home indicator,
-  and one content mount only; each panel owns its own app header/footer.
+  app-header band, footer row, and one content mount; panels configure
+  header content and accessories, add footer controls, and build body
+  rows in the mount.
   Shop, shipping, dialogue, title, result, and the intro overlay are native
   without the frame. `GameHud` remains the modal owner — no navigation
   framework or second session holder.
