@@ -617,6 +617,12 @@ func _input(event: InputEvent) -> void:
 		_select_gift(delta)
 		get_viewport().set_input_as_handled()
 		return
+	if event.is_action_pressed("ui_accept"):
+		var owner := get_viewport().gui_get_focus_owner()
+		if owner == null or not is_ancestor_of(owner):
+			get_viewport().set_input_as_handled()
+			_on_action_pressed()
+		return
 	var key_event := event as InputEventKey
 	if key_event == null:
 		return
@@ -650,15 +656,7 @@ func _select_gift(delta: int) -> void:
 			return
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not visible:
-		return
-	if event.is_action_pressed("ui_accept") and not event.is_echo():
-		var owner := get_viewport().gui_get_focus_owner()
-		if owner == null or not is_ancestor_of(owner):
-			get_viewport().set_input_as_handled()
-			_on_action_pressed()
-		return
-	if not event.is_action_pressed("ui_cancel"):
+	if not visible or not event.is_action_pressed("ui_cancel"):
 		return
 	get_viewport().set_input_as_handled()
 	if _close_friend_sequence and _line_index < _lines.size() - 1:
