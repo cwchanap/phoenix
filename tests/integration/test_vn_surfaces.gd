@@ -1954,6 +1954,8 @@ func test_dialogue_gift_hint_hides_on_locked_close_friend_lines() -> void:
 	await _settle()
 	var keys := panel.find_child("GiftKeys", true, false) as Control
 	var choose := panel.find_child("ChooseGift", true, false) as Control
+	assert_not_null(keys)
+	assert_not_null(choose)
 	if keys != null:
 		assert_false(keys.visible, "locked lines hide the A/D hint")
 	if choose != null:
@@ -1978,6 +1980,8 @@ func test_dialogue_gift_hint_hides_with_zero_inventory() -> void:
 	await _settle()
 	var keys := panel.find_child("GiftKeys", true, false) as Control
 	var choose := panel.find_child("ChooseGift", true, false) as Control
+	assert_not_null(keys)
+	assert_not_null(choose)
 	if keys != null:
 		assert_false(keys.visible, "empty hands hide the A/D hint")
 	if choose != null:
