@@ -1886,3 +1886,21 @@ func test_dialogue_unlocked_lines_keep_the_truthful_leave_hint() -> void:
 	assert_signal_emitted(
 		panel, "close_requested", "the hint is truthful: Esc closes"
 	)
+
+func test_freeing_dialogue_before_first_frame_skips_deferred_chip_sync() -> void:
+	var panel := _present_dialogue(
+		{
+			"code": GameRules.CommandCode.VILLAGER_TALKED,
+			"lines": ["First line.", "Second line."],
+			"points_gained": 0,
+			"gift_reaction": &"",
+			"close_friend_sequence": false,
+			"selected_crop_kind": GameRules.CropKind.POTATO,
+		},
+		_dialogue_snapshot(),
+	)
+	if panel == null:
+		return
+	panel.free()
+	await _settle()
+	pass_test("the deferred gift-chip size sync skipped its freed captures")

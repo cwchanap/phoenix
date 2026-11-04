@@ -62,7 +62,7 @@ func display_price_for_row(index: int) -> String:
 	return "%d" % GameRules.seed_price(index)
 
 func money_text() -> String:
-	return "%d" % int(_snapshot.get("money", 0))
+	return _money.text.trim_suffix("G")
 
 func stepper_button(row_index: int, part: StringName) -> Button:
 	return _rows[row_index][part] as Button

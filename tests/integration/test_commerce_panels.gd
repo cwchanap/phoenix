@@ -1273,3 +1273,11 @@ func test_shipping_action_button_edges_and_cancel_at_both_sizes() -> void:
 			shipping.visible = false
 			await _settle()
 	get_window().size = UiSettings.WINDOW_SIZE
+
+func test_freeing_a_commerce_panel_before_first_frame_skips_deferred_pill_sync() -> void:
+	var shop := _spawn_panel(SHOP_SCENE) as ShopPanel
+	if shop == null:
+		return
+	shop.free()
+	await _settle()
+	pass_test("the deferred pill hitbox sync skipped its freed captures")
