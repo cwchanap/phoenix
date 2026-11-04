@@ -1261,6 +1261,170 @@ func test_dialogue_zero_inventory_enter_closes_from_the_anchor() -> void:
 	assert_signal_emitted(panel, "close_requested")
 	assert_signal_not_emitted(panel, "gift_requested")
 
+func test_dialogue_released_close_intent_keeps_pill_click_congruent() -> void:
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		var panel := _dialogue()
+		if panel == null:
+			continue
+		await _settle()
+		var anchor := panel.close_control()
+		for step in range(4):
+			if get_viewport().gui_get_focus_owner() == anchor:
+				break
+			await _press_keycode(KEY_TAB)
+		assert_eq(
+			get_viewport().gui_get_focus_owner(),
+			anchor,
+			"%s Tab reaches the Close anchor" % locale,
+		)
+		assert_eq(panel.action_text(), "CLOSE")
+		anchor.release_focus()
+		await _settle()
+		assert_ne(
+			get_viewport().gui_get_focus_owner(),
+			anchor,
+			"%s focus is really released" % locale,
+		)
+		assert_eq(
+			panel.action_text(),
+			"CLOSE",
+			"%s the painted caption keeps the chosen intent" % locale,
+		)
+		watch_signals(panel)
+		await _click(_action_button(panel))
+		assert_eq(
+			get_signal_emit_count(panel, "close_requested"),
+			1,
+			"%s clicking the CLOSE pill closes exactly once" % locale,
+		)
+		assert_eq(
+			get_signal_emit_count(panel, "gift_requested"),
+			0,
+			"%s no crop is consumed by a CLOSE caption" % locale,
+		)
+		panel.hide()
+
+func test_dialogue_released_focus_enter_dispatches_the_painted_action() -> void:
+	var panel := _dialogue()
+	if panel == null:
+		return
+	await _settle()
+	panel.close_control().grab_focus()
+	await _settle()
+	assert_eq(panel.action_text(), "CLOSE")
+	panel.close_control().release_focus()
+	await _settle()
+	watch_signals(panel)
+	await _press_keycode(KEY_ENTER)
+	assert_eq(
+		get_signal_emit_count(panel, "close_requested"),
+		1,
+		"Enter with no focus still performs the painted action",
+	)
+	assert_eq(
+		get_signal_emit_count(panel, "gift_requested"),
+		0,
+		"Enter with no focus never gifts",
+	)
+
+func test_dialogue_released_gift_choice_keeps_pill_click_congruent() -> void:
+	var panel := _dialogue()
+	if panel == null:
+		return
+	await _settle()
+	panel.close_control().grab_focus()
+	await _settle()
+	panel.close_control().release_focus()
+	var turnip := panel.gift_chip(GameRules.CropKind.TURNIP)
+	turnip.grab_focus()
+	await _settle()
+	assert_eq(panel.action_text(), "GIVE TURNIP")
+	turnip.release_focus()
+	await _settle()
+	assert_eq(
+		panel.action_text(),
+		"GIVE TURNIP",
+		"the newest chosen action survives focus release",
+	)
+	watch_signals(panel)
+	await _click(_action_button(panel))
+	assert_signal_emitted_with_parameters(
+		panel,
+		"gift_requested",
+		[VillagerRules.VillagerId.SHOPKEEPER, GameRules.CropKind.TURNIP],
+	)
+	assert_signal_not_emitted(panel, "close_requested")
+
+func test_dialogue_window_focus_out_keeps_caption_click_and_enter_congruent() -> void:
+	var panel := _dialogue()
+	if panel == null:
+		return
+	await _settle()
+	panel.close_control().grab_focus()
+	await _settle()
+	assert_eq(panel.action_text(), "CLOSE")
+	get_window().propagate_notification(NOTIFICATION_WM_WINDOW_FOCUS_OUT)
+	await _settle()
+	assert_eq(
+		panel.action_text(),
+		"CLOSE",
+		"the caption survives a window focus transition",
+	)
+	watch_signals(panel)
+	await _click(_action_button(panel))
+	assert_eq(
+		get_signal_emit_count(panel, "close_requested"),
+		1,
+		"click still performs the painted action after the transition",
+	)
+	assert_eq(get_signal_emit_count(panel, "gift_requested"), 0)
+
+func test_dialogue_close_friend_locked_line_released_enter_continues() -> void:
+	var panel := _present_dialogue(
+		{
+			"code": GameRules.CommandCode.VILLAGER_TALKED,
+			"lines": VillagerRules.close_friend_dialogue_lines(
+				VillagerRules.VillagerId.SHOPKEEPER,
+			),
+			"points_gained": 0,
+			"gift_reaction": &"",
+			"close_friend_sequence": true,
+			"selected_crop_kind": GameRules.CropKind.POTATO,
+		},
+		_dialogue_snapshot(),
+	)
+	if panel == null:
+		return
+	await _settle()
+	assert_eq(panel.action_text(), "CONTINUE")
+	panel.continue_control().release_focus()
+	await _settle()
+	assert_eq(
+		panel.action_text(),
+		"CONTINUE",
+		"released focus keeps the locked-line continue intent",
+	)
+	watch_signals(panel)
+	await _press_keycode(KEY_ENTER)
+	assert_eq(panel._line_index, 1, "no-focus Enter advances the locked line")
+	assert_signal_not_emitted(panel, "close_requested", "Esc gating is not bypassed")
+	assert_signal_not_emitted(panel, "gift_requested")
+
+func test_dialogue_hidden_panel_ignores_released_focus_enter() -> void:
+	var panel := _dialogue()
+	if panel == null:
+		return
+	await _settle()
+	panel.close_control().grab_focus()
+	await _settle()
+	panel.close_control().release_focus()
+	panel.visible = false
+	watch_signals(panel)
+	await _press_keycode(KEY_ENTER)
+	assert_signal_not_emitted(panel, "close_requested")
+	assert_signal_not_emitted(panel, "gift_requested")
+
 func test_dialogue_gift_number_keys_ignore_modifiers() -> void:
 	var panel := _dialogue()
 	if panel == null:
