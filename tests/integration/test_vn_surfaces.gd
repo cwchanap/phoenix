@@ -756,6 +756,16 @@ func _action_button(panel: Control) -> Button:
 		return null
 	return pill.get_parent() as Button
 
+func _external_button() -> Button:
+	var button := Button.new()
+	button.name = "ExternalButton"
+	button.text = "External"
+	button.position = Vector2(12, 12)
+	button.size = Vector2(220, 64)
+	button.focus_mode = Control.FOCUS_ALL
+	add_child_autoqfree(button)
+	return button
+
 func _press_keycode(
 	keycode: Key,
 	ctrl := false,
@@ -1422,6 +1432,162 @@ func test_dialogue_hidden_panel_ignores_released_focus_enter() -> void:
 	panel.visible = false
 	watch_signals(panel)
 	await _press_keycode(KEY_ENTER)
+	assert_signal_not_emitted(panel, "close_requested")
+	assert_signal_not_emitted(panel, "gift_requested")
+
+func test_dialogue_external_focus_enter_dispatches_remembered_close() -> void:
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		var panel := _dialogue()
+		if panel == null:
+			continue
+		await _settle()
+		panel.close_control().grab_focus()
+		await _settle()
+		assert_eq(panel.action_text(), "CLOSE")
+		var external := _external_button()
+		external.grab_focus()
+		await _settle()
+		assert_eq(
+			get_viewport().gui_get_focus_owner(),
+			external,
+			"%s external button owns focus" % locale,
+		)
+		watch_signals(panel)
+		watch_signals(external)
+		await _press_keycode(KEY_ENTER)
+		assert_eq(
+			get_signal_emit_count(external, "pressed"),
+			0,
+			"%s external button never fires under the modal" % locale,
+		)
+		assert_eq(
+			get_signal_emit_count(panel, "close_requested"),
+			1,
+			"%s Enter performs the painted CLOSE exactly once" % locale,
+		)
+		assert_eq(get_signal_emit_count(panel, "gift_requested"), 0)
+		external.hide()
+		panel.hide()
+
+func test_dialogue_external_focus_enter_dispatches_remembered_gift() -> void:
+	var panel := _dialogue()
+	if panel == null:
+		return
+	await _settle()
+	var turnip := panel.gift_chip(GameRules.CropKind.TURNIP)
+	turnip.grab_focus()
+	await _settle()
+	assert_eq(panel.action_text(), "GIVE TURNIP")
+	var external := _external_button()
+	external.grab_focus()
+	await _settle()
+	watch_signals(panel)
+	watch_signals(external)
+	await _press_keycode(KEY_ENTER)
+	assert_eq(
+		get_signal_emit_count(external, "pressed"),
+		0,
+		"external button never fires under the modal",
+	)
+	var gifts: int = get_signal_emit_count(panel, "gift_requested")
+	assert_eq(gifts, 1, "Enter performs the painted gift exactly once")
+	var params: Array = get_signal_parameters(panel, "gift_requested", gifts - 1)
+	assert_eq(
+		params,
+		[VillagerRules.VillagerId.SHOPKEEPER, GameRules.CropKind.TURNIP],
+		"Enter gifts the chosen crop",
+	)
+	assert_eq(get_signal_emit_count(panel, "close_requested"), 0)
+
+func test_dialogue_external_focus_enter_continues_locked_line() -> void:
+	var panel := _present_dialogue(
+		{
+			"code": GameRules.CommandCode.VILLAGER_TALKED,
+			"lines": VillagerRules.close_friend_dialogue_lines(
+				VillagerRules.VillagerId.SHOPKEEPER,
+			),
+			"points_gained": 0,
+			"gift_reaction": &"",
+			"close_friend_sequence": true,
+			"selected_crop_kind": GameRules.CropKind.POTATO,
+		},
+		_dialogue_snapshot(),
+	)
+	if panel == null:
+		return
+	await _settle()
+	assert_eq(panel.action_text(), "CONTINUE")
+	assert_eq(
+		get_viewport().gui_get_focus_owner(),
+		panel.continue_control(),
+		"locked line focuses the continue anchor",
+	)
+	var external := _external_button()
+	external.grab_focus()
+	await _settle()
+	assert_eq(
+		get_viewport().gui_get_focus_owner(),
+		external,
+		"external button owns focus",
+	)
+	watch_signals(panel)
+	watch_signals(external)
+	await _press_keycode(KEY_ENTER)
+	assert_eq(
+		get_signal_emit_count(external, "pressed"),
+		0,
+		"external button never fires under the modal",
+	)
+	assert_eq(panel._line_index, 1, "Enter advances the locked line")
+	assert_signal_not_emitted(panel, "close_requested", "Esc gating is not bypassed")
+	assert_signal_not_emitted(panel, "gift_requested")
+
+func test_dialogue_internal_focus_still_activates_native_button() -> void:
+	var panel := _dialogue()
+	if panel == null:
+		return
+	await _settle()
+	var turnip := panel.gift_chip(GameRules.CropKind.TURNIP)
+	turnip.grab_focus()
+	await _settle()
+	var external := _external_button()
+	turnip.grab_focus()
+	await _settle()
+	assert_eq(get_viewport().gui_get_focus_owner(), turnip)
+	watch_signals(panel)
+	watch_signals(external)
+	await _press_keycode(KEY_ENTER)
+	var gifts: int = get_signal_emit_count(panel, "gift_requested")
+	assert_eq(gifts, 1, "Enter still presses the focused chip natively")
+	var params: Array = get_signal_parameters(
+		panel, "gift_requested", gifts - 1
+	)
+	assert_eq(
+		params,
+		[VillagerRules.VillagerId.SHOPKEEPER, GameRules.CropKind.TURNIP],
+		"Enter gifts the focused chip",
+	)
+	assert_eq(get_signal_emit_count(external, "pressed"), 0)
+	assert_signal_not_emitted(panel, "close_requested")
+
+func test_dialogue_hidden_panel_lets_external_button_take_enter() -> void:
+	var panel := _dialogue()
+	if panel == null:
+		return
+	await _settle()
+	var external := _external_button()
+	external.grab_focus()
+	await _settle()
+	panel.visible = false
+	watch_signals(panel)
+	watch_signals(external)
+	await _press_keycode(KEY_ENTER)
+	assert_eq(
+		get_signal_emit_count(external, "pressed"),
+		1,
+		"a hidden dialogue releases Enter to the outside world",
+	)
 	assert_signal_not_emitted(panel, "close_requested")
 	assert_signal_not_emitted(panel, "gift_requested")
 
