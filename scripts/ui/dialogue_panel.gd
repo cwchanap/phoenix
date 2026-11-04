@@ -39,14 +39,15 @@ var _action_text: Label
 var _action: Button
 var _continue: Button
 var _close: Button
+var _anchor_intent: StringName = &""
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_build()
 	_continue.pressed.connect(_on_continue_pressed)
 	_close.pressed.connect(func() -> void: close_requested.emit())
-	_continue.focus_entered.connect(_render_action_caption)
-	_close.focus_entered.connect(_render_action_caption)
+	_continue.focus_entered.connect(_on_continue_focus_entered)
+	_close.focus_entered.connect(_on_close_focus_entered)
 	for kind in _gift_buttons.size():
 		_gift_buttons[kind].pressed.connect(_on_gift_button_pressed.bind(kind))
 		_gift_buttons[kind].focus_entered.connect(_on_gift_focus_entered.bind(kind))
@@ -67,6 +68,7 @@ func present(villager_id: int, result: Dictionary, snapshot: Dictionary) -> void
 	_close_friend_sequence = bool(result.get("close_friend_sequence", false))
 	_selected_gift_kind = int(result.get("selected_crop_kind", -1))
 	_select_first_available_gift()
+	_anchor_intent = &""
 	visible = true
 	_render()
 	_focus_primary()
@@ -506,6 +508,8 @@ func _primary_action_kind() -> StringName:
 		return &"close"
 	if focused == _continue:
 		return &"continue"
+	if _anchor_intent != &"":
+		return _anchor_intent
 	if _line_index < _lines.size() - 1:
 		return &"continue"
 	var relationship := _relationship_snapshot()
@@ -556,16 +560,26 @@ func _relationship_display(level_key: Variant) -> String:
 func _on_gift_button_pressed(crop_kind: int) -> void:
 	if _gift_buttons[crop_kind].disabled:
 		return
+	_anchor_intent = &""
 	_selected_gift_kind = crop_kind
 	_render_gift_buttons(false)
 	gift_requested.emit(_villager_id, crop_kind)
 
 func _on_gift_focus_entered(crop_kind: int) -> void:
+	_anchor_intent = &""
 	_selected_gift_kind = crop_kind
 	if visible and not (
 		_close_friend_sequence and _line_index < _lines.size() - 1
 	):
 		_render_gift_buttons(false)
+
+func _on_continue_focus_entered() -> void:
+	_anchor_intent = &"continue"
+	_render_action_caption()
+
+func _on_close_focus_entered() -> void:
+	_anchor_intent = &"close"
+	_render_action_caption()
 
 func _on_continue_pressed() -> void:
 	if _line_index >= _lines.size() - 1:
@@ -636,7 +650,15 @@ func _select_gift(delta: int) -> void:
 			return
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not visible or not event.is_action_pressed("ui_cancel"):
+	if not visible:
+		return
+	if event.is_action_pressed("ui_accept") and not event.is_echo():
+		var owner := get_viewport().gui_get_focus_owner()
+		if owner == null or not is_ancestor_of(owner):
+			get_viewport().set_input_as_handled()
+			_on_action_pressed()
+		return
+	if not event.is_action_pressed("ui_cancel"):
 		return
 	get_viewport().set_input_as_handled()
 	if _close_friend_sequence and _line_index < _lines.size() - 1:
