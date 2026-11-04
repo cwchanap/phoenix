@@ -416,7 +416,7 @@ func test_save_warning_label_fills_its_row_and_stays_contained() -> void:
     var status_pill := title.get_node("Menu/Status") as Control
     var status_row := title.get_node("Menu/Status/Row") as Control
     var status_label := title.get_node("Menu/Status/Row/Label") as Label
-    var footer := title.get_node("Menu/Footer") as Control
+    var footer := title.get_node("Footer") as Control
     var continue_button := title.get_node("Menu/Continue") as Button
     assert_true(continue_button.disabled)
     assert_true(status_pill.visible)

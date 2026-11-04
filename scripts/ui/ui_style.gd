@@ -499,13 +499,7 @@ static func wallpaper_texture(
 	apply_rounded_mask(composed, corner_radius)
 	return ImageTexture.create_from_image(composed)
 
-static func primary_action_pill(key_text: String, caption: String) -> PanelContainer:
-	var pill := gradient_surface(ACCENT_GRADIENT, PILL_RADIUS, [8, 7, 24, 7])
-	pill.name = "Pill"
-	var row := hbox(12)
-	row.name = "Row"
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	pill.add_child(row)
+static func translucent_keycap(key_text: String) -> PanelContainer:
 	var cap := PanelContainer.new()
 	cap.name = "Key"
 	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -518,26 +512,34 @@ static func primary_action_pill(key_text: String, caption: String) -> PanelConta
 	cap_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cap_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	cap.add_child(cap_label)
-	row.add_child(cap)
+	return cap
+
+static func primary_action_pill(key_text: String, caption: String) -> PanelContainer:
+	var pill := gradient_surface(ACCENT_GRADIENT, PILL_RADIUS, [8, 7, 24, 7])
+	pill.name = "Pill"
+	var row := hbox(12)
+	row.name = "Row"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	pill.add_child(row)
+	row.add_child(translucent_keycap(key_text))
 	var text := label(caption, 22, CARD, 900)
 	text.name = "Text"
 	text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(text)
 	return pill
 
-static func primary_action(key_text: String, caption: String) -> Button:
+static func _pill_button(pill: PanelContainer, floor_size: Vector2 = Vector2(200, 52)) -> Button:
 	var button := Button.new()
 	button.focus_mode = Control.FOCUS_NONE
 	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
 		button.add_theme_stylebox_override(state, StyleBoxEmpty.new())
-	var pill := primary_action_pill(key_text, caption)
 	pill.set_anchors_preset(Control.PRESET_FULL_RECT)
 	button.add_child(pill)
 	var sync_hitbox := func() -> void:
 		if not is_instance_valid(button) or not is_instance_valid(pill):
 			return
-		button.custom_minimum_size = Vector2(200, 52).max(
+		button.custom_minimum_size = floor_size.max(
 			pill.get_combined_minimum_size()
 		)
 	pill.minimum_size_changed.connect(sync_hitbox)
@@ -548,6 +550,87 @@ static func primary_action(key_text: String, caption: String) -> Button:
 	)
 	button.button_up.connect(func() -> void: pill.self_modulate = Color.WHITE)
 	return button
+
+static func primary_action(key_text: String, caption: String) -> Button:
+	return _pill_button(primary_action_pill(key_text, caption))
+
+static func ghost_action_pill(key_text: String, caption: String) -> PanelContainer:
+	var pill := PanelContainer.new()
+	pill.name = "Pill"
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pill.add_theme_stylebox_override(
+		"panel", card(CARD, PILL_RADIUS, [8, 7, 22, 7])
+	)
+	var row := hbox(12)
+	row.name = "Row"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	pill.add_child(row)
+	var cap := keycap(key_text, true)
+	cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(cap)
+	var text := label(caption, 20, INK, 900)
+	text.name = "Text"
+	text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(text)
+	return pill
+
+static func ghost_action(key_text: String, caption: String) -> Button:
+	return _pill_button(ghost_action_pill(key_text, caption), Vector2(160, 52))
+
+static func vn_card() -> Control:
+	var box := MarginContainer.new()
+	box.name = "Box"
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var card_panel := PanelContainer.new()
+	card_panel.name = "Card"
+	card_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var card_box := card(CARD, 30, [0, 0, 0, 0])
+	card_box.shadow_color = Color(0.0, 0.0, 0.0, 0.4)
+	card_box.shadow_size = 30
+	card_box.shadow_offset = Vector2(0, 24)
+	card_panel.add_theme_stylebox_override("panel", card_box)
+	box.add_child(card_panel)
+	var column := vbox(0)
+	column.name = "Column"
+	card_panel.add_child(column)
+	var band := gradient_band(HEADER_GRADIENT, 30)
+	band.name = "Band"
+	band.custom_minimum_size = Vector2(0, 8)
+	column.add_child(band)
+	var body := MarginContainer.new()
+	body.name = "Body"
+	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side in [["left", 48], ["top", 38], ["right", 48], ["bottom", 22]]:
+		body.add_theme_constant_override("margin_" + side[0], side[1])
+	column.add_child(body)
+	var content := vbox(16)
+	content.name = "Content"
+	body.add_child(content)
+	var overlay := Control.new()
+	overlay.name = "Overlay"
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	box.add_child(overlay)
+	return box
+
+static func vn_dock(bottom_margin: float, side_margin: float = 120.0) -> VBoxContainer:
+	var dock := VBoxContainer.new()
+	dock.name = "Dock"
+	dock.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dock.alignment = BoxContainer.ALIGNMENT_END
+	dock.add_theme_constant_override("separation", 0)
+	dock.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var edge := MarginContainer.new()
+	edge.name = "Edge"
+	edge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	edge.add_theme_constant_override("margin_left", int(side_margin))
+	edge.add_theme_constant_override("margin_top", 0)
+	edge.add_theme_constant_override("margin_right", int(side_margin))
+	edge.add_theme_constant_override("margin_bottom", int(bottom_margin))
+	dock.add_child(edge)
+	edge.add_child(vn_card())
+	return dock
 
 ## HPA-680 stopgap: the title, result, intro, and modal panels are still
 ## authored for the old 640x360 canvas. Pin them to that size and draw them 3x
