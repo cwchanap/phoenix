@@ -2,6 +2,7 @@ class_name SleepPanel
 extends Control
 
 signal sleep_requested
+signal close_requested
 
 const BED_ICON := preload("res://assets/ui/icons/bed.png")
 const WARNING_ICON := preload("res://assets/ui/icons/warning.png")
@@ -68,20 +69,7 @@ func _input(event: InputEvent) -> void:
 		sleep_requested.emit()
 
 func _build() -> void:
-	var dim := ColorRect.new()
-	dim.name = "Dim"
-	dim.color = Color(UiStyle.INK, 0.5)
-	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(dim)
-
-	var center := CenterContainer.new()
-	center.name = "Center"
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
-	_frame = PhoneFrame.new()
-	center.add_child(_frame)
+	_frame = UiStyle.phone_mount(self)
 	_frame.set_screen_backplate(null, ALARM_BG, UiStyle.CARD, HOME_SLATE)
 	_frame.set_app_header("Alarm", "アラーム", [ALARM_BG, ALARM_BG])
 
@@ -115,17 +103,14 @@ func _build() -> void:
 	_confirm.name = "Confirm"
 	_confirm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	actions.add_child(_confirm)
-	var ghost := UiStyle.hbox(8)
+	var ghost := UiStyle.key_hint("Esc", "not yet", 19, SUB_DARK)
 	ghost.name = "CancelRow"
 	ghost.alignment = BoxContainer.ALIGNMENT_CENTER
-	ghost.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var escape := UiStyle.keycap("Esc", true)
-	escape.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	ghost.add_child(escape)
-	var cancel := UiStyle.label("not yet", 19, SUB_DARK, 800)
-	cancel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	ghost.add_child(cancel)
-	actions.add_child(ghost)
+	var cancel := UiStyle.hit_button(ghost)
+	cancel.name = "Cancel"
+	cancel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	cancel.pressed.connect(func() -> void: close_requested.emit())
+	actions.add_child(cancel)
 
 func _alarm_card() -> PanelContainer:
 	var card := PanelContainer.new()

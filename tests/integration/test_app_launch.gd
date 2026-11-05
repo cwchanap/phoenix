@@ -362,7 +362,7 @@ func test_result_screen_keyboard_enter_and_esc_drive_app_flow() -> void:
     assert_eq(world._session.state()["day"], 1)
 
 func test_native_ui_roots_fill_the_1080p_canvas() -> void:
-    # HPA-680 stopgap until HPA-681/682 rebuild these layouts natively.
+    # HPA-682 native roots draw at scale 1 on the full 1920x1080 canvas.
     var app := _spawn_app(SaveRepository.new(TEST_PATH))
     if app == null:
         return

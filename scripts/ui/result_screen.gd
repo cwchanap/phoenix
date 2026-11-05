@@ -11,7 +11,6 @@ const STAT_ICONS: Array[Texture2D] = [
     preload("res://assets/ui/icons/money-bag.png"),
 ]
 const STAT_CAPTIONS: Array[String] = ["CROPS SHIPPED", "SHIPPED VALUE", "FINAL MONEY"]
-const PORTRAIT_NAMES: Array[String] = ["sato", "gen", "hana"]
 const HEART_FILLED_ICON := preload("res://assets/ui/icons/heart-filled.png")
 const HEART_OUTLINE_ICON := preload("res://assets/ui/icons/heart-outline.png")
 
@@ -335,7 +334,7 @@ func _villager_card(id: int) -> PanelContainer:
     portrait.position = Vector2(92, 40)
     portrait.size = Vector2(256, 358)
     portrait.texture = (
-        load("res://assets/ui/portraits/%s.png" % PORTRAIT_NAMES[id]) as Texture2D
+        load("res://assets/ui/portraits/%s.png" % VillagerRules.PORTRAIT_NAMES[id]) as Texture2D
     )
     portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
     portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT

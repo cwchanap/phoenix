@@ -3,6 +3,7 @@ extends Control
 
 signal buy_requested(kind: int, quantity: int)
 signal upgrade_requested
+signal close_requested
 
 const UPGRADE_ROW := 3
 const DIMMED := Color(1.0, 1.0, 1.0, 0.45)
@@ -337,6 +338,9 @@ func _footer() -> PanelContainer:
 	bar.add_theme_stylebox_override("panel", bar_box)
 	var footer := UiStyle.commerce_footer()
 	bar.add_child(footer)
+	(footer.get_node("CloseButton") as Button).pressed.connect(
+		func() -> void: close_requested.emit()
+	)
 	_action_button = footer.get_node("Action") as Button
 	_action_button.pressed.connect(_buy)
 	_action = footer.get_node("Action/Pill/Row/Text") as Label

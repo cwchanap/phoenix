@@ -194,20 +194,7 @@ func _update_chips(chips: Array[Dictionary], selected: int) -> void:
 		)
 
 func _build() -> void:
-	var dim := ColorRect.new()
-	dim.name = "Dim"
-	dim.color = Color(UiStyle.INK, 0.5)
-	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(dim)
-
-	var center := CenterContainer.new()
-	center.name = "Center"
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
-	_frame = PhoneFrame.new()
-	center.add_child(_frame)
+	_frame = UiStyle.phone_mount(self)
 	_frame.set_app_header("Settings", "設定")
 
 	var layout := MarginContainer.new()
@@ -498,14 +485,7 @@ func _build_footer() -> void:
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(spacer)
-	var done_cluster := UiStyle.hbox(4)
-	done_cluster.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	done_cluster.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	done_cluster.add_child(UiStyle.keycap("Esc", true))
-	var done := UiStyle.label("done", 15, UiStyle.INK_MUTED, 800)
-	done.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	done_cluster.add_child(done)
-	var done_button := UiStyle.hit_button(done_cluster)
+	var done_button := UiStyle.hit_button(UiStyle.key_hint("Esc", "done"))
 	done_button.name = "CloseButton"
 	done_button.pressed.connect(close_requested.emit)
 	footer.add_child(done_button)

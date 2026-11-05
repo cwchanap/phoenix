@@ -2,6 +2,7 @@ class_name ShippingPanel
 extends Control
 
 signal deposit_requested(kind: int, quantity: int)
+signal close_requested
 
 const SHIPPING_ICON := preload("res://assets/ui/icons/shipping.png")
 const WARNING_ICON := preload("res://assets/ui/icons/warning.png")
@@ -343,6 +344,9 @@ func _footer() -> PanelContainer:
 	bar.add_theme_stylebox_override("panel", bar_box)
 	var footer := UiStyle.commerce_footer("all")
 	bar.add_child(footer)
+	(footer.get_node("CloseButton") as Button).pressed.connect(
+		func() -> void: close_requested.emit()
+	)
 	_action_button = footer.get_node("Action") as Button
 	_action_button.pressed.connect(_deposit)
 	_action = footer.get_node("Action/Pill/Row/Text") as Label

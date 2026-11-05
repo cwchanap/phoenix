@@ -39,9 +39,6 @@ const STAMINA_GRADIENT: Array[Color] = [LEAF_LIGHT, LEAF]
 const FIELDWORK_GRADIENT: Array[Color] = [ACCENT_2, VIOLET]
 const PILL_RADIUS := 999
 
-# Legacy dark palette, still used by the 640x360 modal panels until HPA-682
-# rebuilds them. Delete with those panels.
-
 # One UI face: M PLUS 1 covers Latin, kana, and common kanji. Its import
 # settings exclude `zh`, as do Noto Sans JP's, so Traditional Chinese text
 # falls through to Noto Sans TC; Noto Sans JP backs up rare Japanese kanji.
@@ -49,8 +46,7 @@ const M_PLUS_1: Font = preload("res://assets/ui/fonts/m-plus-1-variable.ttf")
 const NOTO_SANS_JP: Font = preload("res://assets/ui/fonts/noto-sans-jp-variable.ttf")
 const NOTO_SANS_TC: Font = preload("res://assets/ui/fonts/noto-sans-tc-variable.ttf")
 
-## `mono` is kept for the legacy panels' call sites; M PLUS 1 digits are
-## already tabular, so it no longer changes the face.
+## The one UI face at a weight; M PLUS 1 digits are already tabular.
 static func font(weight: int = 400) -> FontVariation:
 	var variation := _weighted(M_PLUS_1, weight)
 	variation.fallbacks = [_weighted(NOTO_SANS_JP, weight), _weighted(NOTO_SANS_TC, weight)]
@@ -144,20 +140,21 @@ static func rounded_gradient_texture(
 	var stops := Gradient.new()
 	var offsets := PackedFloat32Array()
 	for index in colors.size():
-		offsets.append(float(index) / float(colors.size() - 1))
+		offsets.append(float(index) / float(maxi(colors.size() - 1, 1)))
 	stops.offsets = offsets
 	stops.colors = PackedColorArray(colors)
-	var image := Image.create(size.x, size.y, false, Image.FORMAT_RGBA8)
-	var span := maxf(1.0, float((size.y if vertical else size.x) - 1))
 	var steps := size.y if vertical else size.x
+	var strip := Image.create(
+		1 if vertical else steps, steps if vertical else 1, false, Image.FORMAT_RGBA8
+	)
+	var span := maxf(1.0, float(steps - 1))
 	for step in steps:
-		var color := stops.sample(float(step) / span)
-		if vertical:
-			image.fill_rect(Rect2i(0, step, size.x, 1), color)
-		else:
-			image.fill_rect(Rect2i(step, 0, 1, size.y), color)
-	apply_rounded_mask(image, radius_top, radius_bottom)
-	return ImageTexture.create_from_image(image)
+		strip.set_pixel(
+			0 if vertical else step, step if vertical else 0, stops.sample(float(step) / span)
+		)
+	strip.resize(size.x, size.y, Image.INTERPOLATE_NEAREST)
+	apply_rounded_mask(strip, radius_top, radius_bottom)
+	return ImageTexture.create_from_image(strip)
 
 static func apply_rounded_mask(
 	image: Image, radius_top: int, radius_bottom: int = -1
@@ -436,10 +433,8 @@ static func commerce_footer(max_hint: String = "max") -> HBoxContainer:
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(spacer)
-	var escape := keycap("Esc", true)
-	escape.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	footer.add_child(escape)
-	var leave := label("leave", 17, INK_MUTED, 800)
+	var leave := hit_button(key_hint("Esc", "leave", 17))
+	leave.name = "CloseButton"
 	leave.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	footer.add_child(leave)
 	var pill := gradient_surface(ACCENT_GRADIENT, PILL_RADIUS, [8, 7, 24, 7])
@@ -492,10 +487,11 @@ static func wallpaper_texture(
 	)
 	var span := float(maxi(size.y - 1, 1))
 	if dim_top != dim_bottom:
-		var veil := Image.create(size.x, 1, false, Image.FORMAT_RGBA8)
+		var veil := Image.create(1, size.y, false, Image.FORMAT_RGBA8)
 		for y in size.y:
-			veil.fill(dim_top.lerp(dim_bottom, float(y) / span))
-			composed.blend_rect(veil, Rect2i(0, 0, size.x, 1), Vector2i(0, y))
+			veil.set_pixel(0, y, dim_top.lerp(dim_bottom, float(y) / span))
+		veil.resize(size.x, size.y, Image.INTERPOLATE_NEAREST)
+		composed.blend_rect(veil, Rect2i(Vector2i.ZERO, size), Vector2i.ZERO)
 	elif dim_top.a > 0.0:
 		var veil := Image.create(size.x, size.y, false, Image.FORMAT_RGBA8)
 		veil.fill(dim_top)
@@ -534,6 +530,50 @@ static func primary_action_pill(key_text: String, caption: String) -> PanelConta
 
 static func hit_button(child: Control, floor_size: Vector2 = Vector2.ZERO) -> Button:
 	return _pill_button(child, floor_size)
+
+## A keycap+caption hint row. It draws the keycap and its caption only —
+## wrap it in hit_button() so the hint is also the pointer target.
+static func key_hint(
+	key_text: String,
+	caption: String,
+	caption_size: int = 15,
+	caption_color: Color = INK_MUTED,
+) -> HBoxContainer:
+	var cluster := hbox(4)
+	cluster.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var cap := keycap(key_text, true)
+	cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	cluster.add_child(cap)
+	var text := label(caption, caption_size, caption_color, 800)
+	text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	cluster.add_child(text)
+	return cluster
+
+## A white label with a soft drop shadow, for copy over wallpapers.
+static func shadowed_label(text_value: String, size: int, weight: int) -> Label:
+	var result := label(text_value, size, CARD, weight)
+	result.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.5))
+	result.add_theme_constant_override("shadow_offset_x", 0)
+	result.add_theme_constant_override("shadow_offset_y", 2)
+	return result
+
+## The phone-app scaffold: a dim over the world and a centered PhoneFrame.
+## Returns the frame so the panel can fill its header, content, and footer.
+static func phone_mount(parent: Control) -> PhoneFrame:
+	var dim := ColorRect.new()
+	dim.name = "Dim"
+	dim.color = Color(INK, 0.5)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	parent.add_child(dim)
+	var center := CenterContainer.new()
+	center.name = "Center"
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	parent.add_child(center)
+	var frame := PhoneFrame.new()
+	center.add_child(frame)
+	return frame
 
 static func _pill_button(pill: Control, floor_size: Vector2 = Vector2(200, 52)) -> Button:
 	var button := Button.new()
@@ -640,14 +680,6 @@ static func vn_dock(bottom_margin: float, side_margin: float = 120.0) -> VBoxCon
 	dock.add_child(edge)
 	edge.add_child(vn_card())
 	return dock
-
-## HPA-680 stopgap: the title, result, intro, and modal panels are still
-## authored for the old 640x360 canvas. Pin them to that size and draw them 3x
-## so they fill the 1920x1080 base viewport until HPA-682 rebuilds them
-## natively; delete these helpers and their call sites then.
-## Scales one control authored in 640x360 coordinates (its offsets included)
-## onto the 1920x1080 canvas.
-# Rasterize glyphs at the scaled size so the 3x text stays sharp.
 
 ## Pins a control to a screen corner with a margin; it grows inward as its
 ## content changes size. `corner` uses Godot's Corner enum.
