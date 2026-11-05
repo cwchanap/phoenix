@@ -1281,3 +1281,117 @@ func test_freeing_a_commerce_panel_before_first_frame_skips_deferred_pill_sync()
 	shop.free()
 	await _settle()
 	pass_test("the deferred pill hitbox sync skipped its freed captures")
+
+func _tile(row: Control) -> Control:
+	return _row_part(row, "Tile")
+
+func test_shop_row_click_selects_the_clicked_crop() -> void:
+	var shop := _spawn_panel(SHOP_SCENE) as ShopPanel
+	if shop == null:
+		return
+	shop.open_panel(_shop_snapshot(255, {&"turnip": 3}))
+	await _settle()
+	watch_signals(shop)
+	var pumpkin := _row(shop, 2)
+	assert_not_null(pumpkin, "the pumpkin row exists")
+	if pumpkin == null:
+		return
+	await _click(_tile(pumpkin))
+	assert_eq(shop.selected_row(), 2, "the click selects the pumpkin row")
+	assert_eq(shop.selected_kind(), GameRules.CropKind.PUMPKIN)
+	assert_eq(
+		shop.selected_action_text(), "Buy 1 · 70G",
+		"the action pill follows the clicked crop",
+	)
+	var action := _action_button(shop)
+	if action == null:
+		return
+	await _click(action)
+	assert_signal_emitted_with_parameters(
+		shop, "buy_requested", [GameRules.CropKind.PUMPKIN, 1]
+	)
+	assert_signal_emit_count(shop, "buy_requested", 1)
+
+func test_shop_upgrade_row_click_selects_the_efficient_can() -> void:
+	var shop := _spawn_panel(SHOP_SCENE) as ShopPanel
+	if shop == null:
+		return
+	shop.open_panel(_shop_snapshot(255))
+	await _settle()
+	watch_signals(shop)
+	var upgrade := _row(shop, ShopPanel.UPGRADE_ROW)
+	assert_not_null(upgrade, "the upgrade row exists")
+	if upgrade == null:
+		return
+	await _click(_tile(upgrade))
+	assert_eq(
+		shop.selected_row(), ShopPanel.UPGRADE_ROW,
+		"the click selects the Efficient Can row",
+	)
+	assert_eq(
+		shop.selected_action_text(), "Buy 1 · 200G",
+		"the action pill paints the one-time can purchase",
+	)
+	var action := _action_button(shop)
+	if action == null:
+		return
+	await _click(action)
+	assert_signal_emitted(shop, "upgrade_requested")
+	assert_signal_emit_count(shop, "upgrade_requested", 1)
+	assert_signal_not_emitted(shop, "buy_requested")
+
+func test_shipping_row_click_selects_the_clicked_crop() -> void:
+	var shipping := _spawn_panel(SHIPPING_SCENE) as ShippingPanel
+	if shipping == null:
+		return
+	shipping.open_panel(
+		_shipping_snapshot({&"turnip": 7, &"potato": 2, &"pumpkin": 1})
+	)
+	await _settle()
+	watch_signals(shipping)
+	var potato := _row(shipping, 1)
+	assert_not_null(potato, "the potato row exists")
+	if potato == null:
+		return
+	await _click(_tile(potato))
+	assert_eq(shipping.selected_kind(), GameRules.CropKind.POTATO)
+	assert_eq(
+		shipping.selected_action_text(), "Ship 1 · 75G",
+		"the action pill follows the clicked crop",
+	)
+	var action := _action_button(shipping)
+	if action == null:
+		return
+	await _click(action)
+	assert_signal_emitted_with_parameters(
+		shipping, "deposit_requested", [GameRules.CropKind.POTATO, 1]
+	)
+	assert_signal_emit_count(shipping, "deposit_requested", 1)
+
+func test_commerce_row_clicks_do_nothing_while_the_panels_are_hidden() -> void:
+	var shop := _spawn_panel(SHOP_SCENE) as ShopPanel
+	var shipping := _spawn_panel(SHIPPING_SCENE) as ShippingPanel
+	if shop == null or shipping == null:
+		return
+	shop.open_panel(_shop_snapshot(255))
+	shipping.open_panel(_shipping_snapshot({&"turnip": 7, &"potato": 2}))
+	await _settle()
+	var shop_tile := _tile(_row(shop, 2))
+	var shipping_tile := _tile(_row(shipping, 1))
+	if shop_tile == null or shipping_tile == null:
+		return
+	var shop_center := shop_tile.get_global_rect().get_center()
+	var shipping_center := shipping_tile.get_global_rect().get_center()
+	shop.visible = false
+	shipping.visible = false
+	await _settle()
+	await _click_at(shop_center)
+	assert_eq(
+		shop.selected_kind(), GameRules.CropKind.TURNIP,
+		"a hidden shop row cannot be clicked",
+	)
+	await _click_at(shipping_center)
+	assert_eq(
+		shipping.selected_kind(), GameRules.CropKind.TURNIP,
+		"a hidden shipping row cannot be clicked",
+	)
