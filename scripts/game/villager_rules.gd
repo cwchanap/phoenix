@@ -14,6 +14,8 @@ const MARKET_DIALOGUE_START_DAY := 12
 const VILLAGER_KEYS: Array[StringName] = [&"shopkeeper", &"farmer", &"resident"]
 const DISPLAY_NAMES: Array[String] = ["Sato-san", "Gen-san", "Hana"]
 const ROLE_LABELS: Array[String] = ["Seed-shop keeper", "Retired farmer", "Station cafe owner"]
+# Portrait art per VillagerId slot.
+const PORTRAIT_NAMES: Array[String] = ["sato", "gen", "hana"]
 const FAVOURITE_CROPS: Array[int] = [
     GameRules.CropKind.POTATO,
     GameRules.CropKind.PUMPKIN,

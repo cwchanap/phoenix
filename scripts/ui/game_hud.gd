@@ -543,11 +543,13 @@ func _build_modals() -> void:
     _shop_panel.upgrade_requested.connect(func() -> void:
         upgrade_requested.emit()
     )
+    _shop_panel.close_requested.connect(close_shop)
     _shipping_panel = SHIPPING_SCENE.instantiate() as ShippingPanel
     _root.add_child(_shipping_panel)
     _shipping_panel.deposit_requested.connect(func(kind: int, quantity: int) -> void:
         deposit_requested.emit(kind, quantity)
     )
+    _shipping_panel.close_requested.connect(close_shipping)
     _bag_panel = BAG_SCENE.instantiate() as BagPanel
     _root.add_child(_bag_panel)
     _bag_panel.close_requested.connect(close_bag)
@@ -562,6 +564,7 @@ func _build_modals() -> void:
     _sleep_panel.sleep_requested.connect(func() -> void:
         sleep_requested.emit()
     )
+    _sleep_panel.close_requested.connect(close_sleep_confirmation)
     _morning_summary_panel = MORNING_SUMMARY_SCENE.instantiate() as MorningSummaryPanel
     _root.add_child(_morning_summary_panel)
     _morning_summary_panel.acknowledged.connect(func() -> void:

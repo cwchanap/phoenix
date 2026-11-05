@@ -105,9 +105,7 @@ func present(summary: Dictionary) -> void:
 			_render_shipment_row(row, shipments[index])
 
 	_money.text = "%dG" % int(summary.get("money_after_shipping", 0))
-	var action := tr("START DAY %d") % next_day
-	_action_text.text = action
-	_acknowledge.text = action
+	_action_text.text = tr("START DAY %d") % next_day
 	visible = true
 
 func _render_shipment_row(row: Dictionary, shipment: Dictionary) -> void:
@@ -244,20 +242,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	acknowledged.emit()
 
 func _build() -> void:
-	var dim := ColorRect.new()
-	dim.name = "Dim"
-	dim.color = Color(UiStyle.INK, 0.5)
-	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(dim)
-
-	var center := CenterContainer.new()
-	center.name = "Center"
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
-	_frame = PhoneFrame.new()
-	center.add_child(_frame)
+	_frame = UiStyle.phone_mount(self)
 	_frame.set_screen_backplate(
 		UiStyle.wallpaper_texture(
 			INTRO_WALLPAPER,
@@ -438,13 +423,13 @@ func _lock_header() -> VBoxContainer:
 	day_row.name = "DayRow"
 	day_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	header.add_child(day_row)
-	_day_line = _shadowed_label("", 22, 800)
+	_day_line = UiStyle.shadowed_label("", 22, 800)
 	_day_line.name = "DayLine"
 	day_row.add_child(_day_line)
-	_weather_tail = _shadowed_label("", 22, 800)
+	_weather_tail = UiStyle.shadowed_label("", 22, 800)
 	_weather_tail.name = "WeatherTail"
 	day_row.add_child(_weather_tail)
-	var clock := _shadowed_label(
+	var clock := UiStyle.shadowed_label(
 		GameRules.format_time(GameRules.DAY_START_MINUTES), 90, 900
 	)
 	clock.name = "LockTime"
@@ -487,7 +472,7 @@ func _notification_card(
 	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head_row.add_child(header)
 	var stamp := UiStyle.label(
-		"%d:%02d" % [GameRules.DAY_START_MINUTES / 60, GameRules.DAY_START_MINUTES % 60],
+		GameRules.format_time(GameRules.DAY_START_MINUTES),
 		12,
 		UiStyle.INK_MUTED,
 		700
@@ -512,13 +497,6 @@ func _card_sub(text_value: String) -> Label:
 	var result := UiStyle.label(text_value, 16, UiStyle.INK_MUTED, 600)
 	result.name = "Sub"
 	result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	return result
-
-func _shadowed_label(text_value: String, size: int, weight: int) -> Label:
-	var result := UiStyle.label(text_value, size, UiStyle.CARD, weight)
-	result.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.5))
-	result.add_theme_constant_override("shadow_offset_x", 0)
-	result.add_theme_constant_override("shadow_offset_y", 2)
 	return result
 
 func _shipment_row(row_name: String, icon_size: int, name_size: int, amount_size: int) -> PanelContainer:

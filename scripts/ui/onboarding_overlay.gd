@@ -20,7 +20,6 @@ var _tutorial_cards_enabled := true
 
 func _ready() -> void:
     _build_opening()
-    # HPA-680 stopgap: the opening card is still 640x360-authored (HPA-682).
     _accept.pressed.connect(func() -> void: intro_acknowledged.emit())
     _build_tutorial_card()
     _intro_background.visible = false
@@ -105,7 +104,12 @@ func _build_opening() -> void:
     name_row.name = "NameRow"
     overlay.add_child(name_row)
     UiStyle.pin(name_row, CORNER_TOP_LEFT, Vector2(40, -28))
-    var name_tag := SlantTag.new("SATO-SAN", UiStyle.ACCENT_GRADIENT, UiStyle.CARD, 30)
+    var name_tag := SlantTag.new(
+        VillagerRules.display_name(VillagerRules.VillagerId.SHOPKEEPER).to_upper(),
+        UiStyle.ACCENT_GRADIENT,
+        UiStyle.CARD,
+        30,
+    )
     name_tag.name = "NameTag"
     var tag_pad := StyleBoxEmpty.new()
     tag_pad.content_margin_left = 26
@@ -122,7 +126,10 @@ func _build_opening() -> void:
     )
     role_pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
     name_row.add_child(role_pill)
-    var role := UiStyle.label("Seed-shop keeper", 16, UiStyle.INK_MUTED, 800)
+    var role := UiStyle.label(
+        VillagerRules.role_label(VillagerRules.VillagerId.SHOPKEEPER),
+        16, UiStyle.INK_MUTED, 800,
+    )
     role.name = "Role"
     role_pill.add_child(role)
 

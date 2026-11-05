@@ -34,6 +34,7 @@ var _coming_hint: Label
 var _caption: Label
 var _legend: Label
 var _today_texture: Texture2D
+var _coming_signature := ""
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -42,6 +43,7 @@ func _ready() -> void:
 	_update_calendar()
 
 func open_panel(snapshot: Dictionary) -> void:
+	_coming_scroll.scroll_vertical = 0
 	present(snapshot)
 	visible = true
 
@@ -135,20 +137,7 @@ func coming_up_day_texts() -> Array[String]:
 	return texts
 
 func _build() -> void:
-	var dim := ColorRect.new()
-	dim.name = "Dim"
-	dim.color = Color(UiStyle.INK, 0.5)
-	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(dim)
-
-	var center := CenterContainer.new()
-	center.name = "Center"
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
-	_frame = PhoneFrame.new()
-	center.add_child(_frame)
+	_frame = UiStyle.phone_mount(self)
 	_frame.set_app_header("Season", "カレンダー")
 	var tag := SlantTag.new("", [UiStyle.SUN], UiStyle.SUN_INK, 15)
 	tag.name = "MarketTag"
@@ -355,14 +344,7 @@ func _build_footer() -> void:
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(spacer)
-	var close_cluster := UiStyle.hbox(4)
-	close_cluster.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	close_cluster.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	close_cluster.add_child(UiStyle.keycap("C", true))
-	var close := UiStyle.label("close", 15, UiStyle.INK_MUTED, 800)
-	close.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	close_cluster.add_child(close)
-	var close_button := UiStyle.hit_button(close_cluster)
+	var close_button := UiStyle.hit_button(UiStyle.key_hint("C", "close"))
 	close_button.name = "CloseButton"
 	close_button.pressed.connect(close_requested.emit)
 	footer.add_child(close_button)
@@ -448,6 +430,15 @@ func _coming_up_entries(current_day: int, readiness: Dictionary) -> Array[Dictio
 	return entries
 
 func _update_coming_up(current_day: int, readiness: Dictionary) -> void:
+	var signature := "%s|%d|%d|%s" % [
+		TranslationServer.get_locale(),
+		current_day,
+		(_snapshot.get("weather_history", []) as Array).size(),
+		str(readiness),
+	]
+	if signature == _coming_signature:
+		return
+	_coming_signature = signature
 	for child in _coming_rows.get_children():
 		_coming_rows.remove_child(child)
 		child.queue_free()
@@ -497,7 +488,6 @@ func _update_coming_up(current_day: int, readiness: Dictionary) -> void:
 		tr("Pink: today · Gold: market · Moon: last night · Crops: earliest days")
 		+ (" " + tr("Earliest days need nightly watering.") if not readiness.is_empty() else "")
 	)
-	_coming_scroll.scroll_vertical = 0
 	_coming_scroll.custom_minimum_size = Vector2(0, COMING_UP_VIEW_HEIGHT)
 	_coming_hint.text = tr("W/S more")
 	_fit_coming_scroll()

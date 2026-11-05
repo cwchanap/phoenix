@@ -60,20 +60,7 @@ func day_weather_text() -> String:
 	return "%s · %s" % [_day.text, _weather.text]
 
 func _build() -> void:
-	var dim := ColorRect.new()
-	dim.name = "Dim"
-	dim.color = Color(UiStyle.INK, 0.5)
-	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(dim)
-
-	var center := CenterContainer.new()
-	center.name = "Center"
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
-	_frame = PhoneFrame.new()
-	center.add_child(_frame)
+	_frame = UiStyle.phone_mount(self)
 	_frame.set_screen_backplate(
 		UiStyle.wallpaper_texture(
 			TITLE_WALLPAPER,
@@ -109,20 +96,20 @@ func _build() -> void:
 	var day_row := UiStyle.hbox(8)
 	day_row.name = "DayLine"
 	lock.add_child(day_row)
-	_day = _shadowed_label("Day 1", 22, 800)
+	_day = UiStyle.shadowed_label("Day 1", 22, 800)
 	_day.name = "Day"
 	day_row.add_child(_day)
 	_weather_icon = UiStyle.icon(SUN_ICON, 22)
 	_weather_icon.name = "WeatherIcon"
 	_weather_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	day_row.add_child(_weather_icon)
-	_weather = _shadowed_label("Sunny", 22, 800)
+	_weather = UiStyle.shadowed_label("Sunny", 22, 800)
 	_weather.name = "Weather"
 	day_row.add_child(_weather)
-	_paused_tail = _shadowed_label("· Paused", 22, 800)
+	_paused_tail = UiStyle.shadowed_label("· Paused", 22, 800)
 	_paused_tail.name = "PausedTail"
 	day_row.add_child(_paused_tail)
-	_lock_time = _shadowed_label("09:20", 76, 900)
+	_lock_time = UiStyle.shadowed_label("09:20", 76, 900)
 	_lock_time.name = "LockTime"
 	lock.add_child(_lock_time)
 
@@ -163,13 +150,6 @@ func _build() -> void:
 	actions.add_child(resume)
 	resume.pressed.connect(func() -> void: resume_requested.emit())
 
-func _shadowed_label(text_value: String, size: int, weight: int) -> Label:
-	var result := UiStyle.label(text_value, size, UiStyle.CARD, weight)
-	result.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.5))
-	result.add_theme_constant_override("shadow_offset_x", 0)
-	result.add_theme_constant_override("shadow_offset_y", 2)
-	return result
-
 func _app_tile(
 	app_name: String,
 	icon: Texture2D,
@@ -204,7 +184,7 @@ func _app_tile(
 	badge.name = "KeyBadge"
 	badge.position = Vector2(66, -8)
 	icon_slot.add_child(badge)
-	var caption := _shadowed_label(app_name, 15, 800)
+	var caption := UiStyle.shadowed_label(app_name, 15, 800)
 	caption.name = "Name"
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(caption)

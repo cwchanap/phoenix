@@ -4,9 +4,6 @@ extends Control
 signal gift_requested(villager_id: int, crop_kind: int)
 signal close_requested
 
-# Portrait art per VillagerId slot.
-const PORTRAIT_NAMES: Array[String] = ["sato", "gen", "hana"]
-
 const HEART_FILLED_ICON := preload("res://assets/ui/icons/heart-filled.png")
 const HEART_OUTLINE_ICON := preload("res://assets/ui/icons/heart-outline.png")
 const DIMMED := Color(1.0, 1.0, 1.0, 0.45)
@@ -38,6 +35,7 @@ var _gift_keys: HBoxContainer
 var _choose_gift: Label
 var _esc_text: Label
 var _leave_row: HBoxContainer
+var _leave_button: Button
 var _action_text: Label
 var _action: Button
 var _continue: Button
@@ -287,9 +285,13 @@ func _gift_chip_button(kind: int) -> Button:
 	stack.name = "TextStack"
 	stack.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(stack)
-	var name_line := UiStyle.hbox(2)
+	var name_line := UiStyle.hbox(4)
 	name_line.name = "NameRow"
 	stack.add_child(name_line)
+	var key_badge := UiStyle.keycap("%d" % (kind + 1), true)
+	key_badge.name = "Keycap"
+	key_badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	name_line.add_child(key_badge)
 	var crop_name := UiStyle.label(GameRules.crop_display_name(kind), 18, UiStyle.INK, 800)
 	crop_name.name = "Name"
 	name_line.add_child(crop_name)
@@ -349,15 +351,15 @@ func _footer_block() -> VBoxContainer:
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(spacer)
-	_leave_row = UiStyle.hbox(8)
+	_leave_row = UiStyle.key_hint("Esc", "leave", 17)
 	_leave_row.name = "LeaveRow"
-	_leave_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	footer.add_child(_leave_row)
-	_leave_row.add_child(UiStyle.keycap("Esc", true))
-	_esc_text = UiStyle.label("leave", 17, UiStyle.INK_MUTED, 800)
+	_esc_text = _leave_row.get_child(1) as Label
 	_esc_text.name = "EscText"
-	_esc_text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_leave_row.add_child(_esc_text)
+	_leave_button = UiStyle.hit_button(_leave_row)
+	_leave_button.name = "LeaveButton"
+	_leave_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_leave_button.pressed.connect(func() -> void: close_requested.emit())
+	footer.add_child(_leave_button)
 	_action = UiStyle.primary_action("Enter", "")
 	_action.name = "Action"
 	var pill := _action.find_child("Pill", true, false) as PanelContainer
@@ -370,7 +372,7 @@ func _footer_block() -> VBoxContainer:
 
 func _render() -> void:
 	_portrait.texture = load(
-		"res://assets/ui/portraits/%s.png" % PORTRAIT_NAMES[_villager_id]
+		"res://assets/ui/portraits/%s.png" % VillagerRules.PORTRAIT_NAMES[_villager_id]
 	) as Texture2D
 	_name.text = VillagerRules.display_name(_villager_id)
 	_role.text = tr(VillagerRules.role_label(_villager_id)).to_upper()
@@ -408,7 +410,7 @@ func _render() -> void:
 	_continue.visible = more_lines
 	var locked := _close_friend_sequence and more_lines
 	_close.visible = not locked
-	_leave_row.visible = not locked
+	_leave_button.visible = not locked
 	_render_relationship(relationship)
 	_render_gift_buttons(locked)
 
