@@ -9,7 +9,7 @@
 
 - Godot 4.7.1 and native 1920×1080 `Control` rendering. No canvas-size, camera zoom, gameplay, save, balance or rule changes.
 - Every non-HUD surface uses a **code-built control tree**, following `HudChrome`, not a new mix of authored scene contents with runtime stylers. Keep each `.tscn` file as a root plus attached existing script. Keep each root name, public panel method and signal shape.
-- One lean code-built `PhoneFrame` class: bezel, status-bar time, home indicator and content mount **only**. Each panel builds its own app-header/footer if applicable. `GameHud` remains the modal owner; no navigation framework, app mode registry or new session owner.
+- One lean code-built `PhoneFrame` class: bezel, status-bar time, home indicator, app-header band, footer row and content mount **only**. Panels call `set_app_header()`, `app_header_accessory()` and `footer_mount()`, and build body rows in `content_mount()`. `GameHud` remains the modal owner; no navigation framework, app mode registry or new session owner.
 - Reuse `UiStyle` and existing images. All added player-facing English strings receive zh_TW/ja values in the existing CSV, including Settings' **Language** control.
 - HPA-684 owns actual diary lines and opening/result story rewrite; HPA-687 owns new art; town changes remain HPA-683/685/686.
 - PR #29 removed screenshot goldens. Do not reintroduce them.
@@ -46,7 +46,7 @@ This order supersedes the old "migrate UI, then update tests and stopgap in Task
 - Bag: seeds/harvest grid, currently selected item detail, bin payout; preserve current `open_panel`/`present` selection and snapshot semantics.
 - Almanac: one selected crop at a time, A/D navigation, crop art and real game rules; preserve `selected_kind()`.
 - Calendar: fixed 7×2 day grid and Coming Up; use existing `weather_history`/day-known flags, never a future forecast.
-- Each panel instantiates its own `PhoneFrame` and app header/footer with shared builders; it does not hand input control to the frame.
+- Each panel mounts a `PhoneFrame` via `UiStyle.phone_mount()`, configures the app header and adds footer controls through the frame's API, and builds body rows in `content_mount()`; it does not hand input control to the frame.
 - Stopgap/test/translation updates land with each migrated surface or this tightly grouped family, not after all screens.
 
 **Tests:** Keep value assertions (quantity, growth, known days, selection/close) via existing selectors or minimum read seams. Extend the native-root test per surface. Verify clean + targeted navigation.
