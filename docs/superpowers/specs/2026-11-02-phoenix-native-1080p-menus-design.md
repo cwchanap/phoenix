@@ -26,11 +26,11 @@ Use Godot `Container` layout and native anchoring in the **runtime-built control
 
 ## Decision 2: small code-built PhoneFrame; no special-mode framework
 
-Create `scripts/ui/phone_frame.gd` (`PhoneFrame`, a small `Control`/`PanelContainer` presentation class). Construct one per phone surface. It owns **only** the rounded bezel, status-bar time, home indicator, and a content mount (such as a `VBoxContainer`). It owns no app navigation, modal state, session data, settings, or input.
+Create `scripts/ui/phone_frame.gd` (`PhoneFrame`, a small `Control`/`PanelContainer` presentation class). Construct one per phone surface via `UiStyle.phone_mount()`. It owns **only** the rounded bezel, status-bar time, home indicator, one app-header band, one footer row, and a content mount (such as a `VBoxContainer`). It owns no app navigation, modal state, session data, settings, or input.
 
-- **Five app surfaces:** Bag, Almanac, Calendar, Settings and Sleep add their own gradient app header, body and one truthful footer-hint row via `UiStyle` builders.
-- **Pause:** phone home screen with wallpaper/app tiles and Controls widget; no app header.
-- **Morning Summary:** lock-screen composition/notifications, not an app header. Do not require diary content until HPA-684.
+- **Five app surfaces:** Bag, Almanac, Calendar, Settings and Sleep configure the frame's gradient app header via `set_app_header()`/`app_header_accessory()`, build body rows in `content_mount()`, and add one truthful footer-hint row of controls via `footer_mount()`.
+- **Pause:** phone home screen with wallpaper/app tiles and Controls widget; it does not call `set_app_header`.
+- **Morning Summary:** lock-screen composition/notifications without an app header. Do not require diary content until HPA-684.
 - No `mode` enum or variant registry in `PhoneFrame`. Each panel owns its content and presentation choices.
 
 **Clock ownership:** `GameHud.render(snapshot)` already receives `time_minutes`/`day`/`weather`, including passive ticks. Format the time once with `GameRules.format_time(int(snapshot["time_minutes"]))` and update the existing phone-bearing panels' small status-time setters from that render path. Pause additionally receives day/weather for its "Paused" summary. No new parameters on `open_*`, no UI-local ticking, no synthetic real-world time, and no persisted status data. Sleep uses the session clock in the status bar while the alarm target itself remains 06:00.
