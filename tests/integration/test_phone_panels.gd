@@ -518,6 +518,79 @@ func test_bag_detail_preserves_rules_content() -> void:
 	assert_eq(bag.selected_kind(), GameRules.CropKind.POTATO)
 	assert_eq(bag.detail_title_text(), "Potato seeds")
 
+func _bag_grid(bag: Control, shelf: int) -> GridContainer:
+	return bag.get_node(
+		"Center/PhoneFrame/Screen/Column/Content/Layout/Column/Shelf_%d/Rows/Grid"
+		% shelf
+	) as GridContainer
+
+func test_bag_slot_click_selects_the_clicked_crop_and_shelf() -> void:
+	var bag := _spawn_panel("res://scenes/ui/bag_panel.tscn") as BagPanel
+	if bag == null:
+		return
+	bag.open_panel(_snapshot())
+	await _settle()
+	var harvested := _bag_grid(bag, 1)
+	assert_not_null(harvested, "the harvested shelf grid exists")
+	if harvested == null:
+		return
+	await _click(harvested.get_child(GameRules.CropKind.POTATO) as Control)
+	assert_eq(bag.selected_shelf(), 1, "the slot click selects its shelf")
+	assert_eq(bag.selected_kind(), GameRules.CropKind.POTATO)
+	assert_eq(bag.detail_title_text(), "Potato")
+	assert_eq(
+		bag.detail_description_text(),
+		"2 harvested and ready for the shipping bin.",
+	)
+	var bin := _bag_grid(bag, 2)
+	assert_not_null(bin, "the shipping-bin shelf grid exists")
+	if bin == null:
+		return
+	await _click(bin.get_child(GameRules.CropKind.PUMPKIN) as Control)
+	assert_eq(bag.selected_shelf(), 2, "a stocked bin slot selects the bin shelf")
+	assert_eq(bag.selected_kind(), GameRules.CropKind.PUMPKIN)
+	assert_eq(bag.detail_title_text(), "Pumpkin")
+
+func test_bag_shelf_card_click_selects_the_shelf() -> void:
+	var bag := _spawn_panel("res://scenes/ui/bag_panel.tscn") as BagPanel
+	if bag == null:
+		return
+	bag.open_panel(_snapshot())
+	await _settle()
+	var title := bag.get_node(
+		"Center/PhoneFrame/Screen/Column/Content/Layout/Column/Shelf_2/Rows/Title"
+	) as Label
+	assert_not_null(title, "the bin shelf title exists")
+	if title == null:
+		return
+	await _click(title)
+	assert_eq(bag.selected_shelf(), 2, "the card click selects the bin shelf")
+	assert_eq(
+		bag.selected_kind(), GameRules.CropKind.TURNIP,
+		"the bin shelf lands on its first stocked kind",
+	)
+	assert_eq(
+		bag.detail_description_text(),
+		"Payout is collected tomorrow morning.",
+	)
+
+func test_bag_clicks_do_nothing_while_hidden() -> void:
+	var bag := _spawn_panel("res://scenes/ui/bag_panel.tscn") as BagPanel
+	if bag == null:
+		return
+	bag.open_panel(_snapshot())
+	await _settle()
+	var grid := _bag_grid(bag, 1)
+	if grid == null:
+		return
+	var slot := grid.get_child(GameRules.CropKind.POTATO) as Control
+	var center := slot.get_global_rect().get_center()
+	bag.visible = false
+	await _settle()
+	await _click_at(center)
+	assert_eq(bag.selected_shelf(), 0, "a hidden shelf slot cannot be clicked")
+	assert_eq(bag.selected_kind(), GameRules.CropKind.TURNIP)
+
 func test_bag_hints_live_in_the_phone_footer() -> void:
 	var bag := _spawn_panel("res://scenes/ui/bag_panel.tscn") as BagPanel
 	if bag == null:

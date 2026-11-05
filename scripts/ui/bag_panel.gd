@@ -112,12 +112,30 @@ func _input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 
 func _select_shelf(delta: int) -> void:
-	_shelf = posmod(_shelf + delta, SHELF_NAMES.size())
+	_choose_shelf(posmod(_shelf + delta, SHELF_NAMES.size()))
+
+func _choose_shelf(shelf: int) -> void:
+	_shelf = shelf
 	if _shelf == 2:
 		var first_pending_kind := _first_available_kind(2)
 		if first_pending_kind >= 0:
 			_selected_kind = first_pending_kind
 	_update_view()
+
+func _choose_slot(shelf: int, kind: int) -> void:
+	_shelf = shelf
+	_selected_kind = kind
+	_update_view()
+
+func _shelf_gui_input(event: InputEvent, shelf: int) -> void:
+	var click := event as InputEventMouseButton
+	if click != null and click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
+		_choose_shelf(shelf)
+
+func _slot_gui_input(event: InputEvent, shelf: int, kind: int) -> void:
+	var click := event as InputEventMouseButton
+	if click != null and click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
+		_choose_slot(shelf, kind)
 
 func _select_kind(delta: int) -> void:
 	if _shelf != 2:
@@ -182,7 +200,9 @@ func _build() -> void:
 func _shelf_card(shelf: int) -> PanelContainer:
 	var card := PanelContainer.new()
 	card.name = "Shelf_%d" % shelf
-	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	card.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	card.gui_input.connect(_shelf_gui_input.bind(shelf))
 	var box := UiStyle.card(UiStyle.CARD, 20, [16, 10, 16, 10], false)
 	box.shadow_color = Color(0.16, 0.04, 0.16, 0.06)
 	box.shadow_size = 14
@@ -208,7 +228,9 @@ func _shelf_card(shelf: int) -> PanelContainer:
 	var slot_row: Array = []
 	for kind in range(GameRules.CropKind.size()):
 		var slot := _slot(kind)
-		grid.add_child(slot["slot"])
+		var slot_control := slot["slot"] as Control
+		slot_control.gui_input.connect(_slot_gui_input.bind(shelf, kind))
+		grid.add_child(slot_control)
 		slot_row.append(slot)
 	_shelf_slots.append(slot_row)
 	if shelf != 2:
@@ -245,7 +267,8 @@ func _shelf_card(shelf: int) -> PanelContainer:
 func _slot(kind: int) -> Dictionary:
 	var slot := Panel.new()
 	slot.name = "Slot_%d" % kind
-	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.mouse_filter = Control.MOUSE_FILTER_STOP
+	slot.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	slot.custom_minimum_size = SLOT_SIZE
 	var icon := UiStyle.icon(null, 56)
 	icon.name = "Icon"

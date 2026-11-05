@@ -83,9 +83,17 @@ func _input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 
 func _select_kind(delta: int) -> void:
-	_selected_kind = posmod(_selected_kind + delta, GameRules.CropKind.size())
+	_choose_kind(posmod(_selected_kind + delta, GameRules.CropKind.size()))
+
+func _choose_kind(index: int) -> void:
+	_selected_kind = index
 	_quantity = _clamped_quantity(_quantity)
 	_update_rows()
+
+func _row_gui_input(event: InputEvent, index: int) -> void:
+	var click := event as InputEventMouseButton
+	if click != null and click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
+		_choose_kind(index)
 
 func _adjust_quantity(delta: int) -> void:
 	_quantity = clampi(_quantity + delta, 0, _max_quantity(_selected_kind))
@@ -238,7 +246,9 @@ func _warning_card() -> PanelContainer:
 func _row(index: int) -> PanelContainer:
 	var row := PanelContainer.new()
 	row.name = "Row_%d" % index
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.mouse_filter = Control.MOUSE_FILTER_STOP
+	row.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	row.gui_input.connect(_row_gui_input.bind(index))
 	var box := UiStyle.card(UiStyle.SOFT, 20, [12, 12, 22, 12], false)
 	box.border_color = UiStyle.LINE
 	box.set_border_width_all(1)
