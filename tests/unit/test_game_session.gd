@@ -230,7 +230,7 @@ func test_state_is_deeply_isolated_and_excludes_derived_fields() -> void:
     mutable_state["harvested"][&"turnip"] = 99
     mutable_state["relationships"][&"resident"]["points"] = 99
     mutable_state["farm"][0]["tilled"] = true
-    mutable_state["tutorial"][&"gift"] = true
+    mutable_state["tutorial"][&"farm_basics"] = true
     mutable_state["shipped"][&"pumpkin"] = 99
     mutable_state["weather_history"][0] = &"rainy"
 
@@ -238,7 +238,7 @@ func test_state_is_deeply_isolated_and_excludes_derived_fields() -> void:
     assert_eq(fresh["harvested"][&"turnip"], 1)
     assert_eq(fresh["relationships"][&"resident"]["points"], 1)
     assert_false(fresh["farm"][0]["tilled"])
-    assert_false(fresh["tutorial"][&"gift"])
+    assert_false(fresh["tutorial"][&"farm_basics"])
     assert_eq(fresh["shipped"][&"pumpkin"], 0)
     assert_eq(fresh["weather_history"], [&"sunny"])
     assert_eq(session.snapshot()["max_stamina"], GameRules.MAX_STAMINA)
@@ -412,13 +412,15 @@ func test_tutorials_complete_only_on_authoritative_successes() -> void:
     )
     assert_true(session.state()["tutorial"][&"buy_seeds"])
 
+    # Social successes still return their codes but no longer complete a
+    # tutorial: the seven-card table has no talk or gift entries.
     var mira := VillagerRules.VillagerId.SHOPKEEPER
-    assert_false(session.state()["tutorial"][&"talk"])
+    var tutorial_before_talk: Dictionary = session.state()["tutorial"]
     assert_eq(
         session.talk_to(mira)["code"],
         GameRules.CommandCode.VILLAGER_TALKED,
     )
-    assert_true(session.state()["tutorial"][&"talk"])
+    assert_eq(session.state()["tutorial"], tutorial_before_talk)
 
     var tutorial_before_selection: Dictionary = session.state()["tutorial"]
     assert_eq(
@@ -459,6 +461,7 @@ func test_tutorials_complete_only_on_authoritative_successes() -> void:
     )
     assert_true(session.state()["tutorial"][&"shipping"])
 
+    var tutorial_before_gift: Dictionary = session.state()["tutorial"]
     assert_eq(
         session.gift_crop(
             mira,
@@ -466,7 +469,6 @@ func test_tutorials_complete_only_on_authoritative_successes() -> void:
         )["code"],
         GameRules.CommandCode.INSUFFICIENT_CROPS,
     )
-    assert_false(session.state()["tutorial"][&"gift"])
     assert_eq(
         session.gift_crop(
             mira,
@@ -474,7 +476,7 @@ func test_tutorials_complete_only_on_authoritative_successes() -> void:
         )["code"],
         GameRules.CommandCode.CROP_GIFTED,
     )
-    assert_true(session.state()["tutorial"][&"gift"])
+    assert_eq(session.state()["tutorial"], tutorial_before_gift)
 
 func test_normal_sleep_accumulates_lifetime_shipped_counts() -> void:
     var session := GameSession.new(func() -> float: return 0.9)

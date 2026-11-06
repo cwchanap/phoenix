@@ -155,7 +155,7 @@ func _interact_label(target: Variant) -> String:
         return ""
     match target:
         WorldContract.SHOP_CELL:
-            return "Shop"
+            return "Seed Box"
         WorldContract.BED_CELL:
             return "Bed"
         WorldContract.SHIPPING_CELL:

@@ -1997,7 +1997,7 @@ func test_farm_preview_uses_green_red_reason_and_non_farm_gold() -> void:
     await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
     world._process(0.0)
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_NEUTRAL)
-    assert_eq(hud.prompt_text(), "[E] Shop")
+    assert_eq(hud.prompt_text(), "[E] Seed Box")
 
 func _grow_mature_turnip(world: WorldShell, cell: Vector2i) -> void:
     var session := world._session
@@ -3467,7 +3467,7 @@ func test_hold_locked_action_shows_mismatched_farm_tile_as_neutral() -> void:
     _set_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
     world._process(0.0)
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_NEUTRAL)
-    assert_eq(hud.prompt_text(), "[E] Shop")
+    assert_eq(hud.prompt_text(), "[E] Seed Box")
     _push_use_action(world, false)
 
 func test_hold_action_lock_requires_fresh_gestures_for_each_farm_stage() -> void:
