@@ -86,8 +86,8 @@ from an adjacent tile shows a contextual interaction hint (for example
 
 - The farm currently has no reachable residents: Sato-san, Gen-san, and Hana
   no longer stand on the map, so talking and gifting are unavailable in play
-  until town social play returns (HPA-686). E on any other cell answers
-  "Nothing to interact with."
+  until town social play returns (HPA-686). E on an ordinary non-interactable
+  cell answers "Nothing to interact with."
 - The social rules remain in the rules layer: the first daily talk is worth
   1 point, one gift per day adds 3 (5 for a favourite), and levels run
   Stranger, Friend at 12 points, Close Friend at 18. They still drive the
