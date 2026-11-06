@@ -6,11 +6,9 @@ func test_tutorial_table_is_exact_and_unique() -> void:
         {"id": &"plant", "code": GameRules.CommandCode.CROP_PLANTED},
         {"id": &"water", "code": GameRules.CommandCode.CROP_WATERED},
         {"id": &"sleep", "code": GameRules.CommandCode.DAY_ADVANCED},
-        {"id": &"talk", "code": GameRules.CommandCode.VILLAGER_TALKED},
         {"id": &"buy_seeds", "code": GameRules.CommandCode.SEEDS_PURCHASED},
         {"id": &"harvest", "code": GameRules.CommandCode.CROP_HARVESTED},
         {"id": &"shipping", "code": GameRules.CommandCode.CROP_DEPOSITED},
-        {"id": &"gift", "code": GameRules.CommandCode.CROP_GIFTED},
     ]
 
     assert_eq(ContentRules.TUTORIALS.size(), expected.size())
@@ -140,16 +138,13 @@ func test_sleep_prompt_follows_watered_or_rainy_immature_crop() -> void:
     _plant_crop(snapshot, 0, false)
     assert_eq(ContentRules.next_tutorial_prompt(snapshot)["id"], &"sleep")
 
-func test_talk_and_buy_seeds_prompts_are_day_two_plus() -> void:
+func test_buy_seeds_prompt_is_day_two_plus() -> void:
     var snapshot := _fresh_snapshot()
     _complete(snapshot, [&"farm_basics", &"plant", &"water", &"sleep"])
     snapshot["day"] = 1
     assert_eq(ContentRules.next_tutorial_prompt(snapshot), {})
 
     snapshot["day"] = 2
-    assert_eq(ContentRules.next_tutorial_prompt(snapshot)["id"], &"talk")
-
-    _complete(snapshot, [&"talk"])
     assert_eq(ContentRules.next_tutorial_prompt(snapshot)["id"], &"buy_seeds")
 
     snapshot["money"] = GameRules.seed_price(GameRules.CropKind.TURNIP) - 1
@@ -165,7 +160,6 @@ func test_harvest_prompt_requires_a_mature_crop() -> void:
         &"plant",
         &"water",
         &"sleep",
-        &"talk",
         &"buy_seeds",
     ])
     _plant_crop(snapshot, 2, false)
@@ -174,14 +168,13 @@ func test_harvest_prompt_requires_a_mature_crop() -> void:
     _plant_crop(snapshot, 3, false)
     assert_eq(ContentRules.next_tutorial_prompt(snapshot)["id"], &"harvest")
 
-func test_shipping_and_gift_prompts_require_harvested_inventory() -> void:
+func test_shipping_prompt_requires_harvested_inventory() -> void:
     var snapshot := _fresh_snapshot()
     _complete(snapshot, [
         &"farm_basics",
         &"plant",
         &"water",
         &"sleep",
-        &"talk",
         &"buy_seeds",
         &"harvest",
     ])
@@ -192,7 +185,7 @@ func test_shipping_and_gift_prompts_require_harvested_inventory() -> void:
     assert_eq(ContentRules.next_tutorial_prompt(snapshot)["id"], &"shipping")
 
     _complete(snapshot, [&"shipping"])
-    assert_eq(ContentRules.next_tutorial_prompt(snapshot)["id"], &"gift")
+    assert_eq(ContentRules.next_tutorial_prompt(snapshot), {})
 
 func test_excluded_ids_are_skipped_without_mutating_completion() -> void:
     var snapshot := _fresh_snapshot()
@@ -200,11 +193,11 @@ func test_excluded_ids_are_skipped_without_mutating_completion() -> void:
     snapshot["day"] = 2
     var progress_before: Dictionary = snapshot["tutorial"].duplicate(true)
 
-    var prompt := ContentRules.next_tutorial_prompt(snapshot, [&"talk"])
-    assert_ne(prompt.get("id", &""), &"talk")
-    assert_eq(prompt.get("id", &""), &"buy_seeds")
+    var prompt := ContentRules.next_tutorial_prompt(snapshot, [&"buy_seeds"])
+    assert_ne(prompt.get("id", &""), &"buy_seeds")
+    assert_eq(prompt, {})
     assert_eq(snapshot["tutorial"], progress_before)
-    assert_false(snapshot["tutorial"][&"talk"])
+    assert_false(snapshot["tutorial"][&"buy_seeds"])
 
 func test_no_relevant_incomplete_prompt_returns_empty() -> void:
     var snapshot := _fresh_snapshot()

@@ -216,7 +216,7 @@ func _controls_card() -> PanelContainer:
 	column.add_child(_control_row(["W", "A", "S", "D"], "Walk; you face the tile you'll work"))
 	column.add_child(_control_row(["Space"], "Till, plant, water or harvest. Hold to keep going.", true))
 	column.add_child(_control_row(["2"], "Switch seed"))
-	column.add_child(_control_row(["E"], "Talk, shop, bin, bed"))
+	column.add_child(_control_row(["E"], "Seed box, bin, bed"))
 	return card
 
 func _control_row(keys: Array, copy: String, accent := false) -> HBoxContainer:

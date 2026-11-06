@@ -30,15 +30,9 @@ const TUTORIALS: Array[Dictionary] = [
         "completed_by": GameRules.CommandCode.DAY_ADVANCED,
     },
     {
-        "id": &"talk",
-        "title": "Meet the village",
-        "body": "Face Sato-san, Gen-san, or Hana and press E to talk.",
-        "completed_by": GameRules.CommandCode.VILLAGER_TALKED,
-    },
-    {
         "id": &"buy_seeds",
         "title": "Reinvest",
-        "body": "Face the seed counter, press E, and buy seeds to keep planting.",
+        "body": "Face the seed box, press E, and buy seeds to keep planting.",
         "completed_by": GameRules.CommandCode.SEEDS_PURCHASED,
     },
     {
@@ -52,12 +46,6 @@ const TUTORIALS: Array[Dictionary] = [
         "title": "Ship produce",
         "body": "Carry harvested produce to the shipping bin and deposit it for next-morning income.",
         "completed_by": GameRules.CommandCode.CROP_DEPOSITED,
-    },
-    {
-        "id": &"gift",
-        "title": "Give a gift",
-        "body": "Open a villager conversation while carrying a crop and choose a gift.",
-        "completed_by": GameRules.CommandCode.CROP_GIFTED,
     },
 ]
 
@@ -111,8 +99,6 @@ static func _tutorial_relevant(id: StringName, snapshot: Dictionary) -> bool:
             if _has_watered_crop(snapshot["farm"]):
                 return true
             return StringName(snapshot["weather"]) == &"rainy" and _has_immature_crop(snapshot["farm"])
-        &"talk":
-            return int(snapshot["day"]) >= 2
         &"buy_seeds":
             return (
                 int(snapshot["day"]) >= 2
@@ -120,7 +106,7 @@ static func _tutorial_relevant(id: StringName, snapshot: Dictionary) -> bool:
             )
         &"harvest":
             return _has_mature_crop(snapshot["farm"])
-        &"shipping", &"gift":
+        &"shipping":
             return _has_any_count(snapshot["harvested"])
         _:
             return false

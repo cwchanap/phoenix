@@ -74,6 +74,31 @@ func test_round_trip_preserves_a_change_outside_the_old_farm_footprint() -> void
     # CROP_PRESENT proves the decoded save carried the tilled, planted cell.
     assert_eq(restored.plant(cell), GameRules.CommandCode.CROP_PRESENT)
 
+func test_seven_key_tutorial_state_round_trips_and_legacy_social_keys_reject() -> void:
+    var state := GameSession.new().state()
+    assert_eq(state["tutorial"].keys(), ContentRules.tutorial_keys())
+    assert_eq(state["tutorial"].size(), 7)
+
+    var decoded := SaveFileCodec.decode(SaveFileCodec.encode(state))
+    assert_true(decoded["ok"])
+    assert_eq(SessionStateValidator.state_error(decoded["state"]), "")
+    var restored := GameSession.new()
+    assert_true(restored.restore_state(decoded["state"]))
+    assert_eq(restored.state(), state)
+
+    # A pre-change schema-4 save still carries talk/gift tutorial keys; the
+    # strict validator rejects it instead of migrating.
+    var legacy := state.duplicate(true)
+    legacy["tutorial"][&"talk"] = true
+    legacy["tutorial"][&"gift"] = true
+    var decoded_legacy := SaveFileCodec.decode(SaveFileCodec.encode(legacy))
+    assert_true(decoded_legacy["ok"])
+    assert_eq(
+        SessionStateValidator.state_error(decoded_legacy["state"]),
+        "tutorial must contain exactly the tutorial keys",
+    )
+    assert_false(GameSession.new().restore_state(decoded_legacy["state"]))
+
 func test_decode_rejects_malformed_json_wrong_schema_and_bad_vector_marker() -> void:
     assert_false(SaveFileCodec.decode("{broken")["ok"])
     assert_false(SaveFileCodec.decode('{"state":{}}')["ok"])

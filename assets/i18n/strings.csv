@@ -22,16 +22,12 @@ Water the crop,幫作物澆水,作物に水をやろう
 "On sunny days, press Space on a growing crop to water it. Two dry nights in a row and it withers.",晴天時，對著生長中的作物按空白鍵澆水。連續兩晚沒澆水，作物就會枯萎。,晴れの日は、育っている作物の前でスペースキーを押して水をやる。2晩続けて乾くと枯れてしまう。
 End the day,結束這一天,一日を終えよう
 "When today's work is done, face the bed, press E, and sleep.",今天的工作做完後，面向床鋪按 E 睡覺。,今日の作業が終わったら、ベッドの方を向いて E キーで眠る。
-Meet the village,認識村裡的人,村の人に会おう
-"Face Sato-san, Gen-san, or Hana and press E to talk.",面向佐藤先生、阿源伯或小花，按 E 聊天。,佐藤さん、源さん、ハナの方を向いて E キーで話しかける。
 Reinvest,再投資,再投資しよう
-"Face the seed counter, press E, and buy seeds to keep planting.",面向種子櫃台按 E，買些種子繼續種。,種の売り場の方を向いて E キーを押し、種を買って植え続けよう。
+"Face the seed box, press E, and buy seeds to keep planting.",面向種子箱按 E，買些種子繼續種。,種箱の方を向いて E キーを押し、種を買って植え続けよう。
 Harvest,收成,収穫
 A fully grown crop is ready. Press Space to harvest it.,有作物長好了。按空白鍵收成。,作物が育ちきった。スペースキーで収穫しよう。
 Ship produce,出貨農產品,作物を出荷しよう
 Carry harvested produce to the shipping bin and deposit it for next-morning income.,把收成的農產品放進出貨箱，隔天早上就有收入。,収穫した作物を出荷箱に入れると、翌朝に収入になる。
-Give a gift,送份禮物,贈り物をしよう
-Open a villager conversation while carrying a crop and choose a gift.,身上帶著作物時和村民聊天，就能選一樣送給對方。,作物を持っている時に村人と話して、贈り物を選ぼう。
 New Beginning,嶄新的開始,新たな始まり
 Heart of the Harvest,豐收之心,実りの心
 Promising Farmer,前途看好的農夫,期待の農家
@@ -234,7 +230,7 @@ CONTROLS,操作說明,操作方法
 Walk; you face the tile you'll work,走路；你面向的格子就是要施作的格子,歩く。向いているマスが作業対象
 "Till, plant, water or harvest. Hold to keep going.",翻土、種植、澆水或收成。長按可以連續工作。,耕す・植える・水やり・収穫。長押しで続けて作業。
 Switch seed,切換種子,種を切り替え
-"Talk, shop, bin, bed",對話、商店、出貨箱、床,話す・店・出荷箱・ベッド
+"Seed box, bin, bed",種子箱、出貨箱、床,種箱・出荷箱・ベッド
 Back to the farm,回到農場,農場に戻る
 Paused,暫停中,一時停止中
 Settings,設定,設定
@@ -273,7 +269,7 @@ VALUE,價值,金額
 choose crop,選擇作物,作物を選ぶ
 choose gift,選擇禮物,贈り物を選ぶ
 Ship %d · %dG,出貨 %d · %dG,出荷 %d · %dG
-SEED SHOP,種子行,種屋
+SEED BOX,種子箱,種箱
 Seeds and tools,種子與工具,種と道具
 %dG each · %d nights · %d held,每個 %dG · %d 晚 · 持有 %d,1個 %dG · %d 晩 · 所持 %d
 EACH,每個,1個
@@ -305,7 +301,7 @@ Enter,Enter 鍵,エンター
 Esc,Esc 鍵,Esc
 Tab,Tab 鍵,タブ
 · %d stamina,· 體力 %d,· スタミナ %d
-Shop,商店,店
+Seed Box,種子箱,種箱
 Bed,床,ベッド
 Shipping,出貨箱,出荷箱
 Harvest Market,豐收市集,収穫市
