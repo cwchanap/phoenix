@@ -6,16 +6,15 @@ Phoenix is a Godot 4.7.1 project using the standard non-.NET editor and
 statically typed GDScript. Open the repository in Godot and run
 `scenes/app/app.tscn`; WASD moves, `2` cycles the selected seed, Space
 automatically tills, plants, waters, or harvests the faced farm cell, and E
-interacts with the shop, bed, or shipping bin.
+interacts with the seed box, bed, or shipping bin.
 There is no JavaScript or Tauri runtime in the current checkout.
 
-- E interacts with villagers as well as shop/bed/shipping.
 - I/B/C open and close Bag, Almanac, and Calendar while the world is available;
   each panel gates movement and closes on its matching key, and the same keys
   also open that app while Pause is up.
 - Every `2` press advances the selected seed; M
-  chooses the maximum quantity in Shop or Shipping; O opens Settings from
-  Pause only.
+  chooses the maximum quantity in the Seed Box or Shipping; O opens Settings
+  from Pause only.
 
 ## Architecture
 
@@ -23,7 +22,6 @@ There is no JavaScript or Tauri runtime in the current checkout.
   constants: map, projection, spawn, movement, footprints, anchors, farm/path
   cells, perimeter, and camera bounds. Do not duplicate those values in scene
   checks or gameplay code.
-- WorldContract owns the three static villager cells/footprints.
 - `scripts/world/world_math.gd` is framework-free pure math for projection,
   inverse projection, cell lookup, diamonds, facing, targets, and projected
   logical footprints. It does not own nodes, input, physics, or gameplay state.
@@ -45,7 +43,7 @@ There is no JavaScript or Tauri runtime in the current checkout.
 - Farming preview and every farming guard/budget check route through
   `GameSession._cost_for()`; rules-owned effective cost changes (HPA-460) land
   at that one seam, never at call sites. The 200G Efficient Can is bought once
-  via `buy_watering_can_upgrade()` at the shop cell and persists as the
+  via `buy_watering_can_upgrade()` at the seed box cell and persists as the
   `watering_can_upgraded` state/snapshot bit that `_cost_for()` reads.
 - GameSession owns relationship points, daily talk/gift flags, and close_friend_dialogue_seen.
 - GameSession derives tutorial completion only inside `_commit()` via
@@ -61,7 +59,7 @@ There is no JavaScript or Tauri runtime in the current checkout.
 - `FarmSoil` in `scenes/world/world.tscn` holds the non-Y-sorted farm ground
   decals. `Entities` (scripted as `scripts/world/farm_view.gd`, `FarmView`)
   remains the one Y-sort owner and renders crop sprites from session
-  snapshots; it owns no gameplay state. House, shop-stall, villager, and
+  snapshots; it owns no gameplay state. House, shop-stall, and
   player roots are bottom-center ground-contact positions with child sprites
   offset upward; they share a z-index and retain scene-tree order for exact-Y
   ties.
@@ -135,7 +133,7 @@ There is no JavaScript or Tauri runtime in the current checkout.
   tick at `GameRules.REAL_SECONDS_PER_GAME_MINUTE` (0.5 s/min, the
   provisional tuning constant) into `GameSession.advance_clock()`, which
   clamps at the 22:00 cutoff — farming is refused there while movement,
-  talk, shop, shipping, and sleep stay open. `clock_running` is the
+  the seed box, shipping, and sleep stay open. `clock_running` is the
   deterministic test opt-out checked only at the `_process` call site;
   fixtures set it false so frames never tick.
 - `scripts/player/player_controller.gd` owns input sampling for
@@ -190,14 +188,15 @@ The house footprint is `(11,4.5,2.75,2.75)` with derived bottom-center ground
 anchor `(976,336)`, and the House node displays its `96x96` prop frame at
 integer `2x` so the footprint's projected diamond is inscribed in the drawn
 yard ellipse; the shop-stall footprint is `(15,7,1,2)` with anchor `(1008,400)`.
-Interactable cells are shop `(17,9)`, bed `(12,7)`, shipping `(10,13)` with
-footprint `(10.2,13.2,0.6,0.6)`, and the harvest market cell `(19,10)` with
-footprint `(19.2,10.2,0.6,0.6)` and projected cell-center anchor `(1056,480)`;
+Interactable cells are the seed box `(17,9)`, bed `(12,7)`, shipping
+`(10,13)` with footprint `(10.2,13.2,0.6,0.6)`, and the harvest market cell
+`(19,10)` with footprint `(19.2,10.2,0.6,0.6)` and projected cell-center
+anchor `(1056,480)`;
 the world-shell smoke pins the cells, footprints, anchors, collisions, sprite
-frames, and detour coverage. Villagers stand at `(16,8)`, `(18,7)`, and
-`(17,11)`. Blockers are the forest band `(0,0,24,2)`, the west river
-`(0,0,2,20)`, the south river `(0,18,12,2)`, and the workbench footprint
-`(13.25,16.25,0.5,0.5)` at cell `(13,16)`; the village sign stands at `(21,8)`.
+frames, and detour coverage. Blockers are the forest band `(0,0,24,2)`, the
+west river `(0,0,2,20)`, the south river `(0,18,12,2)`, and the workbench
+footprint `(13.25,16.25,0.5,0.5)` at cell `(13,16)`; the village sign stands
+at `(21,8)`.
 The retired `TREE_*`, `BUILDING_*`, `PATH_ROW`, and `path_cells()` constants
 must not return as stale parallel representations.
 
@@ -219,9 +218,19 @@ target highlight, camera follow, collision, perimeter clamping, reachability,
 and front/behind depth ordering. HPA-589 is done: farming, the crop economy,
 the daily clock/stamina rhythm, weather, shipping, and the morning-summary
 gate all exist as Godot gameplay, with `GameRules`/`GameSession` as the
-authority and shop `(17,9)` / bed `(12,7)` / shipping `(10,13)` cells wired
+authority and seed-box `(17,9)` / bed `(12,7)` / shipping `(10,13)` cells wired
 into the shell. Day 14 is the terminal day of the season — no settlement or
-advance happens past it. HPA-594 now provides villagers and social behavior.
+advance happens past it. HPA-594 provides the social rules domain —
+identities, relationship policy, dialogue and finale lines in
+`VillagerRules` plus mutable relationship state in `GameSession` — but
+HPA-683 removed the farm resident entities, their cells/footprints, and the
+E-interaction ahead of HPA-686's town social play, so `talk_to`/`gift_crop`,
+the relationship snapshot/save fields, and the dialogue/portrait UI stay
+testable yet unreachable from the world; `interact()` on a former resident
+cell returns `NOTHING_TO_INTERACT`. The same HPA-683 change made the shop
+stall a self-service Seed Box (same cell, prices, rows, and modal behavior;
+new prompt/panel/pause-help/tutorial copy) and cut the talk/gift tutorial
+cards, leaving seven table-driven cards.
 HPA-597 is done: the blocking introduction with contextual dismissible help,
 the Day 14 harvest market, and the terminal result flow all shipped.
 HPA-263 makes the day clock a real constraint: it ticks passively during
@@ -319,9 +328,10 @@ Sprite-isometric art contract
 - World terrain and props derive from the two committed
   `starting-farm-*-source.webp` sheets; the sheets stay tracked as source
   provenance and approved art is never regenerated.
-- The proof player/crops/villagers/soil/shadow/scenery sprites remain live
-  entity textures; only provably unreferenced proof ground resources were
-  deleted.
+- The proof player/crops/soil/shadow/scenery sprites remain live entity
+  textures; the villager sprite sheets stay committed but no world entity
+  uses them until social play returns. Only provably unreferenced proof
+  ground resources were deleted.
 
 Audio generation convention
 - New Phoenix audio assets are generated through the ElevenLabs MCP

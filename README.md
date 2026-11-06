@@ -36,7 +36,9 @@ user://phoenix-settings.cfg.
 
 A fresh run opens on a short blocking introduction; pressing Start releases
 the world and is followed by dismissible, contextual help for the current
-step. Continuing a completed run opens the final result screen directly —
+step. The introduction still invites getting to know the village under a
+SATO-SAN tag — an accepted interim mismatch that HPA-684's copy pass owns.
+Continuing a completed run opens the final result screen directly —
 there is no post-game or free play.
 
 ## Controls
@@ -46,10 +48,10 @@ there is no post-game or free play.
 | WASD | Move; facing selects the adjacent target cell |
 | `2` | Cycle the selected seed (Turnip → Potato → Pumpkin → Turnip) |
 | Space | Automatically till, plant, water, or harvest the faced farm cell |
-| E | Interact with the targeted shop, bed, or shipping-bin cell |
+| E | Interact with the targeted seed box, bed, or shipping-bin cell |
 | Esc | Close the open modal |
 | `I` / `B` / `C` | Open or close Bag / Almanac / Calendar when the world is available |
-| `M` | Select the maximum quantity in Shop or Shipping |
+| `M` | Select the maximum quantity in Seed Box or Shipping |
 | `O` | Open Settings from Pause |
 
 Every `2` press advances the selected seed, including the first press.
@@ -72,8 +74,9 @@ translations in the same commit; `tests/unit/test_localisation.gd` fails on a
 missing translation, a placeholder mismatch, or an untranslated rules string.
 
 The target diamond is hidden when the faced cell is outside the map. Facing
-the shop cell `(17,9)`, bed cell `(12,7)`, or shipping cell `(10,13)` from an
-adjacent tile shows a contextual interaction hint (for example `Shop — E`).
+the seed box cell `(17,9)`, bed cell `(12,7)`, or shipping cell `(10,13)`
+from an adjacent tile shows a contextual interaction hint (for example
+`Seed Box — E`).
 
 - Green farm target = its next action can run.
 - Red farm target = its next action is blocked; the hint explains why.
@@ -81,11 +84,14 @@ adjacent tile shows a contextual interaction hint (for example `Shop — E`).
 - Esc opens Controls when no blocking/closable UI owns the event.
 - Phoenix includes lightweight placeholder music/SFX.
 
-- Face Sato-san, Gen-san, or Hana and press E to talk.
-- The first talk with each villager each day adds 1 relationship point.
-- Give at most one harvested crop per villager per day from the dialogue panel.
-- A normal gift adds 3 points; that villager's favourite crop adds 5 total.
-- Relationship levels are Stranger, Friend at 12 points, and Close Friend at 18 points.
+- The farm currently has no reachable residents: Sato-san, Gen-san, and Hana
+  no longer stand on the map, so talking and gifting are unavailable in play
+  until town social play returns (HPA-686). E on any other cell answers
+  "Nothing to interact with."
+- The social rules remain in the rules layer: the first daily talk is worth
+  1 point, one gift per day adds 3 (5 for a favourite), and levels run
+  Stranger, Friend at 12 points, Close Friend at 18. They still drive the
+  result screen's villager cards, which currently default to all Strangers.
 
 ## Gameplay loop
 
@@ -93,7 +99,8 @@ adjacent tile shows a contextual interaction hint (for example `Shop — E`).
 returns a `GameRules.CommandCode` and the HUD renders the refreshed snapshot.
 The social commands `talk_to` and `gift_crop` instead return a narrow result
 dictionary (lines, points gained, gift reaction) that the dialogue panel
-renders.
+renders; they stay session-level only — nothing in the world reaches them
+until HPA-686.
 
 1. **Farm.** Face a cell in the `6x5` farm patch and press Space to do its next
    action: till bare soil, plant the selected seed, water growing crops, or
@@ -106,10 +113,10 @@ renders.
    one. Watering costs 2 stamina, or 1 with the Efficient Can upgrade. Rain
    waters every crop for
    free, so the watering can is unneeded on rainy days.
-3. **Shop.** Face the shop cell and press E to open the seed shop: buy
-   Turnip, Potato, or Pumpkin seeds with the day's money, or the 200G
-   Efficient Can upgrade on the fourth row, which makes every watering cost
-   1 stamina for the rest of the run.
+3. **Seed Box.** Face the seed box cell and press E to open the
+   self-service Seed Box: buy Turnip, Potato, or Pumpkin seeds with the
+   day's money, or the 200G Efficient Can upgrade on the fourth row, which
+   makes every watering cost 1 stamina for the rest of the run.
 4. **Ship.** Face the shipping cell and press E to open the bin: deposit
    harvested crops into the pending shipment.
 5. **Sleep.** Face the bed cell and press E to open a sleep confirmation.
@@ -124,8 +131,8 @@ or dialogue, the sleep confirmation, Pause, the introduction, or the
 morning summary all stop it, and so does switching away from the game
 window. Resuming never banks the paused time — the clock picks up from
 where it stopped, with no catch-up. At 22:00 farming actions are refused
-as too late, but the day is not over: moving, talking to villagers,
-shopping, shipping crops, and sleeping all remain possible. The 0.5 s/min
+as too late, but the day is not over: moving, buying from the seed box,
+shipping crops, and sleeping all remain possible. The 0.5 s/min
 rate is provisional tuning: an agent-operated native playtest
 (`docs/superpowers/validation/2026-10-22-phoenix-passive-day-clock-native-playtest.md`)
 observed the designed behavior end to end on a build that predates the
@@ -140,7 +147,11 @@ farming result — harvested crops still carried in hand do not. On Day 14,
 pressing E at the harvest market finishes the run; sleeping that night is
 the fallback route that finishes it instead. The result is one of three
 encouraging endings — New Beginning, Promising Farmer, or Heart of the
-Harvest — based on shipped value and village friendships. The exhaustive crop
+Harvest — based on shipped value and village friendships. With residents
+unreachable, a new run cannot currently earn Heart of the Harvest or the
+friendship-only Promising route: the result screen features Sato-san and
+three Stranger cards, while shipping 175G of produce still reaches
+Promising Farmer. The exhaustive crop
 economy, action-budget, and command-code tables are frozen in
 `tests/unit/test_game_rules.gd`, `tests/unit/test_game_session.gd`, and
 `tests/integration/test_gameplay_shell.gd`; those tests are the reference,
@@ -185,7 +196,7 @@ accessories through `app_header_accessory()`, add footer controls through
 
 The ground is an authored `TileMapLayer`. Scenery and player roots use
 bottom-center ground-contact positions. Collision polygons are projected from
-the logical house, shop-stall, forest/river/workbench, villager, interactable,
+the logical house, shop-stall, forest/river/workbench, interactable,
 player, and perimeter geometry; Godot's `CharacterBody2D` supplies the
 collision response. `Entities` is the single Y-sorted container, with shared
 entity z-order and stable scene-tree tie order.
@@ -203,10 +214,14 @@ with the locked `24x20` homestead — house, `6x5` farm, river/forest
 boundaries, workbench yard, and an eastbound village road — using the approved
 committed art.
 
-Day 14 is the terminal day of the season. HPA-594 added the villagers and
-social systems: Sato-san, Gen-san, and Hana stand at fixed cells, talking and
-gifting follow the relationship rules above, and `VillagerRules`/`GameSession`
-hold the frozen content and mutable relationship state. HPA-597 finished the
+Day 14 is the terminal day of the season. HPA-594 added the social systems —
+the Sato-san, Gen-san, and Hana identities, the talk/gift relationship
+rules above, dialogue and finale lines — with `VillagerRules`/`GameSession`
+holding the frozen content and mutable relationship state. HPA-683 then
+emptied the farm ahead of HPA-686's town social play: the residents no
+longer stand on the map or answer E, the seed stall is the self-service
+Seed Box at the same cell, and social play stays session-level until town
+interactions arrive. HPA-597 finished the
 content slice: the blocking introduction with contextual help, the Day 14
 harvest market that ends the run (with sleeping as the fallback route),
 shipping-bin deposits as the only farming-result scoring, three encouraging
