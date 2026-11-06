@@ -412,8 +412,6 @@ func test_tutorials_complete_only_on_authoritative_successes() -> void:
     )
     assert_true(session.state()["tutorial"][&"buy_seeds"])
 
-    # Social successes still return their codes but no longer complete a
-    # tutorial: the seven-card table has no talk or gift entries.
     var mira := VillagerRules.VillagerId.SHOPKEEPER
     var tutorial_before_talk: Dictionary = session.state()["tutorial"]
     assert_eq(

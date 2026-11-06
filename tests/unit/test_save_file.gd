@@ -86,8 +86,6 @@ func test_seven_key_tutorial_state_round_trips_and_legacy_social_keys_reject() -
     assert_true(restored.restore_state(decoded["state"]))
     assert_eq(restored.state(), state)
 
-    # A pre-change schema-4 save still carries talk/gift tutorial keys; the
-    # strict validator rejects it instead of migrating.
     var legacy := state.duplicate(true)
     legacy["tutorial"][&"talk"] = true
     legacy["tutorial"][&"gift"] = true
