@@ -50,14 +50,13 @@ func _command_driven_pre_save_state() -> Dictionary:
     assert_eq(session.harvest(second), GameRules.CommandCode.CROP_HARVESTED)
     var june := VillagerRules.VillagerId.RESIDENT
     assert_eq(
-        session.talk_to(june, WorldContract.villager_cell(june))["code"],
+        session.talk_to(june)["code"],
         GameRules.CommandCode.VILLAGER_TALKED,
     )
     assert_eq(
         session.gift_crop(
             june,
             GameRules.CropKind.TURNIP,
-            WorldContract.villager_cell(june),
         )["code"],
         GameRules.CommandCode.CROP_GIFTED,
     )

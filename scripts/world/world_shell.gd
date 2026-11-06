@@ -89,13 +89,6 @@ func _ready() -> void:
     _fill_collision(static_collision, "ShippingCollision", WorldContract.SHIPPING_FOOTPRINT)
     _fill_collision(static_collision, "HarvestMarketCollision", WorldContract.MARKET_FOOTPRINT)
 
-    for id in range(VillagerRules.VillagerId.size()):
-        _fill_collision(
-            static_collision,
-            WorldContract.VILLAGER_COLLISION_NAMES[id],
-            WorldContract.villager_footprint(id),
-        )
-
     var perimeter_names := ["PerimeterTop", "PerimeterRight", "PerimeterBottom", "PerimeterLeft"]
     var perimeter_rects := perimeter_footprints()
     for index in perimeter_rects.size():
@@ -150,7 +143,7 @@ func _process(delta: float) -> void:
         return
 
     player.set_target_tint(PlayerController.TargetTint.NEUTRAL)
-    # Continue into the existing villager/shop/bed/shipping/market/empty prompt chain.
+    # Continue into the existing shop/bed/shipping/market/empty prompt chain.
     var label := _interact_label(target)
     if label == "":
         hud.hide_prompt()
@@ -160,9 +153,6 @@ func _process(delta: float) -> void:
 func _interact_label(target: Variant) -> String:
     if target == null:
         return ""
-    var villager_id := WorldContract.villager_at(target)
-    if villager_id >= 0:
-        return VillagerRules.display_name(villager_id)
     match target:
         WorldContract.SHOP_CELL:
             return "Shop"
@@ -275,10 +265,7 @@ func interact() -> void:
     if not _world_input_enabled:
         return
     var target: Variant = player.current_target_cell()
-    var villager_id := WorldContract.villager_at(target)
-    if villager_id >= 0:
-        _finish_social_command(villager_id, _session.talk_to(villager_id, target))
-    elif target == WorldContract.SHOP_CELL:
+    if target == WorldContract.SHOP_CELL:
         hud.open_shop()
     elif target == WorldContract.SHIPPING_CELL:
         hud.open_shipping()
@@ -378,8 +365,7 @@ func _finish_finale(code: GameRules.CommandCode) -> void:
     finale_completed.emit(state, save_error)
 
 func _on_gift_requested(villager_id: int, crop_kind: int) -> void:
-    var target: Variant = player.current_target_cell()
-    _finish_social_command(villager_id, _session.gift_crop(villager_id, crop_kind, target))
+    _finish_social_command(villager_id, _session.gift_crop(villager_id, crop_kind))
 
 func _on_morning_summary_acknowledged() -> void:
     _finish_command(_session.acknowledge_morning_summary())

@@ -73,12 +73,6 @@ func _init() -> void:
         WorldContract.MARKET_FOOTPRINT == Rect2(19.2, 10.2, 0.6, 0.6), "market footprint contract"
     ):
         return
-    if not _expect(
-        WorldContract.VILLAGER_CELLS
-        == [Vector2i(16, 8), Vector2i(18, 7), Vector2i(17, 11)],
-        "villager cells contract",
-    ):
-        return
     var farm_cells := WorldContract.farm_cells()
     if not _expect(farm_cells.size() == 30, "farm cell count"):
         return

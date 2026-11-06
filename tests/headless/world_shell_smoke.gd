@@ -181,9 +181,6 @@ func _static_entity_names() -> Array:
         "VillageSign",
         "Shipping",
         "HarvestMarket",
-        "VillagerShopkeeper",
-        "VillagerFarmer",
-        "VillagerResident",
     ]
 
 func _expected_water_tile(cell: Vector2i) -> Vector2i:
@@ -237,12 +234,6 @@ func _run() -> void:
     root.add_child(world)
     await process_frame
 
-    for id in range(VillagerRules.VillagerId.size()):
-        var cell := WorldContract.villager_cell(id)
-        if not _expect(WorldContract.villager_at(cell) == id, "villager lookup %d" % id):
-            return
-    if not _expect(WorldContract.villager_at(Vector2i(0, 0)) == -1, "unknown villager cell"):
-        return
     if not _expect(WorldContract.MARKET_CELL == Vector2i(19, 10), "market cell contract"):
         return
     if not _expect(
@@ -481,7 +472,6 @@ func _run() -> void:
         "WorkbenchCollision",
         "ShippingCollision",
         "HarvestMarketCollision",
-    ] + WorldContract.VILLAGER_COLLISION_NAMES + [
         "PerimeterTop",
         "PerimeterRight",
         "PerimeterBottom",
@@ -505,10 +495,6 @@ func _run() -> void:
         "ShippingCollision": WorldContract.SHIPPING_FOOTPRINT,
         "HarvestMarketCollision": WorldContract.MARKET_FOOTPRINT,
     }
-    for id in range(VillagerRules.VillagerId.size()):
-        collider_footprints[WorldContract.VILLAGER_COLLISION_NAMES[id]] = (
-            WorldContract.villager_footprint(id)
-        )
     var map_size := Vector2(WorldContract.MAP_SIZE)
     var perimeter_rects := [
         Rect2(0.0, -1.0, map_size.x, 1.0),
@@ -562,11 +548,6 @@ func _run() -> void:
     var market := entities.get_node("HarvestMarket") as Node2D
     var workbench := entities.get_node("Workbench") as Node2D
     var village_sign := entities.get_node("VillageSign") as Node2D
-    var villagers := [
-        entities.get_node("VillagerShopkeeper") as Node2D,
-        entities.get_node("VillagerFarmer") as Node2D,
-        entities.get_node("VillagerResident") as Node2D,
-    ]
     if not _expect_vec2(
         house.position,
         WorldMath.footprint_ground_anchor(WorldContract.HOUSE_FOOTPRINT),
@@ -600,13 +581,6 @@ func _run() -> void:
         village_sign.position, _cell_center(WorldContract.VILLAGE_SIGN_CELL), "village sign anchor"
     ):
         return
-    for id in range(VillagerRules.VillagerId.size()):
-        if not _expect_vec2(
-            villagers[id].position,
-            WorldMath.grid_to_world(Vector2(WorldContract.villager_cell(id)) + Vector2(0.5, 0.5)),
-            "villager %d anchor" % id,
-        ):
-            return
 
     for entry in _prop_entities():
         var entity := entities.get_node(entry.node) as Node2D
@@ -663,31 +637,6 @@ func _run() -> void:
         ):
             return
 
-    for id in range(VillagerRules.VillagerId.size()):
-        var villager: Node2D = villagers[id]
-        if not _expect_names(villager, ["Shadow", "Sprite2D"], "villager %d entity" % id):
-            return
-        var villager_shadow := villager.get_node("Shadow") as Sprite2D
-        if not _expect(
-            villager_shadow.texture.resource_path == "res://assets/sprites/proof-shadow.png",
-            "villager %d shadow texture" % id,
-        ):
-            return
-        var villager_sprite := villager.get_node("Sprite2D") as Sprite2D
-        if not _expect(
-            villager_sprite.texture.resource_path == "res://assets/sprites/villagers.png",
-            "villager %d texture" % id,
-        ):
-            return
-        if not _expect(villager_sprite.hframes == 3, "villager %d frame columns" % id):
-            return
-        if not _expect(villager_sprite.frame == id, "villager %d frame" % id):
-            return
-        if not _expect_vec2(
-            villager_sprite.offset, Vector2(0.0, -24.0), "villager %d bottom-center offset" % id
-        ):
-            return
-
     var player := entities.get_node_or_null("Player") as CharacterBody2D
     if not _expect(player != null, "Entities must contain Player"):
         return
@@ -729,12 +678,6 @@ func _run() -> void:
     for prop in [shop_stall, shipping, market, workbench, village_sign, player]:
         if not _expect(
             prop.z_index == shared_entity_z_index, "%s shared entity z-index" % prop.name
-        ):
-            return
-    for id in range(VillagerRules.VillagerId.size()):
-        if not _expect(
-            villagers[id].z_index == shared_entity_z_index,
-            "villager %d shared entity z-index" % id,
         ):
             return
     for farm_cell in farm_cells:
