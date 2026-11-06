@@ -1,6 +1,6 @@
 # HPA-683 — Empty farm / unattended seed box: single-PR implementation plan
 
-**Status:** Revised after PR #36 design review, 2026-11-05. Documentation only; no implementation, automated test or manual playtest has been performed.  
+**Status:** Approved for implementation after PR #36 re-review, 2026-11-05; implementation-time test locations clarified. Documentation only; no implementation, automated test or manual playtest has been performed.  
 **Design:** [HPA-683 design specification](../specs/2026-11-04-phoenix-empty-farm-design.md)  
 **Linear:** https://linear.app/cwchanap/issue/HPA-683/empty-the-farm-remove-villagers-make-the-seed-stall-an-unattended-seed  
 **Delivery:** Complete HPA-683 in **this same draft PR** after plan review. One Linear issue → one PR; no separate implementation PR and no art task.
@@ -30,7 +30,7 @@
 
 ```bash
 # Find removed farm-geometry symbols, dead command code and social call sites.
-grep -rnE 'villager_cell|villager_at|villager_footprint|VILLAGER_|NOT_AT_VILLAGER|talk_to\(|gift_crop\(' scripts tests
+grep -rnE 'villager_cell|villager_at|villager_footprint|VILLAGER_|VillagerShopkeeper|VillagerFarmer|VillagerResident|NOT_AT_VILLAGER|talk_to\(|gift_crop\(' scripts tests
 
 # Before removing tutorial keys, find every direct key use (not just the table).
 grep -rnE '&"talk"|&"gift"' scripts tests
@@ -42,8 +42,10 @@ Triage the hits rather than blindly deleting them: surviving `VILLAGER_TALKED` /
 - `tests/integration/test_persistence_flow.gd` calls both social commands with `WorldContract.villager_cell()`; update signatures while preserving a nonempty social-state save/restore fixture.
 - `tests/unit/test_game_session.gd`, `tests/gdunit/test_game_session_flows.gd` and `tests/integration/test_gameplay_shell.gd` contain further old signature and `NOT_AT_VILLAGER` references. Keep social semantics tests and remove only obsolete spatial tests.
 - `tests/headless/world_shell_smoke.gd`: remove resident geometry, sprite and collision loops and names from `_static_entity_names()` / exact ordered collision lists. Its existing `_expect_names()` **already asserts exact child count and names**: do not add duplicate absence assertions.
+- `tests/integration/test_gameplay_shell.gd`: additionally remove the three PascalCase resident node names from **`ENTITY_STATIC_NAMES`** (currently lines 321–323). `test_crop_roots_are_direct_entities_children_at_cell_centers()` asserts the exact static-entity count and child order (currently lines 326–340), so leaving these entries would fail the Step 1 clean verifier even if `world_shell_smoke.gd` is corrected. The audit grep includes the PascalCase node names for this reason.
 - `tests/integration/test_gameplay_shell.gd`: delete the farm-villager target-name and direct world-interaction success tests rather than recreating the old cells in test fixtures. Existing panel-focus/gift/dialogue tests should reuse one local `_open_dialogue(world, id)` helper based on the existing `test_dialogue_consumes_escape_before_help()` pattern: call `session.talk_to(id)`, then `hud.open_dialogue(id, result, snapshot)`. The standalone dialogue panel is also covered by `tests/integration/test_vn_surfaces.gd`.
 - The **existing** `test_off_target_interact_reports_nothing_without_session_mutation()` already covers the generic `NOTHING_TO_INTERACT` fallback. Strengthen it to assert the exact `Nothing to interact with.` toast and unchanged relationships (not merely a substring and total snapshot); **do not add a second fallback test**.
+- `tests/unit/test_game_session.gd` uses both the removed `NOT_AT_VILLAGER` guard and the `talk` / `gift` tutorial keys in one tutorial-flow test (currently lines 415–483). Keep each intermediate commit green: in Step 1 remove the dead guard and update social signatures while the tutorial keys still exist; in Step 2 remove/update direct social-tutorial assertions when their table entries are deleted.
 
 **Verification after Step 1:** Commit the production/test/CSV deletions together. Then run both the clean GUT/headless verifier **and the GdUnit4 lane** (Step 1 edits GdUnit tests, which `verify-clean` does not execute):
 
@@ -56,14 +58,14 @@ Both commands must run against this committed state; fix failures in this PR bef
 
 ## Step 2 — Make the remaining shop explicitly self-service
 
-**Files:** `scripts/world/world_shell.gd`, `scripts/ui/shop_panel.gd`, `scripts/game/content_rules.gd`, `assets/i18n/strings.csv`, focused integration/localization tests.
+**Files:** `scripts/world/world_shell.gd`, `scripts/ui/shop_panel.gd`, `scripts/ui/pause_panel.gd`, `scripts/game/content_rules.gd`, `assets/i18n/strings.csv`, focused integration/localization tests (especially `tests/integration/test_phone_surfaces.gd`, `test_commerce_panels.gd`, and `test_gameplay_shell.gd`).
 
 1. Change `WorldShell._interact_label(SHOP_CELL)` from “Shop” to “Seed Box”; change the `ShopPanel` visible header to “SEED BOX”, reusing the existing 1080p card, nodes, buttons, icon and layout. No portrait or new shop prop is needed.
 2. Keep the store’s seed prices, three crop rows, one upgrade row, buying requests, maximum quantity shortcut, modal focus and purchasing feedback untouched. In `ContentRules`, update “Reinvest” tutorial text to refer to the seed box rather than a staffed seed counter.
 3. Remove `talk` and `gift` from `ContentRules.TUTORIALS` and from `_tutorial_relevant`. Keep the other seven cards in their existing relative order. A fresh run should show the remaining tutorials normally and never guide the player to nonexistent farm residents.
-4. Update the Pause controls help item that currently describes E as “Talk, shop, bin, bed” so it truthfully lists the seed box, bin and bed. Do **not** touch the opening, result, morning diary or resident dialogue prose (HPA-684/HPA-688).
+4. In `scripts/ui/pause_panel.gd` (currently line 219), replace the Pause E-control help copy “Talk, shop, bin, bed” with “Seed box, bin, bed”. Update its existing matching assertion in `tests/integration/test_phone_surfaces.gd::test_pause_controls_glass_lists_real_hold_and_interact_hints()` (currently line 426). Do **not** touch the opening, result, morning diary or resident dialogue prose (HPA-684/HPA-688).
 5. **Rename existing CSV rows in place**, updating `zh_TW` (Taiwan wording) and `ja` simultaneously: `Face the seed counter…` → `Face the seed box…`, `Talk, shop, bin, bed` → `Seed box, bin, bed`, `SEED SHOP` → `SEED BOX`, `Shop` → `Seed Box`. Delete obsolete rows for `Meet the village` and its body, `Give a gift` and its body, and `Stand at the villager.` (removed with `NOT_AT_VILLAGER` in Step 1). The file has `keys,zh_TW,ja`; do not leave orphaned old keys or add duplicate keys.
-6. Update `tests/unit/test_content_rules.gd` to the exact seven-card table and its real prompt order (no social cards), preserving Day 2 buy-seeds and harvested shipping behavior. Also remove or change **every** direct `state()["tutorial"][&"talk"]` / `[&"gift"]` access, notably `tests/unit/test_game_session.gd` (deep-copy assertions and tutorial-completion flow); replace with meaningful surviving keys instead of indexing deleted keys. Update visible shop header/prompt/help assertions in `tests/integration/test_commerce_panels.gd` and `tests/integration/test_gameplay_shell.gd` as appropriate. Keep `tests/unit/test_localisation.gd` passing.
+6. Update `tests/unit/test_content_rules.gd` to the exact seven-card table and its real prompt order (no social cards), preserving Day 2 buy-seeds and harvested shipping behavior. Also remove or change **every** direct `state()["tutorial"][&"talk"]` / `[&"gift"]` access, notably `tests/unit/test_game_session.gd` (deep-copy assertions and tutorial-completion flow); replace with meaningful surviving keys instead of indexing deleted keys. Update visible shop-header assertions in `tests/integration/test_commerce_panels.gd` (currently line 315, `SEED SHOP` → `SEED BOX`) and interaction-prompt assertions in `tests/integration/test_gameplay_shell.gd` (currently lines 2002 and 3484, `[E] Shop` → `[E] Seed Box`); keep the Pause-help assertion in `tests/integration/test_phone_surfaces.gd` aligned with Step 2.4. Keep `tests/unit/test_localisation.gd` passing.
 
 **Save behavior:** Fresh tutorial state and its round trip use the seven-key table. Existing schema-4 saves carrying `talk` and `gift` can be rejected by the existing strict validator; do not write a migration or change the saved relationship fields. Keep `SaveFile` transport unchanged.
 
