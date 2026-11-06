@@ -506,13 +506,10 @@ func _social_success(
 
 func talk_to(
     villager_id: VillagerRules.VillagerId,
-    target_cell: Variant,
 ) -> Dictionary:
     var active_failure := _active_day_failure()
     if active_failure != -1:
         return _social_failure(active_failure)
-    if not (target_cell is Vector2i) or target_cell != WorldContract.villager_cell(villager_id):
-        return _social_failure(GameRules.CommandCode.NOT_AT_VILLAGER)
 
     var relationship: Dictionary = _relationships[villager_id]
     var points_gained := 0
@@ -546,13 +543,10 @@ func talk_to(
 func gift_crop(
     villager_id: VillagerRules.VillagerId,
     crop_kind: GameRules.CropKind,
-    target_cell: Variant,
 ) -> Dictionary:
     var active_failure := _active_day_failure()
     if active_failure != -1:
         return _social_failure(active_failure)
-    if not (target_cell is Vector2i) or target_cell != WorldContract.villager_cell(villager_id):
-        return _social_failure(GameRules.CommandCode.NOT_AT_VILLAGER)
 
     var relationship: Dictionary = _relationships[villager_id]
     if bool(relationship["gifted_today"]):

@@ -399,8 +399,6 @@ func feedback_text(code: GameRules.CommandCode) -> String:
             return "No morning summary."
         GameRules.CommandCode.NOTHING_TO_INTERACT:
             return "Nothing to interact with."
-        GameRules.CommandCode.NOT_AT_VILLAGER:
-            return "Stand at the villager."
         GameRules.CommandCode.GIFT_ALREADY_GIVEN:
             return "Gift already given today."
         GameRules.CommandCode.MARKET_NOT_READY:

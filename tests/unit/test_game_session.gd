@@ -220,7 +220,7 @@ func test_state_is_deeply_isolated_and_excludes_derived_fields() -> void:
     _seed_harvested(session, harvested)
     var june := VillagerRules.VillagerId.RESIDENT
     assert_eq(
-        session.talk_to(june, WorldContract.villager_cell(june))["code"],
+        session.talk_to(june)["code"],
         GameRules.CommandCode.VILLAGER_TALKED,
     )
 
@@ -413,13 +413,9 @@ func test_tutorials_complete_only_on_authoritative_successes() -> void:
     assert_true(session.state()["tutorial"][&"buy_seeds"])
 
     var mira := VillagerRules.VillagerId.SHOPKEEPER
-    assert_eq(
-        session.talk_to(mira, Vector2i(0, 0))["code"],
-        GameRules.CommandCode.NOT_AT_VILLAGER,
-    )
     assert_false(session.state()["tutorial"][&"talk"])
     assert_eq(
-        session.talk_to(mira, WorldContract.villager_cell(mira))["code"],
+        session.talk_to(mira)["code"],
         GameRules.CommandCode.VILLAGER_TALKED,
     )
     assert_true(session.state()["tutorial"][&"talk"])
@@ -467,7 +463,6 @@ func test_tutorials_complete_only_on_authoritative_successes() -> void:
         session.gift_crop(
             mira,
             GameRules.CropKind.PUMPKIN,
-            WorldContract.villager_cell(mira),
         )["code"],
         GameRules.CommandCode.INSUFFICIENT_CROPS,
     )
@@ -476,7 +471,6 @@ func test_tutorials_complete_only_on_authoritative_successes() -> void:
         session.gift_crop(
             mira,
             GameRules.CropKind.TURNIP,
-            WorldContract.villager_cell(mira),
         )["code"],
         GameRules.CommandCode.CROP_GIFTED,
     )
@@ -530,7 +524,7 @@ func test_normal_sleep_accumulates_lifetime_shipped_counts() -> void:
 func test_talk_to_awards_first_point_and_repeat_is_zero() -> void:
     var session := GameSession.new(func() -> float: return 0.9)
     var mira := VillagerRules.VillagerId.SHOPKEEPER
-    var first: Dictionary = session.talk_to(mira, WorldContract.villager_cell(mira))
+    var first: Dictionary = session.talk_to(mira)
     assert_eq(first["code"], GameRules.CommandCode.VILLAGER_TALKED)
     assert_eq(first["lines"], ["Seeds on the left, prices on the tags. I do not haggle."])
     assert_eq(first["points_gained"], 1)
@@ -539,7 +533,7 @@ func test_talk_to_awards_first_point_and_repeat_is_zero() -> void:
     assert_eq(session.snapshot()["relationships"][&"shopkeeper"]["points"], 1)
     assert_true(session.snapshot()["relationships"][&"shopkeeper"]["talked_today"])
 
-    var repeat: Dictionary = session.talk_to(mira, WorldContract.villager_cell(mira))
+    var repeat: Dictionary = session.talk_to(mira)
     assert_eq(repeat["code"], GameRules.CommandCode.VILLAGER_TALKED)
     assert_eq(repeat["lines"], first["lines"])
     assert_eq(repeat["points_gained"], 0)
@@ -554,7 +548,6 @@ func test_normal_gift_consumes_one_crop_and_awards_three_points() -> void:
     var result: Dictionary = session.gift_crop(
         mira,
         GameRules.CropKind.TURNIP,
-        WorldContract.villager_cell(mira),
     )
     assert_eq(result["code"], GameRules.CommandCode.CROP_GIFTED)
     assert_eq(result["points_gained"], 3)
@@ -572,7 +565,6 @@ func test_favourite_gift_consumes_one_real_harvested_crop() -> void:
     var result: Dictionary = session.gift_crop(
         june,
         GameRules.CropKind.TURNIP,
-        WorldContract.villager_cell(june),
     )
     assert_eq(result["code"], GameRules.CommandCode.CROP_GIFTED)
     assert_eq(result["points_gained"], 5)
@@ -607,7 +599,7 @@ func test_day_one_sunny_stranger_talk_is_literal_for_every_villager() -> void:
     ]
     for id in range(VillagerRules.VillagerId.size()):
         var session := _talk_session(1, false, [0, 0, 0])
-        var result: Dictionary = session.talk_to(id, WorldContract.villager_cell(id))
+        var result: Dictionary = session.talk_to(id)
         assert_eq(result["code"], GameRules.CommandCode.VILLAGER_TALKED)
         assert_eq(result["points_gained"], 1)
         assert_eq(result["lines"], [expected[id]])
@@ -620,7 +612,7 @@ func test_day_twelve_rainy_settled_stranger_talk_is_literal_for_every_villager()
     ]
     for id in range(VillagerRules.VillagerId.size()):
         var session := _talk_session(12, true, [1, 0, 0])
-        var result: Dictionary = session.talk_to(id, WorldContract.villager_cell(id))
+        var result: Dictionary = session.talk_to(id)
         assert_eq(result["code"], GameRules.CommandCode.VILLAGER_TALKED)
         assert_eq(result["lines"], [expected[id]])
 
@@ -633,7 +625,7 @@ func test_only_settled_shipments_enable_shipping_flavor() -> void:
     var harvested_only := GameSession.new(func() -> float: return 0.9)
     assert_true(harvested_only.restore_state(harvested_state))
     assert_eq(
-        harvested_only.talk_to(mira, WorldContract.villager_cell(mira))["lines"],
+        harvested_only.talk_to(mira)["lines"],
         [no_shipment_literal],
     )
 
@@ -642,13 +634,13 @@ func test_only_settled_shipments_enable_shipping_flavor() -> void:
     var pending_only := GameSession.new(func() -> float: return 0.9)
     assert_true(pending_only.restore_state(pending_state))
     assert_eq(
-        pending_only.talk_to(mira, WorldContract.villager_cell(mira))["lines"],
+        pending_only.talk_to(mira)["lines"],
         [no_shipment_literal],
     )
 
     var settled := _talk_session(12, true, [1, 0, 0])
     assert_eq(
-        settled.talk_to(mira, WorldContract.villager_cell(mira))["lines"],
+        settled.talk_to(mira)["lines"],
         ["The market is close. Keep some coin ready for what comes next."],
     )
 
@@ -659,7 +651,7 @@ func test_post_talk_points_select_the_friend_tier_literal() -> void:
     var session := GameSession.new(func() -> float: return 0.9)
     assert_true(session.restore_state(state))
     var mira := VillagerRules.VillagerId.SHOPKEEPER
-    var result: Dictionary = session.talk_to(mira, WorldContract.villager_cell(mira))
+    var result: Dictionary = session.talk_to(mira)
     assert_eq(result["points_gained"], 1)
     assert_eq(result["lines"], ["You stopped asking which seeds are best. Now you ask which are right."])
     assert_eq(session.snapshot()["relationships"][&"shopkeeper"]["level"], &"friend")
@@ -671,7 +663,7 @@ func test_talking_does_not_consume_weather_rng() -> void:
         return 0.9
     )
     var june := VillagerRules.VillagerId.RESIDENT
-    var result: Dictionary = session.talk_to(june, WorldContract.villager_cell(june))
+    var result: Dictionary = session.talk_to(june)
     assert_eq(result["code"], GameRules.CommandCode.VILLAGER_TALKED)
     assert_eq(calls[0], 0)
     assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
@@ -681,10 +673,10 @@ func test_equivalent_restored_state_repeats_the_same_literal() -> void:
     var mira := VillagerRules.VillagerId.SHOPKEEPER
     var session := _talk_session(12, true, [1, 0, 0])
     var saved := session.state()
-    var first: Dictionary = session.talk_to(mira, WorldContract.villager_cell(mira))
+    var first: Dictionary = session.talk_to(mira)
     var restored := GameSession.new(func() -> float: return 0.9)
     assert_true(restored.restore_state(saved))
-    var second: Dictionary = restored.talk_to(mira, WorldContract.villager_cell(mira))
+    var second: Dictionary = restored.talk_to(mira)
     assert_eq(second["lines"], first["lines"])
     assert_eq(second["lines"], ["The market is close. Keep some coin ready for what comes next."])
 
@@ -694,7 +686,7 @@ func test_social_guards_preserve_complete_snapshot_in_order() -> void:
     assert_eq(pending.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
     var pending_before := pending.snapshot()
     assert_eq(
-        pending.talk_to(pending_id, Vector2i(0, 0))["code"],
+        pending.talk_to(pending_id)["code"],
         GameRules.CommandCode.DAY_SUMMARY_PENDING,
     )
     _assert_unchanged(pending, pending_before)
@@ -702,29 +694,10 @@ func test_social_guards_preserve_complete_snapshot_in_order() -> void:
         pending.gift_crop(
             pending_id,
             GameRules.CropKind.TURNIP,
-            Vector2i(0, 0),
         )["code"],
         GameRules.CommandCode.DAY_SUMMARY_PENDING,
     )
     _assert_unchanged(pending, pending_before)
-
-    var wrong_target := GameSession.new(func() -> float: return 0.9)
-    var wrong_id := VillagerRules.VillagerId.SHOPKEEPER
-    var wrong_before := wrong_target.snapshot()
-    assert_eq(
-        wrong_target.talk_to(wrong_id, Vector2i(0, 0))["code"],
-        GameRules.CommandCode.NOT_AT_VILLAGER,
-    )
-    _assert_unchanged(wrong_target, wrong_before)
-    assert_eq(
-        wrong_target.gift_crop(
-            wrong_id,
-            GameRules.CropKind.TURNIP,
-            Vector2i(0, 0),
-        )["code"],
-        GameRules.CommandCode.NOT_AT_VILLAGER,
-    )
-    _assert_unchanged(wrong_target, wrong_before)
 
     var duplicate := GameSession.new(func() -> float: return 0.9)
     var duplicate_id := VillagerRules.VillagerId.SHOPKEEPER
@@ -734,7 +707,6 @@ func test_social_guards_preserve_complete_snapshot_in_order() -> void:
         duplicate.gift_crop(
             duplicate_id,
             GameRules.CropKind.TURNIP,
-            WorldContract.villager_cell(duplicate_id),
         )["code"],
         GameRules.CommandCode.CROP_GIFTED,
     )
@@ -743,7 +715,6 @@ func test_social_guards_preserve_complete_snapshot_in_order() -> void:
         duplicate.gift_crop(
             duplicate_id,
             GameRules.CropKind.TURNIP,
-            WorldContract.villager_cell(duplicate_id),
         )["code"],
         GameRules.CommandCode.GIFT_ALREADY_GIVEN,
     )
@@ -756,7 +727,6 @@ func test_social_guards_preserve_complete_snapshot_in_order() -> void:
         insufficient.gift_crop(
             insufficient_id,
             GameRules.CropKind.PUMPKIN,
-            WorldContract.villager_cell(insufficient_id),
         )["code"],
         GameRules.CommandCode.INSUFFICIENT_CROPS,
     )
@@ -769,25 +739,25 @@ func test_june_reaches_close_friend_and_special_sequence_once() -> void:
     var june := VillagerRules.VillagerId.RESIDENT
 
     for expected_points in [6, 12]:
-        assert_eq(session.talk_to(june, WorldContract.villager_cell(june))["points_gained"], 1)
-        assert_eq(session.gift_crop(june, GameRules.CropKind.TURNIP, WorldContract.villager_cell(june))["points_gained"], 5)
+        assert_eq(session.talk_to(june)["points_gained"], 1)
+        assert_eq(session.gift_crop(june, GameRules.CropKind.TURNIP)["points_gained"], 5)
         assert_eq(session.snapshot()["relationships"][&"resident"]["points"], expected_points)
         assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
         assert_false(session.snapshot()["relationships"][&"resident"]["talked_today"])
         assert_false(session.snapshot()["relationships"][&"resident"]["gifted_today"])
         assert_eq(session.acknowledge_morning_summary(), GameRules.CommandCode.DAY_STARTED)
 
-    assert_eq(session.talk_to(june, WorldContract.villager_cell(june))["points_gained"], 1)
-    assert_eq(session.gift_crop(june, GameRules.CropKind.TURNIP, WorldContract.villager_cell(june))["points_gained"], 5)
+    assert_eq(session.talk_to(june)["points_gained"], 1)
+    assert_eq(session.gift_crop(june, GameRules.CropKind.TURNIP)["points_gained"], 5)
     assert_eq(session.snapshot()["relationships"][&"resident"]["points"], 18)
     assert_false(session.snapshot()["relationships"][&"resident"]["close_friend_dialogue_seen"])
 
-    var special: Dictionary = session.talk_to(june, WorldContract.villager_cell(june))
+    var special: Dictionary = session.talk_to(june)
     assert_eq(special["points_gained"], 0)
     assert_true(special["close_friend_sequence"])
     assert_eq(special["lines"], VillagerRules.close_friend_dialogue_lines(june))
 
-    var normal: Dictionary = session.talk_to(june, WorldContract.villager_cell(june))
+    var normal: Dictionary = session.talk_to(june)
     assert_false(normal["close_friend_sequence"])
     assert_eq(
         normal["lines"],
@@ -1511,7 +1481,7 @@ func test_pending_morning_summary_blocks_active_commands_without_mutation() -> v
     _assert_unchanged(session, before)
     var resident := VillagerRules.VillagerId.RESIDENT
     assert_eq(
-        session.talk_to(resident, WorldContract.villager_cell(resident))["code"],
+        session.talk_to(resident)["code"],
         GameRules.CommandCode.DAY_SUMMARY_PENDING,
     )
     _assert_unchanged(session, before)
@@ -1519,7 +1489,6 @@ func test_pending_morning_summary_blocks_active_commands_without_mutation() -> v
         session.gift_crop(
             resident,
             GameRules.CropKind.TURNIP,
-            WorldContract.villager_cell(resident),
         )["code"],
         GameRules.CommandCode.DAY_SUMMARY_PENDING,
     )
@@ -1747,14 +1716,13 @@ func test_finale_blocks_every_ordinary_gameplay_command() -> void:
     )
     var june := VillagerRules.VillagerId.RESIDENT
     assert_eq(
-        session.talk_to(june, WorldContract.villager_cell(june))["code"],
+        session.talk_to(june)["code"],
         GameRules.CommandCode.FINALE_ALREADY_TRIGGERED,
     )
     assert_eq(
         session.gift_crop(
             june,
             GameRules.CropKind.TURNIP,
-            WorldContract.villager_cell(june),
         )["code"],
         GameRules.CommandCode.FINALE_ALREADY_TRIGGERED,
     )

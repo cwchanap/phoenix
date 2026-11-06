@@ -146,22 +146,18 @@ func test_shop_purchase_and_guards() -> void:
 func test_social_daily_limits_and_points() -> void:
 	var session := _rainy()
 	var cell := _cell(0)
-	var keeper_cell := WorldContract.villager_cell(VillagerRules.VillagerId.SHOPKEEPER)
 
-	var talk: Dictionary = session.talk_to(VillagerRules.VillagerId.SHOPKEEPER, keeper_cell)
+	var talk: Dictionary = session.talk_to(VillagerRules.VillagerId.SHOPKEEPER)
 	assert_int(int(talk["code"])).is_equal(GameRules.CommandCode.VILLAGER_TALKED)
 	assert_int(int(talk["points_gained"])).is_equal(VillagerRules.TALK_POINTS)
 	# Second talk the same day still succeeds but grants nothing.
-	talk = session.talk_to(VillagerRules.VillagerId.SHOPKEEPER, keeper_cell)
+	talk = session.talk_to(VillagerRules.VillagerId.SHOPKEEPER)
 	assert_int(int(talk["points_gained"])).is_equal(0)
 
-	# Gifting needs a harvested crop and the villager's exact cell.
+	# Gifting needs a harvested crop.
 	assert_int(
-		session.gift_crop(VillagerRules.VillagerId.SHOPKEEPER, GameRules.CropKind.TURNIP, keeper_cell)["code"]
+		session.gift_crop(VillagerRules.VillagerId.SHOPKEEPER, GameRules.CropKind.TURNIP)["code"]
 	).is_equal(GameRules.CommandCode.INSUFFICIENT_CROPS)
-	assert_int(
-		session.talk_to(VillagerRules.VillagerId.FARMER, keeper_cell)["code"]
-	).is_equal(GameRules.CommandCode.NOT_AT_VILLAGER)
 
 	session.hoe(cell)
 	session.plant(cell)
@@ -173,19 +169,19 @@ func test_social_daily_limits_and_points() -> void:
 	assert_int(session.harvest(cell)).is_equal(GameRules.CommandCode.CROP_HARVESTED)
 	# Turnip is the resident's favourite but not the shopkeeper's: +3, not +5.
 	var gift: Dictionary = session.gift_crop(
-		VillagerRules.VillagerId.SHOPKEEPER, GameRules.CropKind.TURNIP, keeper_cell
+		VillagerRules.VillagerId.SHOPKEEPER, GameRules.CropKind.TURNIP
 	)
 	assert_int(int(gift["code"])).is_equal(GameRules.CommandCode.CROP_GIFTED)
 	assert_int(int(gift["points_gained"])).is_equal(VillagerRules.GIFT_POINTS)
 	assert_str(gift["gift_reaction"]).is_equal("normal")
 	assert_int(
-		session.gift_crop(VillagerRules.VillagerId.SHOPKEEPER, GameRules.CropKind.TURNIP, keeper_cell)["code"]
+		session.gift_crop(VillagerRules.VillagerId.SHOPKEEPER, GameRules.CropKind.TURNIP)["code"]
 	).is_equal(GameRules.CommandCode.GIFT_ALREADY_GIVEN)
 
 	# Sleep resets the daily talk/gift flags (after acknowledging the summary).
 	assert_int(_sleep(session)).is_equal(GameRules.CommandCode.DAY_ADVANCED)
 	session.acknowledge_morning_summary()
-	talk = session.talk_to(VillagerRules.VillagerId.SHOPKEEPER, keeper_cell)
+	talk = session.talk_to(VillagerRules.VillagerId.SHOPKEEPER)
 	assert_int(int(talk["points_gained"])).is_equal(VillagerRules.TALK_POINTS)
 
 
@@ -193,7 +189,7 @@ func test_state_round_trip_preserves_progress() -> void:
 	var session := _sunny()
 	session.hoe(_cell(0))
 	session.plant(_cell(0))
-	session.talk_to(VillagerRules.VillagerId.SHOPKEEPER, WorldContract.villager_cell(0))
+	session.talk_to(VillagerRules.VillagerId.SHOPKEEPER)
 	assert_int(_sleep(session)).is_equal(GameRules.CommandCode.DAY_ADVANCED)
 
 	var restored := GameSession.new(func() -> float: return 0.5)

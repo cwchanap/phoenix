@@ -318,9 +318,6 @@ const ENTITY_STATIC_NAMES := [
     "VillageSign",
     "Shipping",
     "HarvestMarket",
-    "VillagerShopkeeper",
-    "VillagerFarmer",
-    "VillagerResident",
 ]
 
 func test_crop_roots_are_direct_entities_children_at_cell_centers() -> void:
@@ -1486,7 +1483,8 @@ func test_off_target_interact_reports_nothing_without_session_mutation() -> void
     var before := world._session.snapshot()
     world.interact()
     assert_eq(world._session.snapshot(), before)
-    assert_true(hud.toast_text().contains("Nothing"))
+    assert_eq(world._session.snapshot()["relationships"], before["relationships"])
+    assert_eq(hud.toast_text(), "Nothing to interact with.")
 
 func test_opening_shop_immediately_blocks_movement_and_world_commands() -> void:
     var world := _world()
@@ -2035,12 +2033,6 @@ func test_farming_hint_copy_is_action_specific_from_structured_preview() -> void
     world._process(0.0)
     assert_eq(hud.prompt_text(), "[Space] Harvest Turnip · 1 stamina")
 
-    # Villagers prompt with their translated display name.
-    var villager := VillagerRules.VillagerId.RESIDENT
-    await _place_target(world, WorldContract.villager_cell(villager))
-    world._process(0.0)
-    assert_eq(hud.prompt_text(), "[E] %s" % VillagerRules.display_name(villager))
-
 func test_target_hint_explains_empty_seed_rain_and_already_watered_blocks() -> void:
     var world := _world()
     var cells := WorldContract.farm_cells()
@@ -2346,6 +2338,10 @@ func test_farming_success_codes_resolve_to_four_distinct_streams() -> void:
         "failures keep the shared cancel cue",
     )
 
+func _open_dialogue(world: WorldShell, villager_id: int) -> void:
+    var result: Dictionary = world._session.talk_to(villager_id)
+    world.hud.open_dialogue(villager_id, result, world._session.snapshot())
+
 func test_villager_interaction_opens_dialogue_and_gates_world_input() -> void:
     var world := _world()
     if world == null:
@@ -2354,8 +2350,7 @@ func test_villager_interaction_opens_dialogue_and_gates_world_input() -> void:
     if hud == null:
         return
     var june := VillagerRules.VillagerId.RESIDENT
-    await _place_target(world, WorldContract.villager_cell(june))
-    world.interact()
+    _open_dialogue(world, june)
 
     var panel := _panel(hud, "DialoguePanel") as DialoguePanel
     assert_true(panel.visible)
@@ -2380,8 +2375,7 @@ func test_dialogue_ui_cancel_closes_and_releases_focus() -> void:
     if hud == null:
         return
     var june := VillagerRules.VillagerId.RESIDENT
-    await _place_target(world, WorldContract.villager_cell(june))
-    world.interact()
+    _open_dialogue(world, june)
 
     var panel := _panel(hud, "DialoguePanel") as DialoguePanel
     var close_button := panel.call("close_control") as Button
@@ -2516,8 +2510,7 @@ func test_gift_button_round_trips_through_session_and_updates_open_panel() -> vo
     world._session.set("_harvested_counts", seeded)
     assert_eq(world._session.snapshot()["harvested"][&"turnip"], 1)
 
-    await _place_target(world, WorldContract.villager_cell(june))
-    world.interact()
+    _open_dialogue(world, june)
     var panel := _panel(hud, "DialoguePanel") as DialoguePanel
     assert_eq(_visible_gift_count(panel), 1)
     var give_turnip := panel.call("gift_chip", 0) as Button
@@ -2545,8 +2538,7 @@ func test_gift_number_key_gives_the_numbered_chip() -> void:
     var seeded: Array[int] = [1, 1, 0]
     world._session.set("_harvested_counts", seeded)
 
-    await _place_target(world, WorldContract.villager_cell(june))
-    world.interact()
+    _open_dialogue(world, june)
     var panel := _panel(hud, "DialoguePanel") as DialoguePanel
     assert_eq(int(world._session.snapshot()["harvested"][&"potato"]), 1)
     var points_before := int(
@@ -2583,8 +2575,7 @@ func test_gift_number_key_ignores_modified_digit_chords() -> void:
     var seeded: Array[int] = [1, 1, 1]
     world._session.set("_harvested_counts", seeded)
 
-    await _place_target(world, WorldContract.villager_cell(june))
-    world.interact()
+    _open_dialogue(world, june)
     var panel := _panel(hud, "DialoguePanel") as DialoguePanel
     assert_eq(_visible_gift_count(panel), 3)
     var points_before := int(
@@ -2631,7 +2622,7 @@ func _visible_gift_count(dialogue: DialoguePanel) -> int:
             count += 1
     return count
 
-func test_all_villagers_route_through_same_direct_interaction_path() -> void:
+func test_all_villagers_route_through_same_dialogue_path() -> void:
     var world := _world()
     if world == null:
         return
@@ -2644,8 +2635,7 @@ func test_all_villagers_route_through_same_direct_interaction_path() -> void:
         "I left Tokyo too. I never ask why people come out here.",
     ]
     for id in range(VillagerRules.VillagerId.size()):
-        await _place_target(world, WorldContract.villager_cell(id))
-        world.interact()
+        _open_dialogue(world, id)
         var panel := _panel(hud, "DialoguePanel") as DialoguePanel
         assert_true(panel.visible)
         assert_eq(String(panel.call("villager_name_text")), VillagerRules.display_name(id))
@@ -3044,11 +3034,7 @@ func test_dialogue_consumes_escape_before_help() -> void:
     var world := _world()
     var hud := _hud(world)
     var villager_id := VillagerRules.VillagerId.SHOPKEEPER
-    var result := world._session.talk_to(
-        villager_id,
-        WorldContract.villager_cell(villager_id),
-    )
-    hud.open_dialogue(villager_id, result, world._session.snapshot())
+    _open_dialogue(world, villager_id)
 
     await _press_escape()
 
@@ -3798,12 +3784,6 @@ func test_passive_clock_ticks_pauses_and_keeps_late_day_interactive() -> void:
     var seeds: Dictionary = session.snapshot()["seeds"]
     assert_eq(int(seeds[&"turnip"]), 4)
     hud.close_shop()
-    assert_true(world._world_input_enabled)
-
-    _set_target(world, WorldContract.villager_cell(VillagerRules.VillagerId.RESIDENT))
-    world.interact()
-    assert_true(_panel(hud, "DialoguePanel").visible)
-    hud.close_dialogue()
     assert_true(world._world_input_enabled)
 
     _set_target(world, WorldContract.SHIPPING_CELL)
