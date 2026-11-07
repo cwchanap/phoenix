@@ -66,8 +66,6 @@ func _ready() -> void:
     _clock_window_focused = window.has_focus()
     hud.configure(_settings)
 
-    # The highlight must be bound before the first enter_map() call: the
-    # placement updates the target diamond immediately.
     player.target_highlight = $TargetHighlight as Line2D
     load_map(MapId.FARM)
 
@@ -81,8 +79,6 @@ func _ready() -> void:
     hud.intro_acknowledged.connect(_on_intro_acknowledged)
     hud.modal_state_changed.connect(_refresh_world_input_gate)
 
-## Presentation-only map swap: the session, HUD and the one Player instance
-## (with its Camera2D) survive; gameplay location stays untouched.
 func load_map(map_id: MapId) -> void:
     var scene: PackedScene
     match map_id:
@@ -91,12 +87,8 @@ func load_map(map_id: MapId) -> void:
 
     _cancel_action_hold()
     hud.hide_prompt()
-    # The highlight is shell-owned and survives the swap: clear the stale
-    # farm tint before placement repaints the new spawn target.
     player.set_target_tint(PlayerController.TargetTint.NEUTRAL)
 
-    # Detach the persistent Player to the shell while the map is swapped so
-    # it is never inside the freed branch.
     if player.get_parent() != self:
         player.get_parent().remove_child(player)
         add_child(player)
@@ -107,14 +99,10 @@ func load_map(map_id: MapId) -> void:
     _map = scene.instantiate() as FarmMap
     _map.name = "FarmMap"
     add_child(_map)
-    # Keep the World child order [FarmMap, TargetHighlight, GameHud] on the
-    # first load and on every reload.
     move_child(_map, 0)
 
     player.reparent(_map.entities)
     _map.entities.move_child(player, 0)
-    # Reparenting drops the owner's unique-name registration; re-owning to
-    # the shell keeps World/%Player resolving to this instance.
     player.owner = self
     player.enter_map(_map.spawn, _map.camera_bounds)
     player.camera.reset_smoothing()

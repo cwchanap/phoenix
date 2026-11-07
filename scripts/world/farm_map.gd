@@ -1,11 +1,5 @@
 class_name FarmMap
 extends Node2D
-## The authored farm map: ground/water/path/decoration TileMapLayers,
-## non-Y-sorted FarmSoil decals, transient FarmActionEffects, the
-## HomesteadAmbience, every farm StaticCollision body, and the one Y-sorted
-## Entities/FarmView. Player-placement values come from WorldContract;
-## WorldShell owns the session and reparents the single Player into
-## `entities` per load.
 
 @onready var entities: FarmView = $Entities as FarmView
 @onready var effects: FarmActionEffects = $FarmActionEffects as FarmActionEffects
@@ -30,8 +24,6 @@ func _ready() -> void:
     for index in perimeter_rects.size():
         _fill_collision(static_collision, perimeter_names[index], perimeter_rects[index])
 
-## WorldShell calls this after the persistent Player is reparented under
-## `entities`; _ready() must not bind a Player that has not joined the map.
 func bind_player(player: PlayerController) -> void:
     effects.setup(player, entities)
 
