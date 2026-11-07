@@ -9,7 +9,7 @@ const HUD := GAME_HUD + "/HudRoot"
 const CHROME := HUD + "/Chrome"
 const DAY := CHROME + "/ClockCard/Surface/Body/Row/Meta/DayTag/DayRow/Day"
 const STAMINA := CHROME + "/Stamina/Row/Numbers/Value"
-const PLAYER := WORLD + "/Entities/Player"
+const PLAYER := WORLD + "/%Player"
 const UP := WorldMath.Facing.UP
 const RIGHT := WorldMath.Facing.RIGHT
 
@@ -78,11 +78,11 @@ func _stand_at_target(game, target: Vector2i, facing: int) -> void:
 
 
 func _soil_path(cell: Vector2i) -> String:
-	return WORLD + "/FarmSoil/Soil_%d_%d" % [cell.x, cell.y]
+	return WORLD + "/FarmMap/FarmSoil/Soil_%d_%d" % [cell.x, cell.y]
 
 
 func _crop_path(cell: Vector2i) -> String:
-	return WORLD + "/Entities/FarmCrop_%d_%d" % [cell.x, cell.y]
+	return WORLD + "/FarmMap/Entities/FarmCrop_%d_%d" % [cell.x, cell.y]
 
 
 # Successes raise no HUD text (only refusals toast), so each caller asserts
@@ -113,8 +113,8 @@ func test_day_one_farming_loop_and_sleep() -> void:
 	# its south-east. The farm view pre-creates all crop sprites hidden, so
 	# visibility is the observable.
 	var farm_cell: Vector2i = WorldContract.FARM_PATCH.position + Vector2i(4, 3)
-	var soil_path := WORLD + "/FarmSoil/Soil_%d_%d" % [farm_cell.x, farm_cell.y]
-	var crop_path := WORLD + "/Entities/FarmCrop_%d_%d" % [farm_cell.x, farm_cell.y]
+	var soil_path := _soil_path(farm_cell)
+	var crop_path := _crop_path(farm_cell)
 	await _stand_at_target(game, farm_cell, UP)
 	assert_bool(await game.get_property(soil_path, "visible")).is_false()
 	await _use_action(game)

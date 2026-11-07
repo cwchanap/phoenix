@@ -73,6 +73,17 @@ func _init() -> void:
         WorldContract.MARKET_FOOTPRINT == Rect2(19.2, 10.2, 0.6, 0.6), "market footprint contract"
     ):
         return
+    var expected_perimeter: Array[Rect2] = [
+        Rect2(0.0, -1.0, 24.0, 1.0),
+        Rect2(24.0, 0.0, 1.0, 20.0),
+        Rect2(0.0, 20.0, 24.0, 1.0),
+        Rect2(-1.0, 0.0, 1.0, 20.0),
+    ]
+    if not _expect(
+        WorldContract.perimeter_footprints() == expected_perimeter,
+        "perimeter footprints contract",
+    ):
+        return
     var farm_cells := WorldContract.farm_cells()
     if not _expect(farm_cells.size() == 30, "farm cell count"):
         return
