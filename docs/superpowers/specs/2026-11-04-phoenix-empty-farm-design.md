@@ -1,10 +1,10 @@
 # HPA-683 — Empty the farm and keep an unattended seed box: design specification
 
-**Status:** Revised after PR #36 design review, 2026-11-05 (planning only; no runtime code changed)  
+**Status:** Implemented in PR #36, 2026-11-06 (runtime, content, and test changes complete)  
 **Linear:** https://linear.app/cwchanap/issue/HPA-683/empty-the-farm-remove-villagers-make-the-seed-stall-an-unattended-seed  
 **Base reviewed:** `main` at `16da783ae7a74db0703f75c7f7822add332564a7`  
 **Related:** HPA-684 (independent diary/copy), HPA-685 (map extraction), HPA-686 (town/travel; blocked by HPA-683 and HPA-685), HPA-687 (town art; done)  
-**Delivery:** One PR for HPA-683. Implement on this same draft PR after design review, not in a second PR.
+**Delivery:** One PR for HPA-683. Implemented on this same PR after design review, not in a second PR.
 
 ## Player-visible goal
 

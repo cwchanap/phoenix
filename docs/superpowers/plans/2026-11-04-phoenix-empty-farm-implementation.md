@@ -1,9 +1,9 @@
 # HPA-683 — Empty farm / unattended seed box: single-PR implementation plan
 
-**Status:** Approved for implementation after PR #36 re-review, 2026-11-05; implementation-time test locations clarified. Documentation only; no implementation, automated test or manual playtest has been performed.  
+**Status:** Implemented in PR #36, 2026-11-06. Runtime, content, and test changes are committed and release gate validation is recorded below.  
 **Design:** [HPA-683 design specification](../specs/2026-11-04-phoenix-empty-farm-design.md)  
 **Linear:** https://linear.app/cwchanap/issue/HPA-683/empty-the-farm-remove-villagers-make-the-seed-stall-an-unattended-seed  
-**Delivery:** Complete HPA-683 in **this same draft PR** after plan review. One Linear issue → one PR; no separate implementation PR and no art task.
+**Delivery:** Completed HPA-683 in **this same PR**. One Linear issue → one PR; no separate implementation PR and no art task.
 
 ## Current-main baseline and guardrails
 
@@ -95,6 +95,15 @@ unzip -l build/Phoenix.zip | grep -F "Phoenix.app/Contents/MacOS/Phoenix"
 ```
 
 `tools/verify-clean.sh` downloads GUT into its temporary archived checkout and needs network access. The GdUnit4 bootstrap may be needed locally: `./tools/bootstrap-gdunit.sh`. Do not claim any gate is green until the implementation commits have actually been run and passed.
+
+### Validation results (2026-11-06)
+
+All four automated release gates executed and passed on `HEAD`:
+
+1. **GUT / headless clean verifier** (`./tools/verify-clean.sh`): Passed (17 scripts, 510 tests, 0 failures, 14,344 asserts; project smoke, world math smoke, world shell smoke, and audio sources all passed).
+2. **GdUnit4 test suites** (`GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/gdunit -c`): Passed (12/12 test cases across 2 suites, 0 errors/failures).
+3. **godot-e2e test suites** (`GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/e2e -c`): Passed (7/7 test cases across 3 suites, 0 errors/failures).
+4. **macOS release export** (`godot --headless --path . --export-release "macOS" build/Phoenix.zip`): Passed (`Phoenix.app/Contents/MacOS/Phoenix` verified in exported zip archive).
 
 **Focused regression checklist:**
 
