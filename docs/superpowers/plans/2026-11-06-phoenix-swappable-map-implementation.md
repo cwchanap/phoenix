@@ -1,6 +1,6 @@
 # HPA-685 — Swappable FarmMap: single-PR implementation and verification plan
 
-**Status:** Planned; no runtime implementation is included in the initial draft PR.  
+**Status:** Revised for PR #37 design-review findings; runtime implementation is still pending.  
 **Design:** [HPA-685 design specification](../specs/2026-11-06-phoenix-swappable-map-design.md)  
 **Linear:** https://linear.app/cwchanap/issue/HPA-685/let-worldshell-host-swappable-map-scenes-farm-extracted-no-behavior  
 **Baseline:** `main` `d39fed7aef9c4596ef12d518b5596c1ac7787367`. HPA-683 (PR #36) is merged; HPA-686 remains blocked.  
@@ -8,11 +8,17 @@
 
 ## Outcome and constraints
 
-Extract the authored farm into `FarmMap`, keep `WorldShell` the only session/input/HUD holder, and add `load_map(&"farm")`. Runtime behavior and output must match current main. Only farm exists now; HPA-686 supplies the town and its distinct interactions.
+Extract the authored farm into `FarmMap`, keep `WorldShell` the only session/input/HUD holder, and add `load_map(MapId.FARM)`. Runtime behavior and output must match current main. Only farm exists now; HPA-686 supplies the town and its distinct interactions.
 
 Keep Godot 4.7.1, statically typed GDScript, `WorldMath` projection values, `WorldContract` authoritative farm data, fixed 1080p presentation, current translation strings, and the existing v4 save path. No generalized map framework and no backward-compatibility shim for old *internal* scene paths.
 
 ## Implementation sequence — all in one PR
+
+### Step 0 — Specify the risky reload behavior before moving scenes
+
+**Test first, implemented and committed with the atomic scene rewrite (Steps 1–3).** Write one focused `WorldShell` reload regression in an existing smoke/integration suite *before* refactoring the scenes. It should start with the existing farm instance, exercise an action that creates a `ToolFx`, and specify that after `load_map(MapId.FARM)`: the same Player, Camera2D, `GameSession`, and HUD objects survive; `world.get_node("%Player") == world.player`; the player is the first child of the new `FarmMap/Entities`; farm spawn is restored; the active map, `StaticCollision`, Y-sort root, effects, and ambience are each unique; and the session snapshot and HUD request-signal connection count have not changed. Wait one frame and assert no stale `ToolFx`, the viewport still uses `player.camera`, and camera screen center is correct for the newly placed, bounds-clamped player after `reset_smoothing()`. No unknown-string test: `MapId` is a closed enum.
+
+Write the test contract first, then implement the scene move and controller changes as **one coherent commit** alongside the updated smoke/integration assertions. The standalone intermediate scene extraction is not expected to run; it temporarily invalidates `@onready` paths. Immediately after the atomic commit, run headless smoke and GUT and fix any render/physics/parse regressions before e2e/docs cleanup. This is test-first planning, not a promise that a red test commit should land on the PR.
 
 ### Step 1 — Extract the authored farm scene without changing any pixels
 
@@ -20,10 +26,10 @@ Keep Godot 4.7.1, statically typed GDScript, `WorldMath` projection values, `Wor
 
 1. Copy the existing authored TileMapLayers `Ground`, `Water`, `Paths` and `GroundDecoration`, including the packed tile data and exact `position = Vector2(736, 0)` transforms, into `farm_map.tscn`. Move, without redrawing, `FarmSoil`, `FarmActionEffects`, `HomesteadAmbience`, `StaticCollision` and all its polygon children, and `Entities` with the farm props/scene ordering. Retain exact z-index values and Y-sort on `Entities` only.
 2. Move the existing farm scene resource references (tileset, textures, FarmView, effects, ambience) to the farm scene. `world.tscn` retains the WorldShell script, `Player` PackedScene, shell-owned `TargetHighlight` and `GameHud`; remove the old farm nodes and old external-resource entries from the shell scene. Do not put a second Player under FarmMap.
-3. Give `FarmMap` a `Node2D` root at identity transform with `farm_map.gd` attached. Its contract-facing getters should be tiny and sourced from `WorldContract`: ID `&"farm"`, `MAP_SIZE`, `PLAYER_SPAWN`, `CAMERA_BOUNDS`, and the already-authored view/effects/ambience nodes. Do not copy any cell, anchor, footprint or bounds literal.
+3. Give `FarmMap` a `Node2D` root at identity transform with `farm_map.gd` attached. Expose direct typed access to its `Entities`/FarmView, effects and ambience children, plus the only two player-placement values needed now: `WorldContract.PLAYER_SPAWN` and `WorldContract.CAMERA_BOUNDS`. No `map_id` getter, separate map-size field, registry, or duplicated geometry literal. Provide a small `bind_player(player)` method that calls the existing `effects.setup(player, entities)` **after** WorldShell has reparented Player; `_ready()` must not attempt to bind a Player that hasn't joined the map yet.
 4. Preserve `FarmView._ready()`'s sibling lookup `../FarmSoil`: moving both nodes into the same `FarmMap` parent should keep this valid. Crops and soil are still created from `WorldContract.farm_cells()`.
 
-**Sanity checkpoint:** Opening `farm_map.tscn` in the editor shows exactly the existing farm props, ground and obstacles. The script parser resolves all moved resources before changing the shell controller.
+**Checkpoint after atomic Steps 1–3:** Open `farm_map.tscn` in the editor and verify farm props, ground and obstacles. Do not treat the isolated Step 1 state as runnable: existing WorldShell node paths remain invalid until Step 3.
 
 ### Step 2 — Put farm-only collision setup on the farm side
 
@@ -33,26 +39,26 @@ Keep Godot 4.7.1, statically typed GDScript, `WorldMath` projection values, `Wor
 2. Move the farm perimeter helper and its 1.0-cell band width to the farm side, preferably `WorldContract.perimeter_footprints()` so all farm geometry is in one contract. Keep the exact four footprints. No duplicate geometry constants in either scene or tests.
 3. Retain `StaticCollision` inside FarmMap, so removing the map removes its bodies/polygons with it. Do not create a physics abstraction, separate collision service, or an additional collision root on WorldShell.
 
-**Sanity checkpoint:** The generated collision polygon vertices match the current `world_shell_smoke` expectations exactly, including forest, river, house, seed stall, workbench, shipping, market and perimeter.
+**Checkpoint after atomic Steps 1–3:** The generated collision polygon vertices must match the current `world_shell_smoke` expectations exactly, including forest, river, house, seed stall, workbench, shipping, market and perimeter.
 
 ### Step 3 — Introduce a single map-loading path while preserving the Player instance
 
-**Files:** `scripts/world/world_shell.gd`, `scripts/player/player_controller.gd`, optionally `scripts/world/world_math.gd` for the narrow target-size seam.
+**Files:** `scripts/world/world_shell.gd`, `scripts/player/player_controller.gd`, `scenes/world/world.tscn`. Leave `scripts/world/world_math.gd` unchanged in HPA-685.
 
-1. Add `const FARM_MAP_SCENE := preload("res://scenes/world/farm_map.tscn")` and `var _active_map: FarmMap` (or a `Node2D` with the same tiny map context). Make `farm_view`, `_farm_effects`, and `_homestead_ambience` runtime references populated by `load_map`, rather than the obsolete shell-level `@onready` paths. Keep the existing public `player` and `hud` handles for tests/controllers.
-2. Keep a single Player scene instance under the shell in `world.tscn` **before** first loading a map. Its `Camera2D` stays its child. Do not free or instantiate a new Player when `load_map` runs. Assign the shell-owned target highlight explicitly to the Player via a small binding method, rather than relying on `../../TargetHighlight` (the player changes parents).
-3. In `_ready()`, create/restore the one `GameSession`, configure the HUD and focus state, call `load_map(&"farm")`, and connect HUD callbacks **once**. Do not connect once per map load. The single `_refresh_from_session()` path still updates FarmView, weather ambience, HUD and input gate.
-4. In `load_map(map_id: StringName)`:
-   - Reject an unknown ID without destroying an existing map. The only branch in this ticket is `&"farm"`; use a direct `match`, not an extensible scene registry.
-   - Cancel any in-progress hold and clear stale prompt/target presentation before changing the map.
-   - If there is an old map, reparent the existing Player temporarily to WorldShell; remove the old map from the active scene tree and queue it free **before** adding the replacement (no overlapping live collision worlds). Ensure the old effects script can clear external sprites/tweens.
-   - Instantiate `FarmMap`, assign its exact name `FarmMap`, add it to WorldShell, and bind `farm_view = $FarmMap/Entities`, `_farm_effects`, and `_homestead_ambience`.
-   - Reparent **the same Player** into `FarmMap/Entities`; move it to index 0 so the old Y-sort draw order and exact-Y ties survive. Apply the map spawn and camera bounds from the farm contract, preserving the zoom and smoothing settings.
-   - Run `_farm_effects.setup(player, farm_view)` on the new effects node and refresh from the existing session snapshot. `GameHud` and the session are never reinstantiated.
-5. Keep `PlayerController` responsible for movement, facing, target highlighting and the camera, but stop treating farm camera bounds and spawn as immutable Player-owned startup data. Add a narrow map-context setter for spawn, camera limits and target grid size. Keep the current shared `WorldContract.PLAYER_HALF_EXTENT`, speed, projection and zoom unchanged. If the target lookup needs the map's dimensions, pass `map_size` into `WorldMath.target_cell()` with existing farm call behavior unchanged; do not generalize all the world math.
+1. Add `enum MapId { FARM }`, `const FARM_MAP_SCENE := preload("res://scenes/world/farm_map.tscn")`, and **one** `var _map: FarmMap` reference. Keep `farm_view` as a typed getter into `_map.entities` (existing `world.farm_view` test callers use it); read effects/ambience through `_map` instead of storing and rebinding separate fields that can become stale on reload. Keep the existing public `player` and `hud` handles for tests/controllers.
+2. Keep a single Player scene instance directly under WorldShell in `world.tscn` **before** first loading a map. Mark it `unique_name_in_owner = true` so tests/e2e can find it with `World/%Player` even after it is reparented under the active map. Its `Camera2D` stays its child. Do not free or instantiate another Player when `load_map` runs. Assign the existing public field `player.target_highlight = $TargetHighlight` directly; delete the broken `../../TargetHighlight` relative lookup, with no new binding method.
+3. In `_ready()`, create/restore the one `GameSession`, configure the HUD and focus state, call `load_map(MapId.FARM)`, and connect HUD callbacks **once**. Do not connect once per map load. The single `_refresh_from_session()` path still updates `farm_view`, `_map.ambience`, HUD and input gate. Keep `load_map` **presentation-only**: it must not own/alter gameplay location, and HPA-686 will derive map changes from a session snapshot.
+4. In `load_map(map_id: MapId)`:
+   - `match map_id` has the only production branch, `MapId.FARM`. No string IDs, registry, impossible-ID no-op or speculative failure test.
+   - Cancel any in-progress hold and clear stale prompt/target presentation.
+   - Detach the persistent Player temporarily to WorldShell; call `remove_child(old_map)` then `old_map.queue_free()` **before** adding the new map. The existing `FarmActionEffects._exit_tree()` already kills tweens and cleans external nodes, including Player-attached `ToolFx`; do not reimplement its cleanup.
+   - Instantiate the FarmMap, name it `FarmMap`, add it under WorldShell, and store it once in `_map`. The map supplies children via typed properties; do not rebind three parallel cached references.
+   - Reparent **the same Player** into `_map.entities`; move it to index 0 to preserve exact-Y sorting. Call `player.enter_map(WorldContract.PLAYER_SPAWN, WorldContract.CAMERA_BOUNDS)` to set projected spawn and Camera2D limits, then `player.camera.reset_smoothing()` to avoid a stale pan from the old position. Preserve current zoom/smoothing config.
+   - Assign `player.target_highlight = $TargetHighlight` and call `_map.bind_player(player)` **after** the reparent so its effects script can run the existing `setup(player, entities)`. Refresh from the unchanged session snapshot. `GameHud` and `GameSession` are never reinstantiated.
+5. Keep `PlayerController` responsible for movement, facing, target highlighting and the camera, but move the startup spawn and camera-limit lines out of its `_ready()` into `enter_map(spawn: Vector2, camera_bounds: Rect2)`. The setter takes **only those two values**. Keep current `WorldContract.PLAYER_HALF_EXTENT`, move speed, projection, zoom, and existing `WorldMath.target_cell()` unchanged. HPA-686 can add a size argument once TownMap truly exists; its town bounds can be derived by extending `WorldMath.map_camera_bounds()` to take size rather than introducing a second hand-typed literal.
 6. Keep `_interact_label()`, `interact()`, farming action/hold dispatch and `GameSession` exactly on their present farm logic. The seed box, bed, shipping, and market remain on this farm until HPA-686. No travel button or `GameSession.travel_to` yet.
 
-**Critical lifecycle checks:** Player's `get_instance_id()` and `Camera2D` identity are unchanged after calling `load_map(&"farm")` again; the Y-sort container has exactly one Player at child index 0; there is only one active map/StaticCollision, effects node, ambience and HUD; the session snapshot (including day, inventory, seeds and relationships) does not reset.
+**Critical lifecycle checks (captured in Step 0):** Player/Camera2D instance IDs and session snapshot survive repeated `load_map(MapId.FARM)`; `%Player` lookup remains stable; the Y-sort container has Player at index 0; only one map/StaticCollision/effects/ambience/HUD exists. Camera remains current with correct screen center after resetting smoothing; pending ToolFx is cleaned; HUD `buy_requested.get_connections().size()` does not increase across reloads.
 
 ### Step 4 — Update all path-based tests; preserve their assertions
 
@@ -62,11 +68,11 @@ Keep Godot 4.7.1, statically typed GDScript, `WorldMath` projection values, `Wor
 - `tests/e2e/gameplay_day_one_test.gd`
 - Other `tests/` helpers with references found in the complete audit below.
 
-1. Replace **path expectations**, not gameplay assertions. For example, `World/Ground` becomes `World/FarmMap/Ground`, `World/FarmSoil` becomes `World/FarmMap/FarmSoil`, `World/Entities` becomes `World/FarmMap/Entities`, `World/Entities/Player` becomes `World/FarmMap/Entities/Player`, and world crop/effects/ambience/static-collision paths acquire `FarmMap/`. Keep `World/GameHud` and `World/TargetHighlight` as shell-owned paths.
-2. In the world-shell smoke, verify the **new two-level authored tree**, while preserving checks of 24×20 terrain and exact tile IDs, 30 soil sprites, 30 crop roots, static scenery names/order/frames, all collision polygons, player collider, camera limits, target highlight, touch/occlusion and rain-ripple properties. Assert there is still exactly one Y-sort CanvasItem, and it is `FarmMap/Entities`; assert the Player is its first child.
+1. Replace **farm-content path expectations**, not gameplay assertions: `World/Ground` → `World/FarmMap/Ground`, `World/FarmSoil` → `World/FarmMap/FarmSoil`, `World/Entities` → `World/FarmMap/Entities`, and farm crop/effects/ambience/static-collision paths acquire `FarmMap/`. **Do not bake the player map into test lookup paths:** use `world.player` in GUT/smoke and `const PLAYER := WORLD + "/%Player"` in godot-e2e; `world.get_node("%Player")` resolves the same player after map replacement. Keep `World/GameHud` and `World/TargetHighlight` as shell-owned paths.
+2. In the world-shell smoke, verify the **new two-level authored tree**, while preserving checks of 24×20 terrain and exact tile IDs, 30 soil sprites, 30 crop roots, static scenery names/order/frames, all collision polygons, player collider, camera limits, target highlight, touch/occlusion and rain-ripple properties. Assert there is still exactly one Y-sort CanvasItem (`FarmMap/Entities`) and that `world.player.get_parent()` is that node with Player first. Assert `world.get_node("%Player") == world.player` so the stable e2e path is proven.
 3. In GUT, keep existing modal/input-gate, farming/hold, effects, audio, weather, shop, sleep/save, and Day 14/finale assertions. Only revise scene paths/test helpers broken by the extraction.
-4. In godot-e2e, update `PLAYER`, `_soil_path()`, and `_crop_path()` in the Day 1 suite. Continue exercising a real keyboard-driven new game, farm, Seed Box, overnight save, and Continue. Do not add a fake test-only world instance.
-5. Add one small focused map-load regression (in an existing scene integration or smoke suite): inspect the player/camera IDs and session snapshot, call `load_map(&"farm")` again, assert the IDs and snapshot match, the spawn resets, the old map is detached, and all views/colliders exist exactly once. Test an unknown ID as a no-op. This is sufficient; do not build a generalized multi-map test harness when no second map exists.
+4. In godot-e2e, set `const PLAYER := WORLD + "/%Player"` and update only the **farm-specific** `_soil_path()` and `_crop_path()` in the Day 1 suite. Continue exercising a real keyboard-driven new game, farm, Seed Box, overnight save, and Continue. Do not add a fake test-only world instance.
+5. Keep the **Step 0** focused reload regression as the single new lifecycle test (write it before implementation and land it in the atomic scene refactor). It covers player/camera identity, `%Player`, spawn + camera smoothing/current camera, stale ToolFx teardown, no duplicate HUD connections, session snapshot and no duplicate map/colliders. Do not create a separate test harness or unknown-ID no-op test.
 
 **Required audit before finishing code changes:**
 
@@ -79,7 +85,7 @@ Check each match by behavior: new paths are expected, but original farm coordina
 
 ### Step 5 — Update the live handoff docs and run the four gates
 
-**Docs:** `AGENTS.md` and its mirrored `CLAUDE.md` in the **same PR**, updating only the now-outdated world-scene ownership, player-parenting/camera-context, and test-path statements. Any README scene-path documentation that changes should be corrected as well. Historical design documents remain immutable.
+**Docs:** Update `CLAUDE.md` in this **same PR**; `AGENTS.md` is a symlink to it, not a separate mirrored file (confirmed from main's Git tree mode `120000`). Refresh now-outdated world ownership, Player parenting/camera-context and test-path statements. Also correct the stale "direct World child" source comments in `scripts/world/farm_action_effects.gd` and `scripts/world/homestead_ambience.gd`, and the message "FarmActionEffects exists directly under World" at `tests/integration/test_gameplay_shell.gd:2142`. Any README scene-path descriptions that change should be corrected too. Historical documents remain immutable.
 
 **Automated verification** (run on the committed implementation branch; this design-only draft does not claim any test result):
 
@@ -104,13 +110,13 @@ As the existing project instructions explain, GUT is bootstrapped by `verify-cle
 ## Completion checklist
 
 - [ ] `FarmMap` contains all farm-only nodes; shell keeps one session, one Player + camera, one HUD and highlight.
-- [ ] `load_map(&"farm")` is the only startup/replace path and preserves identity/state without duplicate connections.
+- [ ] `load_map(MapId.FARM)` is the only startup/replace path, presentation-only, and preserves identity/state without duplicate connections.
 - [ ] Farm contract and Y-sort/depth/collision/target rendering are equivalent; no new art, town code, translation or balance changes.
 - [ ] Headless smoke, GUT, GdUnit4 and godot-e2e assertions are updated to the new hierarchy and pass; export passes.
 - [ ] Native visual comparison is recorded; no screenshot-golden CI is recreated.
-- [ ] `AGENTS.md`/`CLAUDE.md` reflect final runtime hierarchy; PR body carries actual evidence.
-- [ ] HPA-686 remains the sole owner of town/travel/location semantics; HPA-684 retains diary/copy ownership.
+- [ ] `CLAUDE.md` (and its `AGENTS.md` symlink) reflects final runtime hierarchy; stale farm-effects/ambience comments and assertion message are corrected; PR body carries actual evidence.
+- [ ] HPA-686 remains the sole owner of town/travel/location semantics: GameSession will hold **transient runtime** location exposed in snapshots (not overnight `state()`/save), and WorldShell will load maps in response to session snapshots, without recursive refresh. Its town rain will not reuse farm-only ripple ambience. HPA-684 retains diary/copy ownership.
 
 ## Review focus before implementation
 
-The principal design risk is accidentally giving the Player a new sibling rendering context instead of keeping it in the active map's original Y-sort owner. Second are `PlayerController`'s relative target-highlight reference, `FarmView`'s sibling Soil lookup, effect ownership during map teardown, and test fixtures that assert direct World child paths. All are handled explicitly above without expanding to a multi-map framework.
+The principal design risk is accidentally giving the Player a new sibling rendering context instead of keeping it in the active map's original Y-sort owner. Next are unique-owned `%Player` lookup, camera smoothing after teleport, existing `FarmActionEffects._exit_tree()` cleanup when Player is detached first, the sibling Soil lookup, and stale test paths. The test-first atomic refactor verifies these before e2e/doc churn without expanding to a multi-map framework.
