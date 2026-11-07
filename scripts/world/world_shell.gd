@@ -3,7 +3,9 @@ extends Node2D
 
 signal finale_completed(final_state: Dictionary, save_error: int)
 
-const PERIMETER_BAND_WIDTH := 1.0
+enum MapId { FARM }
+
+const FARM_MAP_SCENE := preload("res://scenes/world/farm_map.tscn")
 const FARM_ACTION_SUCCESS_CODES := [
     GameRules.CommandCode.SOIL_TILLED,
     GameRules.CommandCode.CROP_PLANTED,
@@ -28,29 +30,14 @@ var _action_hold_action: Variant = null
 var clock_running := true
 var _clock_elapsed_seconds := 0.0
 var _clock_window_focused := true
+var _map: FarmMap
 
-@onready var player: PlayerController = $Entities/Player as PlayerController
-@onready var farm_view: FarmView = $Entities as FarmView
-@onready var _farm_effects: FarmActionEffects = $FarmActionEffects as FarmActionEffects
-@onready var _homestead_ambience: HomesteadAmbience = $HomesteadAmbience as HomesteadAmbience
+@onready var player: PlayerController = $Player as PlayerController
 @onready var hud: GameHud = $GameHud as GameHud
 
-static func perimeter_footprints() -> Array[Rect2]:
-    var map_size := Vector2(WorldContract.MAP_SIZE)
-    return [
-        Rect2(0.0, -PERIMETER_BAND_WIDTH, map_size.x, PERIMETER_BAND_WIDTH),
-        Rect2(map_size.x, 0.0, PERIMETER_BAND_WIDTH, map_size.y),
-        Rect2(0.0, map_size.y, map_size.x, PERIMETER_BAND_WIDTH),
-        Rect2(-PERIMETER_BAND_WIDTH, 0.0, PERIMETER_BAND_WIDTH, map_size.y),
-    ]
-
-func _fill_collision(
-    static_collision: StaticBody2D,
-    node_name: String,
-    footprint: Rect2,
-) -> void:
-    var collision := static_collision.get_node(node_name) as CollisionPolygon2D
-    collision.polygon = WorldMath.footprint_to_polygon(footprint)
+var farm_view: FarmView:
+    get:
+        return _map.entities
 
 func configure(
     initial_state: Variant,
@@ -79,20 +66,10 @@ func _ready() -> void:
     _clock_window_focused = window.has_focus()
     hud.configure(_settings)
 
-    var static_collision := get_node("StaticCollision") as StaticBody2D
-    _fill_collision(static_collision, "HouseCollision", WorldContract.HOUSE_FOOTPRINT)
-    _fill_collision(static_collision, "ShopStallCollision", WorldContract.SHOP_STALL_FOOTPRINT)
-    _fill_collision(static_collision, "ForestCollision", WorldContract.FOREST_FOOTPRINT)
-    _fill_collision(static_collision, "RiverWestCollision", WorldContract.RIVER_WEST_FOOTPRINT)
-    _fill_collision(static_collision, "RiverSouthCollision", WorldContract.RIVER_SOUTH_FOOTPRINT)
-    _fill_collision(static_collision, "WorkbenchCollision", WorldContract.WORKBENCH_FOOTPRINT)
-    _fill_collision(static_collision, "ShippingCollision", WorldContract.SHIPPING_FOOTPRINT)
-    _fill_collision(static_collision, "HarvestMarketCollision", WorldContract.MARKET_FOOTPRINT)
-
-    var perimeter_names := ["PerimeterTop", "PerimeterRight", "PerimeterBottom", "PerimeterLeft"]
-    var perimeter_rects := perimeter_footprints()
-    for index in perimeter_rects.size():
-        _fill_collision(static_collision, perimeter_names[index], perimeter_rects[index])
+    # The highlight must be bound before the first enter_map() call: the
+    # placement updates the target diamond immediately.
+    player.target_highlight = $TargetHighlight as Line2D
+    load_map(MapId.FARM)
 
     hud.select_seed_requested.connect(_on_select_seed_requested)
     hud.buy_requested.connect(_on_buy_requested)
@@ -103,7 +80,42 @@ func _ready() -> void:
     hud.morning_summary_acknowledged.connect(_on_morning_summary_acknowledged)
     hud.intro_acknowledged.connect(_on_intro_acknowledged)
     hud.modal_state_changed.connect(_refresh_world_input_gate)
-    _farm_effects.setup(player, farm_view)
+
+## Presentation-only map swap: the session, HUD and the one Player instance
+## (with its Camera2D) survive; gameplay location stays untouched.
+func load_map(map_id: MapId) -> void:
+    var scene: PackedScene
+    match map_id:
+        MapId.FARM:
+            scene = FARM_MAP_SCENE
+
+    _cancel_action_hold()
+    hud.hide_prompt()
+
+    # Detach the persistent Player to the shell while the map is swapped so
+    # it is never inside the freed branch.
+    if player.get_parent() != self:
+        player.get_parent().remove_child(player)
+        add_child(player)
+    if _map != null:
+        remove_child(_map)
+        _map.queue_free()
+
+    _map = scene.instantiate() as FarmMap
+    _map.name = "FarmMap"
+    add_child(_map)
+    # Keep the World child order [FarmMap, TargetHighlight, GameHud] on the
+    # first load and on every reload.
+    move_child(_map, 0)
+
+    player.reparent(_map.entities)
+    _map.entities.move_child(player, 0)
+    # Reparenting drops the owner's unique-name registration; re-owning to
+    # the shell keeps World/%Player resolving to this instance.
+    player.owner = self
+    player.enter_map(_map.spawn, _map.camera_bounds)
+    player.camera.reset_smoothing()
+    _map.bind_player(player)
     _refresh_from_session()
 
 func _process(delta: float) -> void:
@@ -182,7 +194,7 @@ func _advance_passive_clock(delta: float) -> void:
 func _refresh_from_session() -> void:
     var snapshot := _session.snapshot()
     farm_view.refresh(snapshot)
-    _homestead_ambience.render(snapshot)
+    _map.ambience.render(snapshot)
     hud.render(snapshot)
     _refresh_world_input_gate()
 
@@ -210,7 +222,7 @@ func _attempt_target_action(target_cell: Variant, preview: Dictionary) -> void:
     var code := _session.apply_target_action(target_cell)
     _finish_command(code)
     if FARM_ACTION_SUCCESS_CODES.has(code):
-        _farm_effects.play_success(code, preview, target_cell, facing, player_position)
+        _map.effects.play_success(code, preview, target_cell, facing, player_position)
 
 func _cancel_action_hold() -> void:
     _action_hold_active = false

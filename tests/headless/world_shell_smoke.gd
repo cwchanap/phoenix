@@ -248,6 +248,19 @@ func _run() -> void:
         return
 
     var world_names := [
+        "FarmMap",
+        "TargetHighlight",
+        "GameHud",
+    ]
+    if not _expect_names(world, world_names, "World"):
+        return
+    if not _expect_child_order(world, world_names, "World scene-tree order"):
+        return
+
+    var farm_map := world.get_node("FarmMap") as FarmMap
+    if not _expect(farm_map != null, "World must contain a FarmMap"):
+        return
+    var map_names := [
         "Ground",
         "Water",
         "Paths",
@@ -257,15 +270,13 @@ func _run() -> void:
         "HomesteadAmbience",
         "StaticCollision",
         "Entities",
-        "TargetHighlight",
-        "GameHud",
     ]
-    if not _expect_names(world, world_names, "World"):
+    if not _expect_names(farm_map, map_names, "FarmMap"):
         return
-    if not _expect_child_order(world, world_names, "World scene-tree order"):
+    if not _expect_child_order(farm_map, map_names, "FarmMap scene-tree order"):
         return
 
-    var ground := world.get_node("Ground") as TileMapLayer
+    var ground := farm_map.get_node("Ground") as TileMapLayer
     if not _expect(ground.position == Vector2(736.0, 0.0), "Ground alignment transform"):
         return
     if not _expect(ground.tile_set != null, "Ground must have a TileSet"):
@@ -317,7 +328,7 @@ func _run() -> void:
             ):
                 return
 
-    var water := world.get_node("Water") as TileMapLayer
+    var water := farm_map.get_node("Water") as TileMapLayer
     if not _expect(water != null, "Water must exist"):
         return
     if not _expect(water.position == Vector2(736.0, 0.0), "Water alignment transform"):
@@ -345,7 +356,7 @@ func _run() -> void:
         ):
             return
 
-    var paths := world.get_node("Paths") as TileMapLayer
+    var paths := farm_map.get_node("Paths") as TileMapLayer
     if not _expect(paths != null, "Paths must exist"):
         return
     if not _expect(paths.position == Vector2(736.0, 0.0), "Paths alignment transform"):
@@ -366,7 +377,7 @@ func _run() -> void:
         ):
             return
 
-    var decoration := world.get_node("GroundDecoration") as TileMapLayer
+    var decoration := farm_map.get_node("GroundDecoration") as TileMapLayer
     if not _expect(decoration != null, "GroundDecoration must exist"):
         return
     if not _expect(decoration.position == Vector2(736.0, 0.0), "GroundDecoration alignment"):
@@ -392,7 +403,7 @@ func _run() -> void:
         ):
             return
 
-    var farm_soil := world.get_node("FarmSoil") as Node2D
+    var farm_soil := farm_map.get_node("FarmSoil") as Node2D
     if not _expect(farm_soil != null, "FarmSoil must exist"):
         return
     if not _expect(not farm_soil.y_sort_enabled, "FarmSoil must not enable y-sort"):
@@ -405,7 +416,7 @@ func _run() -> void:
     if not _expect(farm_soil.get_child_count() == farm_cells.size(), "FarmSoil soil sprite count"):
         return
 
-    var farm_effects := world.get_node("FarmActionEffects") as Node2D
+    var farm_effects := farm_map.get_node("FarmActionEffects") as Node2D
     if not _expect(farm_effects != null, "FarmActionEffects must exist"):
         return
     if not _expect(not farm_effects.y_sort_enabled, "FarmActionEffects must not enable y-sort"):
@@ -413,7 +424,7 @@ func _run() -> void:
     if not _expect(farm_effects.z_index == 5, "FarmActionEffects z-index"):
         return
 
-    var ambience := world.get_node("HomesteadAmbience") as HomesteadAmbience
+    var ambience := farm_map.get_node("HomesteadAmbience") as HomesteadAmbience
     if not _expect(ambience != null, "HomesteadAmbience must exist"):
         return
     var ripples: Array[Sprite2D] = []
@@ -442,7 +453,7 @@ func _run() -> void:
         farm_soil.z_index < ambience.z_index
         and farm_effects.z_index < ambience.z_index
         and ambience.z_index < (world.get_node("TargetHighlight") as Line2D).z_index
-        and ambience.z_index < (world.get_node("Entities") as Node2D).z_index,
+        and ambience.z_index < (farm_map.get_node("Entities") as Node2D).z_index,
         "ambience renders above soil/effects below target/entities",
     ):
         return
@@ -462,7 +473,7 @@ func _run() -> void:
         if not _expect(soil.hframes == 2, "soil %s frame columns" % farm_cells[index]):
             return
 
-    var static_collision := world.get_node("StaticCollision") as StaticBody2D
+    var static_collision := farm_map.get_node("StaticCollision") as StaticBody2D
     var collision_names := [
         "HouseCollision",
         "ShopStallCollision",
@@ -495,13 +506,9 @@ func _run() -> void:
         "ShippingCollision": WorldContract.SHIPPING_FOOTPRINT,
         "HarvestMarketCollision": WorldContract.MARKET_FOOTPRINT,
     }
-    var map_size := Vector2(WorldContract.MAP_SIZE)
-    var perimeter_rects := [
-        Rect2(0.0, -1.0, map_size.x, 1.0),
-        Rect2(map_size.x, 0.0, 1.0, map_size.y),
-        Rect2(0.0, map_size.y, map_size.x, 1.0),
-        Rect2(-1.0, 0.0, 1.0, map_size.y),
-    ]
+    var perimeter_rects := WorldContract.perimeter_footprints()
+    if not _expect(perimeter_rects.size() == 4, "perimeter footprint count"):
+        return
     var perimeter_names := ["PerimeterTop", "PerimeterRight", "PerimeterBottom", "PerimeterLeft"]
     for index in perimeter_rects.size():
         collider_footprints[perimeter_names[index]] = perimeter_rects[index]
@@ -514,7 +521,7 @@ func _run() -> void:
         ):
             return
 
-    var entities := world.get_node("Entities") as Node2D
+    var entities := farm_map.get_node("Entities") as Node2D
     if not _expect(entities.y_sort_enabled, "Entities must enable y-sort"):
         return
     var enabled_y_sort_nodes: Array[CanvasItem] = []
@@ -637,8 +644,14 @@ func _run() -> void:
         ):
             return
 
-    var player := entities.get_node_or_null("Player") as CharacterBody2D
-    if not _expect(player != null, "Entities must contain Player"):
+    var player := world.player
+    if not _expect(player != null, "World must expose its Player"):
+        return
+    if not _expect(player.get_parent() == entities, "Player must sit under FarmMap/Entities"):
+        return
+    if not _expect(entities.get_child(0) == player, "Player must be the first Entities child"):
+        return
+    if not _expect(world.get_node("%Player") == player, "%Player must resolve to world.player"):
         return
     if not _expect_vec2(
         player.global_position,

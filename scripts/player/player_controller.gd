@@ -10,22 +10,25 @@ var _input_enabled := true
 var target_highlight: Line2D
 
 func _ready() -> void:
-    global_position = WorldMath.grid_to_world(WorldContract.PLAYER_SPAWN)
     var player_polygon := WorldMath.centered_player_footprint_polygon(Vector2.ZERO)
     var projection_origin := WorldMath.grid_to_world(Vector2.ZERO)
     for index in player_polygon.size():
         player_polygon[index] -= projection_origin
     player_collision.polygon = player_polygon
 
-    camera.zoom = Vector2.ONE * WorldContract.CAMERA_ZOOM
-    var bounds := WorldContract.CAMERA_BOUNDS
-    camera.limit_left = int(bounds.position.x)
-    camera.limit_top = int(bounds.position.y)
-    camera.limit_right = int(bounds.position.x + bounds.size.x)
-    camera.limit_bottom = int(bounds.position.y + bounds.size.y)
-
-    target_highlight = get_node_or_null("../../TargetHighlight") as Line2D
     _update_visuals()
+    _update_target()
+
+## WorldShell calls this once per map load with the active map's placement
+## values; target_highlight must already be bound so the target updates
+## immediately instead of waiting for the first physics tick.
+func enter_map(spawn: Vector2, camera_bounds: Rect2) -> void:
+    global_position = WorldMath.grid_to_world(spawn)
+    camera.zoom = Vector2.ONE * WorldContract.CAMERA_ZOOM
+    camera.limit_left = int(camera_bounds.position.x)
+    camera.limit_top = int(camera_bounds.position.y)
+    camera.limit_right = int(camera_bounds.position.x + camera_bounds.size.x)
+    camera.limit_bottom = int(camera_bounds.position.y + camera_bounds.size.y)
     _update_target()
 
 func set_input_enabled(enabled: bool) -> void:

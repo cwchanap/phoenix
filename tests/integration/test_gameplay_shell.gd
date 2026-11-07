@@ -240,7 +240,7 @@ func test_farm_soil_is_non_y_sorted_layer() -> void:
     var world := _world()
     if world == null:
         return
-    var farm_soil := world.get_node_or_null("FarmSoil") as Node2D
+    var farm_soil := world.get_node_or_null("FarmMap/FarmSoil") as Node2D
     assert_not_null(farm_soil)
     if farm_soil == null:
         return
@@ -251,7 +251,7 @@ func test_thirty_soil_sprites_use_farm_cell_centers() -> void:
     var world := _world()
     if world == null:
         return
-    var farm_soil := world.get_node_or_null("FarmSoil") as Node2D
+    var farm_soil := world.get_node_or_null("FarmMap/FarmSoil") as Node2D
     assert_not_null(farm_soil)
     if farm_soil == null:
         return
@@ -273,7 +273,7 @@ func test_entities_is_farm_view_and_only_y_sort_node() -> void:
     var world := _world()
     if world == null:
         return
-    var entities := world.get_node_or_null("Entities") as Node2D
+    var entities := world.get_node_or_null("FarmMap/Entities") as Node2D
     assert_not_null(entities)
     if entities == null:
         return
@@ -324,7 +324,7 @@ func test_crop_roots_are_direct_entities_children_at_cell_centers() -> void:
     var world := _world()
     if world == null:
         return
-    var entities := world.get_node_or_null("Entities") as Node2D
+    var entities := world.get_node_or_null("FarmMap/Entities") as Node2D
     assert_not_null(entities)
     if entities == null:
         return
@@ -369,7 +369,7 @@ func test_farm_view_refresh_uses_snapshot_presentation_state() -> void:
     var world := _world()
     if world == null:
         return
-    var entities := world.get_node_or_null("Entities") as Node2D
+    var entities := world.get_node_or_null("FarmMap/Entities") as Node2D
     assert_not_null(entities)
     if entities == null:
         return
@@ -379,7 +379,7 @@ func test_farm_view_refresh_uses_snapshot_presentation_state() -> void:
         return
     var session := GameSession.new()
     var cell := WorldContract.farm_cells()[0]
-    var farm_soil := world.get_node_or_null("FarmSoil") as Node2D
+    var farm_soil := world.get_node_or_null("FarmMap/FarmSoil") as Node2D
     assert_not_null(farm_soil)
     if farm_soil == null:
         return
@@ -499,7 +499,7 @@ func test_set_input_enabled_false_zeros_and_stops_player_movement() -> void:
     var world := _world()
     if world == null:
         return
-    var player := world.get_node_or_null("Entities/Player") as PlayerController
+    var player := world.player
     assert_not_null(player)
     if player == null:
         return
@@ -522,7 +522,7 @@ func test_current_target_cell_matches_world_math() -> void:
     var world := _world()
     if world == null:
         return
-    var player := world.get_node_or_null("Entities/Player") as PlayerController
+    var player := world.player
     assert_not_null(player)
     if player == null:
         return
@@ -546,7 +546,7 @@ func _place_target(
     target: Vector2i,
     facing := WorldMath.Facing.DOWN,
 ) -> void:
-    var player := world.get_node_or_null("Entities/Player") as PlayerController
+    var player := world.player
     assert_not_null(player)
     if player == null:
         return
@@ -1490,7 +1490,7 @@ func test_opening_shop_immediately_blocks_movement_and_world_commands() -> void:
     var world := _world()
     if world == null:
         return
-    var player := world.get_node_or_null("Entities/Player") as PlayerController
+    var player := world.player
     var hud := _hud(world)
     assert_not_null(player)
     if player == null or hud == null:
@@ -2127,7 +2127,7 @@ func test_blocking_intro_never_advertises_farm_action() -> void:
     assert_eq(hud.prompt_text(), "")
 
 func _farm_effects(world: WorldShell) -> Node2D:
-    return world.get_node_or_null("FarmActionEffects") as Node2D
+    return world._map.effects as Node2D
 
 func _await_effects_settled() -> void:
     # Longest effect chain (tool motion + cell strip) stays under 0.6 s.
@@ -2139,7 +2139,7 @@ func _fx_name(prefix: String, cell: Vector2i) -> String:
 func test_successful_till_spawns_transient_tool_and_soil_effects() -> void:
     var world := _world()
     var effects := _farm_effects(world)
-    assert_not_null(effects, "FarmActionEffects exists directly under World")
+    assert_not_null(effects, "FarmActionEffects exists under FarmMap")
     if effects == null:
         return
     var cell: Vector2i = WorldContract.farm_cells()[0]
@@ -3057,7 +3057,7 @@ func test_weather_tint_matches_rainy_and_sunny_snapshots() -> void:
 
 func test_rain_visibility_follows_rainy_and_sunny_snapshots() -> void:
     var world := _world()
-    var ambience := world._homestead_ambience
+    var ambience := world._map.ambience
     var rainy := world._session.snapshot()
     rainy["weather"] = GameRules.weather_key(GameRules.Weather.RAINY)
     var sunny := world._session.snapshot()
@@ -3078,7 +3078,7 @@ func test_refresh_from_session_renders_rainy_snapshot() -> void:
     _restore_weather(world, GameRules.weather_key(GameRules.Weather.RAINY))
 
     world._refresh_from_session()
-    assert_true(world._homestead_ambience.is_rain_falling())
+    assert_true(world._map.ambience.is_rain_falling())
 
 
 func test_game_hud_rain_playback_follows_world_refresh() -> void:
@@ -3183,7 +3183,7 @@ func test_ambience_render_does_not_mutate_session_state() -> void:
     var before := world._session.snapshot().duplicate(true)
     var rainy := world._session.snapshot()
     rainy["weather"] = GameRules.weather_key(GameRules.Weather.RAINY)
-    world._homestead_ambience.render(rainy)
+    world._map.ambience.render(rainy)
     assert_eq(world._session.snapshot(), before)
 
 
@@ -3905,3 +3905,131 @@ func test_overnight_save_restores_upgrade_and_efficient_watering() -> void:
         _hud(shell).action_icon(GameRules.FarmingAction.WATERING_CAN).resource_path,
         "res://assets/ui/icons/watering-can-efficient.png",
     )
+
+func test_load_map_farm_reload_preserves_player_session_and_hud() -> void:
+    var world := _world()
+    var player := world.player
+    var camera := player.camera
+    var session := world._session
+    var hud := world.hud
+
+    # Leave a live ToolFx under the Player root: the old map's effects
+    # _exit_tree() must clean it when the map is replaced.
+    var cell: Vector2i = WorldContract.farm_cells()[0]
+    await _place_target(world, cell)
+    world.use_target_action()
+    assert_not_null(
+        player.get_node_or_null("ToolFx"), "reload regression needs a live ToolFx"
+    )
+
+    var snapshot_before := session.snapshot()
+    var buy_connections := hud.buy_requested.get_connections().size()
+    var old_map := world.get_node_or_null("FarmMap")
+    var old_entities := world.farm_view
+    var old_effects := world.get_node_or_null("FarmMap/FarmActionEffects")
+    var old_ambience := world.get_node_or_null("FarmMap/HomesteadAmbience")
+    var old_collision := world.get_node_or_null("FarmMap/StaticCollision")
+
+    # Dynamic dispatch so this spec stays compilable before load_map/MapId
+    # exist; argument 0 is MapId.FARM, the closed enum's only member.
+    world.call("load_map", 0)
+
+    assert_same(world.player, player, "same Player instance survives reload")
+    assert_same(player.camera, camera, "same Camera2D survives reload")
+    assert_same(world._session, session, "same GameSession survives reload")
+    assert_same(world.hud, hud, "same GameHud survives reload")
+    assert_same(
+        world.get_node_or_null("%Player"),
+        player,
+        "%Player resolves to the reparented player",
+    )
+
+    assert_eq(world.get_child_count(), 3, "World keeps exactly three children")
+    if world.get_child_count() == 3:
+        assert_eq(String(world.get_child(0).name), "FarmMap")
+        assert_eq(String(world.get_child(1).name), "TargetHighlight")
+        assert_eq(String(world.get_child(2).name), "GameHud")
+
+    var map := world.get_node_or_null("FarmMap") as Node2D
+    assert_not_null(map, "a fresh FarmMap is active after reload")
+    if map == null:
+        return
+    var entities := map.get_node_or_null("Entities") as Node2D
+    assert_not_null(entities)
+    if entities == null:
+        return
+    assert_same(player.get_parent(), entities, "player rejoined the new Y-sort root")
+    assert_same(entities.get_child(0), player, "player stays first for exact-Y sorting")
+
+    assert_eq(
+        player.global_position,
+        WorldMath.grid_to_world(WorldContract.PLAYER_SPAWN),
+        "farm spawn restored",
+    )
+    var target_highlight := world.get_node("TargetHighlight") as Line2D
+    assert_same(
+        player.target_highlight, target_highlight, "highlight bound before placement"
+    )
+    var spawn_target: Variant = WorldMath.target_cell(
+        WorldMath.world_to_grid(player.global_position), player.facing
+    )
+    assert_eq(spawn_target, Vector2i(12, 9), "spawn target cell")
+    assert_true(target_highlight.visible, "initial target drawn without a physics tick")
+    assert_eq(
+        target_highlight.points,
+        WorldMath.cell_diamond(spawn_target),
+        "initial target diamond drawn",
+    )
+
+    assert_not_same(map, old_map, "active map instance replaced")
+    assert_not_same(entities, old_entities, "Y-sort root replaced")
+    assert_not_same(
+        map.get_node_or_null("FarmActionEffects"), old_effects, "effects replaced"
+    )
+    assert_not_same(
+        map.get_node_or_null("HomesteadAmbience"), old_ambience, "ambience replaced"
+    )
+    assert_not_same(
+        map.get_node_or_null("StaticCollision"), old_collision, "StaticCollision replaced"
+    )
+
+    assert_eq(session.snapshot(), snapshot_before, "session snapshot unchanged by reload")
+    assert_eq(
+        hud.buy_requested.get_connections().size(),
+        buy_connections,
+        "no duplicate HUD request connections",
+    )
+
+    await get_tree().process_frame
+    assert_null(
+        player.get_node_or_null("ToolFx"),
+        "stale ToolFx cleaned by the old map's effects teardown",
+    )
+    assert_same(
+        world.get_viewport().get_camera_2d(), camera, "viewport still uses player.camera"
+    )
+    # reset_smoothing() snaps the smoothed position but the canvas transform
+    # only refreshes on the camera's next idle-process scroll update; a second
+    # frame lands after it.
+    await get_tree().process_frame
+    var half_view := world.get_viewport().get_visible_rect().size / camera.zoom * 0.5
+    var expected_center := Vector2(
+        clampf(
+            player.global_position.x,
+            camera.limit_left + half_view.x,
+            camera.limit_right - half_view.x,
+        ),
+        clampf(
+            player.global_position.y,
+            camera.limit_top + half_view.y,
+            camera.limit_bottom - half_view.y,
+        ),
+    )
+    assert_almost_eq(
+        camera.get_screen_center_position().distance_to(expected_center),
+        0.0,
+        0.5,
+        "screen center matches the bounds-clamped player after reset_smoothing",
+    )
+    assert_false(is_instance_valid(old_map), "old map freed")
+    assert_false(is_instance_valid(old_collision), "old StaticCollision freed")
