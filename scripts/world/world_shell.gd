@@ -91,6 +91,9 @@ func load_map(map_id: MapId) -> void:
 
     _cancel_action_hold()
     hud.hide_prompt()
+    # The highlight is shell-owned and survives the swap: clear the stale
+    # farm tint before placement repaints the new spawn target.
+    player.set_target_tint(PlayerController.TargetTint.NEUTRAL)
 
     # Detach the persistent Player to the shell while the map is swapped so
     # it is never inside the freed branch.
