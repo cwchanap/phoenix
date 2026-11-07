@@ -3913,8 +3913,6 @@ func test_load_map_farm_reload_preserves_player_session_and_hud() -> void:
     var session := world._session
     var hud := world.hud
 
-    # Leave a live ToolFx under the Player root: the old map's effects
-    # _exit_tree() must clean it when the map is replaced.
     var cell: Vector2i = WorldContract.farm_cells()[0]
     await _place_target(world, cell)
     world.use_target_action()
@@ -3922,9 +3920,6 @@ func test_load_map_farm_reload_preserves_player_session_and_hud() -> void:
         player.get_node_or_null("ToolFx"), "reload regression needs a live ToolFx"
     )
 
-    # Drive one real _process so the farm preview paints its non-neutral
-    # tint; reload must clear it rather than leaving the stale colour on
-    # the new spawn target until the next frame.
     world._process(0.0)
     var target_highlight := world.get_node("TargetHighlight") as Line2D
     assert_eq(
@@ -3941,8 +3936,6 @@ func test_load_map_farm_reload_preserves_player_session_and_hud() -> void:
     var old_ambience := world.get_node_or_null("FarmMap/HomesteadAmbience")
     var old_collision := world.get_node_or_null("FarmMap/StaticCollision")
 
-    # Dynamic dispatch so this spec stays compilable before load_map/MapId
-    # exist; argument 0 is MapId.FARM, the closed enum's only member.
     world.call("load_map", 0)
 
     assert_same(world.player, player, "same Player instance survives reload")
@@ -4023,9 +4016,6 @@ func test_load_map_farm_reload_preserves_player_session_and_hud() -> void:
     assert_same(
         world.get_viewport().get_camera_2d(), camera, "viewport still uses player.camera"
     )
-    # reset_smoothing() snaps the smoothed position but the canvas transform
-    # only refreshes on the camera's next idle-process scroll update; a second
-    # frame lands after it.
     await get_tree().process_frame
     var half_view := world.get_viewport().get_visible_rect().size / camera.zoom * 0.5
     var expected_center := Vector2(

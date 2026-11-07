@@ -25,9 +25,24 @@ There is no JavaScript or Tauri runtime in the current checkout.
 - `scripts/world/world_math.gd` is framework-free pure math for projection,
   inverse projection, cell lookup, diamonds, facing, targets, and projected
   logical footprints. It does not own nodes, input, physics, or gameplay state.
-- `scenes/world/world.tscn` and `scripts/world/world_shell.gd` own the authored
-  world scene. Ground is an authored `TileMapLayer`; shell setup derives the
-  collision geometry from `WorldContract` and `WorldMath`.
+- `scenes/world/world.tscn` and `scripts/world/world_shell.gd` own the world
+  shell: the one authored `Player` instance, the shell-owned
+  `TargetHighlight`, and the `GameHud`.
+- `scenes/world/farm_map.tscn` and `scripts/world/farm_map.gd` (`FarmMap`)
+  own the authored farm map: the ground/water/path/decoration
+  `TileMapLayer`s, `FarmSoil`, `FarmActionEffects`, `HomesteadAmbience`, the
+  farm `StaticCollision` bodies, and the `Entities` Y-sort root. `FarmMap`
+  derives its collision geometry, spawn, and camera bounds from
+  `WorldContract` and `WorldMath` at `_ready()`.
+- `WorldShell.load_map(MapId.FARM)` is the only map load/replace path: the
+  shell binds `player.target_highlight` once before the first call, then
+  each swap detaches the persistent `Player`, frees the old map, instances
+  the new one as the first `World` child (runtime order `FarmMap`,
+  `TargetHighlight`, `GameHud`), reparents the same `Player` under
+  `FarmMap/Entities` at index 0 with `owner` restored so `World/%Player`
+  keeps resolving, and places it via `player.enter_map()`. The swap is
+  presentation-only — `GameSession`, the `Camera2D`, `GameHud`, and its
+  signal connections survive untouched.
 - `scripts/game/game_rules.gd` is the closed rules/content source: crop
   economy, action time/stamina budgets, day/pacing/stamina/weather constants
   including `DRY_NIGHTS_TO_WITHER`, payout math, and the `CommandCode` enum
@@ -56,15 +71,15 @@ There is no JavaScript or Tauri runtime in the current checkout.
   auto-shipped at completion.
 - The Day 14 market and Day 14 sleep routes share one `_complete_finale()`
   transaction; no route reaches Day 15.
-- `FarmSoil` in `scenes/world/world.tscn` holds the non-Y-sorted farm ground
-  decals. `Entities` (scripted as `scripts/world/farm_view.gd`, `FarmView`)
-  remains the one Y-sort owner and renders crop sprites from session
-  snapshots; it owns no gameplay state. House, shop-stall, and
-  player roots are bottom-center ground-contact positions with child sprites
-  offset upward; they share a z-index and retain scene-tree order for exact-Y
-  ties.
+- `FarmSoil` in `scenes/world/farm_map.tscn` holds the non-Y-sorted farm
+  ground decals. `Entities` (scripted as `scripts/world/farm_view.gd`,
+  `FarmView`, a `FarmMap` child) remains the one Y-sort owner and renders
+  crop sprites from session snapshots; it owns no gameplay state. House,
+  shop-stall, and player roots are bottom-center ground-contact positions
+  with child sprites offset upward; they share a z-index and retain
+  scene-tree order for exact-Y ties.
 - `scripts/world/farm_action_effects.gd` (`FarmActionEffects`, a direct
-  non-Y-sorted World child at z=5) renders transient farming success FX —
+  non-Y-sorted `FarmMap` child at z=5) renders transient farming success FX —
   tool overlays under the Player root, cell strips under itself, the harvest
   pop under `Entities`. It owns no gameplay state; sprites/tweens free on
   completion.
@@ -109,8 +124,9 @@ There is no JavaScript or Tauri runtime in the current checkout.
 - GameHud.has_blocking_modal() remains the single world-input gate.
 - `scripts/world/world_shell.gd` is the only production session holder and
   coordinator: it owns the `GameSession` instance, wires HUD signals to
-  session commands, refreshes `FarmView`/`GameHud` from snapshots, and gates
-  world input while a modal blocks. Do not create a second session holder.
+  session commands, refreshes the active map's `FarmView`/ambience and
+  `GameHud` from snapshots, and gates world input while a modal blocks.
+  Do not create a second session holder.
 - Hold-to-work is transient `WorldShell` state (`ACTION_HOLD_DWELL_SECONDS`,
   0.15s): a fresh press fires the target once and dwelling on eligible cells
   works one at a time. Each gesture locks the action from its starting farm
@@ -137,9 +153,13 @@ There is no JavaScript or Tauri runtime in the current checkout.
   deterministic test opt-out checked only at the `_process` call site;
   fixtures set it false so frames never tick.
 - `scripts/player/player_controller.gd` owns input sampling for
-  movement/facing/targeting only and a `CharacterBody2D`. `move_and_slide()`
-  supplies Godot-native response against projected logical collision
-  polygons; do not port the old grid-axis resolver.
+  movement/facing/targeting only and a `CharacterBody2D` carrying the one
+  `Camera2D`. `WorldShell` reparents it into the active map's `Entities`
+  per load and calls `enter_map(spawn, camera_bounds)`, which applies the
+  map's placement and camera limits and repaints the bound
+  `target_highlight` immediately. `move_and_slide()` supplies Godot-native
+  response against projected logical collision polygons; do not port the
+  old grid-axis resolver.
 - scripts/app/app_root.gd owns title/load/launch lifecycle and one concrete SaveRepository.
 - Completed-run Continue routes straight to `ResultScreen`; the AppRoot
   result teardown removes the live World with `remove_child()` then
@@ -253,6 +273,14 @@ check remain open.
   0.5 s/min rate is final.
 - HPA-598 owns serialization; HPA-594 defines no save schema.
 - HPA-599 owns balance/polish/export.
+- HPA-685 extracted the authored farm into `scenes/world/farm_map.tscn`
+  (`FarmMap`) so `WorldShell.load_map()` can swap maps without touching the
+  session, the one Player/Camera2D, or the HUD. HPA-686 remains the sole
+  owner of town/travel/location semantics: `GameSession` will hold
+  transient runtime location exposed in snapshots (not overnight
+  `state()`/save), `WorldShell` will load maps in response to session
+  snapshots without recursive refresh, and town rain will not reuse the
+  farm-only ripple ambience.
 - HPA-682 rebuilt every non-HUD surface natively — title, result, intro,
   Pause, Settings, Bag, Almanac, Calendar, Sleep, morning summary, Shop,
   Shipping, and Dialogue — with the seven phone apps on the shared

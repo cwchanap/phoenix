@@ -19,9 +19,6 @@ func _ready() -> void:
     _update_visuals()
     _update_target()
 
-## WorldShell calls this once per map load with the active map's placement
-## values; target_highlight must already be bound so the target updates
-## immediately instead of waiting for the first physics tick.
 func enter_map(spawn: Vector2, camera_bounds: Rect2) -> void:
     global_position = WorldMath.grid_to_world(spawn)
     camera.zoom = Vector2.ONE * WorldContract.CAMERA_ZOOM

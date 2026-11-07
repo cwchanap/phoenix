@@ -2,7 +2,7 @@ class_name FarmActionEffects
 extends Node2D
 ## Transient success presentation for the four farming commands.
 ##
-## Cell FX live under this non-Y-sorted direct World child (z_index 5), tool
+## Cell FX live under this non-Y-sorted direct FarmMap child (z_index 5), tool
 ## overlays under the Player root, and the harvest pop under the Entities
 ## Y-sort owner. Owns no gameplay state and no action framework: WorldShell
 ## hands over one captured success context per dispatch, transient sprites and

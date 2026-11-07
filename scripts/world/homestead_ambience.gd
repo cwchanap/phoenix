@@ -2,7 +2,7 @@ class_name HomesteadAmbience
 extends Node2D
 ## Presentation-only river ripples and rain for the homestead ambience slice.
 ##
-## Direct World child layered above FarmSoil/FarmActionEffects (z_index 6)
+## Direct FarmMap child layered above FarmSoil/FarmActionEffects (z_index 6)
 ## and below TargetHighlight/Entities. Owns no gameplay state: three looping
 ## ripple strips driven by bound Tweens plus deterministic rain drawn as one
 ## canvas item via _draw()/draw_multiline, freed with the scene.
