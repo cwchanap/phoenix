@@ -31,7 +31,6 @@ const CAMERA_BOUNDS := Rect2(128.0, -96.0, 1408.0, 800.0)
 
 const FARM_PATCH := Rect2i(4, 10, 6, 5)
 
-# Solid one-cell band clamping the player inside the map on every side.
 const PERIMETER_BAND_WIDTH := 1.0
 
 static func perimeter_footprints() -> Array[Rect2]:
