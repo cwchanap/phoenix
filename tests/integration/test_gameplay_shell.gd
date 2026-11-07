@@ -3913,13 +3913,19 @@ func test_load_map_farm_reload_preserves_player_session_and_hud() -> void:
     var session := world._session
     var hud := world.hud
 
-    var cell: Vector2i = WorldContract.farm_cells()[0]
+    var cells := WorldContract.farm_cells()
+    var cell: Vector2i = cells[0]
+    var second: Vector2i = cells[1]
     await _place_target(world, cell)
-    world.use_target_action()
+    _push_use_action(world, true)
+    assert_true(world._action_hold_active, "fresh press arms the held gesture")
+    assert_eq(world._action_hold_target, cell)
+    assert_eq(world._action_hold_action, GameRules.FarmingAction.HOE)
     assert_not_null(
         player.get_node_or_null("ToolFx"), "reload regression needs a live ToolFx"
     )
 
+    _set_target(world, second)
     world._process(0.0)
     var target_highlight := world.get_node("TargetHighlight") as Line2D
     assert_eq(
@@ -3937,6 +3943,10 @@ func test_load_map_farm_reload_preserves_player_session_and_hud() -> void:
     var old_collision := world.get_node_or_null("FarmMap/StaticCollision")
 
     world.call("load_map", 0)
+
+    assert_false(world._action_hold_active, "reload drops the held gesture")
+    assert_null(world._action_hold_target)
+    assert_null(world._action_hold_action)
 
     assert_same(world.player, player, "same Player instance survives reload")
     assert_same(player.camera, camera, "same Camera2D survives reload")
@@ -4038,3 +4048,18 @@ func test_load_map_farm_reload_preserves_player_session_and_hud() -> void:
     )
     assert_false(is_instance_valid(old_map), "old map freed")
     assert_false(is_instance_valid(old_collision), "old StaticCollision freed")
+
+    _set_target(world, second)
+    var dwell_preview := _hold_preview(world, second)
+    assert_false(world._advance_action_hold(1.0, second, dwell_preview))
+    assert_false(world._advance_action_hold(1.0, second, dwell_preview))
+    assert_false(
+        session.snapshot()["farm"][1]["tilled"],
+        "held input across reload does no work without a fresh press",
+    )
+    assert_eq(
+        session.snapshot(),
+        snapshot_before,
+        "dwelling after reload leaves the session untouched",
+    )
+    _push_use_action(world, false)
