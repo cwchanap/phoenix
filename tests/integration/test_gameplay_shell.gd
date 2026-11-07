@@ -3922,6 +3922,17 @@ func test_load_map_farm_reload_preserves_player_session_and_hud() -> void:
         player.get_node_or_null("ToolFx"), "reload regression needs a live ToolFx"
     )
 
+    # Drive one real _process so the farm preview paints its non-neutral
+    # tint; reload must clear it rather than leaving the stale colour on
+    # the new spawn target until the next frame.
+    world._process(0.0)
+    var target_highlight := world.get_node("TargetHighlight") as Line2D
+    assert_eq(
+        target_highlight.default_color,
+        PlayerController.TARGET_VALID,
+        "pre-reload farm target carries the valid tint",
+    )
+
     var snapshot_before := session.snapshot()
     var buy_connections := hud.buy_requested.get_connections().size()
     var old_map := world.get_node_or_null("FarmMap")
@@ -3966,9 +3977,13 @@ func test_load_map_farm_reload_preserves_player_session_and_hud() -> void:
         WorldMath.grid_to_world(WorldContract.PLAYER_SPAWN),
         "farm spawn restored",
     )
-    var target_highlight := world.get_node("TargetHighlight") as Line2D
     assert_same(
         player.target_highlight, target_highlight, "highlight bound before placement"
+    )
+    assert_eq(
+        target_highlight.default_color,
+        PlayerController.TARGET_NEUTRAL,
+        "stale target tint cleared during reload",
     )
     var spawn_target: Variant = WorldMath.target_cell(
         WorldMath.world_to_grid(player.global_position), player.facing
