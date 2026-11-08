@@ -87,6 +87,7 @@ func load_map(map_id: MapId) -> void:
 
     _cancel_action_hold()
     hud.hide_prompt()
+    hud.close_modals()
     player.set_target_tint(PlayerController.TargetTint.NEUTRAL)
 
     if player.get_parent() != self:
