@@ -36,13 +36,15 @@ There is no JavaScript or Tauri runtime in the current checkout.
   `WorldContract` and `WorldMath` at `_ready()`.
 - `WorldShell.load_map(MapId.FARM)` is the only map load/replace path: the
   shell binds `player.target_highlight` once before the first call, then
-  each swap detaches the persistent `Player`, frees the old map, instances
-  the new one as the first `World` child (runtime order `FarmMap`,
-  `TargetHighlight`, `GameHud`), reparents the same `Player` under
-  `FarmMap/Entities` at index 0 with `owner` restored so `World/%Player`
-  keeps resolving, and places it via `player.enter_map()`. The swap is
-  presentation-only — `GameSession`, the `Camera2D`, `GameHud`, and its
-  signal connections survive untouched.
+  each swap cancels the held gesture, hides the prompt, closes every open
+  modal via `hud.close_modals()`, clears the target tint, detaches the
+  persistent `Player`, frees the old map, instances the new one as the
+  first `World` child (runtime order `FarmMap`, `TargetHighlight`,
+  `GameHud`), reparents the same `Player` under `FarmMap/Entities` at
+  index 0 with `owner` restored so `World/%Player` keeps resolving, and
+  places it via `player.enter_map()`. The swap is presentation-only —
+  `GameSession`, the `Camera2D`, `GameHud`, and its signal connections
+  survive untouched.
 - `scripts/game/game_rules.gd` is the closed rules/content source: crop
   economy, action time/stamina budgets, day/pacing/stamina/weather constants
   including `DRY_NIGHTS_TO_WITHER`, payout math, and the `CommandCode` enum

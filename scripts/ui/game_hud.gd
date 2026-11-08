@@ -319,6 +319,25 @@ func open_pause() -> void:
 func close_pause() -> void:
     _close_modal(_pause_panel)
 
+## Tears down every open primary modal in one transaction on map replacement:
+## a swap is not a user close, so no CONFIRM_SFX, and a pending morning
+## summary simply reopens through render() if the session still holds one.
+func close_modals() -> void:
+    var any_closed := false
+    for panel in _primary_modals:
+        if not panel.visible:
+            continue
+        if panel == _dialogue_panel:
+            _dialogue_panel.close_panel()
+        else:
+            panel.visible = false
+        any_closed = true
+    if not any_closed:
+        return
+    _onboarding_overlay.render(_last_snapshot)
+    _reconcile_modal_presentation()
+    modal_state_changed.emit()
+
 func open_settings() -> void:
     if not _pause_panel.visible or _settings == null:
         return

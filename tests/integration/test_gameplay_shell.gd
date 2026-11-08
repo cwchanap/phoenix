@@ -4012,6 +4012,15 @@ func test_load_map_farm_reload_preserves_player_session_and_hud() -> void:
     )
 
     assert_eq(session.snapshot(), snapshot_before, "session snapshot unchanged by reload")
+    assert_true(
+        snapshot_before["farm"][0]["tilled"], "the reload regression tills a cell"
+    )
+    var soil := map.get_node_or_null(
+        "FarmSoil/Soil_%d_%d" % [cell.x, cell.y]
+    ) as Sprite2D
+    assert_not_null(soil, "replacement map builds the tilled soil decal")
+    if soil != null:
+        assert_true(soil.visible, "tilled soil stays visible on the replacement map")
     assert_eq(
         hud.buy_requested.get_connections().size(),
         buy_connections,
@@ -4063,3 +4072,53 @@ func test_load_map_farm_reload_preserves_player_session_and_hud() -> void:
         "dwelling after reload leaves the session untouched",
     )
     _push_use_action(world, false)
+
+    _set_target(world, second)
+    _push_use_action(world, true)
+    assert_true(
+        session.snapshot()["farm"][1]["tilled"],
+        "a fresh press tills on the replacement map",
+    )
+    assert_not_null(
+        player.get_node_or_null("ToolFx"),
+        "tool overlay rebinds to the persistent player after reload",
+    )
+    assert_not_null(
+        map.get_node_or_null(
+            "FarmActionEffects/SoilFx_%d_%d" % [second.x, second.y]
+        ),
+        "cell strip plays under the replacement effects node",
+    )
+
+    _grow_mature_turnip(world, cells[2])
+    _set_target(world, cells[2])
+    _push_use_action(world, true)
+    assert_not_null(
+        entities.get_node_or_null(
+            "HarvestPop_%d_%d" % [cells[2].x, cells[2].y]
+        ),
+        "harvest pop rebinds to the replacement Entities root",
+    )
+    _push_use_action(world, false)
+
+func test_load_map_closes_open_modals() -> void:
+    var world := _world()
+    var hud := world.hud
+    var snapshot_before := world._session.snapshot()
+
+    hud.open_shop()
+    assert_true(hud.has_blocking_modal(), "seed box opens as a blocking modal")
+    assert_false(world._world_input_enabled)
+
+    world.call("load_map", 0)
+
+    assert_false(hud.has_blocking_modal(), "map replacement closes open modals")
+    assert_true(
+        world._world_input_enabled,
+        "input gate reopens once the modal is torn down",
+    )
+    assert_eq(
+        world._session.snapshot(),
+        snapshot_before,
+        "modal teardown leaves the session untouched",
+    )
