@@ -32,8 +32,9 @@ There is no JavaScript or Tauri runtime in the current checkout.
   own the authored farm map: the ground/water/path/decoration
   `TileMapLayer`s, `FarmSoil`, `FarmActionEffects`, `HomesteadAmbience`, the
   farm `StaticCollision` bodies, and the `Entities` Y-sort root. `FarmMap`
-  derives its collision geometry, spawn, and camera bounds from
-  `WorldContract` and `WorldMath` at `_ready()`.
+  derives its collision geometry from `WorldContract` and `WorldMath` at
+  `_ready()`, and defines its `SPAWN` and `CAMERA_BOUNDS` from
+  `WorldContract`.
 - `WorldShell.load_map(MapId.FARM)` is the only map load/replace path: the
   shell binds `player.target_highlight` once before the first call, then
   each swap cancels the held gesture, hides the prompt, closes every open

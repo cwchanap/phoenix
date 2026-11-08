@@ -3942,8 +3942,26 @@ func test_load_map_farm_reload_preserves_player_session_and_hud() -> void:
     var old_ambience := world.get_node_or_null("FarmMap/HomesteadAmbience")
     var old_collision := world.get_node_or_null("FarmMap/StaticCollision")
 
-    world.call("load_map", 0)
+    player.facing = WorldMath.Facing.UP
+    player.velocity = Vector2(100.0, 100.0)
 
+    world.load_map(WorldShell.MapId.FARM)
+
+    assert_eq(
+        player.facing,
+        WorldMath.Facing.DOWN,
+        "farm spawn facing reset to DOWN",
+    )
+    assert_eq(
+        player.velocity,
+        Vector2.ZERO,
+        "player velocity cleared on enter_map",
+    )
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.DOWN),
+        "player sprite frame updated to spawn facing",
+    )
     assert_false(world._action_hold_active, "reload drops the held gesture")
     assert_null(world._action_hold_target)
     assert_null(world._action_hold_action)
@@ -4104,21 +4122,74 @@ func test_load_map_farm_reload_preserves_player_session_and_hud() -> void:
 func test_load_map_closes_open_modals() -> void:
     var world := _world()
     var hud := world.hud
+    var sfx := hud.get_node("SfxPlayer") as AudioStreamPlayer
     var snapshot_before := world._session.snapshot()
 
     hud.open_shop()
     assert_true(hud.has_blocking_modal(), "seed box opens as a blocking modal")
     assert_false(world._world_input_enabled)
+    sfx.stream = null
 
-    world.call("load_map", 0)
+    world.load_map(WorldShell.MapId.FARM)
 
     assert_false(hud.has_blocking_modal(), "map replacement closes open modals")
     assert_true(
         world._world_input_enabled,
         "input gate reopens once the modal is torn down",
     )
+    assert_null(sfx.stream, "closing shop via map reload must not play CONFIRM_SFX")
     assert_eq(
         world._session.snapshot(),
         snapshot_before,
         "modal teardown leaves the session untouched",
     )
+
+    var june := VillagerRules.VillagerId.RESIDENT
+    _open_dialogue(world, june)
+    var dialogue_panel := _panel(hud, "DialoguePanel") as DialoguePanel
+    assert_true(dialogue_panel.visible, "dialogue panel opens")
+    assert_true(hud.has_blocking_modal())
+    assert_false(world._world_input_enabled)
+    sfx.stream = null
+
+    world.load_map(WorldShell.MapId.FARM)
+
+    assert_false(dialogue_panel.visible, "dialogue panel closed on map reload")
+    assert_false(hud.has_blocking_modal(), "no blocking modal remains")
+    assert_true(world._world_input_enabled)
+    var focus_owner := world.get_viewport().gui_get_focus_owner()
+    assert_true(
+        focus_owner == null or not dialogue_panel.is_ancestor_of(focus_owner),
+        "dialogue focus released on map reload",
+    )
+    assert_null(sfx.stream, "closing dialogue via map reload must not play CONFIRM_SFX")
+
+    # 3. Morning summary: session-driven summary is preserved across map swap
+    assert_eq(
+        world._session.sleep(WorldContract.BED_CELL),
+        GameRules.CommandCode.DAY_ADVANCED,
+    )
+    world._refresh_from_session()
+    var morning_summary := _panel(hud, "MorningSummaryPanel")
+    assert_true(morning_summary.visible, "morning summary opened from sleep")
+    assert_true(hud.has_blocking_modal(), "morning summary blocks input")
+    assert_false(world._world_input_enabled)
+    sfx.stream = null
+
+    world.load_map(WorldShell.MapId.FARM)
+
+    assert_true(morning_summary.visible, "morning summary stays visible across map reload")
+    assert_true(hud.has_blocking_modal(), "morning summary continues blocking input")
+    assert_false(world._world_input_enabled)
+    assert_null(sfx.stream, "reloading map with morning summary must not play CONFIRM_SFX")
+
+func test_load_map_unsupported_map_id_aborts_without_teardown() -> void:
+    var world := _world()
+    var active_map := world._map
+    var player := world.player
+
+    world.load_map(999 as WorldShell.MapId)
+    assert_push_error("Unsupported MapId")
+
+    assert_same(world._map, active_map, "unsupported map id leaves active map intact")
+    assert_same(player.get_parent(), active_map.entities, "player parent untouched")
