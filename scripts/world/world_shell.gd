@@ -86,10 +86,6 @@ func load_map(map_id: MapId) -> void:
         MapId.FARM:
             scene = FARM_MAP_SCENE
 
-    if scene == null:
-        push_error("Unsupported MapId: %s" % map_id)
-        return
-
     _cancel_action_hold()
     hud.hide_prompt()
     hud.close_modals()

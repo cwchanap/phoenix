@@ -206,7 +206,7 @@ func has_blocking_modal() -> bool:
 func set_finale_in_progress(value: bool) -> void:
     # While the finale cue plays, no close path may replace FINALE_SFX with
     # CONFIRM_SFX. WorldShell sets this before closing the sleep modal and
-    # starting the cue; the three CONFIRM_SFX close paths check it.
+    # starting the cue; the modal close path checks it.
     _finale_in_progress = value
 
 func set_save_status(status: StringName, message: String = "") -> void:
@@ -314,7 +314,7 @@ func close_pause() -> void:
 
 ## Tears down every open user modal in one transaction on map replacement.
 ## A swap is not a user close, so no CONFIRM_SFX plays; the session-driven
-## morning summary is preserved if currently active.
+## morning summary and opening overlay are preserved if currently active.
 func close_modals() -> void:
     var any_closed := false
     for panel in _primary_modals:

@@ -1,6 +1,7 @@
 # HPA-685 — Extract the farm into a swappable map: design specification
 
-**Status:** Approved design; November 7 implementation-order review incorporated. Runtime implementation remains in this same draft PR.  
+**Status:** Implemented on PR #37; verification evidence and remaining limits are recorded in the PR.
+
 **Linear:** https://linear.app/cwchanap/issue/HPA-685/let-worldshell-host-swappable-map-scenes-farm-extracted-no-behavior  
 **Base reviewed:** `main` at `d39fed7aef9c4596ef12d518b5596c1ac7787367` (2026-11-06).  
 **Dependencies:** HPA-683 (empty farm/seed box) is done; this ticket unblocks HPA-686 (town and travel). HPA-684 (diary) is independent and HPA-687 (town art) is already done.  
@@ -24,7 +25,7 @@ The flat hierarchy, not game rules, is the work to change. Keep `GameSession`, `
 
 ## Decision 1 — Two authored scenes; no map framework
 
-`scenes/world/world.tscn` stays the `WorldShell` packed scene used by `AppRoot`. It keeps the persistent `Player` instance (including its `Camera2D`), `TargetHighlight`, and `GameHud`. Mark the shell-authored `Player` as `unique_name_in_owner = true` (Godot `%Player`): the player retains its WorldShell owner when reparented beneath a map, so e2e can use `World/%Player` without depending on which map is active. A reload regression will verify that owner/unique-path behavior. Farm-specific content moves, with existing property values and transforms unchanged, into:
+`scenes/world/world.tscn` stays the `WorldShell` packed scene used by `AppRoot`. It keeps the persistent `Player` instance (including its `Camera2D`), `TargetHighlight`, and `GameHud`. Mark the shell-authored `Player` as `unique_name_in_owner = true` (Godot `%Player`): WorldShell restores the player's owner after reparenting beneath a map, so e2e can use `World/%Player` without depending on which map is active. A reload regression verifies that owner/unique-path behavior. Farm-specific content moves, with existing property values and transforms unchanged, into:
 
 - `scenes/world/farm_map.tscn`, root `FarmMap` (`Node2D`) at the same world origin.
 - `scripts/world/farm_map.gd`, a small script for farm-only collision setup and exposing the contract data WorldShell actually needs.
@@ -35,7 +36,7 @@ All map art is the already committed art. Do not generate town art, add `TownMap
 
 ## Decision 2 — Map supplies its geometry; WorldContract remains the farm truth
 
-`WorldContract` remains the **farm** contract; do not rename it or mirror its farm constants in the new scene script. `FarmMap` exposes its existing `Entities`/effects/ambience nodes and only the two player-placement values needed now: `PLAYER_SPAWN` and `CAMERA_BOUNDS` from `WorldContract`. WorldShell already knows which map it loaded, so FarmMap needs no `map_id` getter or map-size field. Farm-specific interactable cells, scene anchors, footprints, and collision mapping continue to come from the same `WorldContract` constants.
+`WorldContract` remains the **farm** contract; do not rename it or mirror its farm constants in the new scene script. `FarmMap` exposes its existing `Entities`/effects/ambience nodes and only the two player-placement values needed now: `SPAWN` and `CAMERA_BOUNDS`, aliases of `WorldContract.PLAYER_SPAWN` and `WorldContract.CAMERA_BOUNDS`. WorldShell already knows which map it loaded, so FarmMap needs no `map_id` getter or map-size field. Farm-specific interactable cells, scene anchors, footprints, and collision mapping continue to come from the same `WorldContract` constants.
 
 Move collision polygon initialization out of `WorldShell._ready()` into `FarmMap._ready()`. Keep the current `WorldMath.footprint_to_polygon()` and perimeter geometry unchanged; move the perimeter-footprint helper to the farm side (for example, `WorldContract.perimeter_footprints()`) rather than leave a farm-only geometry helper on the shared shell. Keep all authored collision children, including the four perimeter polygons, in the farm scene.
 
@@ -45,10 +46,10 @@ The future `TownContract` can mirror the same minimal size/spawn/bounds/cells/fo
 
 `WorldShell` keeps one `player: PlayerController` reference and one `GameSession` for its entire lifetime. It holds **one** `var _map: FarmMap` reference, not separate rebinding fields for farm view/effects/ambience. Keep `world.farm_view` as a getter over `_map.entities` for the existing tests; read effects/ambience from `_map` when needed. `WorldShell.load_map(map_id: MapId)` is the sole lifecycle entry point:
 
-1. Enter the known enum branch (`MapId.FARM`); cancel a held farm action and neutralize the old preview. No impossible-ID test or silent fallback.
+1. Enter the known enum branch (`MapId.FARM`); cancel a held farm action, hide the prompt, neutralize the old preview and close user-opened modals without a confirm sound. The session-driven morning summary and opening overlay remain open. No impossible-ID test or silent fallback.
 2. If a map is active, **detach the existing Player** from its `Entities` container to the shell *before* removing the old map from the scene tree. Remove/queue-free the old map so old collisions/FX/ambience cannot stay active. Never free/reinstantiate the player, camera, session, or HUD.
 3. Instantiate the matching authored map as the sole `World/FarmMap` node and immediately place it at **World child index 0** (`move_child(_map, 0)`) to preserve the scene's deterministic order: `[FarmMap, TargetHighlight, GameHud]`. `_map` exposes its `Entities`, `FarmActionEffects`, and `HomesteadAmbience` nodes; no three parallel cached/rebound references.
-4. Reparent the persistent Player into `FarmMap/Entities` and move it to **child index 0**. This preserves exact-Y tie ordering, front/behind occlusion, and harvest-pop Y sorting. Assign the existing field `player.target_highlight = $TargetHighlight` **before** `player.enter_map(spawn: Vector2, camera_bounds: Rect2)` so an initial `_update_target()` can render immediately rather than wait for a physics frame. Pass `WorldContract.PLAYER_SPAWN` and `CAMERA_BOUNDS`, then call `player.camera.reset_smoothing()` to avoid an old-location camera pan. Keep the existing camera zoom/smoothing configuration and do not add a target-map-size parameter here.
+4. Reparent the persistent Player into `FarmMap/Entities`, move it to **child index 0**, and restore its shell owner. This preserves exact-Y tie ordering, front/behind occlusion, and harvest-pop Y sorting. Assign the existing field `player.target_highlight = $TargetHighlight` **before** `player.enter_map(spawn: Vector2, camera_bounds: Rect2)` so an initial `_update_target()` can render immediately rather than wait for a physics frame. Pass the map's `SPAWN` and `CAMERA_BOUNDS`; `enter_map()` resets camera smoothing to avoid an old-location pan. Keep the existing camera zoom/smoothing configuration and do not add a target-map-size parameter here.
 5. Keep `player.target_highlight` assigned directly from WorldShell (no binding method or fragile `../../TargetHighlight` lookup). **After reparenting**, call a small `FarmMap.bind_player(player)` helper to run its existing `effects.setup(player, entities)`. This must not happen in `FarmMap._ready()`, before the player joins the new map. Refresh map visuals and HUD from the **same existing** session snapshot and reapply the modal input gate. Reuse the existing `FarmActionEffects._exit_tree()` cleanup for any old player-attached `ToolFx` and effects tweens; no second cleanup implementation.
 
 Startup calls `load_map(MapId.FARM)` after session initialization. Repeated farm loads should still leave exactly one active map, one player, one camera, one HUD, and the original session state. `load_map()` is a **presentation operation only**, never a gameplay location or travel command. No active-map location is persisted by HPA-685: Continue still starts at the farm and overnight save remains the existing `GameSession.state()` JSON.

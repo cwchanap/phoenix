@@ -37,8 +37,9 @@ There is no JavaScript or Tauri runtime in the current checkout.
   `WorldContract`.
 - `WorldShell.load_map(MapId.FARM)` is the only map load/replace path: the
   shell binds `player.target_highlight` once before the first call, then
-  each swap cancels the held gesture, hides the prompt, closes every open
-  modal via `hud.close_modals()`, clears the target tint, detaches the
+  each swap cancels the held gesture, hides the prompt, closes user-opened
+  modals via `hud.close_modals()` while preserving the morning summary and
+  opening overlay, clears the target tint, detaches the
   persistent `Player`, frees the old map, instances the new one as the
   first `World` child (runtime order `FarmMap`, `TargetHighlight`,
   `GameHud`), reparents the same `Player` under `FarmMap/Entities` at
@@ -277,13 +278,9 @@ check remain open.
 - HPA-598 owns serialization; HPA-594 defines no save schema.
 - HPA-599 owns balance/polish/export.
 - HPA-685 extracted the authored farm into `scenes/world/farm_map.tscn`
-  (`FarmMap`) so `WorldShell.load_map()` can swap maps without touching the
-  session, the one Player/Camera2D, or the HUD. HPA-686 remains the sole
-  owner of town/travel/location semantics: `GameSession` will hold
-  transient runtime location exposed in snapshots (not overnight
-  `state()`/save), `WorldShell` will load maps in response to session
-  snapshots without recursive refresh, and town rain will not reuse the
-  farm-only ripple ambience.
+  (`FarmMap`) so `WorldShell.load_map()` can swap maps without re-instancing
+  the session, Player/Camera2D, or HUD. HPA-686 owns town/travel/location
+  semantics.
 - HPA-682 rebuilt every non-HUD surface natively — title, result, intro,
   Pause, Settings, Bag, Almanac, Calendar, Sleep, morning summary, Shop,
   Shipping, and Dialogue — with the seven phone apps on the shared

@@ -3927,6 +3927,7 @@ func test_load_map_farm_reload_preserves_player_session_and_hud() -> void:
 
     _set_target(world, second)
     world._process(0.0)
+    assert_ne(hud.prompt_text(), "", "reload begins with a visible prompt")
     var target_highlight := world.get_node("TargetHighlight") as Line2D
     assert_eq(
         target_highlight.default_color,
@@ -3946,6 +3947,8 @@ func test_load_map_farm_reload_preserves_player_session_and_hud() -> void:
     player.velocity = Vector2(100.0, 100.0)
 
     world.load_map(WorldShell.MapId.FARM)
+
+    assert_eq(hud.prompt_text(), "", "reload clears the old target prompt")
 
     assert_eq(
         player.facing,
@@ -4164,7 +4167,6 @@ func test_load_map_closes_open_modals() -> void:
     )
     assert_null(sfx.stream, "closing dialogue via map reload must not play CONFIRM_SFX")
 
-    # 3. Morning summary: session-driven summary is preserved across map swap
     assert_eq(
         world._session.sleep(WorldContract.BED_CELL),
         GameRules.CommandCode.DAY_ADVANCED,
@@ -4176,6 +4178,14 @@ func test_load_map_closes_open_modals() -> void:
     assert_false(world._world_input_enabled)
     sfx.stream = null
 
+    var visibility_changes: Array[bool] = []
+    morning_summary.visibility_changed.connect(
+        func() -> void: visibility_changes.append(morning_summary.visible)
+    )
+    hud.close_modals()
+    assert_true(morning_summary.visible, "close_modals preserves the morning summary")
+    assert_eq(visibility_changes.size(), 0, "summary is never hidden and reopened")
+
     world.load_map(WorldShell.MapId.FARM)
 
     assert_true(morning_summary.visible, "morning summary stays visible across map reload")
@@ -4183,13 +4193,28 @@ func test_load_map_closes_open_modals() -> void:
     assert_false(world._world_input_enabled)
     assert_null(sfx.stream, "reloading map with morning summary must not play CONFIRM_SFX")
 
-func test_load_map_unsupported_map_id_aborts_without_teardown() -> void:
+func test_close_modals_closes_shop_without_confirm_sound() -> void:
     var world := _world()
-    var active_map := world._map
-    var player := world.player
+    var hud := world.hud
+    var shop := _panel(hud, "ShopPanel")
+    var sfx := hud.get_node("SfxPlayer") as AudioStreamPlayer
+    hud.open_shop()
+    assert_true(shop.visible)
+    sfx.stream = null
+    var changes: Array[bool] = []
+    hud.modal_state_changed.connect(func() -> void: changes.append(true))
 
-    world.load_map(999 as WorldShell.MapId)
-    assert_push_error("Unsupported MapId")
+    hud.close_modals()
 
-    assert_same(world._map, active_map, "unsupported map id leaves active map intact")
-    assert_same(player.get_parent(), active_map.entities, "player parent untouched")
+    assert_false(shop.visible)
+    assert_true(_chrome(hud).visible)
+    assert_eq(changes.size(), 1)
+    assert_null(sfx.stream)
+
+func test_close_modals_preserves_opening() -> void:
+    var world := _locked_world()
+    var opening := world.hud.get_node("HudRoot/OnboardingOverlay/OpeningPanel") as Control
+    assert_true(opening.visible)
+    world.hud.close_modals()
+    assert_true(opening.visible)
+    assert_true(world.hud.has_blocking_modal())
