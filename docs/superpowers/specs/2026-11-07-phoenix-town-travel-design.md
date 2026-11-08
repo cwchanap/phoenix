@@ -69,9 +69,15 @@ Remove farm-side seed box/stall and market *only after* the town scene/travel is
 
 Restore `talk` / `gift` tutorial entries, relevant tests and their reviewed en/zh_TW/ja rows from `c478f18^`; restore villager scene/interaction patterns and tests from `0d8667b^`. Use those commits as **reference only**: do not cherry-pick whole reverted farm geometry or old farm spatial guards. Adapt social tutorial relevance to `location == TOWN`; gift relevance also needs a harvest crop available. Shop wording returns from temporary `Seed Box` to staffed `Seed Shop` with existing translations adapted in one commit. Keep completion through `GameSession._commit()`.
 
+**Shop tutorial location:** `buy_seeds` (Reinvest) is relevant only when `location == TOWN`, `day >= 2`, and money covers a seed purchase. Do not show its old face-the-counter text on the farm on Day 2. The truck's contextual `Drive to town` prompt provides the farm-to-town hint; the Reinvest card is shown when the player can actually visit the staffed counter. Retain its normal success-code completion and table order.
+
+**Localization contract:** `WorldShell`'s new `Drive to town` and `Drive home` prompt strings, the staffed `Seed Shop` label, and the Pause `E` controls copy (`Talk, shop, bin, bed, truck`) each require their own key in `assets/i18n/strings.csv` with non-empty `zh_TW` and `ja` values. The English text *is* the key (`keys,zh_TW,ja`). Restore previously translated shop/social strings from history when suitable. Add explicit assertions for these UI keys in `tests/unit/test_localisation.gd`; the existing rules-only string check cannot discover unlisted `WorldShell` or `PausePanel` labels.
+
 Restoring nine tutorial keys intentionally makes some pre-release seven-key saves fail strict validation. Do not change save schema or add backward compatibility.
 
 Hana's favourite crop is Turnip: one conversation (1) plus one favourite gift (5) per day reaches Close Friend (18) on the third town visit/day. Use **real** travel, talk, gifting and shipping commands to prove Heart of the Harvest; do not seed a relationship dictionary. The current 175G Promising outcome must remain exact.
+
+**Existing watering-can balance gate:** `test_balance_gate_two_hundred_gold_buys_real_throughput_by_day_nine` measures farming/stamina throughput, **not** town travel or shopping. Preserve its paid-upgrade economics (upgraded fixture has 0G and `watering_can_upgraded = true`; baseline keeps 200G and the flag false), pre-seed those validated fixture fields rather than calling the relocated shop, and remove the obsolete farm-shop walking detour from `_run_benchmark_route`. Recalculate its expected Day 1 walking/time totals but retain the Day 9 6-vs-10 pumpkins, 840G-vs-1400G shipments, and 360G final-money advantage. Test actual truck travel and the 200G purchase separately using the real town shop.
 
 ## Decision 6 — Reachability and accepted weather limitation
 
