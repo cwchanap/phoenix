@@ -1,10 +1,11 @@
 # HPA-685 — Swappable FarmMap: single-PR implementation and verification plan
 
-**Status:** Revised for both PR #37 reviews (approved design plus November 7 implementation callouts); runtime implementation remains pending.  
+**Status:** Implemented on PR #37; verification evidence and remaining limits are recorded in the PR.
+
 **Design:** [HPA-685 design specification](../specs/2026-11-06-phoenix-swappable-map-design.md)  
 **Linear:** https://linear.app/cwchanap/issue/HPA-685/let-worldshell-host-swappable-map-scenes-farm-extracted-no-behavior  
 **Baseline:** `main` `d39fed7aef9c4596ef12d518b5596c1ac7787367`. HPA-683 (PR #36) is merged; HPA-686 remains blocked.  
-**Delivery:** Implement **on this same draft PR** after review. One ticket → one PR. No separate planning/implementation PRs or art tasks.
+**Delivery:** Implemented on the same PR. One ticket → one PR. No separate planning/implementation PRs or art tasks.
 
 ## Outcome and constraints
 
@@ -50,10 +51,10 @@ Write the test contract first, then implement the scene move and controller chan
 3. In `_ready()`, create/restore the one `GameSession`, configure the HUD and focus state, call `load_map(MapId.FARM)`, and connect HUD callbacks **once**. Do not connect once per map load. The single `_refresh_from_session()` path still updates `farm_view`, `_map.ambience`, HUD and input gate. Keep `load_map` **presentation-only**: it must not own/alter gameplay location, and HPA-686 will derive map changes from a session snapshot.
 4. In `load_map(map_id: MapId)`:
    - `match map_id` has the only production branch, `MapId.FARM`. No string IDs, registry, impossible-ID no-op or speculative failure test.
-   - Cancel any in-progress hold and clear stale prompt/target presentation.
+   - Cancel any in-progress hold, clear stale prompt/target presentation, and close user-opened modals without a confirm sound. Preserve the session-driven morning summary and opening overlay.
    - Detach the persistent Player temporarily to WorldShell; call `remove_child(old_map)` then `old_map.queue_free()` **before** adding the new map. The existing `FarmActionEffects._exit_tree()` already kills tweens and cleans external nodes, including Player-attached `ToolFx`; do not reimplement its cleanup.
    - Instantiate the FarmMap, name it `FarmMap`, add it under WorldShell, and store it once in `_map`. Immediately call `move_child(_map, 0)` so World children remain in the intended order `[FarmMap, TargetHighlight, GameHud]` for **both initial load and reload**. The map supplies children via typed properties; do not rebind three parallel cached references.
-   - Reparent **the same Player** into `_map.entities`; move it to index 0 to preserve exact-Y sorting. Ensure `player.target_highlight = $TargetHighlight` is already bound **before** calling `player.enter_map(WorldContract.PLAYER_SPAWN, WorldContract.CAMERA_BOUNDS)`, since the setter may call `_update_target()` immediately. Then call `player.camera.reset_smoothing()` to avoid a stale pan from the old position. Preserve current zoom/smoothing config.
+   - Reparent **the same Player** into `_map.entities`; move it to index 0 to preserve exact-Y sorting and restore its shell owner. Ensure `player.target_highlight = $TargetHighlight` is already bound **before** calling `player.enter_map(_map.SPAWN, _map.CAMERA_BOUNDS)`, since it calls `_update_target()` immediately. `enter_map()` resets camera smoothing to avoid a stale pan from the old position. Preserve current zoom/smoothing config.
    - Call `_map.bind_player(player)` **after** the reparent so its effects script can run the existing `setup(player, entities)`. Refresh from the unchanged session snapshot. `GameHud` and `GameSession` are never reinstantiated.
 5. Keep `PlayerController` responsible for movement, facing, target highlighting and the camera, but move the startup spawn and camera-limit lines out of its `_ready()` into `enter_map(spawn: Vector2, camera_bounds: Rect2)`. The setter takes **only those two values**. Keep current `WorldContract.PLAYER_HALF_EXTENT`, move speed, projection, zoom, and existing `WorldMath.target_cell()` unchanged. HPA-686 can add a size argument once TownMap truly exists; its town bounds can be derived by extending `WorldMath.map_camera_bounds()` to take size rather than introducing a second hand-typed literal.
 6. Keep `_interact_label()`, `interact()`, farming action/hold dispatch and `GameSession` exactly on their present farm logic. The seed box, bed, shipping, and market remain on this farm until HPA-686. No travel button or `GameSession.travel_to` yet.
@@ -87,7 +88,7 @@ Check each match by behavior: new paths are expected, but original farm coordina
 
 **Docs:** Update `CLAUDE.md` in this **same PR**; `AGENTS.md` is a symlink to it, not a separate mirrored file (confirmed from main's Git tree mode `120000`). Refresh now-outdated world ownership, Player parenting/camera-context and test-path statements. Also correct the stale "direct World child" source comments in `scripts/world/farm_action_effects.gd` and `scripts/world/homestead_ambience.gd`, and the message "FarmActionEffects exists directly under World" at `tests/integration/test_gameplay_shell.gd:2142`. Any README scene-path descriptions that change should be corrected too. Historical documents remain immutable.
 
-**Automated verification** (run on the committed implementation branch; this design-only draft does not claim any test result):
+**Automated verification** (run on the committed implementation branch; see the PR for results and limitations):
 
 ```bash
 ./tools/verify-clean.sh
@@ -109,13 +110,13 @@ As the existing project instructions explain, GUT is bootstrapped by `verify-cle
 
 ## Completion checklist
 
-- [ ] `FarmMap` contains all farm-only nodes; shell keeps one session, one Player + camera, one HUD and highlight.
-- [ ] `load_map(MapId.FARM)` is the only startup/replace path, presentation-only, and preserves identity/state without duplicate connections.
-- [ ] Farm contract, exact `World` child order, Y-sort/depth/collision/initial target rendering are equivalent; GUT direct `_homestead_ambience`/`_farm_effects` references updated; no new art, town code, translation or balance changes.
-- [ ] Headless smoke, GUT, GdUnit4 and godot-e2e assertions are updated to the new hierarchy and pass; export passes.
-- [ ] Native visual comparison is recorded; no screenshot-golden CI is recreated.
-- [ ] `CLAUDE.md` (and its `AGENTS.md` symlink) reflects final runtime hierarchy; stale farm-effects/ambience comments and assertion message are corrected; PR body carries actual evidence.
-- [ ] HPA-686 remains the sole owner of town/travel/location semantics: GameSession will hold **transient runtime** location exposed in snapshots (not overnight `state()`/save), and WorldShell will load maps in response to session snapshots, without recursive refresh. Its town rain will not reuse farm-only ripple ambience. HPA-684 retains diary/copy ownership.
+- [x] `FarmMap` contains all farm-only nodes; shell keeps one session, one Player + camera, one HUD and highlight.
+- [x] `load_map(MapId.FARM)` is the only startup/replace path, presentation-only, and preserves identity/state without duplicate connections.
+- [x] Farm contract, exact `World` child order, Y-sort/depth/collision/initial target rendering are equivalent; GUT direct `_homestead_ambience`/`_farm_effects` references updated; no new art, town code, translation or balance changes.
+- [x] Headless smoke, GUT, GdUnit4 and godot-e2e assertions updated; all lanes and export passed on `80452b0`, with e2e retries and limitations recorded in the PR.
+- [x] Agent-operated native visual comparison recorded in the PR; no screenshot-golden CI recreated. Comprehensive visual/FX regression and human playtesting were not claimed.
+- [x] `CLAUDE.md` (and its `AGENTS.md` symlink) reflects final runtime hierarchy; stale farm-effects/ambience comments and assertion message are corrected; PR body carries actual evidence.
+- [x] HPA-686 remains the sole owner of town/travel/location semantics; HPA-684 retains diary/copy ownership.
 
 ## Review focus before implementation
 
