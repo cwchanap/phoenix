@@ -17,15 +17,18 @@ func _ready() -> void:
     player_collision.polygon = player_polygon
 
     _update_visuals()
-    _update_target()
 
 func enter_map(spawn: Vector2, camera_bounds: Rect2) -> void:
     global_position = WorldMath.grid_to_world(spawn)
+    velocity = Vector2.ZERO
+    facing = WorldMath.Facing.DOWN
+    _update_visuals()
     camera.zoom = Vector2.ONE * WorldContract.CAMERA_ZOOM
     camera.limit_left = int(camera_bounds.position.x)
     camera.limit_top = int(camera_bounds.position.y)
     camera.limit_right = int(camera_bounds.position.x + camera_bounds.size.x)
     camera.limit_bottom = int(camera_bounds.position.y + camera_bounds.size.y)
+    camera.reset_smoothing()
     _update_target()
 
 func set_input_enabled(enabled: bool) -> void:

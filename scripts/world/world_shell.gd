@@ -67,7 +67,6 @@ func _ready() -> void:
     hud.configure(_settings)
 
     player.target_highlight = $TargetHighlight as Line2D
-    load_map(MapId.FARM)
 
     hud.select_seed_requested.connect(_on_select_seed_requested)
     hud.buy_requested.connect(_on_buy_requested)
@@ -79,11 +78,17 @@ func _ready() -> void:
     hud.intro_acknowledged.connect(_on_intro_acknowledged)
     hud.modal_state_changed.connect(_refresh_world_input_gate)
 
+    load_map(MapId.FARM)
+
 func load_map(map_id: MapId) -> void:
     var scene: PackedScene
     match map_id:
         MapId.FARM:
             scene = FARM_MAP_SCENE
+
+    if scene == null:
+        push_error("Unsupported MapId: %s" % map_id)
+        return
 
     _cancel_action_hold()
     hud.hide_prompt()
@@ -98,15 +103,13 @@ func load_map(map_id: MapId) -> void:
         _map.queue_free()
 
     _map = scene.instantiate() as FarmMap
-    _map.name = "FarmMap"
     add_child(_map)
     move_child(_map, 0)
 
     player.reparent(_map.entities)
     _map.entities.move_child(player, 0)
     player.owner = self
-    player.enter_map(_map.spawn, _map.camera_bounds)
-    player.camera.reset_smoothing()
+    player.enter_map(_map.SPAWN, _map.CAMERA_BOUNDS)
     _map.bind_player(player)
     _refresh_from_session()
 

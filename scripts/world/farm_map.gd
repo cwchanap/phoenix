@@ -1,12 +1,12 @@
 class_name FarmMap
 extends Node2D
 
+const SPAWN := WorldContract.PLAYER_SPAWN
+const CAMERA_BOUNDS := WorldContract.CAMERA_BOUNDS
+
 @onready var entities: FarmView = $Entities as FarmView
 @onready var effects: FarmActionEffects = $FarmActionEffects as FarmActionEffects
 @onready var ambience: HomesteadAmbience = $HomesteadAmbience as HomesteadAmbience
-
-var spawn := WorldContract.PLAYER_SPAWN
-var camera_bounds := WorldContract.CAMERA_BOUNDS
 
 func _ready() -> void:
     var static_collision := $StaticCollision as StaticBody2D

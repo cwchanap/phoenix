@@ -303,14 +303,7 @@ func update_dialogue(villager_id: int, result: Dictionary, snapshot: Dictionary)
     _dialogue_panel.present(villager_id, result, snapshot)
 
 func close_dialogue() -> void:
-    if not _dialogue_panel.visible:
-        return
-    _dialogue_panel.close_panel()
-    if not _finale_in_progress:
-        _play_sfx(CONFIRM_SFX)
-    _onboarding_overlay.render(_last_snapshot)
-    _set_hud_chrome_visible(true)
-    modal_state_changed.emit()
+    _close_modal(_dialogue_panel)
 
 func open_pause() -> void:
     if _open_modal(_pause_panel):
@@ -319,24 +312,19 @@ func open_pause() -> void:
 func close_pause() -> void:
     _close_modal(_pause_panel)
 
-## Tears down every open primary modal in one transaction on map replacement:
-## a swap is not a user close, so no CONFIRM_SFX, and a pending morning
-## summary simply reopens through render() if the session still holds one.
+## Tears down every open user modal in one transaction on map replacement.
+## A swap is not a user close, so no CONFIRM_SFX plays; the session-driven
+## morning summary is preserved if currently active.
 func close_modals() -> void:
     var any_closed := false
     for panel in _primary_modals:
-        if not panel.visible:
+        if panel == _morning_summary_panel or not panel.visible:
             continue
-        if panel == _dialogue_panel:
-            _dialogue_panel.close_panel()
-        else:
-            panel.visible = false
+        _hide_modal_panel(panel)
         any_closed = true
     if not any_closed:
         return
-    _onboarding_overlay.render(_last_snapshot)
-    _reconcile_modal_presentation()
-    modal_state_changed.emit()
+    _finish_modal_transition()
 
 func open_settings() -> void:
     if not _pause_panel.visible or _settings == null:
@@ -665,21 +653,28 @@ func _open_modal(panel: Control) -> bool:
         if registered == panel:
             registered.visible = true
             continue
-        if registered == _dialogue_panel and registered.visible:
-            _dialogue_panel.close_panel()
-        else:
-            registered.visible = false
+        if registered.visible:
+            _hide_modal_panel(registered)
     modal_state_changed.emit()
     return true
 
 func _close_modal(panel: Control) -> void:
     if not panel.visible:
         return
-    panel.visible = false
+    _hide_modal_panel(panel)
     if not _finale_in_progress:
         _play_sfx(CONFIRM_SFX)
+    _finish_modal_transition()
+
+func _hide_modal_panel(panel: Control) -> void:
+    if panel == _dialogue_panel:
+        _dialogue_panel.close_panel()
+    else:
+        panel.visible = false
+
+func _finish_modal_transition() -> void:
     _onboarding_overlay.render(_last_snapshot)
-    _set_hud_chrome_visible(true)
+    _reconcile_modal_presentation()
     modal_state_changed.emit()
 
 func _set_hud_chrome_visible(is_visible: bool) -> void:
