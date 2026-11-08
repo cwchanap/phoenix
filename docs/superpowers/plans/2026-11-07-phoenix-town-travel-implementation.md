@@ -1,97 +1,129 @@
 # HPA-686 — Town map and driving: single-PR implementation plan
 
-**Status:** Proposed; this is a planning-only draft, not verified implementation.  
+**Status:** Revised after the design review; **planning only**, not yet implemented or verified.  
 **Design:** [Town map/travel design specification](../specs/2026-11-07-phoenix-town-travel-design.md)  
 **Linear:** https://linear.app/cwchanap/issue/HPA-686/add-the-town-map-and-drive-between-farm-and-town  
 **Reviewed `main`:** `736a3bc97ea00d450cb499e0296ef48899922777`.  
-**Delivery:** Implement in **this same PR** after design review; one ticket -> one PR, no second implementation PR. HPA-687 already delivered art. Do not include HPA-684 diary or HPA-546 walk animation.
+**Delivery:** Implement everything on **this same PR**. One Linear ticket -> one PR, and keep each implementation checkpoint runnable. The HPA-687 art already exists; leave HPA-684 diary and HPA-546 walk animation for their own tickets.
 
-## Preflight — audit current assumptions before editing
+## Preflight — preserve current behavior and reuse deleted code
 
-Godot 4.7.1, statically typed GDScript, single GameSession and GameHud, authored FarmMap from HPA-685, strict save-state validator, three languages, no screenshot-golden gate. The shell currently loads only FarmMap, `_map` is typed `FarmMap`, `farm_view` is a direct getter, and `_process()` assumes there is always a farm view. The session currently validates shop/market cells using `WorldContract` even though those facilities must move.
+The current code is Godot 4.7.1, statically typed GDScript with `GameSession` as the only mutable gameplay authority, `WorldShell` as its only runtime owner, the HPA-685 FarmMap, strict v4 SaveFile transport and native 1080p localized UI.
 
-Check all references before changing symbols or scenes:
+The earlier plan incorrectly moved shop/market guards to TOWN in Step 1, before TownContract or the travel scene existed. That breaks runtime and many tests. **Do not implement the old Step 1–3 ordering.** Keep old farm shop/market behavior working until the **single migration commit in Step C**.
+
+Recover reviewed *patterns*, not their old farm coordinates:
+
+- Inspect `0d8667b^` (parent of the HPA-683 removal): `villager_at`, villager collision footprints, three `Entities/Villager*` sprites with child shadows, E-to-talk handling, and focused world/relationship tests. Port those into **TownContract/TownMap** only; do not reintroduce redundant farm target parameters on `GameSession.talk_to`/`gift_crop`.
+- Inspect `c478f18^` (parent of the HPA-683 tutorial/copy removal): `talk`/`gift` ContentRules entries, relevance and their tested English/Traditional-Chinese/Japanese strings. Restore the entries and CSV rows, then adapt relevance to current location. Do not cherry-pick the whole historical commit or revert later game code.
+- Use existing `town-terrain.png`, `town-props.png`, `kei-truck.png`, `villagers.png` and portraits. The decided town prop/truck render scale is **1x** (including the atlas frames); farm House stays 2x. Verify against visible ground-contact bases before fixing footprints.
+
+Reference audit before edits:
 
 ```bash
 grep -RInE 'WorldShell\.MapId|load_map\(|_map\.|farm_view|WorldContract\.(SHOP_CELL|MARKET_CELL|SHOP_STALL_FOOTPRINT|MARKET_FOOTPRINT|VILLAGE_SIGN_CELL)' scripts scenes tests
-grep -RInE 'target_cell\(|map_camera_bounds\(|enter_map\(|talk_to\(|gift_crop\(|buy_seeds\(|buy_watering_can_upgrade\(|deposit_crop\(|trigger_harvest_finale\(' scripts tests
+grep -RInE 'target_cell\(|map_camera_bounds\(|perimeter_footprints\(|enter_map\(|talk_to\(|gift_crop\(|buy_seeds\(|buy_watering_can_upgrade\(|deposit_crop\(|trigger_harvest_finale\(' scripts tests
 grep -RInE 'Seed Box|SEED BOX|ShopStall|HarvestMarket|TUTORIALS|tutorial_keys|NOT_AT_SHOP|NOT_AT_MARKET|NOT_FARM_CELL' scripts scenes tests assets/i18n/strings.csv
 ```
 
-Do not change any frozen farm coordinates except the removed farm-only shop/market/truck placement. Use Godot to check that the selected farm truck location, its arrival point, and town building footprints are actually reachable; authored layout is the source of truth for coordinates, not an inferred screenshot.
+The current farm shop/market geometry is referenced by many tests (about 70 test-site references in the review); search for all matches rather than assuming only unit tests need updates. `AGENTS.md` is a symlink to `CLAUDE.md`: edit CLAUDE.md only.
 
-## Step 1 — Session-owned location, command rules, and unit coverage
+### Verification during development
 
-**Files:** `scripts/game/game_rules.gd`, `scripts/game/game_session.gd`, `scripts/world/world_contract.gd` (move town-only constants later), `tests/unit/test_game_rules.gd`, `tests/unit/test_game_session.gd`, `tests/gdunit/test_game_session_flows.gd`.
-
-1. Define `GameRules.MapId { FARM, TOWN }` as the one enum shared by session and shell, add `TRAVEL_MINUTES := 30` and one success `CommandCode.TRAVELLED`. Prefer existing failure codes (`NOT_FARM_CELL`, `NOT_AT_SHOP`, `NOT_AT_SHIPPING_BIN`, `NOT_AT_BED`, `NOT_AT_MARKET`, `NOTHING_TO_INTERACT`) rather than new overlapping error enums.
-2. Add private, non-persisted `GameSession._location: GameRules.MapId = FARM`. `snapshot()` exposes location; `state()` does not. `restore_state()` resets location to FARM after successful restore. Add a focused test asserting `state()` has no location key, unchanged persisted shape, snapshot is read-only, and a restored save begins at farm.
-3. Add `travel_to(destination: GameRules.MapId) -> GameRules.CommandCode`. Reject active-day failures and same-location travel without mutation; on success, set location and `_time_minutes = mini(_time_minutes + 30, ACTION_CUTOFF_MINUTES)`, with no stamina debit, no tutorial completion, no day change. Test 06:00, 21:45 and 22:00 cases, round trips, a failed same-destination request, morning-summary gate, and terminal finale gate. Reuse the existing clock cap rather than building a new travel-time evaluator.
-4. Guard `preview_target_action()` and the shared farm-target failure path so town coordinates cannot become valid farm actions. Both public action wrappers and low-level `hoe/plant/water/harvest` must reject TOWN. Keep successful farm budgets/effects unchanged.
-5. For `buy_seeds` and `buy_watering_can_upgrade` require TOWN and `TownContract.SHOP_CELL`; for `deposit_crop` and `sleep` require FARM and their current WorldContract cells; for `trigger_harvest_finale` require TOWN, Day 14, and `TownContract.MARKET_CELL`. For `talk_to`/`gift_crop` require TOWN but keep their existing target-free signature and all gift/point semantics. Test a direct call to every moved command from the wrong map and verify state is unchanged. There is no need for a general authorization policy object.
-6. Keep `_complete_finale()` shared by town market and farm sleep; no Day 15 and no ending rebalance.
-
-**Checkpoint:** Unit tests establish that location is authoritative, a town cell overlapping a farm cell never farms, round trips work after cutoff, and the saved state shape is unchanged. Compile/update old callers of moved constants atomically with their changes; do not leave a broken intermediate commit on the PR.
-
-## Step 2 — Author the town scene with existing art and a narrow contract
-
-**Files:** `scripts/world/town_contract.gd` + Godot-generated UID, `scripts/world/town_map.gd` + UID, `scenes/world/town_map.tscn`, a minimal town TileSet resource if required, `scripts/world/world_math.gd`, `scripts/player/player_controller.gd`, `tests/headless/world_math_smoke.gd`, `tests/headless/world_shell_smoke.gd`.
-
-1. Define a single ~`16x12` town grid in `TownContract` with town entrance/truck target, near-truck arrival spawn, shop, station cafe, market, Sato-san/Gen-san/Hana cells, static building footprints and camera bounds. Include a tiny `villager_at(cell)` lookup from the same data. Do not put duplicate town positions in tests or WorldShell.
-2. Make `TownMap` an authored `Node2D` scene with a 16x12 paved/road TileMapLayer; an `Entities` Y-sort root; visual station/shop/cafe/market props; three existing villager sprite instances; an authored kei truck; and `StaticCollision` polygons derived from TownContract with `WorldMath.footprint_to_polygon()`. Use `town-terrain.png`, `town-props.png`, `kei-truck.png` and the existing `villagers.png`/portraits. Keep bottom-center ground contact and child shadows; use nearest filtering. No art-generation changes.
-3. Give TownMap only the data WorldShell needs for placement and interaction (e.g. `entities`, `SPAWN`, `CAMERA_BOUNDS`, `MAP_SIZE`). Give FarmMap a separate truck-side arrival spawn while preserving its initial house-side `SPAWN`. Remove the temporary farm seed stall, unattended seed-box and market scene nodes/colliders; keep farm soil, shipping, bed, rivers, FX, ambience and the road. Replace/position the farm-side truck close to the existing village-road/sign area; do not duplicate the truck artwork.
-4. Make `WorldMath.target_cell()` map-size-aware, and calculate camera bounds from the supplied map size. Adjust `PlayerController.enter_map()` to set current map size before updating its target; preserve projection/hitbox/speed/zoom and camera instance. Verify a town edge target is null when outside 16x12 and farm 24x20 behavior remains unchanged.
-5. Add smoke assertions for exact authored scene children, map-size limits, truck/prop frames, static geometry, collision-free navigation to shop/NPCs/market/truck, and the one Y-sort root. Inspect the town at 1920x1080 rather than relying on removed visual goldens.
-
-**Checkpoint:** TownMap can be instantiated by itself; authored tile coverage, positioning, depth and collision are visually plausible. No crop FX or second Player exists in TownMap.
-
-## Step 3 — Wire truck travel and location-aware world interaction
-
-**Files:** `scripts/world/world_shell.gd`, `scripts/world/farm_map.gd`, `scenes/world/farm_map.tscn`, `scripts/ui/game_hud.gd` if success feedback needs mapping, `tests/integration/test_gameplay_shell.gd`, `tests/integration/test_commerce_panels.gd`, `tests/e2e/gameplay_day_one_test.gd`.
-
-1. Replace `WorldShell.MapId` with `GameRules.MapId` and add the TownMap packed scene to the existing closed two-way `load_map` match. Make `_map` a narrow `Node2D` reference, with typed FarmMap/TownMap branches for `entities`, spawn and camera bounds; do **not** introduce a MapBase or duplicate child caches. Keep the same Player instance under the current map's `Entities` at index 0 with `owner = self`. The shell's `%Player` lookup and one HUD/session/camera survive both directions.
-2. Preserve HPA-685 teardown on swap: cancel hold, hide prompt, neutralize target tint, close user-opened modals, detach Player, free old map, install new map at World child index 0, reparent Player, reset camera smoothing, bind farm FX if applicable, and refresh once. Keep morning summary and opening overlay session-owned as before.
-3. Add an arrival-spawn parameter (or a two-map-specific decision) to `load_map` so initial farm New Game/Continue starts by the house and travel home starts by the parked farm truck. The town always arrives beside its truck. Test that neither arrival point overlaps any static collision and that the truck remains targetable to return.
-4. `interact()` and `_interact_label()` use *only the active map's* contract: farm bed/shipping/truck; town truck/shop/NPCs/Day 14 market. For a villager, dispatch `_session.talk_to(id)` through the existing `_finish_social_command` and DialoguePanel; gift signal wiring is unchanged. For the truck, check the faced truck target first, call `travel_to(other_map)`, and call `load_map` **only** for `TRAVELLED`. Failure leaves the old scene intact.
-5. `_process()` uses farm action preview and `farm_view.set_target_cell()` only while on FARM; on TOWN show neutral target tint and town interactions, never call farm-specific render/effects on a TownMap. `_refresh_from_session()` always renders HUD but refreshes `FarmView` and farm ambience only when the active map is FarmMap. Preserve held-action/input/modal/clock behavior from HPA-685.
-6. Keep ShopPanel and Efficient Can behavior; restore staffed `Seed Shop` labels instead of self-service `Seed Box`. No new commerce screen. Do not reset the transient session location during map swaps.
-
-**Checkpoint:** Play E on farm truck -> town, reach each NPC and shop, E on town truck -> farm, ship crops and sleep. Test direct commands cannot cross location boundaries. A repeated round trip must not duplicate Player, Camera2D, HUD signal connections, map/collider/effects nodes, or stale modals.
-
-## Step 4 — Social tutorials, strings, and live documentation
-
-**Files:** `scripts/game/content_rules.gd`, `assets/i18n/strings.csv`, `scripts/ui/shop_panel.gd`, `scripts/ui/pause_panel.gd` if wording changes, `tests/unit/test_content_rules.gd`, `tests/unit/test_localisation.gd`, `tests/integration/test_phone_surfaces.gd`, `README.md`, `CLAUDE.md`.
-
-1. Re-add table entries `talk` (successful `VILLAGER_TALKED`) and `gift` (successful `CROP_GIFTED`) to `ContentRules.TUTORIALS`. Make both relevant only while in town; the gift card also requires available harvested crops. Keep the existing ordering of farm tutorials and ensure the social cards do not obscure early farming.
-2. Update shop prompt/header/tutorial/help from unattended `Seed Box` to staffed `Seed Shop`. Put every changed/new English UI key, corresponding zh_TW (Taiwan) and ja translations together in the existing CSV; do not retain obsolete temporary strings. Do not rewrite opening, diary, result or existing village dialogue (HPA-684 owns story copy).
-3. Update tutorial-key assertions, localization tests and any expected snapshot-shape assertions. `SessionStateValidator` strict key validation means an old pre-release seven-key save may be rejected; keep schema transport at v4 with no compatibility path. New save/Continue, overnight summary and completed-run Continue must still work.
-4. Update `README.md` gameplay/control/map/ending descriptions and `CLAUDE.md` architecture, two-map ownership, source-of-truth constants, and world interaction policy. `AGENTS.md` is a symlink to CLAUDE.md; edit CLAUDE.md only. Preserve historical design documents.
-
-**Checkpoint:** All strings render correctly for en, zh_TW and ja at native 1920x1080. The farm no longer claims to provide a seed box or market; town cards surface only when useful.
-
-## Step 5 — Regression tests and playable outcome verification
-
-Focus on a small set of high-value tests, extending existing suites instead of creating a new harness.
-
-| Test location | Required assertions |
-| --- | --- |
-| `tests/unit/test_game_session.gd` | Transient location, travel clock cap/zero stamina, failed-travel immutability, every map-bound command's location guard, fresh-state round-trip, town market vs farm sleep |
-| `tests/unit/test_content_rules.gd` | Nine tutorial keys, town-only talk/gift relevance, successful completion, no farm social prompts |
-| `tests/headless/world_math_smoke.gd` / `world_shell_smoke.gd` | 16x12 town targeting/camera, authoritative footprints, correct new farm child list, prop and collision ownership |
-| `tests/integration/test_gameplay_shell.gd` | Player/session/HUD/camera identity across multiple truck trips, arrival reachability, modal/hold/prompt teardown, no duplicate signals, town E -> dialogue/gift, UI shop vs farm shipping/bed |
-| `tests/integration/test_persistence_flow.gd` | After successful farm sleep, save is still v4 without location; Continue reloads farm, never town |
-| `tests/e2e/gameplay_day_one_test.gd` | Extend real-keyboard flow for farm truck -> town seed shop -> back home; keep current farming and save/Continue assertions |
-
-Prove both endings without building a giant new 14-day e2e suite:
-
-- Keep the existing deterministic five-Turnip / 175G shipped `promising_farmer` GUT route unchanged in outcome; update its seed-purchasing steps to visit the real town shop if the route drives commerce.
-- Add a deterministic route using real `GameSession` farming/shipping/travel/talk/gift commands (plus one WorldShell E/dialogue integration test) that earns a Close Friend from in-town visits, ships >=300G, reaches Day 14, and triggers `heart_of_harvest` at the town market. A short manual native playthrough must also demonstrate that social targets are physically reachable. Do not pass just by seeding a close-friend result dictionary.
-- Assert that Day 14 farm-bed sleep remains a terminal fallback and that driving home after 22:00 works with no stranded player.
-
-## Four required release gates — run after implementation, not on this docs-only draft
+For an **uncommitted working tree**, run headless import and direct smoke checks. If GUT is installed locally at `addons/gut`, run its direct command. `verify-clean.sh` does **not** see uncommitted edits: it archives `HEAD` into a temporary checkout and fetches its own GUT dependency.
 
 ```bash
-# 1. GUT unit/integration and headless project/world/audio smokes
+godot --headless --path . --editor --quit
+godot --headless --path . --script res://tests/headless/world_math_smoke.gd
+godot --headless --path . --script res://tests/headless/world_shell_smoke.gd
+# When addons/gut is present in the working checkout:
+godot --headless --path . -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit,res://tests/integration -gexit
+```
+
+After **each coherent committed checkpoint** run `./tools/verify-clean.sh` on that `HEAD`. Run GdUnit4/e2e when changing their suite/call sites, and rerun every release gate at the end. No red intermediate commits.
+
+## Step A — Additive session/geometry/HUD preparation (farm behavior unchanged)
+
+**Files:** `scripts/game/game_rules.gd`, `scripts/game/game_session.gd`, `scripts/world/town_contract.gd` + UID (initial constants only), `scripts/world/world_contract.gd`, `scripts/world/world_math.gd`, `scripts/player/player_controller.gd`, `scripts/ui/game_hud.gd`, relevant `tests/unit` / `tests/gdunit` / `tests/headless` suites.
+
+1. Add `GameRules.MapId { FARM, TOWN }` (replacing the shell enum during integration), `TRAVEL_MINUTES := 30`, `CommandCode.TRAVELLED`. Map TRAVELLED to `""` in `GameHud.feedback_text` and to the existing `ACTION_SFX` in `_sfx_for_code` **in this same commit**. Omitting either branch makes a successful drive assert or play the cancel sound.
+2. Add private `GameSession._location = FARM`, expose `location` only in `snapshot()`, leave `state()` unchanged and reset location to FARM on successful `restore_state()`. Do not change the persisted schema or validator beyond tests of the unchanged shape.
+3. Add minimal `TownContract` with `MAP_SIZE := Vector2i(16, 12)`, `TRUCK_CELL` and `TRUCK_ARRIVAL`. Add farm `TRUCK_CELL` and `TRUCK_ARRIVAL` in `WorldContract` near its existing road/sign. Keep the old farm seed-box and market cells intact for now. Truck geometry is for future scene binding; this step need not yet draw a truck.
+4. Add **`GameSession.travel(target_cell: Variant) -> GameRules.CommandCode`**. It chooses the opposite location implicitly, checks `_active_day_failure()` and the truck cell of the current map, returns existing `NOTHING_TO_INTERACT` for a wrong target with no mutation, and otherwise flips the location and adds `mini(time+30, 22:00)` with **no stamina cost**. Add focused tests for both directions, no remote travel, 21:45->22:00, success at 22:00, morning-summary/finale gate, and unchanged `state()` shape.
+5. Put `if _location != FARM: return -1` in `GameSession._farm_index()` to cover every farm preview/action and the direct low-level commands without duplicate location branches. Leave **shop, watering-can upgrade, shipping, sleep, market and social guards unchanged** until Step C. After successful direct travel to TOWN, farm action preview naturally says NOT_FARM_CELL.
+6. Thread a **required** map size through `WorldMath.target_cell(position, facing, map_size)` and `WorldMath.map_camera_bounds(map_size)`, including all tests that call them. Make `WorldContract.perimeter_footprints(map_size)` accept a required size, passing `WorldContract.MAP_SIZE` from the existing FarmMap. Pass map size into `PlayerController.enter_map(spawn, camera_bounds, map_size)`; store the active size for current targeting. Use farm size from WorldShell until TownMap exists. Never fall back silently to a default 24x20 in town.
+7. Update existing tests mechanically for the required parameters and snapshot's new transient location field. This is a coherent additive change: New Game, farm shop, shipping, sleep and farm market remain playable and tested.
+
+**Step A checkpoint:** With the working-tree commands above, confirm Godot imports, both world smokes pass and GUT passes if installed. Commit the additive changes together; run:
+
+```bash
+./tools/verify-clean.sh
+GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/gdunit -c
+```
+
+Do not proceed with a red checkpoint or skip the HPA-685 map-reload regression.
+
+## Step B — Build TownMap and wire round-trip trucks without moving commerce yet
+
+**Files:** `scenes/world/town_map.tscn`, `scripts/world/town_map.gd` + UID, `scripts/world/town_contract.gd`, town TileSet if needed, `scenes/world/farm_map.tscn`, `scripts/world/farm_map.gd`, `scripts/world/world_shell.gd`, `tests/headless/world_shell_smoke.gd`, `tests/integration/test_gameplay_shell.gd`.
+
+1. Author a small paved town with shop, station, cafe, market building props and truck, one `Entities` Y-sort root, and static collision with a 16x12 perimeter. Add villager *placements* in the following migration step, to keep code/test deltas focused. Source collision footprints from TownContract and keep the truck and each building's bottom-center contact matched to the **1x** atlases.
+2. Add the parked truck to FarmMap at the existing road/sign side, with no new imagery. Add a free farm truck-side arrival spawn. Construct both maps' perimeter bands with the supplied map size: **never reuse the farm 24x20 perimeter on TownMap**. Preserve farm soil, ambience, harvest/action effects, bed and shipping as-is.
+3. Replace `WorldShell.MapId` with the shared `GameRules.MapId`. Implement `load_map(arrived_by_truck: bool = false)` which chooses the map **from `GameSession.snapshot()["location"]`**; never accept an independent map ID. `_ready()` calls `load_map()` (farm house SPAWN); a successful E at the active truck calls `_session.travel(player.current_target_cell())` then `load_map(true)` (destination's TRUCK_ARRIVAL). A failed drive neither changes session nor swaps scene.
+4. Preserve HPA-685 teardown exactly: cancel hold, close user-opened modals, clear prompt/tint, detach same Player, queue-free old map, install one new map at World index 0, reparent Player first under active `Entities`, restore `owner = self` / `%Player`, reset camera smoothing and refresh once. Keep HUD signals connected only once, and never recreate GameSession/HUD/Camera2D.
+5. Switch `_map` to a narrow `Node2D` with typed `FarmMap`/`TownMap` branches, not an inherited BaseMap. A nullable typed FarmMap getter is enough for existing `farm_view` accesses. Keep `WorldShell._process()` using the ordinary session preview in **both** maps; in town it falls through to town interaction labels. Gate only `FarmView.set_target_cell/refresh`, `FarmActionEffects.play_success` and `HomesteadAmbience.render` behind `_map as FarmMap`, which is null in town.
+6. During this checkpoint, intentionally retain the **old farm seed box and harvest market** as active. Round-trip driving exists but town shopping/social and market are *not* enabled yet. Update HPA-685 tests that called `load_map(MapId.FARM)` to call `load_map()`. Add one two-way truck integration test pinning same Player, Camera2D, session and HUD IDs, arrival cells, target clearing, no stale FX/modals and no duplicate HUD connections.
+
+**Step B checkpoint:** Exercise farm E -> town truck E -> farm and verify existing farm shopping, bed and Day 14 market **still work**. Run working-tree headless/GUT commands above, then commit and run:
+
+```bash
+./tools/verify-clean.sh
+GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/e2e -c
+```
+
+This deliberate temporary town (scenery + travel, but no residents/commerce) is an intermediate state only; it must not remain as the final PR.
+
+## Step C — Atomic town migration: shop, market, villagers, tutorials and tests
+
+**Do all Step C edits together in one coherent commit**, because moving a command guard to TOWN before updating shell and its tests would break gameplay. Do not land isolated red guard changes.
+
+**Files:** `scripts/game/game_session.gd`, `scripts/world/town_contract.gd`, `scripts/world/world_contract.gd`, `scripts/world/world_shell.gd`, `scenes/world/farm_map.tscn`, `scenes/world/town_map.tscn`, `scripts/game/content_rules.gd`, `assets/i18n/strings.csv`, `scripts/ui/shop_panel.gd`, other affected UI and every referencing test.
+
+1. Move shop/upgrade target guards from `WorldContract.SHOP_CELL` to **TOWN + `TownContract.SHOP_CELL`**; move the Day 14 market to **TOWN + `TownContract.MARKET_CELL`**. Shipping remains **FARM + WorldContract.SHIPPING_CELL**; bed/sleep **FARM + WorldContract.BED_CELL**. `GameSession.talk_to`/`gift_crop` require **TOWN** but keep their existing target-free signatures. These are domain checks, not just shell UI filtering. Keep `_complete_finale()` shared; Day 14 farm bed remains terminal fallback.
+2. Remove the temporary farm seed box/stall and farm market scene nodes, geometry, collisions and interact labels. Do not remove farm shipping/bed or any shared art. On TownMap, use the same existing ShopPanel and upgrade controls, Sato-san shop prompt, and the existing market interaction. Town E-facing cells must map to their TownContract target IDs.
+3. Restore three `Entities/Villager*` node/sprite/shadow patterns from **`0d8667b^`** and villager lookup/interaction logic into **TownMap/TownContract**. Adapt their actual cells/footprints to the current authored town, not the retired farm positions. Wire E to `_session.talk_to(villager_id)` via existing `_finish_social_command()`; keep `hud.gift_requested` and DialoguePanel as-is. Restore useful tests from history but not old farm geometry assertions.
+4. Restore `talk` and `gift` tutorial entries and EN/zh_TW/ja reviewed translations from **`c478f18^`**. Adjust relevance to `snapshot()["location"] == TOWN` and, for gifting, having harvested crop inventory. Restore staffed shop copy (Seed Shop instead of self-service Seed Box), including localization and existing help/panel tests. Keep `GameSession._commit()` as the single tutorial completion seam.
+5. Update **all** moved-shop/market references found in the preflight grep: GUT unit tests, `test_gameplay_shell.gd`, `test_finale_cue.gd`, `test_persistence_flow.gd`, two headless smokes, e2e Day 1, and any other caller. Use **one** `_drive_to_town(session)` unit-test helper rather than repeating the travel command in every test; shell/e2e tests use the actual truck E and map swap. Account for 30-minute drive effects on time assertions and pinned gameplay routes. Do not keep stale WorldContract shop/market constants or alias nodes solely to pass outdated tests.
+6. Restore the nine-key tutorial tests and new save/Continue round trip. Strict validation can reject pre-release seven-key saves; do not write a migration, schema bump, or fallback.
+
+**Step C checkpoint:** Verify both map-only interactions (including direct session calls from the wrong map), plus a real E-to-dialogue + gift UI flow. Run working-tree headless/GUT commands above and **both** other affected test suites before committing; then commit and rerun:
+
+```bash
+./tools/verify-clean.sh
+GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/gdunit -c
+GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/e2e -c
+```
+
+Do not defer broken integration/visual feedback to Step D.
+
+## Step D — Deterministic paths, minimal reachability test, live docs
+
+**Files:** Existing `tests/unit/test_game_session.gd`, `tests/unit/test_content_rules.gd`, `tests/headless/world_math_smoke.gd`, `tests/headless/world_shell_smoke.gd`, `tests/integration/test_gameplay_shell.gd` / `test_persistence_flow.gd`, `tests/e2e/gameplay_day_one_test.gd`, `README.md`, `CLAUDE.md`.
+
+1. Add one small **flood-fill reachability test** for the authored town and farm truck: start from `TRUCK_ARRIVAL`, explore in-bounds orthogonally adjacent logical cells that do not overlap contract building/truck/perimeter footprints, considering the player half-extent. For every shop/NPC/market/truck target, assert that at least one adjacent stand cell reachable from the start faces it using `WorldMath.TARGET_OFFSETS`. Assert farm initial spawn and both truck arrival cells do not collide. No new pathfinder runtime or scripted held-walk scenario for each target; keep a small real WorldShell E interaction regression to verify dispatch.
+2. Prove the **175G shipped/Promising** route with the same five turnips and updated town shop trip(s), without changing the achieved outcome. Update its timing expectations for drives; farm can still sleep at Day 14.
+3. Add a deterministic real-command route to **Heart of the Harvest**: deliver >=300G of shipped crops, visit town on at least three days, talk to Hana and give a favourite **Turnip** on each of those days (1+5 points/day; 18 => Close Friend), reach Day 14 and trigger the **town** market. Use existing weather injection or real production commands to keep farming deterministic; do not seed the relationship dictionary, skip gifting or invent a special ending path. The daytime travel budget, startup money and seed inventory must remain valid.
+4. Extend the existing real-keyboard Day 1 godot-e2e to drive to the town shop, buy seeds and return before farming/overnight save. Do not add a 14-day GUI e2e; GUT handles the long deterministic route.
+5. Assert `GameSession.state()` excludes location, valid fresh v4 saves round-trip, and Continue begins at farm; pending morning summaries gate travel, completed-run Continue still displays result. Assert map reload identity, correct map-size/perimeter targeting and successful `TRAVELLED`'s no-toast/ACTION_SFX behavior.
+6. Update `README.md` with current controls, two maps and real available social/market location. Update `CLAUDE.md` ownership, map contracts, transient location and game rules; do **not** edit the `AGENTS.md` symlink or frozen historic specs. Ensure EN/zh_TW/ja strings are complete and render at 1920x1080.
+7. **Accepted interim weather limitation:** Farm-owned `HomesteadAmbience` rain streaks/river ripples are absent from town, but HUD rainy tint, rain/river audio and the existing music continue. No separate weather/audio task inside this PR. Visual inspection must confirm it is an understandable interim result, not claim parity.
+
+**Step D checkpoint:** With a committed implementation, run all four final release gates below plus 1080p native visual checks of town prop scale (1x), camera bounds, occlusion, street collision, contextual hints and truck access. A deterministic flood-fill establishes contract reachability; the native visual check is for appearance and physics feel.
+
+## Four final release gates — do not claim they pass on a docs-only PR
+
+```bash
+# 1. Clean Git HEAD archive: GUT unit/integration, project/world smokes, audio
 ./tools/verify-clean.sh
 
 # 2. GdUnit4
@@ -107,8 +139,8 @@ godot --headless --path . --export-release "macOS" build/Phoenix.zip
 unzip -l build/Phoenix.zip | grep -F "Phoenix.app/Contents/MacOS/Phoenix"
 ```
 
-Visually inspect town/farm at 1920x1080 and minimum 960x540, test shop/market/NPC prompts, all four travel directions (initial farm -> town -> farm; subsequent visits), 22:00 rescue trip, Y-sort/occlusion, and collision/arrival. The screenshot-golden gate was removed in PR #29; do not reintroduce it. Record exact commands/results and any unverifiable manual checks on this PR once code exists.
+Record the exact commit SHA, results and any unverified human checks in PR #38 after running them. Screenshot goldens were removed in PR #29; do not regenerate them.
 
 ## Completion criteria
 
-One PR contains the planning docs, implementation, focused test updates, translations, and handoff docs. Both maps and their interaction boundaries work end to end; no new art or audio ticket is needed for this scope. All four automated gates pass on the final implementation commit, the player can make it back from town after cutoff, and both Promising Farmer and Heart of the Harvest are reachable. Keep this draft open until those conditions are met; do not mark HPA-686 Done merely because the design was approved.
+This **one PR** holds the design, implementation, focused tests, localized copy and live docs. All committed checkpoints are green; truck travel cannot be initiated off-target, cannot strand the player after 22:00, and cannot desynchronize the session and rendered map. The town's shop/social/market and farm's crops/shipping/bed each reject inappropriate direct session calls. The current five-turnip 175G Promising route and the real three-day friendship + >=300G shipped Heart route both pass; all four release gates and a native 1080p visual inspection are recorded. HPA-686 stays open until implementation is merged.
