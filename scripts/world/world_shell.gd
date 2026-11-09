@@ -81,8 +81,6 @@ func _ready() -> void:
     load_map()
 
 func load_map(arrived_by_truck: bool = false) -> void:
-    # The session snapshot is the only map selector: no independent map id
-    # can drift from the authoritative location.
     var location: int = _session.snapshot()["location"]
     var scene: PackedScene
     var spawn: Vector2
@@ -320,8 +318,6 @@ func interact() -> void:
 func _attempt_travel(target: Variant) -> void:
     var code := _session.travel(target)
     hud.show_feedback(code)
-    # A refused drive keeps both session and map untouched; only the
-    # successful TRAVELLED commit swaps the map to the new location.
     if code == GameRules.CommandCode.TRAVELLED:
         load_map(true)
 

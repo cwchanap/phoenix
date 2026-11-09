@@ -4144,7 +4144,6 @@ func test_truck_round_trip_swaps_maps_preserving_player_session_and_hud() -> voi
     var buy_connections := hud.buy_requested.get_connections().size()
     var farm_map := world.get_node("FarmMap")
 
-    # Till a cell so the drive must also retire live farm FX with the old map.
     var cell: Vector2i = WorldContract.farm_cells()[0]
     await _place_target(world, cell)
     world.use_target_action()
@@ -4219,8 +4218,6 @@ func test_truck_round_trip_swaps_maps_preserving_player_session_and_hud() -> voi
         player.get_node_or_null("ToolFx"), "farm tool overlay retired on travel"
     )
 
-    # The ordinary preview still runs in town: paving resolves no interact
-    # label, E refuses without swapping the map or mutating the session.
     await _place_target(world, Vector2i(8, 8), WorldMath.Facing.DOWN)
     world._process(0.0)
     assert_eq(hud.prompt_text(), "")
@@ -4281,6 +4278,120 @@ func test_truck_round_trip_swaps_maps_preserving_player_session_and_hud() -> voi
         bool(session.snapshot()["farm"][0]["tilled"]),
         "farm state persists across the round trip",
     )
+
+func test_farm_shop_and_bed_dispatch_survive_truck_round_trip() -> void:
+    var world := _world()
+    var hud := world.hud
+    var session := world._session
+
+    await _place_target(world, WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT)
+    world.interact()
+    assert_not_null(world.get_node_or_null("TownMap"))
+    await _place_target(world, TownContract.TRUCK_CELL, WorldMath.Facing.LEFT)
+    world.interact()
+    assert_not_null(world.get_node_or_null("FarmMap"))
+
+    await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
+    world._process(0.0)
+    assert_eq(hud.prompt_text(), "[E] Seed Box")
+    var shop := _panel(hud, "ShopPanel")
+    world.interact()
+    assert_true(shop.visible)
+    var money_before: int = session.snapshot()["money"]
+    var turnips_before := int(session.snapshot()["seeds"].get(&"turnip", 0))
+    hud.buy_requested.emit(GameRules.CropKind.TURNIP, 1)
+    assert_eq(
+        int(session.snapshot()["money"]),
+        money_before - GameRules.seed_price(GameRules.CropKind.TURNIP),
+    )
+    assert_eq(
+        int(session.snapshot()["seeds"].get(&"turnip", 0)),
+        turnips_before + 1,
+    )
+    hud.close_modals()
+    assert_false(shop.visible)
+    assert_false(hud.has_blocking_modal())
+
+    await _place_target(world, WorldContract.BED_CELL, WorldMath.Facing.UP)
+    world._process(0.0)
+    assert_eq(hud.prompt_text(), "[E] Bed")
+    var sleep_panel := _panel(hud, "SleepPanel")
+    world.interact()
+    assert_true(sleep_panel.visible)
+    hud.sleep_requested.emit()
+    assert_eq(int(session.snapshot()["day"]), 2)
+    assert_true(_panel(hud, "MorningSummaryPanel").visible)
+
+func test_farm_market_dispatch_survives_truck_round_trip_on_day14() -> void:
+    var world := _world()
+    var session := world._session
+    var hud := world.hud
+    var state := session.state()
+    state["day"] = GameRules.MAX_DAY
+    var weather_history: Array = []
+    for _day in GameRules.MAX_DAY:
+        weather_history.append(&"sunny")
+    state["weather_history"] = weather_history
+    assert_true(session.restore_state(state))
+    world._refresh_from_session()
+
+    await _place_target(world, WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT)
+    world.interact()
+    assert_not_null(world.get_node_or_null("TownMap"))
+    await _place_target(world, TownContract.TRUCK_CELL, WorldMath.Facing.LEFT)
+    world.interact()
+    assert_not_null(world.get_node_or_null("FarmMap"))
+    assert_eq(int(session.snapshot()["day"]), GameRules.MAX_DAY)
+
+    var finale_emits: Array = []
+    world.finale_completed.connect(
+        func(_final_state: Dictionary, save_error: int) -> void:
+            finale_emits.append(save_error)
+    )
+    await _place_target(world, WorldContract.MARKET_CELL)
+    world._process(0.0)
+    assert_eq(hud.prompt_text(), "[E] Harvest Market")
+    world.interact()
+    assert_true(bool(session.snapshot()["finale_triggered"]))
+    assert_true(world._finale_in_progress)
+    assert_false(world._world_input_enabled)
+    for _frame in 120:
+        if finale_emits.size() == 1:
+            break
+        await get_tree().process_frame
+    assert_eq(finale_emits.size(), 1)
+
+func test_truck_travel_refusal_keeps_session_and_active_map() -> void:
+    var world := _world()
+    var hud := world.hud
+    var session := world._session
+    var farm_map := world.get_node("FarmMap")
+
+    assert_eq(
+        session.sleep(WorldContract.BED_CELL),
+        GameRules.CommandCode.DAY_ADVANCED,
+    )
+    var snapshot_after_sleep := session.snapshot()
+    assert_true(snapshot_after_sleep["pending_morning_summary"] is Dictionary)
+
+    await _place_target(world, WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT)
+    world._process(0.0)
+    assert_eq(world.player.current_target_cell(), WorldContract.TRUCK_CELL)
+    assert_eq(hud.prompt_text(), "Acknowledge the morning summary first.")
+
+    world.interact()
+
+    var snapshot_after_refusal := session.snapshot()
+    assert_eq(snapshot_after_refusal["location"], GameRules.MapId.FARM)
+    for key in snapshot_after_sleep.keys():
+        assert_eq(
+            snapshot_after_refusal[key],
+            snapshot_after_sleep[key],
+            "snapshot[%s] unchanged by refused drive" % key,
+        )
+    assert_same(world.get_child(0), farm_map)
+    assert_null(world.get_node_or_null("TownMap"))
+    assert_true(hud.toast_text().contains("morning summary"))
 
 func test_load_map_closes_open_modals() -> void:
     var world := _world()
