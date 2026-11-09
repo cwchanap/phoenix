@@ -1005,12 +1005,14 @@ func _run() -> void:
     world._process(0.0)
     if not _expect(world.hud.prompt_text() == "[E] Drive to town", "farm truck prompt"):
         return
+    world.interact()
     if not _expect(
-        world._session.travel(WorldContract.TRUCK_CELL) == GameRules.CommandCode.TRAVELLED,
-        "farm truck travel command",
+        world._session.snapshot()["location"] == GameRules.MapId.TOWN,
+        "farm truck E interaction drives to town",
     ):
         return
-    world.load_map(true)
+    if not _expect(world.hud.toast_text() == "", "farm truck travel raises no toast"):
+        return
 
     var town_names := ["TownMap", "TargetHighlight", "GameHud"]
     if not _expect_names(world, town_names, "World after travel"):
@@ -1267,12 +1269,14 @@ func _run() -> void:
     world._process(0.0)
     if not _expect(world.hud.prompt_text() == "[E] Drive home", "town truck prompt"):
         return
+    world.interact()
     if not _expect(
-        world._session.travel(TownContract.TRUCK_CELL) == GameRules.CommandCode.TRAVELLED,
-        "town truck travel command",
+        world._session.snapshot()["location"] == GameRules.MapId.FARM,
+        "town truck E interaction drives home",
     ):
         return
-    world.load_map(true)
+    if not _expect(world.hud.toast_text() == "", "town truck travel raises no toast"):
+        return
 
     var return_names := ["FarmMap", "TargetHighlight", "GameHud"]
     if not _expect_names(world, return_names, "World after driving home"):

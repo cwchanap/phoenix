@@ -1981,6 +1981,16 @@ func test_representative_reinvestment_route_reaches_promising() -> void:
     for cell in cells.slice(0, 2):
         assert_eq(session.plant(cell), GameRules.CommandCode.CROP_PLANTED)
         assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    assert_eq(
+        int(session.snapshot()["time_minutes"]),
+        GameRules.DAY_START_MINUTES
+            + 2 * GameRules.TRAVEL_MINUTES
+            + 2 * (
+                GameRules.ACTION_MINUTES[GameRules.FarmingAction.SEEDS]
+                + GameRules.ACTION_MINUTES[GameRules.FarmingAction.WATERING_CAN]
+            ),
+        "Day 5 charges the two drives plus two plant+water pairs",
+    )
     _sleep_and_ack(session)  # Day 6
     for cell in cells.slice(0, 2):
         assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
@@ -2103,6 +2113,201 @@ func test_upgrade_purchase_keeps_reinvestment_route_intact() -> void:
         GameRules.CommandCode.FINALE_ALREADY_TRIGGERED,
     )
     assert_eq(int(session.snapshot()["day"]), GameRules.MAX_DAY)
+
+func test_real_command_route_reaches_heart_of_the_harvest() -> void:
+    # Heart needs >=300G shipped plus a Close Friend. Hana (the resident)
+    # favourites Turnips: a daily town visit with one talk (+1) and one
+    # favourite Turnip gift (+5) earns 6 points, so three visits reach the
+    # 18-point Close Friend threshold. Five shipped Turnips and two shipped
+    # Potatoes total 325G; three more Turnips feed the gifts. Every command
+    # is a real production call — no relationship or inventory seeding.
+    var session := GameSession.new(func() -> float: return 0.9)
+    var hana := VillagerRules.VillagerId.RESIDENT
+    var cells := WorldContract.farm_cells()
+    var turnip_cells := [cells[0], cells[1], cells[2]]
+    var potato_cells := [cells[0], cells[1]]
+    var late_turnip_cells := [cells[2], cells[3], cells[4], cells[5]]
+    var town_days := 0
+
+    for cell in turnip_cells:
+        assert_eq(session.hoe(cell), GameRules.CommandCode.SOIL_TILLED)
+        assert_eq(session.plant(cell), GameRules.CommandCode.CROP_PLANTED)
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    _sleep_and_ack(session)  # Day 2
+    for cell in turnip_cells:
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    _sleep_and_ack(session)  # Day 3
+    for cell in turnip_cells:
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    _sleep_and_ack(session)  # Day 4, first Turnips mature
+
+    # Town day 1: first Hana visit — carry three Turnips, gift one, ship
+    # one, and keep one in hand for a later visit.
+    for cell in turnip_cells:
+        assert_eq(session.harvest(cell), GameRules.CommandCode.CROP_HARVESTED)
+    _drive_to_town(session)
+    town_days += 1
+    var talk: Dictionary = session.talk_to(hana)
+    assert_eq(talk["code"], GameRules.CommandCode.VILLAGER_TALKED)
+    assert_eq(talk["points_gained"], VillagerRules.TALK_POINTS)
+    assert_false(talk["close_friend_sequence"])
+    var gift: Dictionary = session.gift_crop(hana, GameRules.CropKind.TURNIP)
+    assert_eq(gift["code"], GameRules.CommandCode.CROP_GIFTED)
+    assert_eq(
+        gift["points_gained"],
+        VillagerRules.GIFT_POINTS + VillagerRules.FAVOURITE_GIFT_BONUS,
+    )
+    assert_eq(gift["gift_reaction"], &"favourite")
+    assert_eq(
+        session.buy_seeds(GameRules.CropKind.POTATO, 2, TownContract.SHOP_CELL),
+        GameRules.CommandCode.SEEDS_PURCHASED,
+    )
+    assert_eq(
+        session.buy_seeds(GameRules.CropKind.TURNIP, 1, TownContract.SHOP_CELL),
+        GameRules.CommandCode.SEEDS_PURCHASED,
+    )
+    assert_eq(int(session.snapshot()["money"]), 70)
+    _drive_home(session)
+    assert_eq(
+        session.deposit_crop(GameRules.CropKind.TURNIP, 1, WorldContract.SHIPPING_CELL),
+        GameRules.CommandCode.CROP_DEPOSITED,
+    )
+    _sleep_and_ack(session)  # Day 5, 35G settled
+
+    # Same tilled cells take two Potatoes and one Turnip; the carried Turnip
+    # stays pocketed for the next visit.
+    assert_eq(
+        session.select_seed(GameRules.CropKind.POTATO),
+        GameRules.CommandCode.SEED_SELECTED,
+    )
+    for cell in potato_cells:
+        assert_eq(session.plant(cell), GameRules.CommandCode.CROP_PLANTED)
+    assert_eq(
+        session.select_seed(GameRules.CropKind.TURNIP),
+        GameRules.CommandCode.SEED_SELECTED,
+    )
+    assert_eq(session.plant(turnip_cells[2]), GameRules.CommandCode.CROP_PLANTED)
+    for cell in turnip_cells:
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    _sleep_and_ack(session)  # Day 6
+    for cell in turnip_cells:
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    _sleep_and_ack(session)  # Day 7
+    for cell in turnip_cells:
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    _sleep_and_ack(session)  # Day 8, second Turnip matures
+
+    # Town day 2: the day-5 Turnip matures while the Potatoes still grow.
+    assert_eq(session.harvest(turnip_cells[2]), GameRules.CommandCode.CROP_HARVESTED)
+    for cell in potato_cells:
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    _drive_to_town(session)
+    town_days += 1
+    talk = session.talk_to(hana)
+    assert_eq(talk["code"], GameRules.CommandCode.VILLAGER_TALKED)
+    assert_eq(talk["points_gained"], VillagerRules.TALK_POINTS)
+    gift = session.gift_crop(hana, GameRules.CropKind.TURNIP)
+    assert_eq(gift["code"], GameRules.CommandCode.CROP_GIFTED)
+    assert_eq(
+        gift["points_gained"],
+        VillagerRules.GIFT_POINTS + VillagerRules.FAVOURITE_GIFT_BONUS,
+    )
+    assert_eq(gift["gift_reaction"], &"favourite")
+    assert_eq(
+        session.buy_seeds(GameRules.CropKind.TURNIP, 4, TownContract.SHOP_CELL),
+        GameRules.CommandCode.SEEDS_PURCHASED,
+    )
+    assert_eq(int(session.snapshot()["money"]), 25)
+    _drive_home(session)
+    _sleep_and_ack(session)  # Day 9
+
+    # Four late Turnips on cells clear of the Potatoes; their first dry night
+    # is one below the wither threshold and they get watered from Day 10.
+    for cell in [cells[3], cells[4], cells[5]]:
+        assert_eq(session.hoe(cell), GameRules.CommandCode.SOIL_TILLED)
+    for cell in late_turnip_cells:
+        assert_eq(session.plant(cell), GameRules.CommandCode.CROP_PLANTED)
+    for cell in potato_cells:
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    assert_eq(int(session.snapshot()["stamina"]), GameRules.MAX_STAMINA - 17)
+    _sleep_and_ack(session)  # Day 10, Potatoes mature
+
+    for cell in potato_cells:
+        assert_eq(session.harvest(cell), GameRules.CommandCode.CROP_HARVESTED)
+    for cell in late_turnip_cells:
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    _sleep_and_ack(session)  # Day 11
+    for cell in late_turnip_cells:
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    assert_eq(
+        session.deposit_crop(GameRules.CropKind.POTATO, 2, WorldContract.SHIPPING_CELL),
+        GameRules.CommandCode.CROP_DEPOSITED,
+    )
+    _sleep_and_ack(session)  # Day 12, 150G settled
+
+    # Town day 3: the pocketed Turnip completes the favourite-gift trilogy
+    # and pushes Hana to exactly the 18-point Close Friend threshold.
+    for cell in late_turnip_cells:
+        assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
+    _drive_to_town(session)
+    town_days += 1
+    talk = session.talk_to(hana)
+    assert_eq(talk["code"], GameRules.CommandCode.VILLAGER_TALKED)
+    assert_eq(talk["points_gained"], VillagerRules.TALK_POINTS)
+    assert_false(talk["close_friend_sequence"])
+    gift = session.gift_crop(hana, GameRules.CropKind.TURNIP)
+    assert_eq(gift["code"], GameRules.CommandCode.CROP_GIFTED)
+    assert_eq(
+        gift["points_gained"],
+        VillagerRules.GIFT_POINTS + VillagerRules.FAVOURITE_GIFT_BONUS,
+    )
+    assert_eq(gift["gift_reaction"], &"favourite")
+    var close_friend := session.snapshot()
+    assert_eq(
+        int(close_friend["relationships"][&"resident"]["points"]),
+        VillagerRules.CLOSE_FRIEND_POINTS,
+    )
+    assert_eq(
+        close_friend["relationships"][&"resident"]["level"],
+        &"close_friend",
+    )
+    _drive_home(session)
+    _sleep_and_ack(session)  # Day 13, late Turnips mature
+
+    for cell in late_turnip_cells:
+        assert_eq(session.harvest(cell), GameRules.CommandCode.CROP_HARVESTED)
+    assert_eq(
+        session.deposit_crop(GameRules.CropKind.TURNIP, 4, WorldContract.SHIPPING_CELL),
+        GameRules.CommandCode.CROP_DEPOSITED,
+    )
+    _sleep_and_ack(session)  # Day 14, 140G settled into 325G shipped
+
+    # Town day 4: the market trip doubles as the fourth visit; Hana's
+    # already-earned level now plays the Close Friend sequence once.
+    _drive_to_town(session)
+    town_days += 1
+    assert_gte(town_days, 3)
+    talk = session.talk_to(hana)
+    assert_eq(talk["code"], GameRules.CommandCode.VILLAGER_TALKED)
+    assert_eq(talk["points_gained"], VillagerRules.TALK_POINTS)
+    assert_true(talk["close_friend_sequence"])
+    assert_eq(
+        session.trigger_harvest_finale(TownContract.MARKET_CELL),
+        GameRules.CommandCode.FINALE_TRIGGERED,
+    )
+
+    var result := ContentRules.build_harvest_result(session.state())
+    assert_eq(result["tier"], &"heart_of_harvest")
+    assert_eq(result["title"], "Heart of the Harvest")
+    assert_eq(result["shipped_count"], 7)
+    assert_eq(result["shipped_value"], 325)
+    assert_gte(int(result["shipped_value"]), ContentRules.HEART_SHIPPED_VALUE)
+    assert_eq(result["villager"], "Hana")
+    assert_eq(
+        session.state()["shipped"],
+        {&"turnip": 5, &"potato": 2, &"pumpkin": 0},
+    )
+    assert_eq(int(session.state()["money"]), 315)
 
 func _benchmark_session(upgraded: bool) -> GameSession:
     # Prepared balance fixture: Day 1, ten authored farm cells already tilled
