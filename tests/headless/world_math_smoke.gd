@@ -26,6 +26,46 @@ func _expect_polygon(
             return false
     return true
 
+func _cell_blocked(cell: Vector2i, footprints: Array) -> bool:
+    var half := WorldContract.PLAYER_HALF_EXTENT
+    var box := Rect2(
+        Vector2(cell) + Vector2.ONE * (0.5 - half),
+        Vector2.ONE * half * 2.0,
+    )
+    for footprint: Rect2 in footprints:
+        if box.intersects(footprint):
+            return true
+    return false
+
+func _flood_reachable(map_size: Vector2i, start: Vector2i, footprints: Array) -> Dictionary:
+    var reached := {}
+    if _cell_blocked(start, footprints):
+        return reached
+    var queue: Array[Vector2i] = [start]
+    reached[start] = true
+    while not queue.is_empty():
+        var cell: Vector2i = queue.pop_back()
+        for direction in [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]:
+            var next: Vector2i = cell + direction
+            if (
+                next.x < 0
+                or next.y < 0
+                or next.x >= map_size.x
+                or next.y >= map_size.y
+            ):
+                continue
+            if reached.has(next) or _cell_blocked(next, footprints):
+                continue
+            reached[next] = true
+            queue.append(next)
+    return reached
+
+func _expect_stand_reachable(reached: Dictionary, target: Vector2i, label: String) -> bool:
+    for facing in WorldMath.TARGET_OFFSETS:
+        if reached.has(target - WorldMath.TARGET_OFFSETS[facing]):
+            return true
+    return _expect(false, "%s: no reachable facing stand for %s" % [label, target])
+
 func _init() -> void:
     if not _expect(WorldContract.MAP_SIZE == Vector2i(24, 20), "map size contract"):
         return
@@ -333,6 +373,87 @@ func _init() -> void:
     ):
         return
 
+    var farm_blockers: Array = [
+        WorldContract.HOUSE_FOOTPRINT,
+        WorldContract.FOREST_FOOTPRINT,
+        WorldContract.RIVER_WEST_FOOTPRINT,
+        WorldContract.RIVER_SOUTH_FOOTPRINT,
+        WorldContract.WORKBENCH_FOOTPRINT,
+        WorldContract.SHIPPING_FOOTPRINT,
+        WorldContract.TRUCK_FOOTPRINT,
+    ]
+    farm_blockers.append_array(WorldContract.perimeter_footprints(WorldContract.MAP_SIZE))
+    var town_blockers: Array = [
+        TownContract.STATION_FOOTPRINT,
+        TownContract.SHOP_FOOTPRINT,
+        TownContract.CAFE_FOOTPRINT,
+        TownContract.MARKET_FOOTPRINT,
+        TownContract.TRUCK_FOOTPRINT,
+    ]
+    town_blockers.append_array(TownContract.VILLAGER_FOOTPRINTS)
+    town_blockers.append_array(WorldContract.perimeter_footprints(TownContract.MAP_SIZE))
+
+    var spawn_cell := Vector2i(
+        floori(WorldContract.PLAYER_SPAWN.x), floori(WorldContract.PLAYER_SPAWN.y)
+    )
+    if not _expect(not _cell_blocked(spawn_cell, farm_blockers), "farm spawn cell is collision-free"):
+        return
+    if not _expect(
+        not _cell_blocked(WorldContract.TRUCK_ARRIVAL, farm_blockers),
+        "farm truck arrival is collision-free",
+    ):
+        return
+    if not _expect(
+        not _cell_blocked(TownContract.TRUCK_ARRIVAL, town_blockers),
+        "town truck arrival is collision-free",
+    ):
+        return
+
+    var farm_reached := _flood_reachable(
+        WorldContract.MAP_SIZE, WorldContract.TRUCK_ARRIVAL, farm_blockers
+    )
+    if not _expect(farm_reached.has(spawn_cell), "farm arrival reaches the house spawn cell"):
+        return
+    var farm_walkable := 0
+    for y in WorldContract.MAP_SIZE.y:
+        for x in WorldContract.MAP_SIZE.x:
+            if not _cell_blocked(Vector2i(x, y), farm_blockers):
+                farm_walkable += 1
+    if not _expect(
+        farm_reached.size() == farm_walkable,
+        "farm flood reaches every walkable cell",
+    ):
+        return
+    for target in [
+        WorldContract.BED_CELL,
+        WorldContract.SHIPPING_CELL,
+        WorldContract.TRUCK_CELL,
+    ]:
+        if not _expect_stand_reachable(farm_reached, target, "farm target"):
+            return
+
+    var town_reached := _flood_reachable(
+        TownContract.MAP_SIZE, TownContract.TRUCK_ARRIVAL, town_blockers
+    )
+    var town_walkable := 0
+    for y in TownContract.MAP_SIZE.y:
+        for x in TownContract.MAP_SIZE.x:
+            if not _cell_blocked(Vector2i(x, y), town_blockers):
+                town_walkable += 1
+    if not _expect(
+        town_reached.size() == town_walkable,
+        "town flood reaches every walkable cell",
+    ):
+        return
+    var town_targets: Array[Vector2i] = [
+        TownContract.SHOP_CELL,
+        TownContract.MARKET_CELL,
+        TownContract.TRUCK_CELL,
+    ]
+    town_targets.append_array(TownContract.VILLAGER_CELLS)
+    for target in town_targets:
+        if not _expect_stand_reachable(town_reached, target, "town target"):
+            return
 
     print("world math smoke passed")
     quit(0)

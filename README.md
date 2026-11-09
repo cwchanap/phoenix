@@ -3,7 +3,8 @@
 Phoenix is a Godot-only isometric farming game. HPA-590 provides the
 authored world, movement, collision, targeting, camera, and depth-ordering
 foundation; HPA-589 ports the gameplay authority — the complete farming and
-economy loop — on top of it.
+economy loop — on top of it; HPA-686 adds the authored town map and the
+truck that carries the run between the two maps.
 
 ## Prerequisite
 
@@ -48,10 +49,10 @@ there is no post-game or free play.
 | WASD | Move; facing selects the adjacent target cell |
 | `2` | Cycle the selected seed (Turnip → Potato → Pumpkin → Turnip) |
 | Space | Automatically till, plant, water, or harvest the faced farm cell |
-| E | Interact with the targeted seed box, bed, or shipping-bin cell |
+| E | Interact with the targeted bed, shipping, truck, shop, market, or villager cell |
 | Esc | Close the open modal |
 | `I` / `B` / `C` | Open or close Bag / Almanac / Calendar when the world is available |
-| `M` | Select the maximum quantity in Seed Box or Shipping |
+| `M` | Select the maximum quantity in Seed Shop or Shipping |
 | `O` | Open Settings from Pause |
 
 Every `2` press advances the selected seed, including the first press.
@@ -74,9 +75,10 @@ translations in the same commit; `tests/unit/test_localisation.gd` fails on a
 missing translation, a placeholder mismatch, or an untranslated rules string.
 
 The target diamond is hidden when the faced cell is outside the map. Facing
-the seed box cell `(17,9)`, bed cell `(12,7)`, or shipping cell `(10,13)`
-from an adjacent tile shows a contextual interaction hint (for example
-`Seed Box — E`).
+the farm bed cell `(12,7)`, shipping cell `(10,13)`, or truck cell `(22,9)`,
+or the town shop cell `(7,4)`, market cell `(13,7)`, truck cell `(2,9)`, or
+a villager, from an adjacent tile shows a contextual interaction hint (for
+example `[E] Seed Shop` or `[E] Drive to town`).
 
 - Green farm target = its next action can run.
 - Red farm target = its next action is blocked; the hint explains why.
@@ -84,14 +86,14 @@ from an adjacent tile shows a contextual interaction hint (for example
 - Esc opens Controls when no blocking/closable UI owns the event.
 - Phoenix includes lightweight placeholder music/SFX.
 
-- The farm currently has no reachable residents: Sato-san, Gen-san, and Hana
-  no longer stand on the map, so talking and gifting are unavailable in play
-  until town social play returns (HPA-686). E on an ordinary non-interactable
-  cell answers "Nothing to interact with."
-- The social rules remain in the rules layer: the first daily talk is worth
-  1 point, one gift per day adds 3 (5 for a favourite), and levels run
-  Stranger, Friend at 12 points, Close Friend at 18. They still drive the
-  result screen's villager cards, which currently default to all Strangers.
+- Sato-san, Gen-san, and Hana stand at their authored town cells. Facing a
+  resident and pressing E opens the dialogue panel for the daily talk and a
+  crop gift; E on an ordinary non-interactable cell answers
+  "Nothing to interact with."
+- The first daily talk is worth 1 point, one gift per day adds 3 (5 for a
+  favourite), and levels run Stranger, Friend at 12 points, Close Friend at
+  18. From Day 12 the dialogue picks up market lines; the levels drive the
+  result screen's villager cards and the Heart of the Harvest ending.
 
 ## Gameplay loop
 
@@ -99,8 +101,7 @@ from an adjacent tile shows a contextual interaction hint (for example
 returns a `GameRules.CommandCode` and the HUD renders the refreshed snapshot.
 The social commands `talk_to` and `gift_crop` instead return a narrow result
 dictionary (lines, points gained, gift reaction) that the dialogue panel
-renders; they stay session-level only — nothing in the world reaches them
-until HPA-686.
+renders when a town resident is the E target.
 
 1. **Farm.** Face a cell in the `6x5` farm patch and press Space to do its next
    action: till bare soil, plant the selected seed, water growing crops, or
@@ -113,13 +114,18 @@ until HPA-686.
    one. Watering costs 2 stamina, or 1 with the Efficient Can upgrade. Rain
    waters every crop for
    free, so the watering can is unneeded on rainy days.
-3. **Seed Box.** Face the seed box cell and press E to open the
-   self-service Seed Box: buy Turnip, Potato, or Pumpkin seeds with the
-   day's money, or the 200G Efficient Can upgrade on the fourth row, which
-   makes every watering cost 1 stamina for the rest of the run.
-4. **Ship.** Face the shipping cell and press E to open the bin: deposit
+3. **Drive to town.** Face the farm truck cell `(22,9)` and press E: the
+   thirty-minute drive swaps the farm for the authored `16x12` town map and
+   drops the player at its west truck arrival; the town truck `(2,9)` drives
+   home for the same cost. The Seed Shop `(7,4)` sells Turnip, Potato, and
+   Pumpkin seeds plus the 200G Efficient Can upgrade on the fourth row,
+   which makes every watering cost 1 stamina for the rest of the run.
+   Sato-san, Gen-san, and Hana stand at their own cells for the daily talk
+   and one crop gift each, and the Harvest Market `(13,7)` ends the run on
+   Day 14.
+4. **Ship.** Face the farm shipping cell and press E to open the bin: deposit
    harvested crops into the pending shipment.
-5. **Sleep.** Face the bed cell and press E to open a sleep confirmation.
+5. **Sleep.** Face the farm bed cell and press E to open a sleep confirmation.
    Sleeping pays out the pending shipment and grows watered crops. An
    immature crop withers after two consecutive nights without watering or
    rain; mature crops stay harvestable. Sleep restores stamina, rolls
@@ -131,7 +137,7 @@ or dialogue, the sleep confirmation, Pause, the introduction, or the
 morning summary all stop it, and so does switching away from the game
 window. Resuming never banks the paused time — the clock picks up from
 where it stopped, with no catch-up. At 22:00 farming actions are refused
-as too late, but the day is not over: moving, buying from the seed box,
+as too late, but the day is not over: moving, driving the truck, shopping,
 shipping crops, and sleeping all remain possible. The 0.5 s/min
 rate is provisional tuning: an agent-operated native playtest
 (`docs/superpowers/validation/2026-10-22-phoenix-passive-day-clock-native-playtest.md`)
@@ -144,14 +150,12 @@ The season runs 14 days and the HUD's MARKET pill counts down to the Day 14
 harvest market; a Bin pill shows tomorrow's payout while the shipping bin is
 loaded. Only crops deposited in the shipping bin count toward the
 farming result — harvested crops still carried in hand do not. On Day 14,
-pressing E at the harvest market finishes the run; sleeping that night is
-the fallback route that finishes it instead. The result is one of three
+pressing E at the town Harvest Market finishes the run; sleeping that night
+is the fallback route that finishes it instead. The result is one of three
 encouraging endings — New Beginning, Promising Farmer, or Heart of the
-Harvest — based on shipped value and village friendships. With residents
-unreachable, a new run cannot currently earn Heart of the Harvest or the
-friendship-only Promising route: the result screen features Sato-san and
-three Stranger cards, while shipping 175G of produce still reaches
-Promising Farmer. The exhaustive crop
+Harvest — based on shipped value and village friendships: 150G of shipped
+produce reaches Promising Farmer, and 300G plus at least one Close Friend
+reaches Heart of the Harvest. The exhaustive crop
 economy, action-budget, and command-code tables are frozen in
 `tests/unit/test_game_rules.gd`, `tests/unit/test_game_session.gd`, and
 `tests/integration/test_gameplay_shell.gd`; those tests are the reference,
@@ -179,27 +183,37 @@ accessories through `app_header_accessory()`, add footer controls through
 
 | Contract | Value |
 | --- | --- |
-| Map | `24x20` logical cells |
+| Farm map | `24x20` logical cells |
+| Town map | `16x12` logical cells |
 | Ground diamond | `64x32` |
 | Projection origin | `(768, 0)` |
-| Player spawn | `(11.5, 8.5)` logical |
+| Player spawn | `(11.5, 8.5)` logical on the farm |
 | Player half extent | `0.18` logical cells |
 | Player speed | `96` projected pixels/second |
-| Player center limits | `x in [0.18, 23.82]`, `y in [0.18, 19.82]` |
+| Player center limits | `x in [0.18, 23.82]`, `y in [0.18, 19.82]` on the farm |
 | Farm patch | `x=4..9`, `y=10..14` |
 | House footprint | `x=11`, `y=4.5`, `w=2.75`, `h=2.75` logical |
 | House bottom-center anchor | `(976, 336)` projected world |
-| Shop stall footprint | `x=15`, `y=7`, `w=1`, `h=2` logical |
-| Shop stall bottom-center anchor | `(1008, 400)` projected world |
+| Farm truck | cell `(22,9)`, arrival `(21,10)` |
+| Town truck | cell `(2,9)`, arrival `(3,8)` |
 | Camera padding | `96` projected pixels above the map |
-| Camera bounds | `Rect2(128, -96, 1408, 800)` |
+| Farm camera bounds | `Rect2(128, -96, 1408, 800)` |
+| Town camera bounds | `Rect2(384, -96, 896, 544)` |
 
-The ground is an authored `TileMapLayer`. Scenery and player roots use
+Each ground is an authored `TileMapLayer`. Scenery and player roots use
 bottom-center ground-contact positions. Collision polygons are projected from
-the logical house, shop-stall, forest/river/workbench, interactable,
-player, and perimeter geometry; Godot's `CharacterBody2D` supplies the
+the logical house, forest/river/workbench, shipping, town station,
+shop, cafe, market, villager, truck, and perimeter
+geometry; Godot's `CharacterBody2D` supplies the
 collision response. `Entities` is the single Y-sorted container, with shared
 entity z-order and stable scene-tree tie order.
+
+`WorldShell.load_map()` owns the only map swap: the same `Player`,
+`Camera2D`, `GameHud`, and `GameSession` survive while the authored
+`FarmMap`/`TownMap` scene is replaced underneath them. Location itself is
+transient — `GameSession.state()` never persists it — so Continue always
+resumes on the farm at the authored spawn even though `snapshot()` reports
+the current map for live views.
 
 ## Current feature boundary
 
@@ -218,10 +232,13 @@ Day 14 is the terminal day of the season. HPA-594 added the social systems —
 the Sato-san, Gen-san, and Hana identities, the talk/gift relationship
 rules above, dialogue and finale lines — with `VillagerRules`/`GameSession`
 holding the frozen content and mutable relationship state. HPA-683 then
-emptied the farm ahead of HPA-686's town social play: the residents no
-longer stand on the map or answer E, the seed stall is the self-service
-Seed Box at the same cell, and social play stays session-level until town
-interactions arrive. HPA-597 finished the
+emptied the farm ahead of HPA-686's town social play, and HPA-686 landed it:
+the authored `16x12` town map carries the three residents, the Seed Shop,
+and the Harvest Market, with the truck driving between the maps for 30
+minutes each way and every farm-owned command refusing to run while the
+player is in town (and vice versa). The rain streaks and river ripples stay
+farm-authored — town keeps the rainy HUD tint and weather audio as an
+accepted interim difference. HPA-597 finished the
 content slice: the blocking introduction with contextual help, the Day 14
 harvest market that ends the run (with sleeping as the fallback route),
 shipping-bin deposits as the only farming-result scoring, three encouraging

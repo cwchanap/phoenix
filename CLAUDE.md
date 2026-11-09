@@ -6,14 +6,15 @@ Phoenix is a Godot 4.7.1 project using the standard non-.NET editor and
 statically typed GDScript. Open the repository in Godot and run
 `scenes/app/app.tscn`; WASD moves, `2` cycles the selected seed, Space
 automatically tills, plants, waters, or harvests the faced farm cell, and E
-interacts with the seed box, bed, or shipping bin.
+interacts with the bed, shipping bin, farm/town trucks, town Seed Shop,
+Harvest Market, or faced villager.
 There is no JavaScript or Tauri runtime in the current checkout.
 
 - I/B/C open and close Bag, Almanac, and Calendar while the world is available;
   each panel gates movement and closes on its matching key, and the same keys
   also open that app while Pause is up.
 - Every `2` press advances the selected seed; M
-  chooses the maximum quantity in the Seed Box or Shipping; O opens Settings
+  chooses the maximum quantity in the Seed Shop or Shipping; O opens Settings
   from Pause only.
 
 ## Architecture
@@ -39,10 +40,12 @@ There is no JavaScript or Tauri runtime in the current checkout.
 - `scenes/world/town_map.tscn` and `scripts/world/town_map.gd` (`TownMap`)
   own the authored 16x12 town: one paved/road `TileMapLayer`, the
   `TownContract`-derived `StaticCollision` bodies (station, seed shop,
-  cafe, market, truck, and the four perimeter bands), and its own
-  `Entities` Y-sort root holding the town props and parked truck at
-  `TownContract.TRUCK_CELL`/`TRUCK_ARRIVAL`. Town is scenery and travel
-  only — no commerce or social cells yet.
+  cafe, market, truck, the three villager footprints, and the four
+  perimeter bands), and its own `Entities` Y-sort root holding the town
+  props, the three residents, and the parked truck at
+  `TownContract.TRUCK_CELL`/`TRUCK_ARRIVAL`. `TownContract` is the single
+  source for the town map size, truck/shop/market cells, villager cells and
+  footprints, and town camera bounds — parallel constants stay banned.
 - `WorldShell.load_map()` is the only map load/replace path, and it reads
   the destination exclusively from `GameSession.snapshot()["location"]`
   (no independent map ID): the shell binds `player.target_highlight`
@@ -75,8 +78,16 @@ There is no JavaScript or Tauri runtime in the current checkout.
 - Farming preview and every farming guard/budget check route through
   `GameSession._cost_for()`; rules-owned effective cost changes (HPA-460) land
   at that one seam, never at call sites. The 200G Efficient Can is bought once
-  via `buy_watering_can_upgrade()` at the seed box cell and persists as the
-  `watering_can_upgraded` state/snapshot bit that `_cost_for()` reads.
+  via `buy_watering_can_upgrade()` at the town Seed Shop cell and persists as
+  the `watering_can_upgraded` state/snapshot bit that `_cost_for()` reads.
+- Map-owned commands enforce the active `location`: farming/bed/shipping
+  commands refuse off the farm (`_farm_index` returns -1 while
+  `location != FARM`), and `buy_seeds`/`buy_watering_can_upgrade`,
+  `talk_to`/`gift_crop`, and `trigger_harvest_finale` require the town
+  shop/villager/market cells. `travel()` requires the exact active truck
+  cell, adds `TRAVEL_MINUTES` (30, clamped at the 22:00 cutoff), and flips
+  the location — it stays legal after 22:00 so a late drive cannot strand
+  the player.
 - GameSession owns relationship points, daily talk/gift flags, and close_friend_dialogue_seen.
 - GameSession derives tutorial completion only inside `_commit()` via
   `ContentRules.tutorial_for_code()`; guard failures never complete a tutorial.
@@ -91,8 +102,8 @@ There is no JavaScript or Tauri runtime in the current checkout.
 - `FarmSoil` in `scenes/world/farm_map.tscn` holds the non-Y-sorted farm
   ground decals. `Entities` (scripted as `scripts/world/farm_view.gd`,
   `FarmView`, a `FarmMap` child) remains the one Y-sort owner and renders
-  crop sprites from session snapshots; it owns no gameplay state. House,
-  shop-stall, and player roots are bottom-center ground-contact positions
+  crop sprites from session snapshots; it owns no gameplay state. House and
+  player roots are bottom-center ground-contact positions
   with child sprites offset upward; they share a z-index and retain
   scene-tree order for exact-Y ties.
 - `scripts/world/farm_action_effects.gd` (`FarmActionEffects`, a direct
@@ -166,7 +177,7 @@ There is no JavaScript or Tauri runtime in the current checkout.
   tick at `GameRules.REAL_SECONDS_PER_GAME_MINUTE` (0.5 s/min, the
   provisional tuning constant) into `GameSession.advance_clock()`, which
   clamps at the 22:00 cutoff — farming is refused there while movement,
-  the seed box, shipping, and sleep stay open. `clock_running` is the
+  the truck, town shopping, shipping, and sleep stay open. `clock_running` is the
   deterministic test opt-out checked only at the `_process` call site;
   fixtures set it false so frames never tick.
 - `scripts/player/player_controller.gd` owns input sampling for
@@ -202,6 +213,10 @@ There is no JavaScript or Tauri runtime in the current checkout.
   settings, so zh_TW Han text renders in Noto Sans TC and Japanese keeps
   Japanese glyph forms.
 - GameSession.state()/restore_state() own mutable-state export and canonical restore; SessionStateValidator.state_error() owns all persisted-state validation; snapshot() remains the view read model.
+- `location` is deliberately transient: `snapshot()` carries it so views
+  and `load_map()` track the live map, but `state()` never persists it, so
+  every save/Continue restores to the farm spawn regardless of where the
+  session last stood.
 - WorldShell remains the only live production session holder and synchronously writes once after successful overnight advancement.
 - Player position/facing/camera/UI state remain transient/authored.
 - HPA-599 delivered the release closeout: truthful farm preview/target tint
@@ -224,20 +239,28 @@ workbench spur joins the main path at `x=12`.
 The house footprint is `(11,4.5,2.75,2.75)` with derived bottom-center ground
 anchor `(976,336)`, and the House node displays its `96x96` prop frame at
 integer `2x` so the footprint's projected diamond is inscribed in the drawn
-yard ellipse; the shop-stall footprint is `(15,7,1,2)` with anchor `(1008,400)`.
-Interactable cells are the seed box `(17,9)`, bed `(12,7)`, shipping
-`(10,13)` with footprint `(10.2,13.2,0.6,0.6)`, and the harvest market cell
-`(19,10)` with footprint `(19.2,10.2,0.6,0.6)` and projected cell-center
-anchor `(1056,480)`;
+yard ellipse.
+Farm interactable cells are the bed `(12,7)`, the shipping cell `(10,13)`
+with footprint `(10.2,13.2,0.6,0.6)`, and the truck cell `(22,9)` with
+footprint `(22,9,1,1)` and arrival `(21,10)`;
 the world-shell smoke pins the cells, footprints, anchors, collisions, sprite
 frames, and detour coverage. Blockers are the forest band `(0,0,24,2)`, the
 west river `(0,0,2,20)`, the south river `(0,18,12,2)`, and the workbench
 footprint `(13.25,16.25,0.5,0.5)` at cell `(13,16)`; the village sign stands
 at `(21,8)`.
-The retired `TREE_*`, `BUILDING_*`, `PATH_ROW`, and `path_cells()` constants
-must not return as stale parallel representations.
+The retired `TREE_*`, `BUILDING_*`, `PATH_ROW`, `path_cells()`, seed-box, and
+farm-market constants must not return as stale parallel representations.
 
-Camera bounds are `Rect2(128,-96,1408,800)` with `96` pixels of top padding.
+The town is `TownContract`: `16x12` logical cells on the same projection,
+camera bounds `Rect2(384,-96,896,544)`, and footprint-derived collisions
+matching the farm model. Its interactable cells are the Seed Shop `(7,4)`,
+the Harvest Market `(13,7)`, the truck `(2,9)` with arrival `(3,8)`, and
+the villager cells `(9,4)`/`(5,7)`/`(11,6)` for Sato-san, Gen-san, and Hana.
+Station `(1.85,3.85,1.3,1.3)`, shop `(6.85,2.85,1.3,1.3)`, cafe
+`(10.85,2.85,1.3,1.3)`, market `(12.85,5.85,1.3,1.3)`, truck `(2,9,1,1)`,
+and the three `0.6x0.6` villager footprints block movement.
+
+Farm camera bounds are `Rect2(128,-96,1408,800)` with `96` pixels of top padding.
 The project renders at a single 1080p: a `1920x1080` base viewport with
 `canvas_items`/`keep` stretching, fractional scale, 2D transform pixel snap,
 nearest filtering, and a minimum `960x540` window (`UiSettings`). The world
@@ -255,19 +278,20 @@ target highlight, camera follow, collision, perimeter clamping, reachability,
 and front/behind depth ordering. HPA-589 is done: farming, the crop economy,
 the daily clock/stamina rhythm, weather, shipping, and the morning-summary
 gate all exist as Godot gameplay, with `GameRules`/`GameSession` as the
-authority and seed-box `(17,9)` / bed `(12,7)` / shipping `(10,13)` cells wired
+authority and bed `(12,7)` / shipping `(10,13)` / truck `(22,9)` cells wired
 into the shell. Day 14 is the terminal day of the season — no settlement or
 advance happens past it. HPA-594 provides the social rules domain —
 identities, relationship policy, dialogue and finale lines in
-`VillagerRules` plus mutable relationship state in `GameSession` — but
-HPA-683 removed the farm resident entities, their cells/footprints, and the
-E-interaction ahead of HPA-686's town social play, so `talk_to`/`gift_crop`,
-the relationship snapshot/save fields, and the dialogue/portrait UI stay
-testable yet unreachable from the world; `interact()` on a former resident
-cell returns `NOTHING_TO_INTERACT`. The same HPA-683 change made the shop
-stall a self-service Seed Box (same cell, prices, rows, and modal behavior;
-new prompt/panel/pause-help/tutorial copy) and cut the talk/gift tutorial
-cards, leaving seven table-driven cards.
+`VillagerRules` plus mutable relationship state in `GameSession` — and
+HPA-686 made it reachable: the three residents stand at their authored town
+cells, E opens the dialogue panel for the daily talk plus one crop gift,
+the Seed Shop and Harvest Market live on the town map, and the trucks drive
+between the maps for `GameRules.TRAVEL_MINUTES` each way. Map ownership is
+enforced at the session: farm commands refuse in town and town
+commerce/social/market commands refuse on the farm. `HomesteadAmbience`
+(rain streaks/river ripples) stays farm-authored, so town weather currently
+reads through the HUD rainy tint plus the existing rain/river audio and
+music — an accepted interim limitation, not parity.
 HPA-597 is done: the blocking introduction with contextual dismissible help,
 the Day 14 harvest market, and the terminal result flow all shipped.
 HPA-263 makes the day clock a real constraint: it ticks passively during
@@ -292,8 +316,10 @@ check remain open.
 - HPA-599 owns balance/polish/export.
 - HPA-685 extracted the authored farm into `scenes/world/farm_map.tscn`
   (`FarmMap`) so `WorldShell.load_map()` can swap maps without re-instancing
-  the session, Player/Camera2D, or HUD. HPA-686 owns town/travel/location
-  semantics.
+  the session, Player/Camera2D, or HUD. HPA-686 owns the delivered
+  town/travel/location system: `TownContract`, the authored `TownMap`, the
+  30-minute truck drive, town commerce/social/market cells, and transient
+  `location` semantics.
 - HPA-682 rebuilt every non-HUD surface natively — title, result, intro,
   Pause, Settings, Bag, Almanac, Calendar, Sleep, morning summary, Shop,
   Shipping, and Dialogue — with the seven phone apps on the shared
@@ -354,9 +380,13 @@ unzip -l build/Phoenix.zip | grep -F "Phoenix.app/Contents/MacOS/Phoenix"
 
 The deterministic Promising route is pinned by
 `test_representative_reinvestment_route_reaches_promising()`:
-five Turnips (3 starter + 2 reinvested from the first 105G shipment) settle
-175G and reach the `promising_farmer` tier. Do not retune balance without
-updating that route and its exact-value assertions in the same commit.
+five Turnips (3 starter + 2 reinvested through real town shop trips from
+the first 105G shipment) settle 175G and reach the `promising_farmer` tier,
+with drive-time minutes pinned. `test_real_command_route_reaches_heart_of_the_harvest()`
+pins the Heart route: three town days of Hana talk plus a favourite Turnip
+gift (18 Close Friend points) and 325G shipped through real commands, ending
+at the Day 14 town market. Do not retune balance or social values without
+updating both routes and their exact-value assertions in the same commit.
 
 Sprite-isometric art contract
 - Ground diamonds are 64×32.
@@ -370,9 +400,8 @@ Sprite-isometric art contract
   `starting-farm-*-source.webp` sheets; the sheets stay tracked as source
   provenance and approved art is never regenerated.
 - The proof player/crops/soil/shadow/scenery sprites remain live entity
-  textures; the villager sprite sheets stay committed but no world entity
-  uses them until social play returns. Only provably unreferenced proof
-  ground resources were deleted.
+  textures; the villager sprite sheets now render the three town residents.
+  Only provably unreferenced proof ground resources were deleted.
 
 Audio generation convention
 - New Phoenix audio assets are generated through the ElevenLabs MCP
