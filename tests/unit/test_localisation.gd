@@ -91,8 +91,6 @@ func test_translations_load_for_each_locale() -> void:
     assert_eq(tr("Turnip"), "Turnip")
 
 func test_truck_prompt_strings_translate_in_both_locales() -> void:
-    # WorldShell truck labels are UI strings outside the rules tables, so they
-    # are asserted explicitly rather than relying on the rules-string sweep.
     for locale in TRANSLATED_LOCALES:
         TranslationServer.set_locale(locale)
         for text in ["Drive to town", "Drive home"]:

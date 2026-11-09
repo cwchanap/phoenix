@@ -1030,8 +1030,6 @@ func _run() -> void:
     if not _expect(farm_exit.x > 9.0 and farm_exit.y > 14.0, "farm edge traversal exits south-east"):
         return
 
-    # The parked truck faces the player at its arrival cell and advertises
-    # the drive; a successful session travel swaps in the authored TownMap.
     _place_player(player, Vector2(WorldContract.TRUCK_ARRIVAL) + Vector2(0.5, 0.5))
     player.facing = WorldMath.Facing.RIGHT
     await physics_frame
@@ -1270,8 +1268,6 @@ func _run() -> void:
         "town in-bounds target drawn",
     ):
         return
-    # The 16x12 perimeter band is real collision: an eastward walk travels
-    # to the map edge and stops inside the authored town.
     _place_player(player, Vector2(14.5, 10.5))
     await _hold_actions(["move_right"], 90)
     var town_grid := WorldMath.world_to_grid(player.global_position)
