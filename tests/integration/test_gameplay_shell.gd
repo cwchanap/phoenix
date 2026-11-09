@@ -2378,10 +2378,7 @@ func test_farming_success_codes_resolve_to_four_distinct_streams() -> void:
 
 func _open_dialogue(world: WorldShell, villager_id: int) -> void:
     if world._session.snapshot()["location"] != GameRules.MapId.TOWN:
-        assert_eq(
-            world._session.travel(WorldContract.TRUCK_CELL),
-            GameRules.CommandCode.TRAVELLED,
-        )
+        await _drive_to_town(world)
     var result: Dictionary = world._session.talk_to(villager_id)
     world.hud.open_dialogue(villager_id, result, world._session.snapshot())
 
@@ -2393,7 +2390,7 @@ func test_villager_interaction_opens_dialogue_and_gates_world_input() -> void:
     if hud == null:
         return
     var june := VillagerRules.VillagerId.RESIDENT
-    _open_dialogue(world, june)
+    await _open_dialogue(world, june)
 
     var panel := _panel(hud, "DialoguePanel") as DialoguePanel
     assert_true(panel.visible)
@@ -2458,7 +2455,7 @@ func test_dialogue_ui_cancel_closes_and_releases_focus() -> void:
     if hud == null:
         return
     var june := VillagerRules.VillagerId.RESIDENT
-    _open_dialogue(world, june)
+    await _open_dialogue(world, june)
 
     var panel := _panel(hud, "DialoguePanel") as DialoguePanel
     var close_button := panel.call("close_control") as Button
@@ -2593,7 +2590,7 @@ func test_gift_button_round_trips_through_session_and_updates_open_panel() -> vo
     world._session.set("_harvested_counts", seeded)
     assert_eq(world._session.snapshot()["harvested"][&"turnip"], 1)
 
-    _open_dialogue(world, june)
+    await _open_dialogue(world, june)
     var panel := _panel(hud, "DialoguePanel") as DialoguePanel
     assert_eq(_visible_gift_count(panel), 1)
     var give_turnip := panel.call("gift_chip", 0) as Button
@@ -2621,7 +2618,7 @@ func test_gift_number_key_gives_the_numbered_chip() -> void:
     var seeded: Array[int] = [1, 1, 0]
     world._session.set("_harvested_counts", seeded)
 
-    _open_dialogue(world, june)
+    await _open_dialogue(world, june)
     var panel := _panel(hud, "DialoguePanel") as DialoguePanel
     assert_eq(int(world._session.snapshot()["harvested"][&"potato"]), 1)
     var points_before := int(
@@ -2658,7 +2655,7 @@ func test_gift_number_key_ignores_modified_digit_chords() -> void:
     var seeded: Array[int] = [1, 1, 1]
     world._session.set("_harvested_counts", seeded)
 
-    _open_dialogue(world, june)
+    await _open_dialogue(world, june)
     var panel := _panel(hud, "DialoguePanel") as DialoguePanel
     assert_eq(_visible_gift_count(panel), 3)
     var points_before := int(
@@ -2718,7 +2715,7 @@ func test_all_villagers_route_through_same_dialogue_path() -> void:
         "I left Tokyo too. I never ask why people come out here.",
     ]
     for id in range(VillagerRules.VillagerId.size()):
-        _open_dialogue(world, id)
+        await _open_dialogue(world, id)
         var panel := _panel(hud, "DialoguePanel") as DialoguePanel
         assert_true(panel.visible)
         assert_eq(String(panel.call("villager_name_text")), VillagerRules.display_name(id))
@@ -3117,7 +3114,7 @@ func test_dialogue_consumes_escape_before_help() -> void:
     var world := _world()
     var hud := _hud(world)
     var villager_id := VillagerRules.VillagerId.SHOPKEEPER
-    _open_dialogue(world, villager_id)
+    await _open_dialogue(world, villager_id)
 
     await _press_escape()
 
@@ -3702,12 +3699,12 @@ func test_upgraded_watering_hold_costs_one_stamina_per_cell() -> void:
     state["money"] = 250
     state["stamina"] = 20
     assert_true(session.restore_state(state))
-    assert_eq(session.travel(WorldContract.TRUCK_CELL), GameRules.CommandCode.TRAVELLED)
+    await _drive_to_town(world)
     assert_eq(
         session.buy_watering_can_upgrade(TownContract.SHOP_CELL),
         GameRules.CommandCode.WATERING_CAN_UPGRADED,
     )
-    assert_eq(session.travel(TownContract.TRUCK_CELL), GameRules.CommandCode.TRAVELLED)
+    await _drive_home(world)
     world._refresh_from_session()
     assert_true(session.snapshot()["watering_can_upgraded"])
 
@@ -3951,12 +3948,12 @@ func test_overnight_save_restores_upgrade_and_efficient_watering() -> void:
 
     # Acquire through the real ownership command, then sleep at the bed so
     # the existing overnight path is the one and only save.
-    assert_eq(session.travel(WorldContract.TRUCK_CELL), GameRules.CommandCode.TRAVELLED)
+    await _drive_to_town(world)
     assert_eq(
         session.buy_watering_can_upgrade(TownContract.SHOP_CELL),
         GameRules.CommandCode.WATERING_CAN_UPGRADED,
     )
-    assert_eq(session.travel(TownContract.TRUCK_CELL), GameRules.CommandCode.TRAVELLED)
+    await _drive_home(world)
     assert_true(session.snapshot()["watering_can_upgraded"])
     await _place_target(world, WorldContract.BED_CELL, WorldMath.Facing.UP)
     world.hud.sleep_requested.emit()
@@ -4499,7 +4496,7 @@ func test_load_map_closes_open_modals() -> void:
     )
 
     var june := VillagerRules.VillagerId.RESIDENT
-    _open_dialogue(world, june)
+    await _open_dialogue(world, june)
     var dialogue_panel := _panel(hud, "DialoguePanel") as DialoguePanel
     assert_true(dialogue_panel.visible, "dialogue panel opens")
     assert_true(hud.has_blocking_modal())
@@ -4518,10 +4515,7 @@ func test_load_map_closes_open_modals() -> void:
     )
     assert_null(sfx.stream, "closing dialogue via map reload must not play CONFIRM_SFX")
 
-    assert_eq(
-        world._session.travel(TownContract.TRUCK_CELL),
-        GameRules.CommandCode.TRAVELLED,
-    )
+    await _drive_home(world)
     assert_eq(
         world._session.sleep(WorldContract.BED_CELL),
         GameRules.CommandCode.DAY_ADVANCED,

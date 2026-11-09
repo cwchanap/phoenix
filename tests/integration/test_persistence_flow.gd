@@ -48,8 +48,6 @@ func _command_driven_pre_save_state() -> Dictionary:
 
     assert_eq(session.harvest(first), GameRules.CommandCode.CROP_HARVESTED)
     assert_eq(session.harvest(second), GameRules.CommandCode.CROP_HARVESTED)
-    # Villagers are in town: drive there for the social leg, then come home
-    # before the shipping-bin deposit.
     assert_eq(
         session.travel(WorldContract.TRUCK_CELL),
         GameRules.CommandCode.TRAVELLED,
@@ -101,7 +99,6 @@ func _target_market(world: WorldShell) -> void:
     assert_eq(world.player.current_target_cell(), TownContract.MARKET_CELL)
 
 func _drive_to_town(world: WorldShell) -> void:
-    # Face RIGHT at the farm truck so E travels through the real map swap.
     var offset: Vector2i = WorldMath.TARGET_OFFSETS[WorldMath.Facing.RIGHT]
     world.player.global_position = WorldMath.grid_to_world(
         Vector2(WorldContract.TRUCK_CELL - offset) + Vector2(0.5, 0.5)
@@ -190,6 +187,13 @@ func test_market_and_bed_finalizations_save_once_and_reach_identical_result() ->
     var market_result := market_app.get_node("ResultScreen") as ResultScreen
     assert_true(market_result.visible)
 
+    var loaded := market_repository.load()
+    assert_eq(loaded["status"], &"loaded")
+    assert_eq(SessionStateValidator.state_error(loaded["state"]), "")
+    var canonical := GameSession.new(func() -> float: return 0.9)
+    assert_true(canonical.restore_state(loaded["state"]))
+    assert_eq(canonical.state(), market_state)
+
     _seed_slot(pre_final)
     var bed_repository := CountingSaveRepository.new(TEST_PATH)
     var bed_app := await _launch_continued(bed_repository)
@@ -202,24 +206,18 @@ func test_market_and_bed_finalizations_save_once_and_reach_identical_result() ->
     assert_null(bed_app.get_node_or_null("World"))
     assert_true((bed_app.get_node("ResultScreen") as ResultScreen).visible)
 
+    var market_compare := market_state.duplicate(true)
     assert_eq(
-        int(market_state["time_minutes"]) - int(bed_state["time_minutes"]),
+        int(market_compare["time_minutes"]) - int(bed_state["time_minutes"]),
         GameRules.TRAVEL_MINUTES,
         "the market route only adds the truck trip",
     )
-    market_state["time_minutes"] = bed_state["time_minutes"]
-    assert_eq(market_state, bed_state)
+    market_compare["time_minutes"] = bed_state["time_minutes"]
+    assert_eq(market_compare, bed_state)
     assert_eq(
         ContentRules.build_harvest_result(market_state),
         ContentRules.build_harvest_result(bed_state),
     )
-
-    var loaded := market_repository.load()
-    assert_eq(loaded["status"], &"loaded")
-    assert_eq(SessionStateValidator.state_error(loaded["state"]), "")
-    var canonical := GameSession.new(func() -> float: return 0.9)
-    assert_true(canonical.restore_state(loaded["state"]))
-    assert_eq(canonical.state(), market_state)
 
 func test_duplicate_sleep_during_finale_does_not_restart_cue() -> void:
     _seed_slot(_day14_pre_final_state())
