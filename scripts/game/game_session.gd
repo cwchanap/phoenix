@@ -441,7 +441,11 @@ func buy_seeds(
     var active_failure := _active_day_failure()
     if active_failure != -1:
         return active_failure
-    if not (target_cell is Vector2i) or target_cell != WorldContract.SHOP_CELL:
+    if (
+        _location != GameRules.MapId.TOWN
+        or not (target_cell is Vector2i)
+        or target_cell != TownContract.SHOP_CELL
+    ):
         return GameRules.CommandCode.NOT_AT_SHOP
     if quantity <= 0:
         return GameRules.CommandCode.INVALID_QUANTITY
@@ -458,7 +462,11 @@ func buy_watering_can_upgrade(target_cell: Variant) -> GameRules.CommandCode:
     var active_failure := _active_day_failure()
     if active_failure != -1:
         return active_failure
-    if not (target_cell is Vector2i) or target_cell != WorldContract.SHOP_CELL:
+    if (
+        _location != GameRules.MapId.TOWN
+        or not (target_cell is Vector2i)
+        or target_cell != TownContract.SHOP_CELL
+    ):
         return GameRules.CommandCode.NOT_AT_SHOP
     if _watering_can_upgraded:
         return GameRules.CommandCode.WATERING_CAN_ALREADY_UPGRADED
@@ -477,7 +485,11 @@ func deposit_crop(
     var active_failure := _active_day_failure()
     if active_failure != -1:
         return active_failure
-    if not (target_cell is Vector2i) or target_cell != WorldContract.SHIPPING_CELL:
+    if (
+        _location != GameRules.MapId.FARM
+        or not (target_cell is Vector2i)
+        or target_cell != WorldContract.SHIPPING_CELL
+    ):
         return GameRules.CommandCode.NOT_AT_SHIPPING_BIN
     if quantity <= 0:
         return GameRules.CommandCode.INVALID_QUANTITY
@@ -513,6 +525,8 @@ func talk_to(
     var active_failure := _active_day_failure()
     if active_failure != -1:
         return _social_failure(active_failure)
+    if _location != GameRules.MapId.TOWN:
+        return _social_failure(GameRules.CommandCode.NOTHING_TO_INTERACT)
 
     var relationship: Dictionary = _relationships[villager_id]
     var points_gained := 0
@@ -550,6 +564,8 @@ func gift_crop(
     var active_failure := _active_day_failure()
     if active_failure != -1:
         return _social_failure(active_failure)
+    if _location != GameRules.MapId.TOWN:
+        return _social_failure(GameRules.CommandCode.NOTHING_TO_INTERACT)
 
     var relationship: Dictionary = _relationships[villager_id]
     if bool(relationship["gifted_today"]):
@@ -574,7 +590,11 @@ func sleep(target_cell: Variant) -> GameRules.CommandCode:
     var active_failure := _active_day_failure()
     if active_failure != -1:
         return active_failure
-    if not (target_cell is Vector2i) or target_cell != WorldContract.BED_CELL:
+    if (
+        _location != GameRules.MapId.FARM
+        or not (target_cell is Vector2i)
+        or target_cell != WorldContract.BED_CELL
+    ):
         return GameRules.CommandCode.NOT_AT_BED
     if _day == GameRules.MAX_DAY:
         return _complete_finale()
@@ -637,7 +657,11 @@ func trigger_harvest_finale(target_cell: Variant) -> GameRules.CommandCode:
         return active_failure
     if _day != GameRules.MAX_DAY:
         return GameRules.CommandCode.MARKET_NOT_READY
-    if not (target_cell is Vector2i) or target_cell != WorldContract.MARKET_CELL:
+    if (
+        _location != GameRules.MapId.TOWN
+        or not (target_cell is Vector2i)
+        or target_cell != TownContract.MARKET_CELL
+    ):
         return GameRules.CommandCode.NOT_AT_MARKET
     return _complete_finale()
 

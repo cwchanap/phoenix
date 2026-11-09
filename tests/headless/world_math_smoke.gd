@@ -53,24 +53,11 @@ func _init() -> void:
         return
     if not _expect(WorldContract.BED_CELL == Vector2i(12, 7), "bed cell contract"):
         return
-    if not _expect(WorldContract.SHOP_CELL == Vector2i(17, 9), "shop cell contract"):
-        return
-    if not _expect(
-        WorldContract.SHOP_STALL_FOOTPRINT == Rect2(15.0, 7.0, 1.0, 2.0),
-        "shop stall footprint contract",
-    ):
-        return
     if not _expect(WorldContract.SHIPPING_CELL == Vector2i(10, 13), "shipping cell contract"):
         return
     if not _expect(
         WorldContract.SHIPPING_FOOTPRINT == Rect2(10.2, 13.2, 0.6, 0.6),
         "shipping footprint contract",
-    ):
-        return
-    if not _expect(WorldContract.MARKET_CELL == Vector2i(19, 10), "market cell contract"):
-        return
-    if not _expect(
-        WorldContract.MARKET_FOOTPRINT == Rect2(19.2, 10.2, 0.6, 0.6), "market footprint contract"
     ):
         return
     if not _expect(WorldContract.TRUCK_CELL == Vector2i(22, 9), "farm truck cell contract"):
@@ -115,6 +102,29 @@ func _init() -> void:
     if not _expect(
         TownContract.MARKET_FOOTPRINT == Rect2(12.85, 5.85, 1.3, 1.3),
         "town market footprint contract",
+    ):
+        return
+    if not _expect(TownContract.SHOP_CELL == Vector2i(7, 4), "town shop cell contract"):
+        return
+    if not _expect(TownContract.MARKET_CELL == Vector2i(13, 7), "town market cell contract"):
+        return
+    if not _expect(
+        TownContract.VILLAGER_CELLS == [Vector2i(9, 4), Vector2i(5, 7), Vector2i(11, 6)],
+        "town villager cells contract",
+    ):
+        return
+    if not _expect(
+        TownContract.VILLAGER_FOOTPRINTS
+        == [Rect2(9.2, 4.2, 0.6, 0.6), Rect2(5.2, 7.2, 0.6, 0.6), Rect2(11.2, 6.2, 0.6, 0.6)],
+        "town villager footprints contract",
+    ):
+        return
+    if not _expect(
+        TownContract.villager_at(Vector2i(9, 4)) == VillagerRules.VillagerId.SHOPKEEPER
+        and TownContract.villager_at(Vector2i(5, 7)) == VillagerRules.VillagerId.FARMER
+        and TownContract.villager_at(Vector2i(11, 6)) == VillagerRules.VillagerId.RESIDENT
+        and TownContract.villager_at(Vector2i(0, 0)) == -1,
+        "town villager lookup",
     ):
         return
     if not _expect(
@@ -295,17 +305,6 @@ func _init() -> void:
     ):
         return
     if not _expect_polygon(
-        WorldMath.footprint_to_polygon(WorldContract.SHOP_STALL_FOOTPRINT),
-        PackedVector2Array([
-            Vector2(1024.0, 352.0),
-            Vector2(1056.0, 368.0),
-            Vector2(992.0, 400.0),
-            Vector2(960.0, 384.0),
-        ]),
-        "shop stall footprint polygon",
-    ):
-        return
-    if not _expect_polygon(
         WorldMath.centered_player_footprint_polygon(WorldContract.PLAYER_SPAWN),
         PackedVector2Array([
             Vector2(864.0, 314.24),
@@ -333,18 +332,7 @@ func _init() -> void:
         "derived house ground anchor",
     ):
         return
-    if not _expect_vec2(
-        WorldMath.footprint_ground_anchor(WorldContract.SHOP_STALL_FOOTPRINT),
-        Vector2(1008.0, 400.0),
-        "derived shop stall ground anchor",
-    ):
-        return
-    if not _expect_vec2(
-        WorldContract.MARKET_ANCHOR,
-        WorldMath.grid_to_world(Vector2(WorldContract.MARKET_CELL) + Vector2(0.5, 0.5)),
-        "market anchor projection",
-    ):
-        return
+
 
     print("world math smoke passed")
     quit(0)

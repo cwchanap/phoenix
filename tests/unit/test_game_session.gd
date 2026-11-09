@@ -79,11 +79,25 @@ func _session_with_money(money: int) -> GameSession:
     assert_true(session.restore_state(seeded))
     return session
 
-func _purchase_upgrade(session: GameSession) -> void:
+func _drive_to_town(session: GameSession) -> void:
     assert_eq(
-        session.buy_watering_can_upgrade(WorldContract.SHOP_CELL),
+        session.travel(WorldContract.TRUCK_CELL),
+        GameRules.CommandCode.TRAVELLED,
+    )
+
+func _drive_home(session: GameSession) -> void:
+    assert_eq(
+        session.travel(TownContract.TRUCK_CELL),
+        GameRules.CommandCode.TRAVELLED,
+    )
+
+func _purchase_upgrade(session: GameSession) -> void:
+    _drive_to_town(session)
+    assert_eq(
+        session.buy_watering_can_upgrade(TownContract.SHOP_CELL),
         GameRules.CommandCode.WATERING_CAN_UPGRADED,
     )
+    _drive_home(session)
 
 func _water_target_session(stamina: int, upgraded: bool, weather: StringName = &"sunny") -> GameSession:
     var session := GameSession.new(func() -> float: return 0.9)
@@ -221,6 +235,7 @@ func test_state_is_deeply_isolated_and_excludes_derived_fields() -> void:
     var harvested: Array[int] = [1, 0, 0]
     _seed_harvested(session, harvested)
     var june := VillagerRules.VillagerId.RESIDENT
+    _drive_to_town(session)
     assert_eq(
         session.talk_to(june)["code"],
         GameRules.CommandCode.VILLAGER_TALKED,
@@ -409,19 +424,21 @@ func test_tutorials_complete_only_on_authoritative_successes() -> void:
         GameRules.CommandCode.NOT_AT_SHOP,
     )
     assert_false(session.state()["tutorial"][&"buy_seeds"])
+    _drive_to_town(session)
     assert_eq(
-        session.buy_seeds(GameRules.CropKind.POTATO, 1, WorldContract.SHOP_CELL),
+        session.buy_seeds(GameRules.CropKind.POTATO, 1, TownContract.SHOP_CELL),
         GameRules.CommandCode.SEEDS_PURCHASED,
     )
     assert_true(session.state()["tutorial"][&"buy_seeds"])
 
     var mira := VillagerRules.VillagerId.SHOPKEEPER
-    var tutorial_before_talk: Dictionary = session.state()["tutorial"]
+    assert_false(session.state()["tutorial"][&"talk"])
     assert_eq(
         session.talk_to(mira)["code"],
         GameRules.CommandCode.VILLAGER_TALKED,
     )
-    assert_eq(session.state()["tutorial"], tutorial_before_talk)
+    assert_true(session.state()["tutorial"][&"talk"])
+    _drive_home(session)
 
     var tutorial_before_selection: Dictionary = session.state()["tutorial"]
     assert_eq(
@@ -462,7 +479,8 @@ func test_tutorials_complete_only_on_authoritative_successes() -> void:
     )
     assert_true(session.state()["tutorial"][&"shipping"])
 
-    var tutorial_before_gift: Dictionary = session.state()["tutorial"]
+    _drive_to_town(session)
+    assert_false(session.state()["tutorial"][&"gift"])
     assert_eq(
         session.gift_crop(
             mira,
@@ -470,6 +488,7 @@ func test_tutorials_complete_only_on_authoritative_successes() -> void:
         )["code"],
         GameRules.CommandCode.INSUFFICIENT_CROPS,
     )
+    assert_false(session.state()["tutorial"][&"gift"])
     assert_eq(
         session.gift_crop(
             mira,
@@ -477,7 +496,7 @@ func test_tutorials_complete_only_on_authoritative_successes() -> void:
         )["code"],
         GameRules.CommandCode.CROP_GIFTED,
     )
-    assert_eq(session.state()["tutorial"], tutorial_before_gift)
+    assert_true(session.state()["tutorial"][&"gift"])
 
 func test_normal_sleep_accumulates_lifetime_shipped_counts() -> void:
     var session := GameSession.new(func() -> float: return 0.9)
@@ -526,6 +545,7 @@ func test_normal_sleep_accumulates_lifetime_shipped_counts() -> void:
 
 func test_talk_to_awards_first_point_and_repeat_is_zero() -> void:
     var session := GameSession.new(func() -> float: return 0.9)
+    _drive_to_town(session)
     var mira := VillagerRules.VillagerId.SHOPKEEPER
     var first: Dictionary = session.talk_to(mira)
     assert_eq(first["code"], GameRules.CommandCode.VILLAGER_TALKED)
@@ -547,6 +567,7 @@ func test_normal_gift_consumes_one_crop_and_awards_three_points() -> void:
     var session := GameSession.new(func() -> float: return 0.9)
     var seeded: Array[int] = [1, 0, 0]
     _seed_harvested(session, seeded)
+    _drive_to_town(session)
     var mira := VillagerRules.VillagerId.SHOPKEEPER
     var result: Dictionary = session.gift_crop(
         mira,
@@ -564,6 +585,7 @@ func test_normal_gift_consumes_one_crop_and_awards_three_points() -> void:
 func test_favourite_gift_consumes_one_real_harvested_crop() -> void:
     var session := GameSession.new(func() -> float: return 0.9)
     _grow_and_harvest_turnip(session)
+    _drive_to_town(session)
     var june := VillagerRules.VillagerId.RESIDENT
     var result: Dictionary = session.gift_crop(
         june,
@@ -592,6 +614,7 @@ func _talk_session(day: int, rainy: bool, shipped: Array[int]) -> GameSession:
     }
     assert_eq(SessionStateValidator.state_error(state), "")
     assert_true(session.restore_state(state))
+    _drive_to_town(session)
     return session
 
 func test_day_one_sunny_stranger_talk_is_literal_for_every_villager() -> void:
@@ -627,6 +650,7 @@ func test_only_settled_shipments_enable_shipping_flavor() -> void:
     harvested_state["harvested"] = {&"turnip": 2, &"potato": 0, &"pumpkin": 0}
     var harvested_only := GameSession.new(func() -> float: return 0.9)
     assert_true(harvested_only.restore_state(harvested_state))
+    _drive_to_town(harvested_only)
     assert_eq(
         harvested_only.talk_to(mira)["lines"],
         [no_shipment_literal],
@@ -636,6 +660,7 @@ func test_only_settled_shipments_enable_shipping_flavor() -> void:
     pending_state["pending_shipment"] = {&"turnip": 1, &"potato": 0, &"pumpkin": 0}
     var pending_only := GameSession.new(func() -> float: return 0.9)
     assert_true(pending_only.restore_state(pending_state))
+    _drive_to_town(pending_only)
     assert_eq(
         pending_only.talk_to(mira)["lines"],
         [no_shipment_literal],
@@ -653,6 +678,7 @@ func test_post_talk_points_select_the_friend_tier_literal() -> void:
     assert_eq(SessionStateValidator.state_error(state), "")
     var session := GameSession.new(func() -> float: return 0.9)
     assert_true(session.restore_state(state))
+    _drive_to_town(session)
     var mira := VillagerRules.VillagerId.SHOPKEEPER
     var result: Dictionary = session.talk_to(mira)
     assert_eq(result["points_gained"], 1)
@@ -665,10 +691,12 @@ func test_talking_does_not_consume_weather_rng() -> void:
         calls[0] += 1
         return 0.9
     )
+    _drive_to_town(session)
     var june := VillagerRules.VillagerId.RESIDENT
     var result: Dictionary = session.talk_to(june)
     assert_eq(result["code"], GameRules.CommandCode.VILLAGER_TALKED)
     assert_eq(calls[0], 0)
+    _drive_home(session)
     assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
     assert_eq(calls[0], 1)
 
@@ -679,6 +707,7 @@ func test_equivalent_restored_state_repeats_the_same_literal() -> void:
     var first: Dictionary = session.talk_to(mira)
     var restored := GameSession.new(func() -> float: return 0.9)
     assert_true(restored.restore_state(saved))
+    _drive_to_town(restored)
     var second: Dictionary = restored.talk_to(mira)
     assert_eq(second["lines"], first["lines"])
     assert_eq(second["lines"], ["The market is close. Keep some coin ready for what comes next."])
@@ -706,6 +735,7 @@ func test_social_guards_preserve_complete_snapshot_in_order() -> void:
     var duplicate_id := VillagerRules.VillagerId.SHOPKEEPER
     var duplicate_seeded: Array[int] = [1, 0, 0]
     _seed_harvested(duplicate, duplicate_seeded)
+    _drive_to_town(duplicate)
     assert_eq(
         duplicate.gift_crop(
             duplicate_id,
@@ -724,6 +754,7 @@ func test_social_guards_preserve_complete_snapshot_in_order() -> void:
     _assert_unchanged(duplicate, duplicate_before)
 
     var insufficient := GameSession.new(func() -> float: return 0.9)
+    _drive_to_town(insufficient)
     var insufficient_id := VillagerRules.VillagerId.FARMER
     var insufficient_before := insufficient.snapshot()
     assert_eq(
@@ -739,16 +770,19 @@ func test_june_reaches_close_friend_and_special_sequence_once() -> void:
     var session := GameSession.new(func() -> float: return 0.9)
     var seeded: Array[int] = [3, 0, 0]
     _seed_harvested(session, seeded)
+    _drive_to_town(session)
     var june := VillagerRules.VillagerId.RESIDENT
 
     for expected_points in [6, 12]:
         assert_eq(session.talk_to(june)["points_gained"], 1)
         assert_eq(session.gift_crop(june, GameRules.CropKind.TURNIP)["points_gained"], 5)
         assert_eq(session.snapshot()["relationships"][&"resident"]["points"], expected_points)
+        _drive_home(session)
         assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
         assert_false(session.snapshot()["relationships"][&"resident"]["talked_today"])
         assert_false(session.snapshot()["relationships"][&"resident"]["gifted_today"])
         assert_eq(session.acknowledge_morning_summary(), GameRules.CommandCode.DAY_STARTED)
+        _drive_to_town(session)
 
     assert_eq(session.talk_to(june)["points_gained"], 1)
     assert_eq(session.gift_crop(june, GameRules.CropKind.TURNIP)["points_gained"], 5)
@@ -767,6 +801,22 @@ func test_june_reaches_close_friend_and_special_sequence_once() -> void:
         ["Whatever you left behind, you do not carry it in here anymore."],
     )
     assert_true(session.snapshot()["relationships"][&"resident"]["close_friend_dialogue_seen"])
+
+func test_social_commands_require_town() -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    var seeded: Array[int] = [1, 0, 0]
+    _seed_harvested(session, seeded)
+    var mira := VillagerRules.VillagerId.SHOPKEEPER
+    var before := session.snapshot()
+    assert_eq(
+        session.talk_to(mira)["code"],
+        GameRules.CommandCode.NOTHING_TO_INTERACT,
+    )
+    assert_eq(
+        session.gift_crop(mira, GameRules.CropKind.TURNIP)["code"],
+        GameRules.CommandCode.NOTHING_TO_INTERACT,
+    )
+    _assert_unchanged(session, before)
 
 func test_turnip_actions_commit_atomically() -> void:
     var session := GameSession.new()
@@ -1068,34 +1118,41 @@ func test_preview_target_action_matches_budget_failure_without_mutation() -> voi
 func test_buy_seeds_validates_target_quantity_and_funds_atomically() -> void:
     var session := GameSession.new(func() -> float: return 0.9)
     var before_wrong_target := session.snapshot()
-    assert_eq(
-        session.buy_seeds(GameRules.CropKind.POTATO, 1, Vector2i(0, 0)),
-        GameRules.CommandCode.NOT_AT_SHOP,
-    )
-    _assert_unchanged(session, before_wrong_target)
+    # The farm has no counter: the retired seed-box cell and any other cell
+    # refuse alike.
+    for target: Variant in [Vector2i(0, 0), Vector2i(17, 9), null]:
+        assert_eq(
+            session.buy_seeds(GameRules.CropKind.POTATO, 1, target),
+            GameRules.CommandCode.NOT_AT_SHOP,
+        )
+        _assert_unchanged(session, before_wrong_target)
 
+    _drive_to_town(session)
     var before_invalid_quantity := session.snapshot()
     assert_eq(
-        session.buy_seeds(GameRules.CropKind.POTATO, 0, WorldContract.SHOP_CELL),
+        session.buy_seeds(GameRules.CropKind.POTATO, 0, TownContract.SHOP_CELL),
         GameRules.CommandCode.INVALID_QUANTITY,
     )
     _assert_unchanged(session, before_invalid_quantity)
 
     var before_insufficient_funds := session.snapshot()
     assert_eq(
-        session.buy_seeds(GameRules.CropKind.PUMPKIN, 3, WorldContract.SHOP_CELL),
+        session.buy_seeds(GameRules.CropKind.PUMPKIN, 3, TownContract.SHOP_CELL),
         GameRules.CommandCode.INSUFFICIENT_FUNDS,
     )
     _assert_unchanged(session, before_insufficient_funds)
 
     assert_eq(
-        session.buy_seeds(GameRules.CropKind.POTATO, 2, WorldContract.SHOP_CELL),
+        session.buy_seeds(GameRules.CropKind.POTATO, 2, TownContract.SHOP_CELL),
         GameRules.CommandCode.SEEDS_PURCHASED,
     )
     var purchased := session.snapshot()
     assert_eq(purchased["money"], 90)
     assert_eq(purchased["seeds"][&"potato"], 2)
-    assert_eq(purchased["time_minutes"], GameRules.DAY_START_MINUTES)
+    assert_eq(
+        purchased["time_minutes"],
+        GameRules.DAY_START_MINUTES + GameRules.TRAVEL_MINUTES,
+    )
     assert_eq(purchased["stamina"], GameRules.MAX_STAMINA)
 
 func test_buy_watering_can_upgrade_guards_in_order_and_purchases_atomically() -> void:
@@ -1103,39 +1160,47 @@ func test_buy_watering_can_upgrade_guards_in_order_and_purchases_atomically() ->
     var starter := session.snapshot()
     assert_eq(int(starter["money"]), 150)
 
-    # Wrong location outranks insufficient funds and changes nothing.
-    assert_eq(
-        session.buy_watering_can_upgrade(Vector2i(0, 0)),
-        GameRules.CommandCode.NOT_AT_SHOP,
-    )
-    assert_eq(
-        session.buy_watering_can_upgrade(null),
-        GameRules.CommandCode.NOT_AT_SHOP,
-    )
-    _assert_unchanged(session, starter)
+    # Wrong cell or the farm itself outranks insufficient funds and changes
+    # nothing.
+    for target: Variant in [Vector2i(0, 0), Vector2i(17, 9), null]:
+        assert_eq(
+            session.buy_watering_can_upgrade(target),
+            GameRules.CommandCode.NOT_AT_SHOP,
+        )
+        _assert_unchanged(session, starter)
 
-    # Starter 150G is short of the 200G price at the exact shop cell.
+    # In town, starter 150G is short of the 200G price at the counter.
+    _drive_to_town(session)
+    var in_town := starter.duplicate(true)
+    in_town["location"] = GameRules.MapId.TOWN
+    in_town["time_minutes"] = GameRules.DAY_START_MINUTES + GameRules.TRAVEL_MINUTES
+    assert_eq(session.snapshot(), in_town)
     assert_eq(
-        session.buy_watering_can_upgrade(WorldContract.SHOP_CELL),
+        session.buy_watering_can_upgrade(TownContract.SHOP_CELL),
         GameRules.CommandCode.INSUFFICIENT_FUNDS,
     )
-    _assert_unchanged(session, starter)
+    _assert_unchanged(session, in_town)
 
-    # Exact 200G succeeds: only money and ownership move.
+    # Exact 200G succeeds: only money, ownership, and the round trip move.
     var funded := _session_with_money(200)
     var funded_before := funded.snapshot()
     _purchase_upgrade(funded)
     var expected := funded_before.duplicate(true)
     expected["money"] = 0
     expected["watering_can_upgraded"] = true
+    expected["time_minutes"] = (
+        int(funded_before["time_minutes"]) + 2 * GameRules.TRAVEL_MINUTES
+    )
     assert_eq(funded.snapshot(), expected)
 
     # Duplicate purchase is a no-op returning the dedicated code.
+    _drive_to_town(funded)
+    var revisit := funded.snapshot()
     assert_eq(
-        funded.buy_watering_can_upgrade(WorldContract.SHOP_CELL),
+        funded.buy_watering_can_upgrade(TownContract.SHOP_CELL),
         GameRules.CommandCode.WATERING_CAN_ALREADY_UPGRADED,
     )
-    _assert_unchanged(funded, expected)
+    _assert_unchanged(funded, revisit)
 
 func test_buy_watering_can_upgrade_scales_with_funds_and_restores_ownership() -> void:
     # The reference route's 255G moment: purchase lands at exactly 55G.
@@ -1149,13 +1214,15 @@ func test_buy_watering_can_upgrade_scales_with_funds_and_restores_ownership() ->
     assert_eq(SessionStateValidator.state_error(saved), "")
     var restored := GameSession.new(func() -> float: return 0.9)
     assert_true(restored.restore_state(saved))
-    assert_eq(restored.snapshot(), purchased)
+    # Restore drops the transient location; the persisted state is identical.
+    assert_eq(restored.state(), saved)
     assert_eq(
         restored._cost_for(GameRules.FarmingAction.WATERING_CAN),
         {"minutes": 20, "stamina": 1},
     )
+    _drive_to_town(restored)
     assert_eq(
-        restored.buy_watering_can_upgrade(WorldContract.SHOP_CELL),
+        restored.buy_watering_can_upgrade(TownContract.SHOP_CELL),
         GameRules.CommandCode.WATERING_CAN_ALREADY_UPGRADED,
     )
 
@@ -1468,12 +1535,12 @@ func test_pending_morning_summary_blocks_active_commands_without_mutation() -> v
     )
     _assert_unchanged(session, before)
     assert_eq(
-        session.buy_seeds(GameRules.CropKind.POTATO, 1, WorldContract.SHOP_CELL),
+        session.buy_seeds(GameRules.CropKind.POTATO, 1, TownContract.SHOP_CELL),
         GameRules.CommandCode.DAY_SUMMARY_PENDING,
     )
     _assert_unchanged(session, before)
     assert_eq(
-        session.buy_watering_can_upgrade(WorldContract.SHOP_CELL),
+        session.buy_watering_can_upgrade(TownContract.SHOP_CELL),
         GameRules.CommandCode.DAY_SUMMARY_PENDING,
     )
     _assert_unchanged(session, before)
@@ -1582,7 +1649,7 @@ func test_market_finale_before_day_fourteen_is_not_ready() -> void:
     var session := GameSession.new(func() -> float: return 0.9)
     var before := session.snapshot()
     assert_eq(
-        session.trigger_harvest_finale(WorldContract.MARKET_CELL),
+        session.trigger_harvest_finale(TownContract.MARKET_CELL),
         GameRules.CommandCode.MARKET_NOT_READY,
     )
     _assert_unchanged(session, before)
@@ -1590,21 +1657,27 @@ func test_market_finale_before_day_fourteen_is_not_ready() -> void:
 func test_day_fourteen_market_requires_the_exact_market_cell() -> void:
     var session := _day14_session_from({})
     var before := session.snapshot()
-    assert_eq(
-        session.trigger_harvest_finale(WorldContract.SHOP_CELL),
-        GameRules.CommandCode.NOT_AT_MARKET,
-    )
-    _assert_unchanged(session, before)
-    assert_eq(
-        session.trigger_harvest_finale(null),
-        GameRules.CommandCode.NOT_AT_MARKET,
-    )
-    _assert_unchanged(session, before)
+    for target: Variant in [TownContract.MARKET_CELL, TownContract.SHOP_CELL, null]:
+        assert_eq(
+            session.trigger_harvest_finale(target),
+            GameRules.CommandCode.NOT_AT_MARKET,
+        )
+        _assert_unchanged(session, before)
+
+    _drive_to_town(session)
+    var in_town := session.snapshot()
+    for target: Variant in [TownContract.SHOP_CELL, Vector2i(0, 0), null]:
+        assert_eq(
+            session.trigger_harvest_finale(target),
+            GameRules.CommandCode.NOT_AT_MARKET,
+        )
+        _assert_unchanged(session, in_town)
 
 func test_day_fourteen_market_completes_the_canonical_terminal_state() -> void:
     var session := _day14_session_from(_day14_pre_final_state())
+    _drive_to_town(session)
     assert_eq(
-        session.trigger_harvest_finale(WorldContract.MARKET_CELL),
+        session.trigger_harvest_finale(TownContract.MARKET_CELL),
         GameRules.CommandCode.FINALE_TRIGGERED,
     )
     var state := session.state()
@@ -1622,13 +1695,22 @@ func test_day_fourteen_market_completes_the_canonical_terminal_state() -> void:
 
 func test_market_and_bed_routes_produce_identical_canonical_terminal_states() -> void:
     var market := _day14_session_from(_day14_pre_final_state())
+    _drive_to_town(market)
     assert_eq(
-        market.trigger_harvest_finale(WorldContract.MARKET_CELL),
+        market.trigger_harvest_finale(TownContract.MARKET_CELL),
         GameRules.CommandCode.FINALE_TRIGGERED,
     )
     var bed := _day14_session_from(_day14_pre_final_state())
     assert_eq(bed.sleep(WorldContract.BED_CELL), GameRules.CommandCode.FINALE_TRIGGERED)
-    assert_eq(market.state(), bed.state())
+    var market_state := market.state()
+    var bed_state := bed.state()
+    assert_eq(
+        int(market_state["time_minutes"]) - int(bed_state["time_minutes"]),
+        GameRules.TRAVEL_MINUTES,
+        "the market route only adds the truck trip",
+    )
+    market_state["time_minutes"] = bed_state["time_minutes"]
+    assert_eq(market_state, bed_state)
     assert_eq(
         ContentRules.build_harvest_result(market.state()),
         ContentRules.build_harvest_result(bed.state()),
@@ -1672,13 +1754,14 @@ func test_day_fourteen_bed_completes_without_overnight_progression() -> void:
 
 func test_duplicate_terminal_commands_return_finale_already_triggered_without_mutation() -> void:
     var session := _day14_session_from(_day14_pre_final_state())
+    _drive_to_town(session)
     assert_eq(
-        session.trigger_harvest_finale(WorldContract.MARKET_CELL),
+        session.trigger_harvest_finale(TownContract.MARKET_CELL),
         GameRules.CommandCode.FINALE_TRIGGERED,
     )
     var completed := session.snapshot()
     assert_eq(
-        session.trigger_harvest_finale(WorldContract.MARKET_CELL),
+        session.trigger_harvest_finale(TownContract.MARKET_CELL),
         GameRules.CommandCode.FINALE_ALREADY_TRIGGERED,
     )
     _assert_unchanged(session, completed)
@@ -1690,8 +1773,9 @@ func test_duplicate_terminal_commands_return_finale_already_triggered_without_mu
 
 func test_finale_blocks_every_ordinary_gameplay_command() -> void:
     var session := _day14_session_from(_day14_pre_final_state())
+    _drive_to_town(session)
     assert_eq(
-        session.trigger_harvest_finale(WorldContract.MARKET_CELL),
+        session.trigger_harvest_finale(TownContract.MARKET_CELL),
         GameRules.CommandCode.FINALE_TRIGGERED,
     )
     var completed := session.snapshot()
@@ -1706,11 +1790,11 @@ func test_finale_blocks_every_ordinary_gameplay_command() -> void:
         GameRules.CommandCode.FINALE_ALREADY_TRIGGERED,
     )
     assert_eq(
-        session.buy_seeds(GameRules.CropKind.POTATO, 1, WorldContract.SHOP_CELL),
+        session.buy_seeds(GameRules.CropKind.POTATO, 1, TownContract.SHOP_CELL),
         GameRules.CommandCode.FINALE_ALREADY_TRIGGERED,
     )
     assert_eq(
-        session.buy_watering_can_upgrade(WorldContract.SHOP_CELL),
+        session.buy_watering_can_upgrade(TownContract.SHOP_CELL),
         GameRules.CommandCode.FINALE_ALREADY_TRIGGERED,
     )
     assert_eq(
@@ -1746,10 +1830,12 @@ func test_public_all_crop_lifecycles_are_successful() -> void:
         var kind: GameRules.CropKind = case_data[0]
         var nights: int = case_data[1]
         var session := GameSession.new(func() -> float: return 0.9)
+        _drive_to_town(session)
         assert_eq(
-            session.buy_seeds(kind, 1, WorldContract.SHOP_CELL),
+            session.buy_seeds(kind, 1, TownContract.SHOP_CELL),
             GameRules.CommandCode.SEEDS_PURCHASED,
         )
+        _drive_home(session)
         assert_eq(session.select_seed(kind), GameRules.CommandCode.SEED_SELECTED)
         assert_eq(session.hoe(FARM_CELL), GameRules.CommandCode.SOIL_TILLED)
         assert_eq(session.plant(FARM_CELL), GameRules.CommandCode.CROP_PLANTED)
@@ -1770,10 +1856,12 @@ func test_public_all_crop_lifecycles_are_successful() -> void:
 
 func test_public_potato_loop_reinvests_shipping_income() -> void:
     var session := GameSession.new(func() -> float: return 0.9)
+    _drive_to_town(session)
     assert_eq(
-        session.buy_seeds(GameRules.CropKind.POTATO, 1, WorldContract.SHOP_CELL),
+        session.buy_seeds(GameRules.CropKind.POTATO, 1, TownContract.SHOP_CELL),
         GameRules.CommandCode.SEEDS_PURCHASED,
     )
+    _drive_home(session)
     assert_eq(
         session.select_seed(GameRules.CropKind.POTATO),
         GameRules.CommandCode.SEED_SELECTED,
@@ -1797,8 +1885,9 @@ func test_public_potato_loop_reinvests_shipping_income() -> void:
 
     var after_shipping := session.snapshot()
     assert_eq(after_shipping["money"], 195)
+    _drive_to_town(session)
     assert_eq(
-        session.buy_seeds(GameRules.CropKind.POTATO, 1, WorldContract.SHOP_CELL),
+        session.buy_seeds(GameRules.CropKind.POTATO, 1, TownContract.SHOP_CELL),
         GameRules.CommandCode.SEEDS_PURCHASED,
     )
     var reinvested := session.snapshot()
@@ -1835,10 +1924,12 @@ func test_representative_reinvestment_route_reaches_promising() -> void:
     _sleep_and_ack(session)  # Day 5, first 105G shipment settled
 
     # Reinvest into two more Turnips on already-tilled cells.
+    _drive_to_town(session)
     assert_eq(
-        session.buy_seeds(GameRules.CropKind.TURNIP, 2, WorldContract.SHOP_CELL),
+        session.buy_seeds(GameRules.CropKind.TURNIP, 2, TownContract.SHOP_CELL),
         GameRules.CommandCode.SEEDS_PURCHASED,
     )
+    _drive_home(session)
     for cell in cells.slice(0, 2):
         assert_eq(session.plant(cell), GameRules.CommandCode.CROP_PLANTED)
         assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
@@ -1861,8 +1952,9 @@ func test_representative_reinvestment_route_reaches_promising() -> void:
     while int(session.snapshot()["day"]) < GameRules.MAX_DAY:
         _sleep_and_ack(session)
 
+    _drive_to_town(session)
     assert_eq(
-        session.trigger_harvest_finale(WorldContract.MARKET_CELL),
+        session.trigger_harvest_finale(TownContract.MARKET_CELL),
         GameRules.CommandCode.FINALE_TRIGGERED,
     )
     var result := ContentRules.build_harvest_result(session.state())
@@ -1907,17 +1999,19 @@ func test_upgrade_purchase_keeps_reinvestment_route_intact() -> void:
 
     # The purchase seam: 255G settled -> upgrade -> 55G -> two seeds -> 15G.
     assert_eq(int(session.snapshot()["money"]), 255)
+    _drive_to_town(session)
     assert_eq(
-        session.buy_watering_can_upgrade(WorldContract.SHOP_CELL),
+        session.buy_watering_can_upgrade(TownContract.SHOP_CELL),
         GameRules.CommandCode.WATERING_CAN_UPGRADED,
     )
     assert_eq(int(session.snapshot()["money"]), 55)
     assert_true(session.snapshot()["watering_can_upgraded"])
     assert_eq(
-        session.buy_seeds(GameRules.CropKind.TURNIP, 2, WorldContract.SHOP_CELL),
+        session.buy_seeds(GameRules.CropKind.TURNIP, 2, TownContract.SHOP_CELL),
         GameRules.CommandCode.SEEDS_PURCHASED,
     )
     assert_eq(int(session.snapshot()["money"]), 15)
+    _drive_home(session)
 
     # Same reinvestment into two more Turnips on already-tilled cells.
     for cell in cells.slice(0, 2):
@@ -1942,8 +2036,9 @@ func test_upgrade_purchase_keeps_reinvestment_route_intact() -> void:
     while int(session.snapshot()["day"]) < GameRules.MAX_DAY:
         _sleep_and_ack(session)
 
+    _drive_to_town(session)
     assert_eq(
-        session.trigger_harvest_finale(WorldContract.MARKET_CELL),
+        session.trigger_harvest_finale(TownContract.MARKET_CELL),
         GameRules.CommandCode.FINALE_TRIGGERED,
     )
     var final := session.snapshot()
@@ -1962,21 +2057,21 @@ func test_upgrade_purchase_keeps_reinvestment_route_intact() -> void:
     assert_eq(int(session.snapshot()["day"]), GameRules.MAX_DAY)
 
 func _benchmark_session(upgraded: bool) -> GameSession:
-    # Prepared balance fixture: Day 1, 200G, ten authored farm cells already
-    # tilled and empty, ten Pumpkin seeds, always-sunny weather, and no
-    # relationship shortcut. It isolates stamina throughput, not seed buying.
+    # Prepared balance fixture: Day 1, ten authored farm cells already tilled
+    # and empty, ten Pumpkin seeds, always-sunny weather, and no relationship
+    # shortcut. It isolates stamina throughput, not seed-shop accessibility:
+    # the upgraded case starts with the can owned and the 200G already spent
+    # (money 0 vs 200), so no shop trip belongs in the route.
     var session := GameSession.new(func() -> float: return 0.9)
     var seeded := session.state()
-    seeded["money"] = GameRules.WATERING_CAN_UPGRADE_PRICE
+    seeded["money"] = 0 if upgraded else GameRules.WATERING_CAN_UPGRADE_PRICE
+    seeded["watering_can_upgraded"] = upgraded
     seeded["seeds"] = {&"turnip": 0, &"potato": 0, &"pumpkin": 10}
     seeded["selected_seed"] = &"pumpkin"
     for index in 10:
         seeded["farm"][index]["tilled"] = true
     assert_eq(SessionStateValidator.state_error(seeded), "")
     assert_true(session.restore_state(seeded))
-    if upgraded:
-        _purchase_upgrade(session)
-        assert_eq(int(session.snapshot()["money"]), 0)
     return session
 
 func _stand_for(target: Vector2i, facing: WorldMath.Facing) -> Vector2:
@@ -1995,20 +2090,19 @@ func _run_benchmark_route(session: GameSession, crop_count: int) -> void:
     var cells := WorldContract.farm_cells()
     # Day 1: complete Plant + Water pairs cost 3 stamina base vs 2 upgraded.
     # Day 1 walking model (anti-stranding): both routes leave the player
-    # spawn (11.5,8.5) and finish at the bed stand for sleep; the upgraded
-    # route detours through the shop stand (18.5,10.5) to buy the can first.
+    # spawn (11.5,8.5) and finish at the bed stand for sleep; the same
+    # farm-only route in both cases — the shop trip no longer belongs here.
     # Stands are the walkable TARGET_OFFSETS diagonal cells: row y=10 is
     # worked facing DOWN from (x-0.5,9.5), row y=11 facing UP from
     # (x+1.5,12.5). Every leg keeps the 0.18 player half-extent clear of the
-    # house, stall, villager, shipping, market and workbench footprints.
+    # house, shipping, and workbench footprints.
     # Keyboard movement is 8-directional, so a leg costs more than
     # distance/speed: a diagonal stride covers both axes at once, making leg
     # time (long_axis + short_axis*(sqrt(2)-1)) / MOVE_SPEED of the
     # projected displacement.
-    #   upgraded legs: spawn->(18.5,10.5) 2.2880s, ->(3.5,9.5) 5.7712s,
-    #     5x0.4024s row-10 steps, ->(5.5,12.5) 2.0000s, 3x0.4024s row-11
-    #     steps, ->(13.5,8.5) 3.0690s = 16.3472s -> 32min; 360+400+32 ends
-    #     13:12.
+    #   upgraded legs: spawn->(3.5,9.5) 3.4832s, 5x0.4024s row-10 steps,
+    #     ->(5.5,12.5) 2.0000s, 3x0.4024s row-11 steps, ->(13.5,8.5) 3.0690s
+    #     = 11.7714s -> 23min; 360+400+23 ends 13:03.
     #   baseline legs: spawn->(3.5,9.5) 3.4832s, 5x0.4024s row-10 steps,
     #     ->(13.5,8.5) 2.2761s = 7.7712s -> 15min; 360+240+15 ends 10:15.
     # Whole minutes consume travel seconds / REAL_SECONDS_PER_GAME_MINUTE and
@@ -2017,12 +2111,8 @@ func _run_benchmark_route(session: GameSession, crop_count: int) -> void:
     # minutes floor the same leg sum, so retuning
     # REAL_SECONDS_PER_GAME_MINUTE stays a one-constant change while the
     # 20:00 gate still guards stranding.
-    var upgraded := bool(session.snapshot()["watering_can_upgraded"])
     var stands: Array[Vector2] = [WorldContract.PLAYER_SPAWN]
     var first_crop_stand := 1
-    if upgraded:
-        stands.append(_stand_for(WorldContract.SHOP_CELL, WorldMath.Facing.UP))
-        first_crop_stand = 2
     for index in crop_count:
         stands.append(_benchmark_stand(cells[index]))
     stands.append(_stand_for(WorldContract.BED_CELL, WorldMath.Facing.UP))
@@ -2163,7 +2253,7 @@ func test_travel_rejects_wrong_and_remote_targets_without_mutation() -> void:
     for target: Variant in [
         null,
         Vector2i(0, 0),
-        WorldContract.SHOP_CELL,
+        TownContract.SHOP_CELL,
         TownContract.TRUCK_CELL,
     ]:
         assert_eq(
@@ -2218,8 +2308,9 @@ func test_travel_is_gated_by_pending_summary_and_finale() -> void:
     _assert_unchanged(pending, pending_before)
 
     var completed := _day14_session_from(_day14_pre_final_state())
+    _drive_to_town(completed)
     assert_eq(
-        completed.trigger_harvest_finale(WorldContract.MARKET_CELL),
+        completed.trigger_harvest_finale(TownContract.MARKET_CELL),
         GameRules.CommandCode.FINALE_TRIGGERED,
     )
     var completed_before := completed.snapshot()

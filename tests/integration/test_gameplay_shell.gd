@@ -297,7 +297,6 @@ func test_entities_is_farm_view_and_only_y_sort_node() -> void:
 const ENTITY_STATIC_NAMES := [
     "Player",
     "House",
-    "ShopStall",
     "TreeForest",
     "TreeBank",
     "TreeNorth",
@@ -317,7 +316,6 @@ const ENTITY_STATIC_NAMES := [
     "Workbench",
     "VillageSign",
     "Shipping",
-    "HarvestMarket",
     "Truck",
 ]
 
@@ -559,6 +557,18 @@ func _place_target(
     player.velocity = Vector2.ZERO
     await get_tree().physics_frame
 
+func _drive_to_town(world: WorldShell) -> void:
+    await _place_target(world, WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT)
+    world.interact()
+    assert_eq(world._session.snapshot()["location"], GameRules.MapId.TOWN)
+    assert_not_null(world.get_node_or_null("TownMap"))
+
+func _drive_home(world: WorldShell) -> void:
+    await _place_target(world, TownContract.TRUCK_CELL, WorldMath.Facing.LEFT)
+    world.interact()
+    assert_eq(world._session.snapshot()["location"], GameRules.MapId.FARM)
+    assert_not_null(world.get_node_or_null("FarmMap"))
+
 func _panel(hud: GameHud, name: String) -> Control:
     return hud.get_node("HudRoot/%s" % name) as Control
 
@@ -576,8 +586,17 @@ func test_interaction_targets_open_only_their_modal() -> void:
     if hud == null:
         return
 
+    await _drive_to_town(world)
+    await _place_target(world, TownContract.SHOP_CELL, WorldMath.Facing.UP)
+    world.interact()
+    assert_true(_panel(hud, "ShopPanel").visible)
+    for panel_name in ["ShippingPanel", "SleepPanel", "MorningSummaryPanel"]:
+        assert_false(_panel(hud, panel_name).visible)
+    hud.close_shop()
+    assert_false(hud.has_blocking_modal())
+    await _drive_home(world)
+
     for entry in [
-        {"cell": WorldContract.SHOP_CELL, "facing": WorldMath.Facing.UP, "panel": "ShopPanel", "close": "close_shop"},
         {"cell": WorldContract.SHIPPING_CELL, "facing": WorldMath.Facing.DOWN, "panel": "ShippingPanel", "close": "close_shipping"},
         {"cell": WorldContract.BED_CELL, "facing": WorldMath.Facing.UP, "panel": "SleepPanel", "close": "close_sleep_confirmation"},
     ]:
@@ -717,7 +736,8 @@ func test_shop_upgrade_purchase_refreshes_open_shop_to_55g_owned_and_owned_enter
     state["money"] = 255
     assert_true(world._session.restore_state(state))
     world._refresh_from_session()
-    await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
+    await _drive_to_town(world)
+    await _place_target(world, TownContract.SHOP_CELL, WorldMath.Facing.UP)
     world.interact()
     var shop := _panel(hud, "ShopPanel") as ShopPanel
     assert_true(shop.visible)
@@ -1497,7 +1517,8 @@ func test_opening_shop_immediately_blocks_movement_and_world_commands() -> void:
     assert_not_null(player)
     if player == null or hud == null:
         return
-    await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
+    await _drive_to_town(world)
+    await _place_target(world, TownContract.SHOP_CELL, WorldMath.Facing.UP)
     world.interact()
     assert_false(world._world_input_enabled)
     assert_eq(player.velocity, Vector2.ZERO)
@@ -1534,7 +1555,8 @@ func test_closing_shop_restores_input_without_session_refresh() -> void:
     var hud := _hud(world)
     if hud == null:
         return
-    await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
+    await _drive_to_town(world)
+    await _place_target(world, TownContract.SHOP_CELL, WorldMath.Facing.UP)
     world.interact()
     var before := world._session.snapshot()
     hud.close_shop()
@@ -1551,7 +1573,8 @@ func test_successful_shop_refresh_preserves_modal_mask_until_close() -> void:
     var tutorial := hud.get_node("HudRoot/OnboardingOverlay/TutorialCard") as Control
     var chrome := _chrome(hud)
 
-    await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
+    await _drive_to_town(world)
+    await _place_target(world, TownContract.SHOP_CELL, WorldMath.Facing.UP)
     world.interact()
     var shop := _panel(hud, "ShopPanel") as ShopPanel
     assert_true(shop.visible)
@@ -1596,7 +1619,8 @@ func test_upgrade_request_chain_gates_target_and_refreshes_hud() -> void:
     state["money"] = 250
     assert_true(world._session.restore_state(state))
     world._refresh_from_session()
-    await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
+    await _drive_to_town(world)
+    await _place_target(world, TownContract.SHOP_CELL, WorldMath.Facing.UP)
     hud.upgrade_requested.emit()
     assert_true(world._session.snapshot()["watering_can_upgraded"])
     assert_eq(int(world._session.snapshot()["money"]), 250 - GameRules.WATERING_CAN_UPGRADE_PRICE)
@@ -1899,7 +1923,7 @@ func test_blocked_routing_leaves_session_snapshot_unchanged() -> void:
     var world := _world()
     if world == null:
         return
-    await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
+    await _place_target(world, WorldContract.SHIPPING_CELL, WorldMath.Facing.DOWN)
     world.interact()
     var before := world._session.snapshot()
     world.cycle_seed()
@@ -1907,6 +1931,7 @@ func test_blocked_routing_leaves_session_snapshot_unchanged() -> void:
     world.use_target_action()
     world.interact()
     assert_eq(world._session.snapshot(), before)
+    world.hud.close_shipping()
 
 func test_seed_card_click_advances_seed_and_is_gated_under_modals() -> void:
     var world := _world()
@@ -1969,7 +1994,8 @@ func test_market_target_hint_and_pre_finale_routing() -> void:
     var hud := _hud(world)
     if hud == null:
         return
-    await _place_target(world, WorldContract.MARKET_CELL)
+    await _drive_to_town(world)
+    await _place_target(world, TownContract.MARKET_CELL)
     # WorldShell._process refreshes the hint after the process_frame signal
     # fires, so a single frame can still observe the pre-placement hint.
     await get_tree().process_frame
@@ -1996,10 +2022,10 @@ func test_farm_preview_uses_green_red_reason_and_non_farm_gold() -> void:
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_VALID)
     assert_eq(hud.prompt_text(), "[Space] Plant Turnip · 1 stamina")
 
-    await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
+    await _place_target(world, WorldContract.BED_CELL, WorldMath.Facing.UP)
     world._process(0.0)
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_NEUTRAL)
-    assert_eq(hud.prompt_text(), "[E] Seed Box")
+    assert_eq(hud.prompt_text(), "[E] Bed")
 
 func _grow_mature_turnip(world: WorldShell, cell: Vector2i) -> void:
     var session := world._session
@@ -2309,7 +2335,7 @@ func test_blocked_farming_commands_spawn_no_effects() -> void:
     assert_eq(effects.get_child_count(), 0, "blocked watering spawns no effect")
     assert_null(world.player.get_node_or_null("ToolFx"))
 
-    await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
+    await _place_target(world, WorldContract.VILLAGE_SIGN_CELL, WorldMath.Facing.UP)
     world.use_target_action()
     assert_eq(effects.get_child_count(), 0, "non-farm target spawns no effect")
     assert_null(world.player.get_node_or_null("ToolFx"))
@@ -2351,6 +2377,11 @@ func test_farming_success_codes_resolve_to_four_distinct_streams() -> void:
     )
 
 func _open_dialogue(world: WorldShell, villager_id: int) -> void:
+    if world._session.snapshot()["location"] != GameRules.MapId.TOWN:
+        assert_eq(
+            world._session.travel(WorldContract.TRUCK_CELL),
+            GameRules.CommandCode.TRAVELLED,
+        )
     var result: Dictionary = world._session.talk_to(villager_id)
     world.hud.open_dialogue(villager_id, result, world._session.snapshot())
 
@@ -2378,6 +2409,46 @@ func test_villager_interaction_opens_dialogue_and_gates_world_input() -> void:
     hud.close_dialogue()
     assert_true(world._world_input_enabled)
     assert_null(get_viewport().gui_get_focus_owner())
+
+func test_town_villager_e_opens_dialogue_and_gift_chip_updates_session() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var june := VillagerRules.VillagerId.RESIDENT
+    var seeded: Array[int] = [1, 0, 0]
+    world._session.set("_harvested_counts", seeded)
+
+    await _drive_to_town(world)
+    await _place_target(
+        world,
+        TownContract.villager_cell(june),
+        WorldMath.Facing.UP,
+    )
+    world._process(0.0)
+    assert_eq(hud.prompt_text(), "[E] %s" % VillagerRules.display_name(june))
+
+    world.interact()
+    var panel := _panel(hud, "DialoguePanel") as DialoguePanel
+    assert_true(panel.visible)
+    assert_false(world._world_input_enabled)
+    assert_eq(String(panel.call("villager_name_text")), "Hana")
+    assert_eq(
+        int(world._session.snapshot()["relationships"][&"resident"]["points"]),
+        1,
+    )
+
+    var give_turnip := panel.call("gift_chip", 0) as Button
+    give_turnip.pressed.emit()
+    assert_eq(world._session.snapshot()["harvested"][&"turnip"], 0)
+    assert_eq(
+        int(world._session.snapshot()["relationships"][&"resident"]["points"]),
+        6,
+    )
+    assert_true(String(panel.call("feedback_text")).contains("Favourite gift"))
+    hud.close_dialogue()
 
 func test_dialogue_ui_cancel_closes_and_releases_focus() -> void:
     var world := _world()
@@ -3386,14 +3457,14 @@ func test_hold_invalid_and_nonfarm_targets_never_dispatch_or_restart_feedback() 
     var invalid_preview := _hold_preview(world, cells[1])
     assert_eq(invalid_preview["code"], GameRules.CommandCode.ALREADY_WATERED)
     # Non-farm target alongside it.
-    _set_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
-    var shop_preview := _hold_preview(world, WorldContract.SHOP_CELL)
-    assert_eq(shop_preview["code"], GameRules.CommandCode.NOT_FARM_CELL)
+    _set_target(world, WorldContract.VILLAGE_SIGN_CELL, WorldMath.Facing.UP)
+    var sign_preview := _hold_preview(world, WorldContract.VILLAGE_SIGN_CELL)
+    assert_eq(sign_preview["code"], GameRules.CommandCode.NOT_FARM_CELL)
     var before := world._session.snapshot()
 
     for _poll in 10:
         assert_false(world._advance_action_hold(0.1, cells[1], invalid_preview))
-        assert_false(world._advance_action_hold(0.1, WorldContract.SHOP_CELL, shop_preview))
+        assert_false(world._advance_action_hold(0.1, WorldContract.VILLAGE_SIGN_CELL, sign_preview))
     assert_eq(world._session.snapshot(), before, "hold polling must not dispatch")
     assert_eq(hud.toast_text(), "", "polling a blocked target must not raise a toast")
     assert_eq(
@@ -3476,10 +3547,10 @@ func test_hold_locked_action_shows_mismatched_farm_tile_as_neutral() -> void:
     assert_eq(hud.prompt_text(), "Crop is already watered.")
 
     # A non-farm cell keeps the usual interaction hints during a hold.
-    _set_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
+    _set_target(world, WorldContract.BED_CELL, WorldMath.Facing.UP)
     world._process(0.0)
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_NEUTRAL)
-    assert_eq(hud.prompt_text(), "[E] Seed Box")
+    assert_eq(hud.prompt_text(), "[E] Bed")
     _push_use_action(world, false)
 
 func test_hold_action_lock_requires_fresh_gestures_for_each_farm_stage() -> void:
@@ -3527,7 +3598,7 @@ func test_hold_off_farm_and_blocked_farm_bind_their_first_resolved_action() -> v
     var world := _world()
     var session := world._session
     var cells := WorldContract.farm_cells()
-    await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
+    await _place_target(world, WorldContract.VILLAGE_SIGN_CELL, WorldMath.Facing.UP)
 
     _push_use_action(world, true)
     assert_null(world._action_hold_action)
@@ -3631,10 +3702,12 @@ func test_upgraded_watering_hold_costs_one_stamina_per_cell() -> void:
     state["money"] = 250
     state["stamina"] = 20
     assert_true(session.restore_state(state))
+    assert_eq(session.travel(WorldContract.TRUCK_CELL), GameRules.CommandCode.TRAVELLED)
     assert_eq(
-        session.buy_watering_can_upgrade(WorldContract.SHOP_CELL),
+        session.buy_watering_can_upgrade(TownContract.SHOP_CELL),
         GameRules.CommandCode.WATERING_CAN_UPGRADED,
     )
+    assert_eq(session.travel(TownContract.TRUCK_CELL), GameRules.CommandCode.TRAVELLED)
     world._refresh_from_session()
     assert_true(session.snapshot()["watering_can_upgraded"])
 
@@ -3785,7 +3858,8 @@ func test_passive_clock_ticks_pauses_and_keeps_late_day_interactive() -> void:
     assert_eq(session.hoe(cell), GameRules.CommandCode.ACTION_TOO_LATE)
     assert_true(world._world_input_enabled)
 
-    _set_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
+    await _drive_to_town(world)
+    _set_target(world, TownContract.SHOP_CELL, WorldMath.Facing.UP)
     world.interact()
     assert_true(_panel(hud, "ShopPanel").visible)
     hud.buy_requested.emit(GameRules.CropKind.TURNIP, 1)
@@ -3798,6 +3872,7 @@ func test_passive_clock_ticks_pauses_and_keeps_late_day_interactive() -> void:
     hud.close_shop()
     assert_true(world._world_input_enabled)
 
+    await _drive_home(world)
     _set_target(world, WorldContract.SHIPPING_CELL)
     world.interact()
     assert_true(_panel(hud, "ShippingPanel").visible)
@@ -3876,10 +3951,12 @@ func test_overnight_save_restores_upgrade_and_efficient_watering() -> void:
 
     # Acquire through the real ownership command, then sleep at the bed so
     # the existing overnight path is the one and only save.
+    assert_eq(session.travel(WorldContract.TRUCK_CELL), GameRules.CommandCode.TRAVELLED)
     assert_eq(
-        session.buy_watering_can_upgrade(WorldContract.SHOP_CELL),
+        session.buy_watering_can_upgrade(TownContract.SHOP_CELL),
         GameRules.CommandCode.WATERING_CAN_UPGRADED,
     )
+    assert_eq(session.travel(TownContract.TRUCK_CELL), GameRules.CommandCode.TRAVELLED)
     assert_true(session.snapshot()["watering_can_upgraded"])
     await _place_target(world, WorldContract.BED_CELL, WorldMath.Facing.UP)
     world.hud.sleep_requested.emit()
@@ -4287,13 +4364,10 @@ func test_farm_shop_and_bed_dispatch_survive_truck_round_trip() -> void:
     await _place_target(world, WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT)
     world.interact()
     assert_not_null(world.get_node_or_null("TownMap"))
-    await _place_target(world, TownContract.TRUCK_CELL, WorldMath.Facing.LEFT)
-    world.interact()
-    assert_not_null(world.get_node_or_null("FarmMap"))
 
-    await _place_target(world, WorldContract.SHOP_CELL, WorldMath.Facing.UP)
+    await _place_target(world, TownContract.SHOP_CELL, WorldMath.Facing.UP)
     world._process(0.0)
-    assert_eq(hud.prompt_text(), "[E] Seed Box")
+    assert_eq(hud.prompt_text(), "[E] Seed Shop")
     var shop := _panel(hud, "ShopPanel")
     world.interact()
     assert_true(shop.visible)
@@ -4311,6 +4385,10 @@ func test_farm_shop_and_bed_dispatch_survive_truck_round_trip() -> void:
     hud.close_modals()
     assert_false(shop.visible)
     assert_false(hud.has_blocking_modal())
+
+    await _place_target(world, TownContract.TRUCK_CELL, WorldMath.Facing.LEFT)
+    world.interact()
+    assert_not_null(world.get_node_or_null("FarmMap"))
 
     await _place_target(world, WorldContract.BED_CELL, WorldMath.Facing.UP)
     world._process(0.0)
@@ -4343,12 +4421,14 @@ func test_farm_market_dispatch_survives_truck_round_trip_on_day14() -> void:
     assert_not_null(world.get_node_or_null("FarmMap"))
     assert_eq(int(session.snapshot()["day"]), GameRules.MAX_DAY)
 
+    await _drive_to_town(world)
+
     var finale_emits: Array = []
     world.finale_completed.connect(
         func(_final_state: Dictionary, save_error: int) -> void:
             finale_emits.append(save_error)
     )
-    await _place_target(world, WorldContract.MARKET_CELL)
+    await _place_target(world, TownContract.MARKET_CELL)
     world._process(0.0)
     assert_eq(hud.prompt_text(), "[E] Harvest Market")
     world.interact()
@@ -4400,7 +4480,7 @@ func test_load_map_closes_open_modals() -> void:
     var snapshot_before := world._session.snapshot()
 
     hud.open_shop()
-    assert_true(hud.has_blocking_modal(), "seed box opens as a blocking modal")
+    assert_true(hud.has_blocking_modal(), "seed shop opens as a blocking modal")
     assert_false(world._world_input_enabled)
     sfx.stream = null
 
@@ -4438,6 +4518,10 @@ func test_load_map_closes_open_modals() -> void:
     )
     assert_null(sfx.stream, "closing dialogue via map reload must not play CONFIRM_SFX")
 
+    assert_eq(
+        world._session.travel(TownContract.TRUCK_CELL),
+        GameRules.CommandCode.TRAVELLED,
+    )
     assert_eq(
         world._session.sleep(WorldContract.BED_CELL),
         GameRules.CommandCode.DAY_ADVANCED,

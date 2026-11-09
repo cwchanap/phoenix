@@ -312,7 +312,7 @@ func test_shop_header_is_a_large_gradient_band() -> void:
 	assert_not_null(title)
 	if title == null:
 		return
-	assert_eq(title.text, "SEED BOX", "localized seed box title stays truthful")
+	assert_eq(title.text, "SEED SHOP", "localized seed shop title stays truthful")
 	var sub := band.find_child("Sub", true, false) as Label
 	assert_not_null(sub, "a subtitle line rides under the title")
 	if sub != null:

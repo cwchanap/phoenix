@@ -48,6 +48,12 @@ func _command_driven_pre_save_state() -> Dictionary:
 
     assert_eq(session.harvest(first), GameRules.CommandCode.CROP_HARVESTED)
     assert_eq(session.harvest(second), GameRules.CommandCode.CROP_HARVESTED)
+    # Villagers are in town: drive there for the social leg, then come home
+    # before the shipping-bin deposit.
+    assert_eq(
+        session.travel(WorldContract.TRUCK_CELL),
+        GameRules.CommandCode.TRAVELLED,
+    )
     var june := VillagerRules.VillagerId.RESIDENT
     assert_eq(
         session.talk_to(june)["code"],
@@ -59,6 +65,10 @@ func _command_driven_pre_save_state() -> Dictionary:
             GameRules.CropKind.TURNIP,
         )["code"],
         GameRules.CommandCode.CROP_GIFTED,
+    )
+    assert_eq(
+        session.travel(TownContract.TRUCK_CELL),
+        GameRules.CommandCode.TRAVELLED,
     )
     assert_eq(
         session.deposit_crop(
@@ -82,13 +92,24 @@ func _target_bed(world: WorldShell) -> void:
 
 func _target_market(world: WorldShell) -> void:
     # Facing DOWN offsets the target by (+1, +1): stand one cell north-west of
-    # the authored market cell.
+    # the authored town market cell.
     var offset: Vector2i = WorldMath.TARGET_OFFSETS[WorldMath.Facing.DOWN]
     world.player.global_position = WorldMath.grid_to_world(
-        Vector2(WorldContract.MARKET_CELL - offset) + Vector2(0.5, 0.5)
+        Vector2(TownContract.MARKET_CELL - offset) + Vector2(0.5, 0.5)
     )
     world.player.facing = WorldMath.Facing.DOWN
-    assert_eq(world.player.current_target_cell(), WorldContract.MARKET_CELL)
+    assert_eq(world.player.current_target_cell(), TownContract.MARKET_CELL)
+
+func _drive_to_town(world: WorldShell) -> void:
+    # Face RIGHT at the farm truck so E travels through the real map swap.
+    var offset: Vector2i = WorldMath.TARGET_OFFSETS[WorldMath.Facing.RIGHT]
+    world.player.global_position = WorldMath.grid_to_world(
+        Vector2(WorldContract.TRUCK_CELL - offset) + Vector2(0.5, 0.5)
+    )
+    world.player.facing = WorldMath.Facing.RIGHT
+    assert_eq(world.player.current_target_cell(), WorldContract.TRUCK_CELL)
+    world.interact()
+    assert_not_null(world.get_node_or_null("TownMap"))
 
 func _day14_pre_final_state() -> Dictionary:
     var session := GameSession.new(func() -> float: return 0.9)
@@ -153,6 +174,7 @@ func test_market_and_bed_finalizations_save_once_and_reach_identical_result() ->
     market_world.finale_completed.connect(func(_state: Dictionary, save_error: int) -> void:
         finale_emits.append(save_error)
     )
+    _drive_to_town(market_world)
     _target_market(market_world)
     market_world.interact()
     # The save stays synchronous; only the emit/teardown wait out the cue.
@@ -180,6 +202,12 @@ func test_market_and_bed_finalizations_save_once_and_reach_identical_result() ->
     assert_null(bed_app.get_node_or_null("World"))
     assert_true((bed_app.get_node("ResultScreen") as ResultScreen).visible)
 
+    assert_eq(
+        int(market_state["time_minutes"]) - int(bed_state["time_minutes"]),
+        GameRules.TRAVEL_MINUTES,
+        "the market route only adds the truck trip",
+    )
+    market_state["time_minutes"] = bed_state["time_minutes"]
     assert_eq(market_state, bed_state)
     assert_eq(
         ContentRules.build_harvest_result(market_state),
@@ -275,6 +303,7 @@ func test_terminal_settlement_pays_pending_once_and_keeps_carried_crops() -> voi
     var repository := CountingSaveRepository.new(TEST_PATH)
     var app := await _launch_continued(repository)
     var world := app.get_node("World") as WorldShell
+    _drive_to_town(world)
     _target_market(world)
     world.interact()
 
@@ -312,6 +341,7 @@ func test_finale_save_failure_still_completes_and_shows_unsaved_result() -> void
     world.finale_completed.connect(func(_state: Dictionary, save_error: int) -> void:
         finale_errors.append(save_error)
     )
+    _drive_to_town(world)
     _target_market(world)
 
     assert_eq(DirAccess.remove_absolute(ProjectSettings.globalize_path(FAILURE_PATH)), OK)
@@ -333,6 +363,7 @@ func test_result_return_to_title_reloads_save_and_new_game_keeps_slot() -> void:
     var repository := CountingSaveRepository.new(TEST_PATH)
     var app := await _launch_continued(repository)
     var world := app.get_node("World") as WorldShell
+    _drive_to_town(world)
     _target_market(world)
     world.interact()
     assert_eq(repository.save_calls, 1)

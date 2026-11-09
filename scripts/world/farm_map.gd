@@ -11,13 +11,11 @@ const CAMERA_BOUNDS := WorldContract.CAMERA_BOUNDS
 func _ready() -> void:
     var static_collision := $StaticCollision as StaticBody2D
     _fill_collision(static_collision, "HouseCollision", WorldContract.HOUSE_FOOTPRINT)
-    _fill_collision(static_collision, "ShopStallCollision", WorldContract.SHOP_STALL_FOOTPRINT)
     _fill_collision(static_collision, "ForestCollision", WorldContract.FOREST_FOOTPRINT)
     _fill_collision(static_collision, "RiverWestCollision", WorldContract.RIVER_WEST_FOOTPRINT)
     _fill_collision(static_collision, "RiverSouthCollision", WorldContract.RIVER_SOUTH_FOOTPRINT)
     _fill_collision(static_collision, "WorkbenchCollision", WorldContract.WORKBENCH_FOOTPRINT)
     _fill_collision(static_collision, "ShippingCollision", WorldContract.SHIPPING_FOOTPRINT)
-    _fill_collision(static_collision, "HarvestMarketCollision", WorldContract.MARKET_FOOTPRINT)
     _fill_collision(static_collision, "TruckCollision", WorldContract.TRUCK_FOOTPRINT)
 
     var perimeter_names := ["PerimeterTop", "PerimeterRight", "PerimeterBottom", "PerimeterLeft"]

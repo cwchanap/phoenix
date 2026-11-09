@@ -179,18 +179,23 @@ func _interact_label(target: Variant) -> String:
         return ""
     if _map is FarmMap:
         match target:
-            WorldContract.SHOP_CELL:
-                return "Seed Box"
             WorldContract.BED_CELL:
                 return "Bed"
             WorldContract.SHIPPING_CELL:
                 return "Shipping"
-            WorldContract.MARKET_CELL:
-                return "Harvest Market"
             WorldContract.TRUCK_CELL:
                 return "Drive to town"
-    elif target == TownContract.TRUCK_CELL:
-        return "Drive home"
+    else:
+        var villager_id := TownContract.villager_at(target)
+        if villager_id >= 0:
+            return VillagerRules.display_name(villager_id)
+        match target:
+            TownContract.SHOP_CELL:
+                return "Seed Shop"
+            TownContract.MARKET_CELL:
+                return "Harvest Market"
+            TownContract.TRUCK_CELL:
+                return "Drive home"
     return ""
 
 ## The target cell's centre in HUD (screen) coordinates.
@@ -298,22 +303,26 @@ func interact() -> void:
         return
     var target: Variant = player.current_target_cell()
     if _map is FarmMap:
-        if target == WorldContract.SHOP_CELL:
-            hud.open_shop()
-        elif target == WorldContract.SHIPPING_CELL:
+        if target == WorldContract.SHIPPING_CELL:
             hud.open_shipping()
         elif target == WorldContract.BED_CELL:
             hud.open_sleep_confirmation()
-        elif target == WorldContract.MARKET_CELL:
-            _finish_finale(_session.trigger_harvest_finale(target))
         elif target == WorldContract.TRUCK_CELL:
             _attempt_travel(target)
         else:
             hud.show_feedback(GameRules.CommandCode.NOTHING_TO_INTERACT)
-    elif target == TownContract.TRUCK_CELL:
-        _attempt_travel(target)
     else:
-        hud.show_feedback(GameRules.CommandCode.NOTHING_TO_INTERACT)
+        var villager_id := TownContract.villager_at(target)
+        if villager_id >= 0:
+            _finish_social_command(villager_id, _session.talk_to(villager_id))
+        elif target == TownContract.SHOP_CELL:
+            hud.open_shop()
+        elif target == TownContract.MARKET_CELL:
+            _finish_finale(_session.trigger_harvest_finale(target))
+        elif target == TownContract.TRUCK_CELL:
+            _attempt_travel(target)
+        else:
+            hud.show_feedback(GameRules.CommandCode.NOTHING_TO_INTERACT)
 
 func _attempt_travel(target: Variant) -> void:
     var code := _session.travel(target)

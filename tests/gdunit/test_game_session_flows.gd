@@ -4,7 +4,7 @@ class_name GameSessionFlowsGdUnitTest
 extends GdUnitTestSuite
 
 const BED := WorldContract.BED_CELL
-const SHOP := WorldContract.SHOP_CELL
+const SHOP := TownContract.SHOP_CELL
 const SHIPPING := WorldContract.SHIPPING_CELL
 
 
@@ -26,6 +26,14 @@ func _count(counts: Dictionary, kind: GameRules.CropKind) -> int:
 
 func _sleep(session: GameSession) -> GameRules.CommandCode:
 	return session.sleep(BED)
+
+
+func _drive_to_town(session: GameSession) -> void:
+	assert_int(session.travel(WorldContract.TRUCK_CELL)).is_equal(GameRules.CommandCode.TRAVELLED)
+
+
+func _drive_home(session: GameSession) -> void:
+	assert_int(session.travel(TownContract.TRUCK_CELL)).is_equal(GameRules.CommandCode.TRAVELLED)
 
 
 func _farm_entry(session: GameSession, cell: Vector2i) -> Dictionary:
@@ -124,6 +132,11 @@ func test_action_budget_cutoff_boundary() -> void:
 
 func test_shop_purchase_and_guards() -> void:
 	var session := _sunny()
+	# The shop counter is in town; a farm call refuses before any purchase.
+	assert_int(
+		session.buy_seeds(GameRules.CropKind.TURNIP, 2, SHOP)
+	).is_equal(GameRules.CommandCode.NOT_AT_SHOP)
+	_drive_to_town(session)
 	assert_int(
 		session.buy_seeds(GameRules.CropKind.TURNIP, 2, SHOP)
 	).is_equal(GameRules.CommandCode.SEEDS_PURCHASED)
@@ -147,6 +160,7 @@ func test_social_daily_limits_and_points() -> void:
 	var session := _rainy()
 	var cell := _cell(0)
 
+	_drive_to_town(session)
 	var talk: Dictionary = session.talk_to(VillagerRules.VillagerId.SHOPKEEPER)
 	assert_int(int(talk["code"])).is_equal(GameRules.CommandCode.VILLAGER_TALKED)
 	assert_int(int(talk["points_gained"])).is_equal(VillagerRules.TALK_POINTS)
@@ -159,6 +173,7 @@ func test_social_daily_limits_and_points() -> void:
 		session.gift_crop(VillagerRules.VillagerId.SHOPKEEPER, GameRules.CropKind.TURNIP)["code"]
 	).is_equal(GameRules.CommandCode.INSUFFICIENT_CROPS)
 
+	_drive_home(session)
 	session.hoe(cell)
 	session.plant(cell)
 	# Day 1 weather is fixed sunny; water now so nights 1-3 all advance growth.
@@ -167,6 +182,7 @@ func test_social_daily_limits_and_points() -> void:
 		assert_int(_sleep(session)).is_equal(GameRules.CommandCode.DAY_ADVANCED)
 		assert_int(session.acknowledge_morning_summary()).is_equal(GameRules.CommandCode.DAY_STARTED)
 	assert_int(session.harvest(cell)).is_equal(GameRules.CommandCode.CROP_HARVESTED)
+	_drive_to_town(session)
 	# Turnip is the resident's favourite but not the shopkeeper's: +3, not +5.
 	var gift: Dictionary = session.gift_crop(
 		VillagerRules.VillagerId.SHOPKEEPER, GameRules.CropKind.TURNIP
@@ -179,8 +195,10 @@ func test_social_daily_limits_and_points() -> void:
 	).is_equal(GameRules.CommandCode.GIFT_ALREADY_GIVEN)
 
 	# Sleep resets the daily talk/gift flags (after acknowledging the summary).
+	_drive_home(session)
 	assert_int(_sleep(session)).is_equal(GameRules.CommandCode.DAY_ADVANCED)
 	session.acknowledge_morning_summary()
+	_drive_to_town(session)
 	talk = session.talk_to(VillagerRules.VillagerId.SHOPKEEPER)
 	assert_int(int(talk["points_gained"])).is_equal(VillagerRules.TALK_POINTS)
 
@@ -189,7 +207,9 @@ func test_state_round_trip_preserves_progress() -> void:
 	var session := _sunny()
 	session.hoe(_cell(0))
 	session.plant(_cell(0))
+	_drive_to_town(session)
 	session.talk_to(VillagerRules.VillagerId.SHOPKEEPER)
+	_drive_home(session)
 	assert_int(_sleep(session)).is_equal(GameRules.CommandCode.DAY_ADVANCED)
 
 	var restored := GameSession.new(func() -> float: return 0.5)

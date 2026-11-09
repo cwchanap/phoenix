@@ -12,6 +12,7 @@ const STAMINA := CHROME + "/Stamina/Row/Numbers/Value"
 const PLAYER := WORLD + "/%Player"
 const UP := WorldMath.Facing.UP
 const RIGHT := WorldMath.Facing.RIGHT
+const LEFT := WorldMath.Facing.LEFT
 
 # Save path the child is told to write via PHOENIX_SAVE_PATH. Kept so the
 # sleep test can assert the file actually exists, pinning the isolation
@@ -261,8 +262,11 @@ func test_shop_purchase_updates_money() -> void:
 	if game == null or is_failure():
 		return
 
-	# Target the contract shop cell from its south-west with facing RIGHT.
-	await _stand_at_target(game, WorldContract.SHOP_CELL, RIGHT)
+	# Drive the farm truck to town through the real E interaction, then
+	# target the authored shop cell.
+	await _stand_at_target(game, WorldContract.TRUCK_CELL, RIGHT)
+	await game.call_method(WORLD, "interact")
+	await _stand_at_target(game, TownContract.SHOP_CELL, RIGHT)
 	await game.call_method(WORLD, "interact")
 	if is_failure():
 		return
@@ -343,9 +347,11 @@ func test_continue_seeded_save_buys_upgrade_and_waters_with_one_stamina() -> voi
 	if game == null or is_failure():
 		return
 
-	# Real shop entry at the contract cell, then real W/S navigation down to
-	# the Efficient Can row.
-	await _stand_at_target(game, WorldContract.SHOP_CELL, RIGHT)
+	# Drive to town, then real shop entry at the contract cell and real
+	# W/S navigation down to the Efficient Can row.
+	await _stand_at_target(game, WorldContract.TRUCK_CELL, RIGHT)
+	await game.call_method(WORLD, "interact")
+	await _stand_at_target(game, TownContract.SHOP_CELL, RIGHT)
 	await game.call_method(WORLD, "interact")
 	if is_failure():
 		return
@@ -375,6 +381,10 @@ func test_continue_seeded_save_buys_upgrade_and_waters_with_one_stamina() -> voi
 	assert_bool(
 		await game.wait_for_property(HUD + "/ShopPanel", "visible", false, 5.0)
 	).is_true()
+
+	# Drive home before working the farm.
+	await _stand_at_target(game, TownContract.TRUCK_CELL, LEFT)
+	await game.call_method(WORLD, "interact")
 
 	# Primary feedback: the Water prompt reads 1 stamina. Secondary: its
 	# icon swapped to the efficient-can glint.
