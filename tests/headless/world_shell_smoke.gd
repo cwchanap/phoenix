@@ -1360,6 +1360,9 @@ func _run() -> void:
             if not _expect(has_transparent, "%s frame %d has transparent pixels" % [entry.path, frame]):
                 return
 
+    world.hud._sfx_player.stop()
+    await create_timer(0.2).timeout
+
     print("world shell smoke passed: 480 cells, alignment, water/paths, player, camera, collisions, assets")
     quit(0)
 
