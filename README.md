@@ -200,7 +200,10 @@ accessories through `app_header_accessory()`, add footer controls through
 | Farm camera bounds | `Rect2(128, -96, 1408, 800)` |
 | Town camera bounds | `Rect2(384, -96, 896, 544)` |
 
-Each ground is an authored `TileMapLayer`. Scenery and player roots use
+Each ground is an authored `TileMapLayer`; the town also carries a
+`Backdrop` layer reusing the farm terrain atlas so the paved square sits
+in a grass field and its road rows continue out of the map as a dirt
+track. Scenery and player roots use
 bottom-center ground-contact positions. Collision polygons are projected from
 the logical house, forest/river/workbench, shipping, town station,
 shop, cafe, market, villager, truck, and perimeter

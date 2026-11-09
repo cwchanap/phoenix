@@ -38,7 +38,10 @@ There is no JavaScript or Tauri runtime in the current checkout.
   `WorldContract`. The parked kei truck stands by the east road sign at
   `TRUCK_CELL`/`TRUCK_ARRIVAL`.
 - `scenes/world/town_map.tscn` and `scripts/world/town_map.gd` (`TownMap`)
-  own the authored 16x12 town: one paved/road `TileMapLayer`, the
+  own the authored 16x12 town: a `Backdrop` `TileMapLayer` that reuses the
+  farm terrain atlas to paint the `TownContract.backdrop_cells()` camera
+  coverage outside the playable rect (grass field, with the road rows
+  continuing as a dirt track), the paved/road `Ground` `TileMapLayer`, the
   `TownContract`-derived `StaticCollision` bodies (station, seed shop,
   cafe, market, truck, the three villager footprints, and the four
   perimeter bands), and its own `Entities` Y-sort root holding the town

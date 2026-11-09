@@ -4,6 +4,14 @@ extends Node2D
 @onready var entities: Node2D = $Entities
 
 func _ready() -> void:
+    var backdrop := $Backdrop as TileMapLayer
+    var map_rect := Rect2i(Vector2i.ZERO, TownContract.MAP_SIZE)
+    for cell in TownContract.backdrop_cells():
+        if map_rect.has_point(cell):
+            continue
+        var road := cell.y == 9 or (cell.y == 10 and cell.x <= 4)
+        backdrop.set_cell(cell, 0, Vector2i(3, 0) if road else Vector2i.ZERO)
+
     var static_collision := $StaticCollision as StaticBody2D
     _fill_collision(static_collision, "StationCollision", TownContract.STATION_FOOTPRINT)
     _fill_collision(static_collision, "SeedShopCollision", TownContract.SHOP_FOOTPRINT)

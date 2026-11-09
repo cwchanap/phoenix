@@ -2115,12 +2115,6 @@ func test_upgrade_purchase_keeps_reinvestment_route_intact() -> void:
     assert_eq(int(session.snapshot()["day"]), GameRules.MAX_DAY)
 
 func test_real_command_route_reaches_heart_of_the_harvest() -> void:
-    # Heart needs >=300G shipped plus a Close Friend. Hana (the resident)
-    # favourites Turnips: a daily town visit with one talk (+1) and one
-    # favourite Turnip gift (+5) earns 6 points, so three visits reach the
-    # 18-point Close Friend threshold. Five shipped Turnips and two shipped
-    # Potatoes total 325G; three more Turnips feed the gifts. Every command
-    # is a real production call — no relationship or inventory seeding.
     var session := GameSession.new(func() -> float: return 0.9)
     var hana := VillagerRules.VillagerId.RESIDENT
     var cells := WorldContract.farm_cells()
@@ -2133,16 +2127,14 @@ func test_real_command_route_reaches_heart_of_the_harvest() -> void:
         assert_eq(session.hoe(cell), GameRules.CommandCode.SOIL_TILLED)
         assert_eq(session.plant(cell), GameRules.CommandCode.CROP_PLANTED)
         assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
-    _sleep_and_ack(session)  # Day 2
+    _sleep_and_ack(session)
     for cell in turnip_cells:
         assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
-    _sleep_and_ack(session)  # Day 3
+    _sleep_and_ack(session)
     for cell in turnip_cells:
         assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
-    _sleep_and_ack(session)  # Day 4, first Turnips mature
+    _sleep_and_ack(session)
 
-    # Town day 1: first Hana visit — carry three Turnips, gift one, ship
-    # one, and keep one in hand for a later visit.
     for cell in turnip_cells:
         assert_eq(session.harvest(cell), GameRules.CommandCode.CROP_HARVESTED)
     _drive_to_town(session)
@@ -2172,10 +2164,8 @@ func test_real_command_route_reaches_heart_of_the_harvest() -> void:
         session.deposit_crop(GameRules.CropKind.TURNIP, 1, WorldContract.SHIPPING_CELL),
         GameRules.CommandCode.CROP_DEPOSITED,
     )
-    _sleep_and_ack(session)  # Day 5, 35G settled
+    _sleep_and_ack(session)
 
-    # Same tilled cells take two Potatoes and one Turnip; the carried Turnip
-    # stays pocketed for the next visit.
     assert_eq(
         session.select_seed(GameRules.CropKind.POTATO),
         GameRules.CommandCode.SEED_SELECTED,
@@ -2189,15 +2179,14 @@ func test_real_command_route_reaches_heart_of_the_harvest() -> void:
     assert_eq(session.plant(turnip_cells[2]), GameRules.CommandCode.CROP_PLANTED)
     for cell in turnip_cells:
         assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
-    _sleep_and_ack(session)  # Day 6
+    _sleep_and_ack(session)
     for cell in turnip_cells:
         assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
-    _sleep_and_ack(session)  # Day 7
+    _sleep_and_ack(session)
     for cell in turnip_cells:
         assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
-    _sleep_and_ack(session)  # Day 8, second Turnip matures
+    _sleep_and_ack(session)
 
-    # Town day 2: the day-5 Turnip matures while the Potatoes still grow.
     assert_eq(session.harvest(turnip_cells[2]), GameRules.CommandCode.CROP_HARVESTED)
     for cell in potato_cells:
         assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
@@ -2219,10 +2208,8 @@ func test_real_command_route_reaches_heart_of_the_harvest() -> void:
     )
     assert_eq(int(session.snapshot()["money"]), 25)
     _drive_home(session)
-    _sleep_and_ack(session)  # Day 9
+    _sleep_and_ack(session)
 
-    # Four late Turnips on cells clear of the Potatoes; their first dry night
-    # is one below the wither threshold and they get watered from Day 10.
     for cell in [cells[3], cells[4], cells[5]]:
         assert_eq(session.hoe(cell), GameRules.CommandCode.SOIL_TILLED)
     for cell in late_turnip_cells:
@@ -2230,23 +2217,21 @@ func test_real_command_route_reaches_heart_of_the_harvest() -> void:
     for cell in potato_cells:
         assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
     assert_eq(int(session.snapshot()["stamina"]), GameRules.MAX_STAMINA - 17)
-    _sleep_and_ack(session)  # Day 10, Potatoes mature
+    _sleep_and_ack(session)
 
     for cell in potato_cells:
         assert_eq(session.harvest(cell), GameRules.CommandCode.CROP_HARVESTED)
     for cell in late_turnip_cells:
         assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
-    _sleep_and_ack(session)  # Day 11
+    _sleep_and_ack(session)
     for cell in late_turnip_cells:
         assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
     assert_eq(
         session.deposit_crop(GameRules.CropKind.POTATO, 2, WorldContract.SHIPPING_CELL),
         GameRules.CommandCode.CROP_DEPOSITED,
     )
-    _sleep_and_ack(session)  # Day 12, 150G settled
+    _sleep_and_ack(session)
 
-    # Town day 3: the pocketed Turnip completes the favourite-gift trilogy
-    # and pushes Hana to exactly the 18-point Close Friend threshold.
     for cell in late_turnip_cells:
         assert_eq(session.water(cell), GameRules.CommandCode.CROP_WATERED)
     _drive_to_town(session)
@@ -2272,7 +2257,7 @@ func test_real_command_route_reaches_heart_of_the_harvest() -> void:
         &"close_friend",
     )
     _drive_home(session)
-    _sleep_and_ack(session)  # Day 13, late Turnips mature
+    _sleep_and_ack(session)
 
     for cell in late_turnip_cells:
         assert_eq(session.harvest(cell), GameRules.CommandCode.CROP_HARVESTED)
@@ -2280,10 +2265,8 @@ func test_real_command_route_reaches_heart_of_the_harvest() -> void:
         session.deposit_crop(GameRules.CropKind.TURNIP, 4, WorldContract.SHIPPING_CELL),
         GameRules.CommandCode.CROP_DEPOSITED,
     )
-    _sleep_and_ack(session)  # Day 14, 140G settled into 325G shipped
+    _sleep_and_ack(session)
 
-    # Town day 4: the market trip doubles as the fourth visit; Hana's
-    # already-earned level now plays the Close Friend sequence once.
     _drive_to_town(session)
     town_days += 1
     assert_gte(town_days, 3)
