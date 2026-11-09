@@ -86,15 +86,16 @@ func _crop_path(cell: Vector2i) -> String:
 	return WORLD + "/FarmMap/Entities/FarmCrop_%d_%d" % [cell.x, cell.y]
 
 
-func _tap_action(game, action: String) -> void:
-	assert_bool(await game.input_action(action, true)).is_true()
-	assert_bool(await game.input_action(action, false)).is_true()
+func _tap_key(game, keycode: Key) -> void:
+	assert_bool(await game.input_key(keycode, true, true)).is_true()
+	assert_bool(await game.input_key(keycode, false, true)).is_true()
 
 
 # Successes raise no HUD text (only refusals toast), so each caller asserts
 # the world change itself; a refusal toast here means the action failed.
+# Transport errors surface via is_failure().
 func _use_action(game) -> void:
-	await _tap_action(game, "use_action")
+	await _tap_key(game, KEY_SPACE)
 	if is_failure():
 		return
 	assert_str(await game.call_method(GAME_HUD, "toast_text")).is_equal("")
@@ -126,11 +127,11 @@ func test_day_one_town_trip_farming_loop_and_sleep() -> void:
 	assert_str(await game.call_method(GAME_HUD, "prompt_text")).is_equal(
 		"[E] Drive to town"
 	)
-	await _tap_action(game, "interact")
+	await _tap_key(game, KEY_E)
 	assert_bool(await game.wait_for_node(WORLD + "/TownMap", 5.0)).is_true()
 
 	await _stand_at_target(game, TownContract.SHOP_CELL, RIGHT)
-	await _tap_action(game, "interact")
+	await _tap_key(game, KEY_E)
 	if is_failure():
 		return
 	assert_bool(
@@ -153,7 +154,7 @@ func test_day_one_town_trip_farming_loop_and_sleep() -> void:
 	assert_str(await game.call_method(GAME_HUD, "prompt_text")).is_equal(
 		"[E] Drive home"
 	)
-	await _tap_action(game, "interact")
+	await _tap_key(game, KEY_E)
 	assert_bool(await game.wait_for_node(WORLD + "/FarmMap", 5.0)).is_true()
 
 	# Hoe, plant, and water a farm cell well outside the old 3x3 patch, from
@@ -205,7 +206,7 @@ func test_day_one_town_trip_farming_loop_and_sleep() -> void:
 
 	# Walk-free trip to the contract bed cell: interact, confirm, acknowledge.
 	await _stand_at_target(game, WorldContract.BED_CELL, UP)
-	await _tap_action(game, "interact")
+	await _tap_key(game, KEY_E)
 	if is_failure():
 		return
 	assert_bool(
