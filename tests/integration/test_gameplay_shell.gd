@@ -532,6 +532,7 @@ func test_current_target_cell_matches_world_math() -> void:
     var expected: Variant = WorldMath.target_cell(
         WorldMath.world_to_grid(player.global_position),
         player.facing,
+        WorldContract.MAP_SIZE,
     )
     var actual: Variant = player.current_target_cell()
     assert_eq(actual, expected)
@@ -2333,6 +2334,16 @@ func test_farming_success_codes_resolve_to_four_distinct_streams() -> void:
         "seed cycling keeps the selection cue",
     )
     assert_eq(
+        hud._sfx_for_code(GameRules.CommandCode.TRAVELLED),
+        GameHud.ACTION_SFX,
+        "a successful drive keeps the action cue",
+    )
+    assert_eq(
+        hud.feedback_text(GameRules.CommandCode.TRAVELLED),
+        "",
+        "a successful drive shows no refusal toast",
+    )
+    assert_eq(
         hud._sfx_for_code(GameRules.CommandCode.ALREADY_TILLED),
         hud._sfx_for_code(GameRules.CommandCode.INSUFFICIENT_STAMINA),
         "failures keep the shared cancel cue",
@@ -4010,7 +4021,7 @@ func test_load_map_farm_reload_preserves_player_session_and_hud() -> void:
         "stale target tint cleared during reload",
     )
     var spawn_target: Variant = WorldMath.target_cell(
-        WorldMath.world_to_grid(player.global_position), player.facing
+        WorldMath.world_to_grid(player.global_position), player.facing, WorldContract.MAP_SIZE
     )
     assert_eq(spawn_target, Vector2i(12, 9), "spawn target cell")
     assert_true(target_highlight.visible, "initial target drawn without a physics tick")

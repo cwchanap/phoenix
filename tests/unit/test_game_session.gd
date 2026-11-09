@@ -105,7 +105,7 @@ func _water_target_session(stamina: int, upgraded: bool, weather: StringName = &
 func test_new_session_has_exact_starter_state() -> void:
     var session := GameSession.new(func() -> float: return 0.9)
     var snapshot := session.snapshot()
-    assert_eq(snapshot.size(), 19)
+    assert_eq(snapshot.size(), 20)
     assert_eq(snapshot.keys(), [
         "day",
         "time_minutes",
@@ -126,6 +126,7 @@ func test_new_session_has_exact_starter_state() -> void:
         "shipped",
         "finale_triggered",
         "watering_can_upgraded",
+        "location",
     ])
     assert_eq(snapshot["max_stamina"], GameRules.MAX_STAMINA)
     assert_eq(snapshot["day"], 1)
@@ -169,6 +170,7 @@ func test_new_session_has_exact_starter_state() -> void:
     assert_eq(snapshot["shipped"], {&"turnip": 0, &"potato": 0, &"pumpkin": 0})
     assert_false(snapshot["finale_triggered"])
     assert_false(snapshot["watering_can_upgraded"])
+    assert_eq(snapshot["location"], GameRules.MapId.FARM)
 
     var starter_state := session.state()
     for field in [
@@ -226,6 +228,7 @@ func test_state_is_deeply_isolated_and_excludes_derived_fields() -> void:
 
     var mutable_state := session.state()
     assert_false(mutable_state.has("max_stamina"))
+    assert_false(mutable_state.has("location"))
     assert_false(mutable_state["relationships"][&"resident"].has("level"))
     mutable_state["harvested"][&"turnip"] = 99
     mutable_state["relationships"][&"resident"]["points"] = 99
@@ -2124,3 +2127,146 @@ func test_balance_gate_two_hundred_gold_buys_real_throughput_by_day_nine() -> vo
     assert_eq(upgraded_crops - baseline_crops, 4)
     assert_eq(upgraded_shipped - baseline_shipped, 560)
     assert_eq(int(upgraded_result["money"]) - int(baseline_result["money"]), 360)
+
+func test_travel_drives_between_farm_and_town_for_thirty_minutes() -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    var before := session.snapshot()
+    assert_eq(before["location"], GameRules.MapId.FARM)
+
+    assert_eq(
+        session.travel(WorldContract.TRUCK_CELL),
+        GameRules.CommandCode.TRAVELLED,
+    )
+    var arrived := session.snapshot()
+    assert_eq(arrived["location"], GameRules.MapId.TOWN)
+    assert_eq(
+        int(arrived["time_minutes"]),
+        int(before["time_minutes"]) + GameRules.TRAVEL_MINUTES,
+    )
+    assert_eq(arrived["stamina"], before["stamina"])
+
+    assert_eq(
+        session.travel(TownContract.TRUCK_CELL),
+        GameRules.CommandCode.TRAVELLED,
+    )
+    var returned := session.snapshot()
+    assert_eq(returned["location"], GameRules.MapId.FARM)
+    assert_eq(
+        int(returned["time_minutes"]),
+        int(before["time_minutes"]) + 2 * GameRules.TRAVEL_MINUTES,
+    )
+    assert_eq(returned["stamina"], before["stamina"])
+
+func test_travel_rejects_wrong_and_remote_targets_without_mutation() -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    var before := session.snapshot()
+    for target: Variant in [
+        null,
+        Vector2i(0, 0),
+        WorldContract.SHOP_CELL,
+        TownContract.TRUCK_CELL,
+    ]:
+        assert_eq(
+            session.travel(target),
+            GameRules.CommandCode.NOTHING_TO_INTERACT,
+        )
+        _assert_unchanged(session, before)
+
+    assert_eq(
+        session.travel(WorldContract.TRUCK_CELL),
+        GameRules.CommandCode.TRAVELLED,
+    )
+    var town := session.snapshot()
+    for target: Variant in [null, Vector2i(0, 0), WorldContract.TRUCK_CELL]:
+        assert_eq(
+            session.travel(target),
+            GameRules.CommandCode.NOTHING_TO_INTERACT,
+        )
+        _assert_unchanged(session, town)
+
+func test_travel_clamps_late_departures_at_the_cutoff() -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    session.set("_time_minutes", GameRules.ACTION_CUTOFF_MINUTES - 15)
+    assert_eq(
+        session.travel(WorldContract.TRUCK_CELL),
+        GameRules.CommandCode.TRAVELLED,
+    )
+    assert_eq(
+        int(session.snapshot()["time_minutes"]),
+        GameRules.ACTION_CUTOFF_MINUTES,
+    )
+
+func test_travel_still_succeeds_at_the_cutoff() -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    session.set("_time_minutes", GameRules.ACTION_CUTOFF_MINUTES)
+    assert_eq(
+        session.travel(WorldContract.TRUCK_CELL),
+        GameRules.CommandCode.TRAVELLED,
+    )
+    var snapshot := session.snapshot()
+    assert_eq(snapshot["location"], GameRules.MapId.TOWN)
+    assert_eq(int(snapshot["time_minutes"]), GameRules.ACTION_CUTOFF_MINUTES)
+
+func test_travel_is_gated_by_pending_summary_and_finale() -> void:
+    var pending := GameSession.new(func() -> float: return 0.9)
+    assert_eq(pending.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
+    var pending_before := pending.snapshot()
+    assert_eq(
+        pending.travel(WorldContract.TRUCK_CELL),
+        GameRules.CommandCode.DAY_SUMMARY_PENDING,
+    )
+    _assert_unchanged(pending, pending_before)
+
+    var completed := _day14_session_from(_day14_pre_final_state())
+    assert_eq(
+        completed.trigger_harvest_finale(WorldContract.MARKET_CELL),
+        GameRules.CommandCode.FINALE_TRIGGERED,
+    )
+    var completed_before := completed.snapshot()
+    assert_eq(
+        completed.travel(WorldContract.TRUCK_CELL),
+        GameRules.CommandCode.FINALE_ALREADY_TRIGGERED,
+    )
+    _assert_unchanged(completed, completed_before)
+
+func test_travel_location_is_transient_and_resets_to_farm_on_restore() -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    assert_eq(
+        session.travel(WorldContract.TRUCK_CELL),
+        GameRules.CommandCode.TRAVELLED,
+    )
+    assert_eq(session.snapshot()["location"], GameRules.MapId.TOWN)
+
+    var saved := session.state()
+    assert_false(saved.has("location"))
+    assert_eq(SessionStateValidator.state_error(saved), "")
+    assert_true(session.restore_state(saved))
+    assert_eq(session.snapshot()["location"], GameRules.MapId.FARM)
+
+    var restored := GameSession.new(func() -> float: return 0.9)
+    assert_true(restored.restore_state(saved))
+    assert_eq(restored.snapshot()["location"], GameRules.MapId.FARM)
+
+func test_travel_to_town_makes_farm_cells_ineligible() -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    _assert_preview(
+        session,
+        FARM_CELL,
+        GameRules.CommandCode.SOIL_TILLED,
+        GameRules.FarmingAction.HOE,
+        null,
+    )
+    assert_eq(
+        session.travel(WorldContract.TRUCK_CELL),
+        GameRules.CommandCode.TRAVELLED,
+    )
+
+    var before := session.snapshot()
+    _assert_preview(session, FARM_CELL, GameRules.CommandCode.NOT_FARM_CELL, null, null)
+    assert_eq(
+        session.apply_target_action(FARM_CELL),
+        GameRules.CommandCode.NOT_FARM_CELL,
+    )
+    for command in [session.hoe, session.plant, session.water, session.harvest]:
+        assert_eq(command.call(FARM_CELL), GameRules.CommandCode.NOT_FARM_CELL)
+    _assert_unchanged(session, before)

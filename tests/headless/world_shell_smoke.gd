@@ -506,7 +506,7 @@ func _run() -> void:
         "ShippingCollision": WorldContract.SHIPPING_FOOTPRINT,
         "HarvestMarketCollision": WorldContract.MARKET_FOOTPRINT,
     }
-    var perimeter_rects := WorldContract.perimeter_footprints()
+    var perimeter_rects := WorldContract.perimeter_footprints(WorldContract.MAP_SIZE)
     if not _expect(perimeter_rects.size() == 4, "perimeter footprint count"):
         return
     var perimeter_names := ["PerimeterTop", "PerimeterRight", "PerimeterBottom", "PerimeterLeft"]

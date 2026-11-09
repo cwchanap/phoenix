@@ -27,6 +27,7 @@ var _farm: Array[Dictionary] = []
 var _farm_index_by_cell: Dictionary = {}
 var _relationships: Array[Dictionary] = []
 var _pending_morning_summary: Variant = null
+var _location := GameRules.MapId.FARM
 var _weather_roll: Callable
 
 func _init(weather_roll: Callable = Callable()) -> void:
@@ -89,6 +90,7 @@ func snapshot() -> Dictionary:
         "shipped": state_result["shipped"],
         "finale_triggered": state_result["finale_triggered"],
         "watering_can_upgraded": state_result["watering_can_upgraded"],
+        "location": _location,
     }
     for id in range(VillagerRules.VillagerId.size()):
         var key := VillagerRules.villager_key(id)
@@ -159,6 +161,7 @@ func restore_state(candidate: Dictionary) -> bool:
     _rebuild_farm_index()
     _relationships = relationships
     _pending_morning_summary = pending_morning_summary
+    _location = GameRules.MapId.FARM
     return true
 
 func selected_seed() -> GameRules.CropKind:
@@ -675,6 +678,28 @@ func acknowledge_intro() -> GameRules.CommandCode:
     _intro_acknowledged = true
     return GameRules.CommandCode.INTRO_ACKNOWLEDGED
 
+func travel(target_cell: Variant) -> GameRules.CommandCode:
+    var active_failure := _active_day_failure()
+    if active_failure != -1:
+        return active_failure
+    var truck_cell := (
+        WorldContract.TRUCK_CELL
+        if _location == GameRules.MapId.FARM
+        else TownContract.TRUCK_CELL
+    )
+    if not (target_cell is Vector2i) or target_cell != truck_cell:
+        return GameRules.CommandCode.NOTHING_TO_INTERACT
+    _location = (
+        GameRules.MapId.TOWN
+        if _location == GameRules.MapId.FARM
+        else GameRules.MapId.FARM
+    )
+    _time_minutes = mini(
+        _time_minutes + GameRules.TRAVEL_MINUTES,
+        GameRules.ACTION_CUTOFF_MINUTES,
+    )
+    return _commit(GameRules.CommandCode.TRAVELLED)
+
 func _active_day_failure() -> int:
     if _finale_triggered:
         return GameRules.CommandCode.FINALE_ALREADY_TRIGGERED
@@ -695,6 +720,8 @@ func _rebuild_farm_index() -> void:
         _farm_index_by_cell[_farm[index]["cell"]] = index
 
 func _farm_index(target_cell: Variant) -> int:
+    if _location != GameRules.MapId.FARM:
+        return -1
     if not (target_cell is Vector2i):
         return -1
     return int(_farm_index_by_cell.get(target_cell, -1))

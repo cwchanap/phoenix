@@ -3,6 +3,7 @@ extends CharacterBody2D
 
 var facing: WorldMath.Facing = WorldMath.Facing.DOWN
 var _input_enabled := true
+var _map_size := Vector2i.ZERO
 
 @onready var player_sprite: Sprite2D = $Sprite2D
 @onready var player_collision: CollisionPolygon2D = $CollisionPolygon2D
@@ -18,7 +19,8 @@ func _ready() -> void:
 
     _update_visuals()
 
-func enter_map(spawn: Vector2, camera_bounds: Rect2) -> void:
+func enter_map(spawn: Vector2, camera_bounds: Rect2, map_size: Vector2i) -> void:
+    _map_size = map_size
     global_position = WorldMath.grid_to_world(spawn)
     velocity = Vector2.ZERO
     facing = WorldMath.Facing.DOWN
@@ -37,7 +39,7 @@ func set_input_enabled(enabled: bool) -> void:
         velocity = Vector2.ZERO
 
 func current_target_cell() -> Variant:
-    return WorldMath.target_cell(WorldMath.world_to_grid(global_position), facing)
+    return WorldMath.target_cell(WorldMath.world_to_grid(global_position), facing, _map_size)
 
 enum TargetTint { NEUTRAL, VALID, INVALID }
 

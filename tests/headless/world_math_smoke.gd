@@ -73,6 +73,20 @@ func _init() -> void:
         WorldContract.MARKET_FOOTPRINT == Rect2(19.2, 10.2, 0.6, 0.6), "market footprint contract"
     ):
         return
+    if not _expect(WorldContract.TRUCK_CELL == Vector2i(22, 9), "farm truck cell contract"):
+        return
+    if not _expect(
+        WorldContract.TRUCK_ARRIVAL == Vector2i(21, 10), "farm truck arrival contract"
+    ):
+        return
+    if not _expect(TownContract.MAP_SIZE == Vector2i(16, 12), "town map size contract"):
+        return
+    if not _expect(TownContract.TRUCK_CELL == Vector2i(2, 9), "town truck cell contract"):
+        return
+    if not _expect(
+        TownContract.TRUCK_ARRIVAL == Vector2i(3, 8), "town truck arrival contract"
+    ):
+        return
     var expected_perimeter: Array[Rect2] = [
         Rect2(0.0, -1.0, 24.0, 1.0),
         Rect2(24.0, 0.0, 1.0, 20.0),
@@ -80,8 +94,19 @@ func _init() -> void:
         Rect2(-1.0, 0.0, 1.0, 20.0),
     ]
     if not _expect(
-        WorldContract.perimeter_footprints() == expected_perimeter,
+        WorldContract.perimeter_footprints(WorldContract.MAP_SIZE) == expected_perimeter,
         "perimeter footprints contract",
+    ):
+        return
+    var expected_town_perimeter: Array[Rect2] = [
+        Rect2(0.0, -1.0, 16.0, 1.0),
+        Rect2(16.0, 0.0, 1.0, 12.0),
+        Rect2(0.0, 12.0, 16.0, 1.0),
+        Rect2(-1.0, 0.0, 1.0, 12.0),
+    ]
+    if not _expect(
+        WorldContract.perimeter_footprints(TownContract.MAP_SIZE) == expected_town_perimeter,
+        "town perimeter footprints contract",
     ):
         return
     var farm_cells := WorldContract.farm_cells()
@@ -173,34 +198,48 @@ func _init() -> void:
 
     var player := Vector2(5.5, 5.5)
     if not _expect(
-        WorldMath.target_cell(player, WorldMath.Facing.UP) == Vector2i(4, 4), "up target"
+        WorldMath.target_cell(player, WorldMath.Facing.UP, WorldContract.MAP_SIZE) == Vector2i(4, 4),
+        "up target",
     ):
         return
     if not _expect(
-        WorldMath.target_cell(player, WorldMath.Facing.RIGHT) == Vector2i(6, 4), "right target"
+        WorldMath.target_cell(player, WorldMath.Facing.RIGHT, WorldContract.MAP_SIZE) == Vector2i(6, 4),
+        "right target",
     ):
         return
     if not _expect(
-        WorldMath.target_cell(player, WorldMath.Facing.DOWN) == Vector2i(6, 6), "down target"
+        WorldMath.target_cell(player, WorldMath.Facing.DOWN, WorldContract.MAP_SIZE) == Vector2i(6, 6),
+        "down target",
     ):
         return
     if not _expect(
-        WorldMath.target_cell(player, WorldMath.Facing.LEFT) == Vector2i(4, 6), "left target"
+        WorldMath.target_cell(player, WorldMath.Facing.LEFT, WorldContract.MAP_SIZE) == Vector2i(4, 6),
+        "left target",
     ):
         return
     if not _expect(
-        WorldMath.target_cell(Vector2(0.25, 0.25), WorldMath.Facing.UP) == null,
+        WorldMath.target_cell(Vector2(0.25, 0.25), WorldMath.Facing.UP, WorldContract.MAP_SIZE) == null,
         "off-map target",
     ):
         return
     if not _expect(
-        WorldMath.target_cell(Vector2(23.75, 19.75), WorldMath.Facing.DOWN) == null,
+        WorldMath.target_cell(Vector2(23.75, 19.75), WorldMath.Facing.DOWN, WorldContract.MAP_SIZE) == null,
         "expanded off-map corner target",
     ):
         return
     if not _expect(
-        WorldMath.target_cell(Vector2(22.5, 17.5), WorldMath.Facing.DOWN) == Vector2i(23, 18),
+        WorldMath.target_cell(Vector2(22.5, 17.5), WorldMath.Facing.DOWN, WorldContract.MAP_SIZE) == Vector2i(23, 18),
         "expanded in-bounds south-east target",
+    ):
+        return
+    if not _expect(
+        WorldMath.target_cell(Vector2(22.5, 17.5), WorldMath.Facing.DOWN, TownContract.MAP_SIZE) == null,
+        "same position is off the smaller town map",
+    ):
+        return
+    if not _expect(
+        WorldMath.target_cell(Vector2(14.5, 10.5), WorldMath.Facing.DOWN, TownContract.MAP_SIZE) == Vector2i(15, 11),
+        "town in-bounds south-east target",
     ):
         return
 
@@ -239,8 +278,13 @@ func _init() -> void:
         return
 
     if not _expect(
-        WorldContract.CAMERA_BOUNDS == WorldMath.map_camera_bounds(),
+        WorldContract.CAMERA_BOUNDS == WorldMath.map_camera_bounds(WorldContract.MAP_SIZE),
         "frozen camera bounds must equal derived map camera bounds",
+    ):
+        return
+    if not _expect(
+        WorldMath.map_camera_bounds(TownContract.MAP_SIZE) == Rect2(384.0, -96.0, 896.0, 544.0),
+        "town camera bounds derive from the 16x12 map",
     ):
         return
     if not _expect_vec2(

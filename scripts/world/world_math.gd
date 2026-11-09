@@ -46,14 +46,14 @@ static func facing_for_input(input: Vector2, previous: Facing) -> Facing:
         return Facing.RIGHT if input.x > 0.0 else Facing.LEFT
     return Facing.DOWN if input.y > 0.0 else Facing.UP
 
-static func target_cell(position: Vector2, facing: Facing) -> Variant:
+static func target_cell(position: Vector2, facing: Facing, map_size: Vector2i) -> Variant:
     var offset: Vector2i = TARGET_OFFSETS[facing]
     var target := Vector2i(floori(position.x), floori(position.y)) + offset
     if (
         target.x < 0
-        or target.x >= WorldContract.MAP_SIZE.x
+        or target.x >= map_size.x
         or target.y < 0
-        or target.y >= WorldContract.MAP_SIZE.y
+        or target.y >= map_size.y
     ):
         return null
     return target
@@ -74,12 +74,12 @@ static func footprint_ground_anchor(footprint: Rect2) -> Vector2:
         grid_to_world(footprint.position + footprint.size).y,
     )
 
-static func map_camera_bounds() -> Rect2:
-    var map_size := Vector2(WorldContract.MAP_SIZE)
-    var west := grid_to_world(Vector2(0.0, map_size.y))
-    var east := grid_to_world(Vector2(map_size.x, 0.0))
+static func map_camera_bounds(map_size: Vector2i) -> Rect2:
+    var size := Vector2(map_size)
+    var west := grid_to_world(Vector2(0.0, size.y))
+    var east := grid_to_world(Vector2(size.x, 0.0))
     var top := grid_to_world(Vector2.ZERO).y
-    var bottom := grid_to_world(map_size).y
+    var bottom := grid_to_world(size).y
     return Rect2(
         west.x,
         top - WorldContract.CAMERA_TOP_PADDING,

@@ -358,7 +358,8 @@ func feedback_text(code: GameRules.CommandCode) -> String:
         GameRules.CommandCode.INTRO_ACKNOWLEDGED, \
         GameRules.CommandCode.INTRO_ALREADY_ACKNOWLEDGED, \
         GameRules.CommandCode.FINALE_TRIGGERED, \
-        GameRules.CommandCode.FINALE_ALREADY_TRIGGERED:
+        GameRules.CommandCode.FINALE_ALREADY_TRIGGERED, \
+        GameRules.CommandCode.TRAVELLED:
             return ""
         GameRules.CommandCode.WATERING_CAN_ALREADY_UPGRADED:
             return "Watering can is already upgraded."
@@ -431,7 +432,8 @@ func show_feedback(code: GameRules.CommandCode) -> void:
 
 func _sfx_for_code(code: GameRules.CommandCode) -> AudioStream:
     match code:
-        GameRules.CommandCode.SEED_SELECTED:
+        GameRules.CommandCode.SEED_SELECTED, \
+        GameRules.CommandCode.TRAVELLED:
             return ACTION_SFX
         GameRules.CommandCode.SOIL_TILLED:
             return FARM_HOE_SFX

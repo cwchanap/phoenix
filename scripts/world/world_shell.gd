@@ -105,7 +105,7 @@ func load_map(map_id: MapId) -> void:
     player.reparent(_map.entities)
     _map.entities.move_child(player, 0)
     player.owner = self
-    player.enter_map(_map.SPAWN, _map.CAMERA_BOUNDS)
+    player.enter_map(_map.SPAWN, _map.CAMERA_BOUNDS, WorldContract.MAP_SIZE)
     _map.bind_player(player)
     _refresh_from_session()
 

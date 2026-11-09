@@ -20,7 +20,7 @@ func _ready() -> void:
     _fill_collision(static_collision, "HarvestMarketCollision", WorldContract.MARKET_FOOTPRINT)
 
     var perimeter_names := ["PerimeterTop", "PerimeterRight", "PerimeterBottom", "PerimeterLeft"]
-    var perimeter_rects := WorldContract.perimeter_footprints()
+    var perimeter_rects := WorldContract.perimeter_footprints(WorldContract.MAP_SIZE)
     for index in perimeter_rects.size():
         _fill_collision(static_collision, perimeter_names[index], perimeter_rects[index])
 
