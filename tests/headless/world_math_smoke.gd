@@ -163,7 +163,8 @@ func _init() -> void:
         TownContract.villager_at(Vector2i(9, 4)) == VillagerRules.VillagerId.SHOPKEEPER
         and TownContract.villager_at(Vector2i(5, 7)) == VillagerRules.VillagerId.FARMER
         and TownContract.villager_at(Vector2i(11, 6)) == VillagerRules.VillagerId.RESIDENT
-        and TownContract.villager_at(Vector2i(0, 0)) == -1,
+        and TownContract.villager_at(Vector2i(0, 0)) == -1
+        and TownContract.villager_at(null) == -1,
         "town villager lookup",
     ):
         return

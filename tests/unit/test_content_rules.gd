@@ -191,6 +191,39 @@ func test_talk_and_gift_prompts_are_town_only() -> void:
     snapshot["harvested"] = {&"turnip": 0, &"potato": 0, &"pumpkin": 0}
     assert_eq(ContentRules.next_tutorial_prompt(snapshot), {})
 
+func test_farm_prompts_hide_in_town_and_resurface_on_the_farm() -> void:
+    var snapshot := _fresh_snapshot()
+    snapshot["day"] = 2
+    snapshot["location"] = GameRules.MapId.TOWN
+    assert_eq(
+        ContentRules.next_tutorial_prompt(snapshot)["id"],
+        &"talk",
+        "an incomplete farm card must not shadow eligible town guidance",
+    )
+
+    snapshot["location"] = GameRules.MapId.FARM
+    assert_eq(
+        ContentRules.next_tutorial_prompt(snapshot)["id"],
+        &"farm_basics",
+        "the farm card stays incomplete and resurfaces on the farm",
+    )
+
+    _complete(snapshot, [&"farm_basics", &"plant", &"water", &"sleep", &"talk", &"buy_seeds"])
+    _plant_crop(snapshot, 3, false)
+    snapshot["harvested"] = {&"turnip": 1, &"potato": 0, &"pumpkin": 0}
+    snapshot["location"] = GameRules.MapId.TOWN
+    assert_eq(
+        ContentRules.next_tutorial_prompt(snapshot)["id"],
+        &"gift",
+        "town gift guidance still surfaces over farm-only harvest and shipping",
+    )
+
+    snapshot["location"] = GameRules.MapId.FARM
+    assert_eq(ContentRules.next_tutorial_prompt(snapshot)["id"], &"harvest")
+
+    _complete(snapshot, [&"harvest"])
+    assert_eq(ContentRules.next_tutorial_prompt(snapshot)["id"], &"shipping")
+
 func test_harvest_prompt_requires_a_mature_crop() -> void:
     var snapshot := _fresh_snapshot()
     _complete(snapshot, [
