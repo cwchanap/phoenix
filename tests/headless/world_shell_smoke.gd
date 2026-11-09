@@ -160,7 +160,6 @@ func _static_entity_names() -> Array:
     return [
         "Player",
         "House",
-        "ShopStall",
         "TreeForest",
         "TreeBank",
         "TreeNorth",
@@ -180,7 +179,6 @@ func _static_entity_names() -> Array:
         "Workbench",
         "VillageSign",
         "Shipping",
-        "HarvestMarket",
         "Truck",
     ]
 
@@ -195,7 +193,6 @@ func _expected_water_tile(cell: Vector2i) -> Vector2i:
 func _prop_entities() -> Array:
     return [
         {"node": "House", "frame": 0, "label": "house"},
-        {"node": "ShopStall", "frame": 1, "label": "shop stall"},
         {"node": "TreeForest", "frame": 2, "label": "forest tree"},
         {"node": "TreeBank", "frame": 2, "label": "bank tree"},
         {"node": "TreeNorth", "frame": 2, "label": "north tree"},
@@ -219,7 +216,6 @@ func _prop_entities() -> Array:
 func _proof_entities() -> Array:
     return [
         {"node": "Shipping", "frame": 2, "label": "shipping"},
-        {"node": "HarvestMarket", "frame": 3, "label": "market"},
     ]
 
 func _run() -> void:
@@ -234,19 +230,6 @@ func _run() -> void:
     world.clock_running = false
     root.add_child(world)
     await process_frame
-
-    if not _expect(WorldContract.MARKET_CELL == Vector2i(19, 10), "market cell contract"):
-        return
-    if not _expect(
-        WorldContract.MARKET_FOOTPRINT == Rect2(19.2, 10.2, 0.6, 0.6), "market footprint contract"
-    ):
-        return
-    if not _expect_vec2(
-        WorldContract.MARKET_ANCHOR,
-        WorldMath.grid_to_world(Vector2(WorldContract.MARKET_CELL) + Vector2(0.5, 0.5)),
-        "market anchor projection",
-    ):
-        return
 
     var world_names := [
         "FarmMap",
@@ -477,13 +460,11 @@ func _run() -> void:
     var static_collision := farm_map.get_node("StaticCollision") as StaticBody2D
     var collision_names := [
         "HouseCollision",
-        "ShopStallCollision",
         "ForestCollision",
         "RiverWestCollision",
         "RiverSouthCollision",
         "WorkbenchCollision",
         "ShippingCollision",
-        "HarvestMarketCollision",
         "TruckCollision",
         "PerimeterTop",
         "PerimeterRight",
@@ -500,13 +481,11 @@ func _run() -> void:
         return
     var collider_footprints := {
         "HouseCollision": WorldContract.HOUSE_FOOTPRINT,
-        "ShopStallCollision": WorldContract.SHOP_STALL_FOOTPRINT,
         "ForestCollision": WorldContract.FOREST_FOOTPRINT,
         "RiverWestCollision": WorldContract.RIVER_WEST_FOOTPRINT,
         "RiverSouthCollision": WorldContract.RIVER_SOUTH_FOOTPRINT,
         "WorkbenchCollision": WorldContract.WORKBENCH_FOOTPRINT,
         "ShippingCollision": WorldContract.SHIPPING_FOOTPRINT,
-        "HarvestMarketCollision": WorldContract.MARKET_FOOTPRINT,
         "TruckCollision": WorldContract.TRUCK_FOOTPRINT,
     }
     var perimeter_rects := WorldContract.perimeter_footprints(WorldContract.MAP_SIZE)
@@ -553,9 +532,7 @@ func _run() -> void:
         return
 
     var house := entities.get_node("House") as Node2D
-    var shop_stall := entities.get_node("ShopStall") as Node2D
     var shipping := entities.get_node("Shipping") as Node2D
-    var market := entities.get_node("HarvestMarket") as Node2D
     var workbench := entities.get_node("Workbench") as Node2D
     var village_sign := entities.get_node("VillageSign") as Node2D
     if not _expect_vec2(
@@ -572,16 +549,8 @@ func _run() -> void:
     if not _expect_vec2(house.scale, Vector2(2.0, 2.0), "house display scale"):
         return
     if not _expect_vec2(
-        shop_stall.position,
-        WorldMath.footprint_ground_anchor(WorldContract.SHOP_STALL_FOOTPRINT),
-        "shop stall anchor",
-    ):
-        return
-    if not _expect_vec2(
         shipping.position, _cell_center(WorldContract.SHIPPING_CELL), "shipping anchor"
     ):
-        return
-    if not _expect_vec2(market.position, WorldContract.MARKET_ANCHOR, "market anchor"):
         return
     if not _expect_vec2(
         workbench.position, _cell_center(WorldContract.WORKBENCH_CELL), "workbench anchor"
@@ -725,7 +694,7 @@ func _run() -> void:
         return
 
     var shared_entity_z_index := house.z_index
-    for prop in [shop_stall, shipping, market, workbench, village_sign, player]:
+    for prop in [shipping, workbench, village_sign, player]:
         if not _expect(
             prop.z_index == shared_entity_z_index, "%s shared entity z-index" % prop.name
         ):
@@ -785,15 +754,15 @@ func _run() -> void:
     if not _expect(player.global_position.y > house.global_position.y, "player ground Y > house.y"):
         return
 
-    _place_player(player, Vector2(12.0, 13.0))
+    _place_player(player, Vector2(10.5, 13.5))
     await physics_frame
     if not _expect(
-        is_equal_approx(player.global_position.y, shop_stall.global_position.y),
-        "shop stall exact-Y checkpoint",
+        is_equal_approx(player.global_position.y, shipping.global_position.y),
+        "shipping exact-Y checkpoint",
     ):
         return
     if not _expect(
-        player.get_index() < shop_stall.get_index(), "shop stall exact-Y scene-tree order"
+        player.get_index() < shipping.get_index(), "shipping exact-Y scene-tree order"
     ):
         return
 
@@ -1113,6 +1082,9 @@ func _run() -> void:
         "CafeCollision",
         "MarketCollision",
         "TruckCollision",
+        "VillagerShopkeeperCollision",
+        "VillagerFarmerCollision",
+        "VillagerResidentCollision",
         "PerimeterTop",
         "PerimeterRight",
         "PerimeterBottom",
@@ -1130,10 +1102,13 @@ func _run() -> void:
         "CafeCollision": TownContract.CAFE_FOOTPRINT,
         "MarketCollision": TownContract.MARKET_FOOTPRINT,
         "TruckCollision": TownContract.TRUCK_FOOTPRINT,
+        "VillagerShopkeeperCollision": TownContract.VILLAGER_FOOTPRINTS[0],
+        "VillagerFarmerCollision": TownContract.VILLAGER_FOOTPRINTS[1],
+        "VillagerResidentCollision": TownContract.VILLAGER_FOOTPRINTS[2],
     }
     var town_perimeter := WorldContract.perimeter_footprints(TownContract.MAP_SIZE)
     for index in town_perimeter.size():
-        town_footprints[town_collision_names[5 + index]] = town_perimeter[index]
+        town_footprints[town_collision_names[8 + index]] = town_perimeter[index]
     for collider_name in town_collision_names:
         var collision := town_collision.get_node(collider_name) as CollisionPolygon2D
         if not _expect_polygon(
@@ -1158,7 +1133,17 @@ func _run() -> void:
         "town Entities must be the only enabled y-sort CanvasItem",
     ):
         return
-    var town_entity_names := ["Player", "Station", "SeedShop", "Cafe", "Market", "Truck"]
+    var town_entity_names := [
+        "Player",
+        "Station",
+        "SeedShop",
+        "Cafe",
+        "Market",
+        "Truck",
+        "VillagerShopkeeper",
+        "VillagerFarmer",
+        "VillagerResident",
+    ]
     if not _expect_names(town_entities, town_entity_names, "town Entities"):
         return
     if not _expect_child_order(town_entities, town_entity_names, "town Entities scene-tree order"):

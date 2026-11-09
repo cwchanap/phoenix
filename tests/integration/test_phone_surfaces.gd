@@ -423,7 +423,7 @@ func test_pause_controls_glass_lists_real_hold_and_interact_hints() -> void:
 	for item in controls.find_children("*", "Label", true, false):
 		copies.append((item as Label).text)
 	assert_true(copies.has("Till, plant, water or harvest. Hold to keep going."))
-	assert_true(copies.has("Seed box, bin, bed"))
+	assert_true(copies.has("Talk, shop, bin, bed, truck"))
 	assert_true(copies.has("Switch seed"))
 	assert_true(copies.has("Walk; you face the tile you'll work"))
 

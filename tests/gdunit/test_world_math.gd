@@ -30,4 +30,5 @@ func test_frozen_camera_bounds_equal_derived_bounds() -> void:
 
 func test_footprint_ground_anchor_matches_spec_anchors() -> void:
 	assert_that(WorldMath.footprint_ground_anchor(WorldContract.HOUSE_FOOTPRINT)).is_equal(Vector2(976, 336))
-	assert_that(WorldMath.footprint_ground_anchor(WorldContract.SHOP_STALL_FOOTPRINT)).is_equal(Vector2(1008, 400))
+	assert_vector(WorldMath.footprint_ground_anchor(TownContract.SHOP_FOOTPRINT)).is_equal_approx(Vector2(896, 196.8), Vector2(0.0001, 0.0001))
+	assert_vector(WorldMath.footprint_ground_anchor(TownContract.MARKET_FOOTPRINT)).is_equal_approx(Vector2(992, 340.8), Vector2(0.0001, 0.0001))

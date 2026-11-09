@@ -49,8 +49,6 @@ z_index = 6
 
 [node name="HouseCollision" type="CollisionPolygon2D" parent="StaticCollision" unique_id=1445398184]
 
-[node name="ShopStallCollision" type="CollisionPolygon2D" parent="StaticCollision"]
-
 [node name="ForestCollision" type="CollisionPolygon2D" parent="StaticCollision"]
 
 [node name="RiverWestCollision" type="CollisionPolygon2D" parent="StaticCollision"]
@@ -60,8 +58,6 @@ z_index = 6
 [node name="WorkbenchCollision" type="CollisionPolygon2D" parent="StaticCollision"]
 
 [node name="ShippingCollision" type="CollisionPolygon2D" parent="StaticCollision"]
-
-[node name="HarvestMarketCollision" type="CollisionPolygon2D" parent="StaticCollision"]
 
 [node name="TruckCollision" type="CollisionPolygon2D" parent="StaticCollision"]
 
@@ -91,19 +87,6 @@ offset = Vector2(0, -48)
 hframes = 4
 vframes = 2
 frame = 0
-
-[node name="ShopStall" type="Node2D" parent="Entities"]
-position = Vector2(1008, 400)
-
-[node name="Shadow" type="Sprite2D" parent="Entities/ShopStall"]
-texture = ExtResource("9_shadow")
-
-[node name="Sprite2D" type="Sprite2D" parent="Entities/ShopStall"]
-texture = ExtResource("3_props")
-offset = Vector2(0, -48)
-hframes = 4
-vframes = 2
-frame = 1
 
 [node name="TreeForest" type="Node2D" parent="Entities" unique_id=1786541055]
 position = Vector2(768, 112)
@@ -350,18 +333,6 @@ texture = ExtResource("3_v5dby")
 offset = Vector2(0, -48)
 hframes = 4
 frame = 2
-
-[node name="HarvestMarket" type="Node2D" parent="Entities"]
-position = Vector2(1056, 480)
-
-[node name="Shadow" type="Sprite2D" parent="Entities/HarvestMarket"]
-texture = ExtResource("9_shadow")
-
-[node name="Sprite2D" type="Sprite2D" parent="Entities/HarvestMarket"]
-texture = ExtResource("3_v5dby")
-offset = Vector2(0, -48)
-hframes = 4
-frame = 3
 
 [node name="Truck" type="Node2D" parent="Entities"]
 position = Vector2(1184, 528)

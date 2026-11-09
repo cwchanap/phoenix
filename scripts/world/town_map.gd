@@ -10,6 +10,12 @@ func _ready() -> void:
     _fill_collision(static_collision, "CafeCollision", TownContract.CAFE_FOOTPRINT)
     _fill_collision(static_collision, "MarketCollision", TownContract.MARKET_FOOTPRINT)
     _fill_collision(static_collision, "TruckCollision", TownContract.TRUCK_FOOTPRINT)
+    for id in range(TownContract.VILLAGER_COLLISION_NAMES.size()):
+        _fill_collision(
+            static_collision,
+            TownContract.VILLAGER_COLLISION_NAMES[id],
+            TownContract.VILLAGER_FOOTPRINTS[id],
+        )
 
     var perimeter_names := ["PerimeterTop", "PerimeterRight", "PerimeterBottom", "PerimeterLeft"]
     var perimeter_rects := WorldContract.perimeter_footprints(TownContract.MAP_SIZE)

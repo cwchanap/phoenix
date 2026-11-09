@@ -74,10 +74,10 @@ func test_round_trip_preserves_a_change_outside_the_old_farm_footprint() -> void
     # CROP_PRESENT proves the decoded save carried the tilled, planted cell.
     assert_eq(restored.plant(cell), GameRules.CommandCode.CROP_PRESENT)
 
-func test_seven_key_tutorial_state_round_trips_and_legacy_social_keys_reject() -> void:
+func test_nine_key_tutorial_state_round_trips_and_legacy_seven_key_saves_reject() -> void:
     var state := GameSession.new().state()
     assert_eq(state["tutorial"].keys(), ContentRules.tutorial_keys())
-    assert_eq(state["tutorial"].size(), 7)
+    assert_eq(state["tutorial"].size(), 9)
 
     var decoded := SaveFileCodec.decode(SaveFileCodec.encode(state))
     assert_true(decoded["ok"])
@@ -87,8 +87,8 @@ func test_seven_key_tutorial_state_round_trips_and_legacy_social_keys_reject() -
     assert_eq(restored.state(), state)
 
     var legacy := state.duplicate(true)
-    legacy["tutorial"][&"talk"] = true
-    legacy["tutorial"][&"gift"] = true
+    legacy["tutorial"].erase(&"talk")
+    legacy["tutorial"].erase(&"gift")
     var decoded_legacy := SaveFileCodec.decode(SaveFileCodec.encode(legacy))
     assert_true(decoded_legacy["ok"])
     assert_eq(

@@ -190,7 +190,7 @@ func _header() -> PanelContainer:
 	titles.name = "Titles"
 	titles.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(titles)
-	var title := UiStyle.label("SEED BOX", 34, UiStyle.CARD, 900)
+	var title := UiStyle.label("SEED SHOP", 34, UiStyle.CARD, 900)
 	title.name = "Title"
 	titles.add_child(title)
 	_sub = UiStyle.label("Seeds and tools", 16, Color(1.0, 1.0, 1.0, 0.85), 700)

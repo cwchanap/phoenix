@@ -27,13 +27,24 @@ func _day14_pre_final_state() -> Dictionary:
 
 func _target_market(world: WorldShell) -> void:
     # Facing DOWN offsets the target by (+1, +1): stand one cell north-west of
-    # the authored market cell.
+    # the authored town market cell.
     var offset: Vector2i = WorldMath.TARGET_OFFSETS[WorldMath.Facing.DOWN]
     world.player.global_position = WorldMath.grid_to_world(
-        Vector2(WorldContract.MARKET_CELL - offset) + Vector2(0.5, 0.5)
+        Vector2(TownContract.MARKET_CELL - offset) + Vector2(0.5, 0.5)
     )
     world.player.facing = WorldMath.Facing.DOWN
-    assert_eq(world.player.current_target_cell(), WorldContract.MARKET_CELL)
+    assert_eq(world.player.current_target_cell(), TownContract.MARKET_CELL)
+
+func _drive_to_town(world: WorldShell) -> void:
+    # Face RIGHT at the farm truck so E travels through the real map swap.
+    var offset: Vector2i = WorldMath.TARGET_OFFSETS[WorldMath.Facing.RIGHT]
+    world.player.global_position = WorldMath.grid_to_world(
+        Vector2(WorldContract.TRUCK_CELL - offset) + Vector2(0.5, 0.5)
+    )
+    world.player.facing = WorldMath.Facing.RIGHT
+    assert_eq(world.player.current_target_cell(), WorldContract.TRUCK_CELL)
+    world.interact()
+    assert_not_null(world.get_node_or_null("TownMap"))
 
 func test_market_interact_keeps_world_audible_until_cue_finishes() -> void:
     assert_eq(SaveRepository.new(TEST_PATH).save(_day14_pre_final_state()), OK)
@@ -48,6 +59,7 @@ func test_market_interact_keeps_world_audible_until_cue_finishes() -> void:
     world.finale_completed.connect(func(_state: Dictionary, save_error: int) -> void:
         finale_emits.append(save_error)
     )
+    _drive_to_town(world)
     _target_market(world)
 
     world.interact()

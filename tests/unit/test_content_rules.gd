@@ -6,9 +6,11 @@ func test_tutorial_table_is_exact_and_unique() -> void:
         {"id": &"plant", "code": GameRules.CommandCode.CROP_PLANTED},
         {"id": &"water", "code": GameRules.CommandCode.CROP_WATERED},
         {"id": &"sleep", "code": GameRules.CommandCode.DAY_ADVANCED},
+        {"id": &"talk", "code": GameRules.CommandCode.VILLAGER_TALKED},
         {"id": &"buy_seeds", "code": GameRules.CommandCode.SEEDS_PURCHASED},
         {"id": &"harvest", "code": GameRules.CommandCode.CROP_HARVESTED},
         {"id": &"shipping", "code": GameRules.CommandCode.CROP_DEPOSITED},
+        {"id": &"gift", "code": GameRules.CommandCode.CROP_GIFTED},
     ]
 
     assert_eq(ContentRules.TUTORIALS.size(), expected.size())
@@ -140,11 +142,18 @@ func test_sleep_prompt_follows_watered_or_rainy_immature_crop() -> void:
 
 func test_buy_seeds_prompt_is_day_two_plus() -> void:
     var snapshot := _fresh_snapshot()
-    _complete(snapshot, [&"farm_basics", &"plant", &"water", &"sleep"])
+    _complete(snapshot, [&"farm_basics", &"plant", &"water", &"sleep", &"talk"])
     snapshot["day"] = 1
     assert_eq(ContentRules.next_tutorial_prompt(snapshot), {})
 
     snapshot["day"] = 2
+    assert_eq(
+        ContentRules.next_tutorial_prompt(snapshot),
+        {},
+        "a funded Day 2 player still on the farm gets no Reinvest card",
+    )
+
+    snapshot["location"] = GameRules.MapId.TOWN
     assert_eq(ContentRules.next_tutorial_prompt(snapshot)["id"], &"buy_seeds")
 
     snapshot["money"] = GameRules.seed_price(GameRules.CropKind.TURNIP) - 1
@@ -152,6 +161,35 @@ func test_buy_seeds_prompt_is_day_two_plus() -> void:
 
     snapshot["money"] = GameRules.seed_price(GameRules.CropKind.TURNIP)
     assert_eq(ContentRules.next_tutorial_prompt(snapshot)["id"], &"buy_seeds")
+
+    snapshot["location"] = GameRules.MapId.FARM
+    assert_eq(ContentRules.next_tutorial_prompt(snapshot), {})
+
+func test_talk_and_gift_prompts_are_town_only() -> void:
+    var snapshot := _fresh_snapshot()
+    _complete(snapshot, [&"farm_basics", &"plant", &"water", &"sleep"])
+    snapshot["day"] = 2
+    snapshot["harvested"] = {&"turnip": 1, &"potato": 0, &"pumpkin": 0}
+    assert_eq(
+        ContentRules.next_tutorial_prompt(snapshot)["id"],
+        &"shipping",
+        "on the farm only the shipping card is relevant",
+    )
+    _complete(snapshot, [&"buy_seeds", &"harvest", &"shipping"])
+    assert_eq(
+        ContentRules.next_tutorial_prompt(snapshot),
+        {},
+        "farm location keeps talk and gift cards hidden",
+    )
+
+    snapshot["location"] = GameRules.MapId.TOWN
+    assert_eq(ContentRules.next_tutorial_prompt(snapshot)["id"], &"talk")
+
+    _complete(snapshot, [&"talk"])
+    assert_eq(ContentRules.next_tutorial_prompt(snapshot)["id"], &"gift")
+
+    snapshot["harvested"] = {&"turnip": 0, &"potato": 0, &"pumpkin": 0}
+    assert_eq(ContentRules.next_tutorial_prompt(snapshot), {})
 
 func test_harvest_prompt_requires_a_mature_crop() -> void:
     var snapshot := _fresh_snapshot()
