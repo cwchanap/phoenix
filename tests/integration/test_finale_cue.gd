@@ -36,7 +36,6 @@ func _target_market(world: WorldShell) -> void:
     assert_eq(world.player.current_target_cell(), TownContract.MARKET_CELL)
 
 func _drive_to_town(world: WorldShell) -> void:
-    # Face RIGHT at the farm truck so E travels through the real map swap.
     var offset: Vector2i = WorldMath.TARGET_OFFSETS[WorldMath.Facing.RIGHT]
     world.player.global_position = WorldMath.grid_to_world(
         Vector2(WorldContract.TRUCK_CELL - offset) + Vector2(0.5, 0.5)

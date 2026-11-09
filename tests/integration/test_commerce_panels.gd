@@ -326,6 +326,41 @@ func test_shop_header_is_a_large_gradient_band() -> void:
 		if value != null:
 			assert_eq(value.text, "150G", "money pill reads like the reference")
 
+func test_shop_title_and_subtitle_render_translated_in_each_locale() -> void:
+	var expected := {
+		"en": ["SEED SHOP", "Seeds and tools"],
+		"zh_TW": ["種子行", "種子與工具"],
+		"ja": ["種屋", "種と道具"],
+	}
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		var shop := _spawn_panel(SHOP_SCENE) as ShopPanel
+		assert_not_null(shop)
+		if shop == null:
+			continue
+		shop.open_panel(_shop_snapshot(150, {&"turnip": 3}))
+		await _settle()
+		var band := _card(shop).find_child("HeaderBand", true, false) as Control
+		assert_not_null(band)
+		if band == null:
+			continue
+		var title := band.find_child("Title", true, false) as Label
+		var sub := band.find_child("Sub", true, false) as Label
+		assert_not_null(title)
+		assert_not_null(sub)
+		if title == null or sub == null:
+			continue
+		assert_eq(
+			title.tr(title.text),
+			expected[locale][0],
+			"%s renders the translated shop title" % locale,
+		)
+		assert_eq(
+			sub.tr(sub.text),
+			expected[locale][1],
+			"%s renders the translated shop subtitle" % locale,
+		)
+
 func test_shipping_header_is_a_large_gradient_band() -> void:
 	var shipping := _spawn_panel(SHIPPING_SCENE) as ShippingPanel
 	if shipping == null:

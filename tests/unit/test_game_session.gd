@@ -1118,8 +1118,6 @@ func test_preview_target_action_matches_budget_failure_without_mutation() -> voi
 func test_buy_seeds_validates_target_quantity_and_funds_atomically() -> void:
     var session := GameSession.new(func() -> float: return 0.9)
     var before_wrong_target := session.snapshot()
-    # The farm has no counter: the retired seed-box cell and any other cell
-    # refuse alike.
     for target: Variant in [Vector2i(0, 0), Vector2i(17, 9), null]:
         assert_eq(
             session.buy_seeds(GameRules.CropKind.POTATO, 1, target),
@@ -1162,7 +1160,9 @@ func test_buy_watering_can_upgrade_guards_in_order_and_purchases_atomically() ->
 
     # Wrong cell or the farm itself outranks insufficient funds and changes
     # nothing.
-    for target: Variant in [Vector2i(0, 0), Vector2i(17, 9), null]:
+    for target: Variant in [
+        Vector2i(0, 0), Vector2i(17, 9), TownContract.SHOP_CELL, null
+    ]:
         assert_eq(
             session.buy_watering_can_upgrade(target),
             GameRules.CommandCode.NOT_AT_SHOP,
@@ -1202,6 +1202,55 @@ func test_buy_watering_can_upgrade_guards_in_order_and_purchases_atomically() ->
     )
     _assert_unchanged(funded, revisit)
 
+func test_map_only_guards_reject_their_own_cells_on_the_wrong_map() -> void:
+    var funded := _session_with_money(300)
+    var funded_before := funded.snapshot()
+    assert_eq(
+        funded.buy_seeds(GameRules.CropKind.TURNIP, 1, TownContract.SHOP_CELL),
+        GameRules.CommandCode.NOT_AT_SHOP,
+    )
+    assert_eq(
+        funded.buy_watering_can_upgrade(TownContract.SHOP_CELL),
+        GameRules.CommandCode.NOT_AT_SHOP,
+    )
+    _assert_unchanged(funded, funded_before)
+
+    var visitor := GameSession.new(func() -> float: return 0.9)
+    _seed_harvested(visitor, [1, 0, 0])
+    _drive_to_town(visitor)
+    var visitor_before := visitor.snapshot()
+    assert_eq(
+        visitor.deposit_crop(
+            GameRules.CropKind.TURNIP,
+            1,
+            WorldContract.SHIPPING_CELL,
+        ),
+        GameRules.CommandCode.NOT_AT_SHIPPING_BIN,
+    )
+    assert_eq(
+        visitor.sleep(WorldContract.BED_CELL),
+        GameRules.CommandCode.NOT_AT_BED,
+    )
+    _assert_unchanged(visitor, visitor_before)
+
+    var rolls := [0]
+    var roll := func() -> float:
+        rolls[0] += 1
+        return 0.9
+    var day14 := _day14_session_from(
+        _day14_pre_final_state(),
+        GameSession.new(roll),
+    )
+    _drive_to_town(day14)
+    var day14_before := day14.snapshot()
+    assert_eq(
+        day14.sleep(WorldContract.BED_CELL),
+        GameRules.CommandCode.NOT_AT_BED,
+    )
+    assert_false(day14.snapshot()["finale_triggered"])
+    assert_eq(rolls[0], 0)
+    _assert_unchanged(day14, day14_before)
+
 func test_buy_watering_can_upgrade_scales_with_funds_and_restores_ownership() -> void:
     # The reference route's 255G moment: purchase lands at exactly 55G.
     var session := _session_with_money(255)
@@ -1214,7 +1263,6 @@ func test_buy_watering_can_upgrade_scales_with_funds_and_restores_ownership() ->
     assert_eq(SessionStateValidator.state_error(saved), "")
     var restored := GameSession.new(func() -> float: return 0.9)
     assert_true(restored.restore_state(saved))
-    # Restore drops the transient location; the persisted state is identical.
     assert_eq(restored.state(), saved)
     assert_eq(
         restored._cost_for(GameRules.FarmingAction.WATERING_CAN),

@@ -427,6 +427,38 @@ func test_pause_controls_glass_lists_real_hold_and_interact_hints() -> void:
 	assert_true(copies.has("Switch seed"))
 	assert_true(copies.has("Walk; you face the tile you'll work"))
 
+func test_pause_e_key_help_renders_translated_in_each_locale() -> void:
+	var expected := {
+		"en": "Talk, shop, bin, bed, truck",
+		"zh_TW": "對話、商店、出貨箱、床、貨車",
+		"ja": "話す・店・出荷箱・ベッド・トラック",
+	}
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		var pause := _pause_panel()
+		assert_not_null(pause)
+		if pause == null:
+			continue
+		await _settle()
+		var controls := pause.find_child("Controls", true, false) as PanelContainer
+		assert_not_null(controls)
+		if controls == null:
+			continue
+		var row_label: Label = null
+		for item in controls.find_children("*", "Label", true, false):
+			var label := item as Label
+			if label.text == "Talk, shop, bin, bed, truck":
+				row_label = label
+		assert_not_null(row_label, "%s keeps the interact-controls row" % locale)
+		if row_label == null:
+			continue
+		assert_eq(
+			row_label.tr(row_label.text),
+			expected[locale],
+			"%s renders the translated interact-controls row" % locale,
+		)
+		pause.visible = false
+
 func test_pause_resume_pill_sits_inside_the_phone_and_emits() -> void:
 	var pause := _pause_panel()
 	if pause == null:

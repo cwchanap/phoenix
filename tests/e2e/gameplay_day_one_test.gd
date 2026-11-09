@@ -382,7 +382,6 @@ func test_continue_seeded_save_buys_upgrade_and_waters_with_one_stamina() -> voi
 		await game.wait_for_property(HUD + "/ShopPanel", "visible", false, 5.0)
 	).is_true()
 
-	# Drive home before working the farm.
 	await _stand_at_target(game, TownContract.TRUCK_CELL, LEFT)
 	await game.call_method(WORLD, "interact")
 

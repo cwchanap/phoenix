@@ -132,7 +132,6 @@ func test_action_budget_cutoff_boundary() -> void:
 
 func test_shop_purchase_and_guards() -> void:
 	var session := _sunny()
-	# The shop counter is in town; a farm call refuses before any purchase.
 	assert_int(
 		session.buy_seeds(GameRules.CropKind.TURNIP, 2, SHOP)
 	).is_equal(GameRules.CommandCode.NOT_AT_SHOP)

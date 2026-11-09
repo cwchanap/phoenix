@@ -7,14 +7,10 @@ const TRUCK_ARRIVAL := Vector2i(3, 8)
 const TRUCK_FOOTPRINT := Rect2(2.0, 9.0, 1.0, 1.0)
 const STATION_FOOTPRINT := Rect2(1.85, 3.85, 1.3, 1.3)
 const SHOP_FOOTPRINT := Rect2(6.85, 2.85, 1.3, 1.3)
-# Interact cells are the buildings' south front-face cells: the player stands
-# on a diagonally adjacent street cell and faces them, never on them.
 const SHOP_CELL := Vector2i(7, 4)
 const CAFE_FOOTPRINT := Rect2(10.85, 2.85, 1.3, 1.3)
 const MARKET_FOOTPRINT := Rect2(12.85, 5.85, 1.3, 1.3)
 const MARKET_CELL := Vector2i(13, 7)
-# Villager cell order matches VillagerRules.VillagerId (SHOPKEEPER, FARMER,
-# RESIDENT) so villager_at() returns the id directly.
 const VILLAGER_CELLS: Array[Vector2i] = [
     Vector2i(9, 4),
     Vector2i(5, 7),
