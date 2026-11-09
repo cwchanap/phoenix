@@ -18,6 +18,7 @@ func _ready() -> void:
     _fill_collision(static_collision, "WorkbenchCollision", WorldContract.WORKBENCH_FOOTPRINT)
     _fill_collision(static_collision, "ShippingCollision", WorldContract.SHIPPING_FOOTPRINT)
     _fill_collision(static_collision, "HarvestMarketCollision", WorldContract.MARKET_FOOTPRINT)
+    _fill_collision(static_collision, "TruckCollision", WorldContract.TRUCK_FOOTPRINT)
 
     var perimeter_names := ["PerimeterTop", "PerimeterRight", "PerimeterBottom", "PerimeterLeft"]
     var perimeter_rects := WorldContract.perimeter_footprints(WorldContract.MAP_SIZE)

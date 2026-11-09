@@ -34,19 +34,32 @@ There is no JavaScript or Tauri runtime in the current checkout.
   farm `StaticCollision` bodies, and the `Entities` Y-sort root. `FarmMap`
   derives its collision geometry from `WorldContract` and `WorldMath` at
   `_ready()`, and defines its `SPAWN` and `CAMERA_BOUNDS` from
-  `WorldContract`.
-- `WorldShell.load_map(MapId.FARM)` is the only map load/replace path: the
-  shell binds `player.target_highlight` once before the first call, then
-  each swap cancels the held gesture, hides the prompt, closes user-opened
-  modals via `hud.close_modals()` while preserving the morning summary and
-  opening overlay, clears the target tint, detaches the
-  persistent `Player`, frees the old map, instances the new one as the
-  first `World` child (runtime order `FarmMap`, `TargetHighlight`,
-  `GameHud`), reparents the same `Player` under `FarmMap/Entities` at
-  index 0 with `owner` restored so `World/%Player` keeps resolving, and
-  places it via `player.enter_map()`. The swap is presentation-only —
-  `GameSession`, the `Camera2D`, `GameHud`, and its signal connections
-  survive untouched.
+  `WorldContract`. The parked kei truck stands by the east road sign at
+  `TRUCK_CELL`/`TRUCK_ARRIVAL`.
+- `scenes/world/town_map.tscn` and `scripts/world/town_map.gd` (`TownMap`)
+  own the authored 16x12 town: one paved/road `TileMapLayer`, the
+  `TownContract`-derived `StaticCollision` bodies (station, seed shop,
+  cafe, market, truck, and the four perimeter bands), and its own
+  `Entities` Y-sort root holding the town props and parked truck at
+  `TownContract.TRUCK_CELL`/`TRUCK_ARRIVAL`. Town is scenery and travel
+  only — no commerce or social cells yet.
+- `WorldShell.load_map()` is the only map load/replace path, and it reads
+  the destination exclusively from `GameSession.snapshot()["location"]`
+  (no independent map ID): the shell binds `player.target_highlight`
+  once before the first call, then each swap cancels the held gesture,
+  hides the prompt, closes user-opened modals via `hud.close_modals()`
+  while preserving the morning summary and opening overlay, clears the
+  target tint, detaches the persistent `Player`, frees the old map,
+  instances the new one as the first `World` child (runtime order
+  `FarmMap`/`TownMap`, `TargetHighlight`, `GameHud`), reparents the same
+  `Player` under the active `Entities` root at index 0 with `owner`
+  restored so `World/%Player` keeps resolving, and places it via
+  `player.enter_map()` at the house spawn or the arrived-by-truck
+  `TRUCK_ARRIVAL`. The swap is presentation-only — `GameSession`, the
+  `Camera2D`, `GameHud`, and its signal connections survive untouched.
+  A successful E at the active truck is `GameSession.travel()` plus
+  `load_map(true)`; farm-only `FarmView`/effects/ambience calls are
+  gated behind an active `FarmMap` cast.
 - `scripts/game/game_rules.gd` is the closed rules/content source: crop
   economy, action time/stamina budgets, day/pacing/stamina/weather constants
   including `DRY_NIGHTS_TO_WITHER`, payout math, and the `CommandCode` enum

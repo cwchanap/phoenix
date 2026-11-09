@@ -3,9 +3,8 @@ extends Node2D
 
 signal finale_completed(final_state: Dictionary, save_error: int)
 
-enum MapId { FARM }
-
 const FARM_MAP_SCENE := preload("res://scenes/world/farm_map.tscn")
+const TOWN_MAP_SCENE := preload("res://scenes/world/town_map.tscn")
 const FARM_ACTION_SUCCESS_CODES := [
     GameRules.CommandCode.SOIL_TILLED,
     GameRules.CommandCode.CROP_PLANTED,
@@ -30,14 +29,15 @@ var _action_hold_action: Variant = null
 var clock_running := true
 var _clock_elapsed_seconds := 0.0
 var _clock_window_focused := true
-var _map: FarmMap
+var _map: Node2D
 
 @onready var player: PlayerController = $Player as PlayerController
 @onready var hud: GameHud = $GameHud as GameHud
 
 var farm_view: FarmView:
     get:
-        return _map.entities
+        var farm := _map as FarmMap
+        return farm.entities if farm != null else null
 
 func configure(
     initial_state: Variant,
@@ -78,13 +78,30 @@ func _ready() -> void:
     hud.intro_acknowledged.connect(_on_intro_acknowledged)
     hud.modal_state_changed.connect(_refresh_world_input_gate)
 
-    load_map(MapId.FARM)
+    load_map()
 
-func load_map(map_id: MapId) -> void:
+func load_map(arrived_by_truck: bool = false) -> void:
+    # The session snapshot is the only map selector: no independent map id
+    # can drift from the authoritative location.
+    var location: int = _session.snapshot()["location"]
     var scene: PackedScene
-    match map_id:
-        MapId.FARM:
-            scene = FARM_MAP_SCENE
+    var spawn: Vector2
+    var camera_bounds: Rect2
+    var map_size: Vector2i
+    if location == GameRules.MapId.TOWN:
+        scene = TOWN_MAP_SCENE
+        spawn = Vector2(TownContract.TRUCK_ARRIVAL) + Vector2(0.5, 0.5)
+        camera_bounds = TownContract.CAMERA_BOUNDS
+        map_size = TownContract.MAP_SIZE
+    else:
+        scene = FARM_MAP_SCENE
+        spawn = (
+            Vector2(WorldContract.TRUCK_ARRIVAL) + Vector2(0.5, 0.5)
+            if arrived_by_truck
+            else WorldContract.PLAYER_SPAWN
+        )
+        camera_bounds = WorldContract.CAMERA_BOUNDS
+        map_size = WorldContract.MAP_SIZE
 
     _cancel_action_hold()
     hud.hide_prompt()
@@ -98,15 +115,18 @@ func load_map(map_id: MapId) -> void:
         remove_child(_map)
         _map.queue_free()
 
-    _map = scene.instantiate() as FarmMap
+    _map = scene.instantiate() as Node2D
     add_child(_map)
     move_child(_map, 0)
 
-    player.reparent(_map.entities)
-    _map.entities.move_child(player, 0)
+    var entities := _map.get_node("Entities") as Node2D
+    player.reparent(entities)
+    entities.move_child(player, 0)
     player.owner = self
-    player.enter_map(_map.SPAWN, _map.CAMERA_BOUNDS, WorldContract.MAP_SIZE)
-    _map.bind_player(player)
+    player.enter_map(spawn, camera_bounds, map_size)
+    var farm := _map as FarmMap
+    if farm != null:
+        farm.bind_player(player)
     _refresh_from_session()
 
 func _process(delta: float) -> void:
@@ -114,16 +134,19 @@ func _process(delta: float) -> void:
         _advance_passive_clock(minf(delta, CLOCK_DELTA_CLAMP))
     var target: Variant = player.current_target_cell()
 
+    var view := farm_view
     if not _world_input_enabled:
         player.set_target_tint(PlayerController.TargetTint.NEUTRAL)
-        farm_view.set_target_cell(null)
+        if view != null:
+            view.set_target_cell(null)
         hud.hide_prompt()
         return
 
     var preview: Dictionary = _session.preview_target_action(target)
     if _advance_action_hold(delta, target, preview):
         return
-    farm_view.set_target_cell(target)
+    if view != null:
+        view.set_target_cell(target)
     # A held gesture is bound to one action: a farm tile resolving a
     # different action shows neutral rather than advertising work the
     # hold will never do.
@@ -156,15 +179,20 @@ func _process(delta: float) -> void:
 func _interact_label(target: Variant) -> String:
     if target == null:
         return ""
-    match target:
-        WorldContract.SHOP_CELL:
-            return "Seed Box"
-        WorldContract.BED_CELL:
-            return "Bed"
-        WorldContract.SHIPPING_CELL:
-            return "Shipping"
-        WorldContract.MARKET_CELL:
-            return "Harvest Market"
+    if _map is FarmMap:
+        match target:
+            WorldContract.SHOP_CELL:
+                return "Seed Box"
+            WorldContract.BED_CELL:
+                return "Bed"
+            WorldContract.SHIPPING_CELL:
+                return "Shipping"
+            WorldContract.MARKET_CELL:
+                return "Harvest Market"
+            WorldContract.TRUCK_CELL:
+                return "Drive to town"
+    elif target == TownContract.TRUCK_CELL:
+        return "Drive home"
     return ""
 
 ## The target cell's centre in HUD (screen) coordinates.
@@ -184,8 +212,10 @@ func _advance_passive_clock(delta: float) -> void:
 
 func _refresh_from_session() -> void:
     var snapshot := _session.snapshot()
-    farm_view.refresh(snapshot)
-    _map.ambience.render(snapshot)
+    var farm := _map as FarmMap
+    if farm != null:
+        farm.entities.refresh(snapshot)
+        farm.ambience.render(snapshot)
     hud.render(snapshot)
     _refresh_world_input_gate()
 
@@ -212,8 +242,9 @@ func _attempt_target_action(target_cell: Variant, preview: Dictionary) -> void:
     var player_position := player.global_position
     var code := _session.apply_target_action(target_cell)
     _finish_command(code)
-    if FARM_ACTION_SUCCESS_CODES.has(code):
-        _map.effects.play_success(code, preview, target_cell, facing, player_position)
+    var farm := _map as FarmMap
+    if FARM_ACTION_SUCCESS_CODES.has(code) and farm != null:
+        farm.effects.play_success(code, preview, target_cell, facing, player_position)
 
 func _cancel_action_hold() -> void:
     _action_hold_active = false
@@ -268,16 +299,31 @@ func interact() -> void:
     if not _world_input_enabled:
         return
     var target: Variant = player.current_target_cell()
-    if target == WorldContract.SHOP_CELL:
-        hud.open_shop()
-    elif target == WorldContract.SHIPPING_CELL:
-        hud.open_shipping()
-    elif target == WorldContract.BED_CELL:
-        hud.open_sleep_confirmation()
-    elif target == WorldContract.MARKET_CELL:
-        _finish_finale(_session.trigger_harvest_finale(target))
+    if _map is FarmMap:
+        if target == WorldContract.SHOP_CELL:
+            hud.open_shop()
+        elif target == WorldContract.SHIPPING_CELL:
+            hud.open_shipping()
+        elif target == WorldContract.BED_CELL:
+            hud.open_sleep_confirmation()
+        elif target == WorldContract.MARKET_CELL:
+            _finish_finale(_session.trigger_harvest_finale(target))
+        elif target == WorldContract.TRUCK_CELL:
+            _attempt_travel(target)
+        else:
+            hud.show_feedback(GameRules.CommandCode.NOTHING_TO_INTERACT)
+    elif target == TownContract.TRUCK_CELL:
+        _attempt_travel(target)
     else:
         hud.show_feedback(GameRules.CommandCode.NOTHING_TO_INTERACT)
+
+func _attempt_travel(target: Variant) -> void:
+    var code := _session.travel(target)
+    hud.show_feedback(code)
+    # A refused drive keeps both session and map untouched; only the
+    # successful TRAVELLED commit swaps the map to the new location.
+    if code == GameRules.CommandCode.TRAVELLED:
+        load_map(true)
 
 func _unhandled_input(event: InputEvent) -> void:
     if event.is_action_pressed("select_seeds"):

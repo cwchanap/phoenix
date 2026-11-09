@@ -24,6 +24,7 @@ const WORKBENCH_FOOTPRINT := Rect2(13.25, 16.25, 0.5, 0.5)
 const VILLAGE_SIGN_CELL := Vector2i(21, 8)
 const TRUCK_CELL := Vector2i(22, 9)
 const TRUCK_ARRIVAL := Vector2i(21, 10)
+const TRUCK_FOOTPRINT := Rect2(22.0, 9.0, 1.0, 1.0)
 # One world (art) pixel draws as CAMERA_ZOOM screen pixels on the 1920x1080
 # canvas, so the camera still frames a 640x360 world view. A higher-res art
 # set changes only this value.
