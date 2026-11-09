@@ -1022,10 +1022,49 @@ func _run() -> void:
     var town_map := world.get_node("TownMap") as Node2D
     if not _expect(town_map != null, "World must contain a TownMap"):
         return
-    var town_map_names := ["Ground", "StaticCollision", "Entities"]
+    var town_map_names := ["Backdrop", "Ground", "StaticCollision", "Entities"]
     if not _expect_names(town_map, town_map_names, "TownMap"):
         return
     if not _expect_child_order(town_map, town_map_names, "TownMap scene-tree order"):
+        return
+
+    var backdrop := town_map.get_node("Backdrop") as TileMapLayer
+    if not _expect(backdrop != null, "TownMap Backdrop must exist"):
+        return
+    if not _expect(backdrop.position == Vector2(736.0, 0.0), "town Backdrop alignment"):
+        return
+    var backdrop_set := backdrop.tile_set
+    if not _expect(backdrop_set != null, "town Backdrop must have a TileSet"):
+        return
+    var backdrop_source := backdrop_set.get_source(0) as TileSetAtlasSource
+    if not _expect(backdrop_source != null, "town Backdrop source must be an atlas"):
+        return
+    if not _expect(
+        backdrop_source.texture.resource_path == "res://assets/sprites/starting-farm-terrain.png",
+        "town Backdrop must reuse the farm terrain atlas",
+    ):
+        return
+    var backdrop_used := backdrop.get_used_cells()
+    var map_rect := Rect2i(Vector2i.ZERO, TownContract.MAP_SIZE)
+    var outside := 0
+    for cell in TownContract.backdrop_cells():
+        if map_rect.has_point(cell):
+            continue
+        outside += 1
+        if not _expect(backdrop_used.has(cell), "town Backdrop missing cell %s" % cell):
+            return
+        var road_cell: bool = cell.y == 9 or (cell.y == 10 and cell.x <= 4)
+        var expected_tile := Vector2i(3, 0) if road_cell else Vector2i(0, 0)
+        if not _expect_vec2i(
+            backdrop.get_cell_atlas_coords(cell),
+            expected_tile,
+            "town Backdrop %s tile" % cell,
+        ):
+            return
+    if not _expect(
+        backdrop_used.size() == outside,
+        "town Backdrop must paint only the camera coverage outside the map",
+    ):
         return
 
     var town_ground := town_map.get_node("Ground") as TileMapLayer

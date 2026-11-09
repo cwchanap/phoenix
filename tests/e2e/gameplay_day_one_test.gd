@@ -86,11 +86,15 @@ func _crop_path(cell: Vector2i) -> String:
 	return WORLD + "/FarmMap/Entities/FarmCrop_%d_%d" % [cell.x, cell.y]
 
 
+func _tap_action(game, action: String) -> void:
+	assert_bool(await game.input_action(action, true)).is_true()
+	assert_bool(await game.input_action(action, false)).is_true()
+
+
 # Successes raise no HUD text (only refusals toast), so each caller asserts
 # the world change itself; a refusal toast here means the action failed.
 func _use_action(game) -> void:
-	# use_target_action returns void; transport errors surface via is_failure().
-	await game.call_method(WORLD, "use_target_action")
+	await _tap_action(game, "use_action")
 	if is_failure():
 		return
 	assert_str(await game.call_method(GAME_HUD, "toast_text")).is_equal("")
@@ -110,9 +114,6 @@ func test_day_one_town_trip_farming_loop_and_sleep() -> void:
 	if game == null or is_failure():
 		return
 
-	# The pinned clock below counts command minutes only, so the passive
-	# real-time clock stays off for this fixture; the baseline read absorbs
-	# whatever whole minutes ticked during launch.
 	assert_bool(await game.set_property(WORLD, "clock_running", false)).is_true()
 	var clock_path := CHROME + "/ClockCard/Surface/Body/Row/Clock"
 	var start_clock: String = await game.get_property(clock_path, "text")
@@ -120,6 +121,40 @@ func test_day_one_town_trip_farming_loop_and_sleep() -> void:
 	var expected_clock := GameRules.format_time(
 		start_parts[0].to_int() * 60 + start_parts[1].to_int() + 200
 	)
+
+	await _stand_at_target(game, WorldContract.TRUCK_CELL, RIGHT)
+	assert_str(await game.call_method(GAME_HUD, "prompt_text")).is_equal(
+		"[E] Drive to town"
+	)
+	await _tap_action(game, "interact")
+	assert_bool(await game.wait_for_node(WORLD + "/TownMap", 5.0)).is_true()
+
+	await _stand_at_target(game, TownContract.SHOP_CELL, RIGHT)
+	await _tap_action(game, "interact")
+	if is_failure():
+		return
+	assert_bool(
+		await game.wait_for_property(HUD + "/ShopPanel", "visible", true, 5.0)
+	).is_true()
+	assert_bool(await game.input_action("ui_accept", true)).is_true()
+	assert_bool(await game.input_action("ui_accept", false)).is_true()
+	assert_bool(
+		await game.wait_for_property(
+			CHROME + "/TopRight/Money/Row/Value", "text", "130G", 5.0
+		)
+	).is_true()
+	assert_bool(await game.input_action("ui_cancel", true)).is_true()
+	assert_bool(await game.input_action("ui_cancel", false)).is_true()
+	assert_bool(
+		await game.wait_for_property(HUD + "/ShopPanel", "visible", false, 5.0)
+	).is_true()
+
+	await _stand_at_target(game, TownContract.TRUCK_CELL, LEFT)
+	assert_str(await game.call_method(GAME_HUD, "prompt_text")).is_equal(
+		"[E] Drive home"
+	)
+	await _tap_action(game, "interact")
+	assert_bool(await game.wait_for_node(WORLD + "/FarmMap", 5.0)).is_true()
 
 	# Hoe, plant, and water a farm cell well outside the old 3x3 patch, from
 	# its south-east. The farm view pre-creates all crop sprites hidden, so
@@ -144,47 +179,6 @@ func test_day_one_town_trip_farming_loop_and_sleep() -> void:
 	assert_int(int(await game.get_property(soil_path, "frame"))).is_equal(1)
 	await _assert_stamina(game, 14)
 
-	# Drive to town through the real E interaction at the authored truck
-	# cell; load_map swaps FarmMap for TownMap under the same shell.
-	await _stand_at_target(game, WorldContract.TRUCK_CELL, RIGHT)
-	assert_str(await game.call_method(GAME_HUD, "prompt_text")).is_equal(
-		"[E] Drive to town"
-	)
-	await game.call_method(WORLD, "interact")
-	assert_bool(await game.wait_for_node(WORLD + "/TownMap", 5.0)).is_true()
-
-	# Buy one Turnip through the real shop panel request path (150G -> 130G).
-	await _stand_at_target(game, TownContract.SHOP_CELL, RIGHT)
-	await game.call_method(WORLD, "interact")
-	if is_failure():
-		return
-	assert_bool(
-		await game.wait_for_property(HUD + "/ShopPanel", "visible", true, 5.0)
-	).is_true()
-	assert_bool(await game.input_action("ui_accept", true)).is_true()
-	assert_bool(await game.input_action("ui_accept", false)).is_true()
-	assert_bool(
-		await game.wait_for_property(
-			CHROME + "/TopRight/Money/Row/Value", "text", "130G", 5.0
-		)
-	).is_true()
-	assert_bool(await game.input_action("ui_cancel", true)).is_true()
-	assert_bool(await game.input_action("ui_cancel", false)).is_true()
-	assert_bool(
-		await game.wait_for_property(HUD + "/ShopPanel", "visible", false, 5.0)
-	).is_true()
-
-	# Drive home through the town truck; the same session carries the
-	# purchase and both 30-minute drives back onto the farm.
-	await _stand_at_target(game, TownContract.TRUCK_CELL, LEFT)
-	assert_str(await game.call_method(GAME_HUD, "prompt_text")).is_equal(
-		"[E] Drive home"
-	)
-	await game.call_method(WORLD, "interact")
-	assert_bool(await game.wait_for_node(WORLD + "/FarmMap", 5.0)).is_true()
-
-	# The bought Turnip is farmable on a second cell through the same real
-	# input path (6 more stamina spent, badge back to 2 seeds).
 	var bought_cell: Vector2i = WorldContract.FARM_PATCH.position + Vector2i(2, 3)
 	var bought_soil := _soil_path(bought_cell)
 	var bought_crop := _crop_path(bought_cell)
@@ -205,15 +199,13 @@ func test_day_one_town_trip_farming_loop_and_sleep() -> void:
 		await game.get_property(CHROME + "/SeedCard/Row/Tile/Badge/Count", "text")
 	).is_equal("×2")
 	await _assert_stamina(game, 8)
-	# Two worked cells (140 min) plus two drives (60 min) land 200 minutes
-	# after the frozen baseline.
 	assert_bool(
 		await game.wait_for_property(clock_path, "text", expected_clock, 5.0)
 	).is_true()
 
 	# Walk-free trip to the contract bed cell: interact, confirm, acknowledge.
 	await _stand_at_target(game, WorldContract.BED_CELL, UP)
-	await game.call_method(WORLD, "interact")
+	await _tap_action(game, "interact")
 	if is_failure():
 		return
 	assert_bool(

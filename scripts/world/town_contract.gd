@@ -36,3 +36,27 @@ static func villager_footprint(id: VillagerRules.VillagerId) -> Rect2:
 
 static func villager_at(cell: Variant) -> int:
     return VILLAGER_CELLS.find(cell)
+
+static func backdrop_cells() -> Array[Vector2i]:
+    var cells: Array[Vector2i] = []
+    var half := WorldContract.TILE_SIZE * 0.5
+    var min_cell := Vector2(INF, INF)
+    var max_cell := Vector2(-INF, -INF)
+    for offset in [Vector2.ZERO, Vector2.RIGHT, Vector2.ONE, Vector2.DOWN]:
+        var corner := WorldMath.world_to_grid(
+            CAMERA_BOUNDS.position + offset * CAMERA_BOUNDS.size
+        )
+        min_cell.x = minf(min_cell.x, corner.x)
+        min_cell.y = minf(min_cell.y, corner.y)
+        max_cell.x = maxf(max_cell.x, corner.x)
+        max_cell.y = maxf(max_cell.y, corner.y)
+    for x in range(floori(min_cell.x) - 1, ceili(max_cell.x) + 1):
+        for y in range(floori(min_cell.y) - 1, ceili(max_cell.y) + 1):
+            var cell := Vector2i(x, y)
+            var tile := Rect2(
+                WorldMath.grid_to_world(Vector2(cell) + Vector2(0.5, 0.5)) - half,
+                WorldContract.TILE_SIZE,
+            )
+            if tile.intersects(CAMERA_BOUNDS):
+                cells.append(cell)
+    return cells
