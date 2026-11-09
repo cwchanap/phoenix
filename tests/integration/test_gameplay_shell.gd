@@ -2379,8 +2379,11 @@ func test_farming_success_codes_resolve_to_four_distinct_streams() -> void:
 func _open_dialogue(world: WorldShell, villager_id: int) -> void:
     if world._session.snapshot()["location"] != GameRules.MapId.TOWN:
         await _drive_to_town(world)
-    var result: Dictionary = world._session.talk_to(villager_id)
-    world.hud.open_dialogue(villager_id, result, world._session.snapshot())
+    var cell := TownContract.villager_cell(villager_id)
+    await _place_target(world, cell, WorldMath.Facing.UP)
+    assert_eq(world.player.current_target_cell(), cell)
+    world.interact()
+    assert_true(_panel(world.hud, "DialoguePanel").visible)
 
 func test_villager_interaction_opens_dialogue_and_gates_world_input() -> void:
     var world := _world()

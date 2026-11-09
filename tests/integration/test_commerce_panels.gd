@@ -351,15 +351,44 @@ func test_shop_title_and_subtitle_render_translated_in_each_locale() -> void:
 		if title == null or sub == null:
 			continue
 		assert_eq(
-			title.tr(title.text),
+			title.atr(title.text),
 			expected[locale][0],
-			"%s renders the translated shop title" % locale,
+			"%s displays the translated shop title" % locale,
 		)
 		assert_eq(
-			sub.tr(sub.text),
+			sub.text,
 			expected[locale][1],
-			"%s renders the translated shop subtitle" % locale,
+			"%s stores the translated shop subtitle" % locale,
 		)
+		assert_eq(
+			sub.atr(sub.text),
+			expected[locale][1],
+			"%s displays the translated shop subtitle" % locale,
+		)
+		var rendered_size := title.get_minimum_size()
+		shop.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		await _settle()
+		assert_eq(
+			title.atr(title.text),
+			"SEED SHOP",
+			"%s title falls back to source text with translation disabled" % locale,
+		)
+		if locale == "en":
+			assert_eq(title.get_minimum_size(), rendered_size)
+		else:
+			assert_ne(
+				title.get_minimum_size(),
+				rendered_size,
+				"%s shaped title differs from the English source" % locale,
+			)
+		shop.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_INHERIT
+		await _settle()
+		assert_eq(
+			title.atr(title.text),
+			expected[locale][0],
+			"%s title retranslates with the panel" % locale,
+		)
+		assert_eq(title.get_minimum_size(), rendered_size)
 
 func test_shipping_header_is_a_large_gradient_band() -> void:
 	var shipping := _spawn_panel(SHIPPING_SCENE) as ShippingPanel
