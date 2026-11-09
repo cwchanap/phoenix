@@ -4,6 +4,7 @@ extends RefCounted
 enum CropKind { TURNIP, POTATO, PUMPKIN }
 enum FarmingAction { HOE, SEEDS, WATERING_CAN, HANDS }
 enum Weather { SUNNY, RAINY }
+enum MapId { FARM, TOWN }
 enum CommandCode {
     SEED_SELECTED,
     SOIL_TILLED,
@@ -47,6 +48,7 @@ enum CommandCode {
     FINALE_ALREADY_TRIGGERED,
     WATERING_CAN_UPGRADED,
     WATERING_CAN_ALREADY_UPGRADED,
+    TRAVELLED,
 }
 
 const DAY_START_MINUTES := 360
@@ -58,6 +60,7 @@ const RAIN_CHANCE := 0.25
 const DRY_NIGHTS_TO_WITHER := 2
 const STARTING_MONEY := 150
 const WATERING_CAN_UPGRADE_PRICE := 200
+const TRAVEL_MINUTES := 30
 
 const CROP_KEYS: Array[StringName] = [&"turnip", &"potato", &"pumpkin"]
 const WEATHER_KEYS: Array[StringName] = [&"sunny", &"rainy"]

@@ -14,13 +14,19 @@ func test_world_to_grid_at_origin() -> void:
 func test_expanded_map_edge_targeting() -> void:
 	assert_that(WorldContract.MAP_SIZE).is_equal(Vector2i(24, 20))
 	# Targets inside the expanded east/south margins that the old 12x12 map rejected.
-	assert_that(WorldMath.target_cell(Vector2(22.5, 17.5), WorldMath.Facing.DOWN)).is_equal(Vector2i(23, 18))
-	assert_that(WorldMath.target_cell(Vector2(23.5, 19.5), WorldMath.Facing.UP)).is_equal(Vector2i(22, 18))
-	assert_that(WorldMath.target_cell(Vector2(0.25, 0.25), WorldMath.Facing.UP)).is_null()
-	assert_that(WorldMath.target_cell(Vector2(23.75, 19.75), WorldMath.Facing.DOWN)).is_null()
+	assert_that(WorldMath.target_cell(Vector2(22.5, 17.5), WorldMath.Facing.DOWN, WorldContract.MAP_SIZE)).is_equal(Vector2i(23, 18))
+	assert_that(WorldMath.target_cell(Vector2(23.5, 19.5), WorldMath.Facing.UP, WorldContract.MAP_SIZE)).is_equal(Vector2i(22, 18))
+	assert_that(WorldMath.target_cell(Vector2(0.25, 0.25), WorldMath.Facing.UP, WorldContract.MAP_SIZE)).is_null()
+	assert_that(WorldMath.target_cell(Vector2(23.75, 19.75), WorldMath.Facing.DOWN, WorldContract.MAP_SIZE)).is_null()
+
+func test_town_map_size_targets_its_own_bounds() -> void:
+	assert_that(TownContract.MAP_SIZE).is_equal(Vector2i(16, 12))
+	assert_that(WorldMath.target_cell(Vector2(14.5, 10.5), WorldMath.Facing.DOWN, TownContract.MAP_SIZE)).is_equal(Vector2i(15, 11))
+	assert_that(WorldMath.target_cell(Vector2(22.5, 17.5), WorldMath.Facing.DOWN, TownContract.MAP_SIZE)).is_null()
 
 func test_frozen_camera_bounds_equal_derived_bounds() -> void:
-	assert_that(WorldMath.map_camera_bounds()).is_equal(WorldContract.CAMERA_BOUNDS)
+	assert_that(WorldMath.map_camera_bounds(WorldContract.MAP_SIZE)).is_equal(WorldContract.CAMERA_BOUNDS)
+	assert_that(WorldMath.map_camera_bounds(TownContract.MAP_SIZE)).is_equal(Rect2(384.0, -96.0, 896.0, 544.0))
 
 func test_footprint_ground_anchor_matches_spec_anchors() -> void:
 	assert_that(WorldMath.footprint_ground_anchor(WorldContract.HOUSE_FOOTPRINT)).is_equal(Vector2(976, 336))

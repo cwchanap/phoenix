@@ -22,6 +22,8 @@ const RIVER_SOUTH_FOOTPRINT := Rect2(0.0, 18.0, 12.0, 2.0)
 const WORKBENCH_CELL := Vector2i(13, 16)
 const WORKBENCH_FOOTPRINT := Rect2(13.25, 16.25, 0.5, 0.5)
 const VILLAGE_SIGN_CELL := Vector2i(21, 8)
+const TRUCK_CELL := Vector2i(22, 9)
+const TRUCK_ARRIVAL := Vector2i(21, 10)
 # One world (art) pixel draws as CAMERA_ZOOM screen pixels on the 1920x1080
 # canvas, so the camera still frames a 640x360 world view. A higher-res art
 # set changes only this value.
@@ -33,13 +35,13 @@ const FARM_PATCH := Rect2i(4, 10, 6, 5)
 
 const PERIMETER_BAND_WIDTH := 1.0
 
-static func perimeter_footprints() -> Array[Rect2]:
-    var map_size := Vector2(MAP_SIZE)
+static func perimeter_footprints(map_size: Vector2i) -> Array[Rect2]:
+    var size := Vector2(map_size)
     return [
-        Rect2(0.0, -PERIMETER_BAND_WIDTH, map_size.x, PERIMETER_BAND_WIDTH),
-        Rect2(map_size.x, 0.0, PERIMETER_BAND_WIDTH, map_size.y),
-        Rect2(0.0, map_size.y, map_size.x, PERIMETER_BAND_WIDTH),
-        Rect2(-PERIMETER_BAND_WIDTH, 0.0, PERIMETER_BAND_WIDTH, map_size.y),
+        Rect2(0.0, -PERIMETER_BAND_WIDTH, size.x, PERIMETER_BAND_WIDTH),
+        Rect2(size.x, 0.0, PERIMETER_BAND_WIDTH, size.y),
+        Rect2(0.0, size.y, size.x, PERIMETER_BAND_WIDTH),
+        Rect2(-PERIMETER_BAND_WIDTH, 0.0, PERIMETER_BAND_WIDTH, size.y),
     ]
 
 static func farm_cells() -> Array[Vector2i]:
