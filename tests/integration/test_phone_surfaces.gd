@@ -453,10 +453,41 @@ func test_pause_e_key_help_renders_translated_in_each_locale() -> void:
 		if row_label == null:
 			continue
 		assert_eq(
-			row_label.tr(row_label.text),
+			row_label.atr(row_label.text),
 			expected[locale],
-			"%s renders the translated interact-controls row" % locale,
+			"%s displays the translated interact-controls row" % locale,
 		)
+		var font := row_label.get_theme_font("font")
+		var font_size := row_label.get_theme_font_size("font_size")
+		pause.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		await _settle()
+		assert_eq(
+			row_label.atr(row_label.text),
+			"Talk, shop, bin, bed, truck",
+			"%s interact row falls back to source text with translation disabled"
+				% locale,
+		)
+		var source_width := font.get_string_size(
+			row_label.atr(row_label.text), HORIZONTAL_ALIGNMENT_LEFT, -1, font_size
+		).x
+		pause.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_INHERIT
+		await _settle()
+		assert_eq(
+			row_label.atr(row_label.text),
+			expected[locale],
+			"%s interact row retranslates with the panel" % locale,
+		)
+		var rendered_width := font.get_string_size(
+			row_label.atr(row_label.text), HORIZONTAL_ALIGNMENT_LEFT, -1, font_size
+		).x
+		if locale == "en":
+			assert_eq(rendered_width, source_width)
+		else:
+			assert_ne(
+				rendered_width,
+				source_width,
+				"%s shaped interact row differs from the English source" % locale,
+			)
 		pause.visible = false
 
 func test_pause_resume_pill_sits_inside_the_phone_and_emits() -> void:
