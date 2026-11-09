@@ -35,6 +35,8 @@ static func villager_footprint(id: VillagerRules.VillagerId) -> Rect2:
     return VILLAGER_FOOTPRINTS[id]
 
 static func villager_at(cell: Variant) -> int:
+    if not (cell is Vector2i):
+        return -1
     return VILLAGER_CELLS.find(cell)
 
 static func backdrop_cells() -> Array[Vector2i]:

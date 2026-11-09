@@ -147,7 +147,7 @@ func render(snapshot: Dictionary) -> void:
 	_money.text = "%dG" % int(snapshot["money"])
 	var days_left := GameRules.MAX_DAY - day
 	if days_left <= 0:
-		_market.text = "today — ship crops, then visit the stall"
+		_market.text = "today — ship crops, then visit the market"
 	elif days_left == 1:
 		_market.text = "tomorrow"
 	else:

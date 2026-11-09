@@ -188,7 +188,7 @@ func test_market_pill_counts_down_and_bin_pill_shows_tomorrows_payout() -> void:
     assert_eq((bin.get_node("Row/When") as Label).text, "tomorrow")
     snapshot["day"] = GameRules.MAX_DAY
     hud.render(snapshot)
-    assert_eq(market.text, "today — ship crops, then visit the stall")
+    assert_eq(market.text, "today — ship crops, then visit the market")
     assert_eq((bin.get_node("Row/When") as Label).text, "today")
 
 func test_clock_card_and_stamina_pill_render_the_snapshot() -> void:
@@ -1573,6 +1573,11 @@ func test_successful_shop_refresh_preserves_modal_mask_until_close() -> void:
     var tutorial := hud.get_node("HudRoot/OnboardingOverlay/TutorialCard") as Control
     var chrome := _chrome(hud)
 
+    # Day 2 makes the town-scoped talk card the one the shop modal masks.
+    var state := world._session.state()
+    state["day"] = 2
+    state["weather_history"] = [state["weather"], state["weather"]]
+    assert_true(world._session.restore_state(state))
     await _drive_to_town(world)
     await _place_target(world, TownContract.SHOP_CELL, WorldMath.Facing.UP)
     world.interact()

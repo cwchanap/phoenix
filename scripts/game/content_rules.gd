@@ -97,17 +97,25 @@ static func next_tutorial_prompt(
     return {}
 
 static func _tutorial_relevant(id: StringName, snapshot: Dictionary) -> bool:
+    var on_farm: bool = snapshot.get("location") == GameRules.MapId.FARM
     match id:
         &"farm_basics":
-            return bool(snapshot.get("intro_acknowledged", false))
+            return on_farm and bool(snapshot.get("intro_acknowledged", false))
         &"plant":
-            return _has_any_count(snapshot["seeds"]) and _has_tilled_empty_soil(snapshot["farm"])
+            return (
+                on_farm
+                and _has_any_count(snapshot["seeds"])
+                and _has_tilled_empty_soil(snapshot["farm"])
+            )
         &"water":
             return (
-                StringName(snapshot["weather"]) == &"sunny"
+                on_farm
+                and StringName(snapshot["weather"]) == &"sunny"
                 and _has_immature_unwatered_crop(snapshot["farm"])
             )
         &"sleep":
+            if not on_farm:
+                return false
             if _has_watered_crop(snapshot["farm"]):
                 return true
             return StringName(snapshot["weather"]) == &"rainy" and _has_immature_crop(snapshot["farm"])
@@ -123,9 +131,9 @@ static func _tutorial_relevant(id: StringName, snapshot: Dictionary) -> bool:
                 and snapshot.get("location") == GameRules.MapId.TOWN
             )
         &"harvest":
-            return _has_mature_crop(snapshot["farm"])
+            return on_farm and _has_mature_crop(snapshot["farm"])
         &"shipping":
-            return _has_any_count(snapshot["harvested"])
+            return on_farm and _has_any_count(snapshot["harvested"])
         &"gift":
             return (
                 _has_any_count(snapshot["harvested"])
