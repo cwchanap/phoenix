@@ -79,12 +79,52 @@ func _init() -> void:
         WorldContract.TRUCK_ARRIVAL == Vector2i(21, 10), "farm truck arrival contract"
     ):
         return
+    if not _expect(
+        WorldContract.TRUCK_FOOTPRINT == Rect2(22.0, 9.0, 1.0, 1.0),
+        "farm truck footprint contract",
+    ):
+        return
     if not _expect(TownContract.MAP_SIZE == Vector2i(16, 12), "town map size contract"):
         return
     if not _expect(TownContract.TRUCK_CELL == Vector2i(2, 9), "town truck cell contract"):
         return
     if not _expect(
         TownContract.TRUCK_ARRIVAL == Vector2i(3, 8), "town truck arrival contract"
+    ):
+        return
+    if not _expect(
+        TownContract.TRUCK_FOOTPRINT == Rect2(2.0, 9.0, 1.0, 1.0),
+        "town truck footprint contract",
+    ):
+        return
+    if not _expect(
+        TownContract.STATION_FOOTPRINT == Rect2(1.85, 3.85, 1.3, 1.3),
+        "station footprint contract",
+    ):
+        return
+    if not _expect(
+        TownContract.SHOP_FOOTPRINT == Rect2(6.85, 2.85, 1.3, 1.3),
+        "town shop footprint contract",
+    ):
+        return
+    if not _expect(
+        TownContract.CAFE_FOOTPRINT == Rect2(10.85, 2.85, 1.3, 1.3),
+        "cafe footprint contract",
+    ):
+        return
+    if not _expect(
+        TownContract.MARKET_FOOTPRINT == Rect2(12.85, 5.85, 1.3, 1.3),
+        "town market footprint contract",
+    ):
+        return
+    if not _expect(
+        TownContract.CAMERA_BOUNDS == Rect2(384.0, -96.0, 896.0, 544.0),
+        "town camera bounds contract",
+    ):
+        return
+    if not _expect(
+        TownContract.CAMERA_BOUNDS == WorldMath.map_camera_bounds(TownContract.MAP_SIZE),
+        "frozen town camera bounds must equal derived map camera bounds",
     ):
         return
     var expected_perimeter: Array[Rect2] = [

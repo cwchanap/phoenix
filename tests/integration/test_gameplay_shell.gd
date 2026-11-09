@@ -318,6 +318,7 @@ const ENTITY_STATIC_NAMES := [
     "VillageSign",
     "Shipping",
     "HarvestMarket",
+    "Truck",
 ]
 
 func test_crop_roots_are_direct_entities_children_at_cell_centers() -> void:
@@ -2128,7 +2129,7 @@ func test_blocking_intro_never_advertises_farm_action() -> void:
     assert_eq(hud.prompt_text(), "")
 
 func _farm_effects(world: WorldShell) -> Node2D:
-    return world._map.effects as Node2D
+    return (world._map as FarmMap).effects as Node2D
 
 func _await_effects_settled() -> void:
     # Longest effect chain (tool motion + cell strip) stays under 0.6 s.
@@ -3068,7 +3069,7 @@ func test_weather_tint_matches_rainy_and_sunny_snapshots() -> void:
 
 func test_rain_visibility_follows_rainy_and_sunny_snapshots() -> void:
     var world := _world()
-    var ambience := world._map.ambience
+    var ambience := (world._map as FarmMap).ambience
     var rainy := world._session.snapshot()
     rainy["weather"] = GameRules.weather_key(GameRules.Weather.RAINY)
     var sunny := world._session.snapshot()
@@ -3089,7 +3090,7 @@ func test_refresh_from_session_renders_rainy_snapshot() -> void:
     _restore_weather(world, GameRules.weather_key(GameRules.Weather.RAINY))
 
     world._refresh_from_session()
-    assert_true(world._map.ambience.is_rain_falling())
+    assert_true((world._map as FarmMap).ambience.is_rain_falling())
 
 
 func test_game_hud_rain_playback_follows_world_refresh() -> void:
@@ -3194,7 +3195,7 @@ func test_ambience_render_does_not_mutate_session_state() -> void:
     var before := world._session.snapshot().duplicate(true)
     var rainy := world._session.snapshot()
     rainy["weather"] = GameRules.weather_key(GameRules.Weather.RAINY)
-    world._map.ambience.render(rainy)
+    (world._map as FarmMap).ambience.render(rainy)
     assert_eq(world._session.snapshot(), before)
 
 
@@ -3957,7 +3958,7 @@ func test_load_map_farm_reload_preserves_player_session_and_hud() -> void:
     player.facing = WorldMath.Facing.UP
     player.velocity = Vector2(100.0, 100.0)
 
-    world.load_map(WorldShell.MapId.FARM)
+    world.load_map()
 
     assert_eq(hud.prompt_text(), "", "reload clears the old target prompt")
 
@@ -4133,6 +4134,154 @@ func test_load_map_farm_reload_preserves_player_session_and_hud() -> void:
     )
     _push_use_action(world, false)
 
+func test_truck_round_trip_swaps_maps_preserving_player_session_and_hud() -> void:
+    var world := _world()
+    var player := world.player
+    var camera := player.camera
+    var session := world._session
+    var hud := world.hud
+    var target_highlight := world.get_node("TargetHighlight") as Line2D
+    var buy_connections := hud.buy_requested.get_connections().size()
+    var farm_map := world.get_node("FarmMap")
+
+    # Till a cell so the drive must also retire live farm FX with the old map.
+    var cell: Vector2i = WorldContract.farm_cells()[0]
+    await _place_target(world, cell)
+    world.use_target_action()
+    assert_not_null(
+        player.get_node_or_null("ToolFx"), "drive begins with a live tool overlay"
+    )
+
+    await _place_target(world, WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT)
+    world._process(0.0)
+    assert_eq(hud.prompt_text(), "[E] Drive to town")
+    var before_minutes: int = session.snapshot()["time_minutes"]
+
+    world.interact()
+
+    assert_eq(session.snapshot()["location"], GameRules.MapId.TOWN)
+    assert_eq(
+        int(session.snapshot()["time_minutes"]),
+        before_minutes + GameRules.TRAVEL_MINUTES,
+        "the drive spends TRAVEL_MINUTES",
+    )
+    var town_map := world.get_node_or_null("TownMap") as Node2D
+    assert_not_null(town_map, "a successful drive installs TownMap")
+    if town_map == null:
+        return
+    assert_null(world.get_node_or_null("FarmMap"), "the farm map is replaced")
+    assert_null(world.farm_view, "no FarmView is active in town")
+    assert_same(world.player, player, "same Player instance in town")
+    assert_same(player.camera, camera, "same Camera2D in town")
+    assert_same(world._session, session, "same GameSession in town")
+    assert_same(world.hud, hud, "same GameHud in town")
+    assert_same(
+        world.get_node_or_null("%Player"), player, "%Player resolves in town"
+    )
+    var town_entities := town_map.get_node("Entities") as Node2D
+    assert_same(player.get_parent(), town_entities, "player rejoined the town Y-sort root")
+    assert_same(town_entities.get_child(0), player, "player stays first for exact-Y sorting")
+    assert_eq(
+        player.global_position,
+        WorldMath.grid_to_world(Vector2(TownContract.TRUCK_ARRIVAL) + Vector2(0.5, 0.5)),
+        "town truck-side arrival",
+    )
+    assert_eq(
+        Rect2(
+            camera.limit_left,
+            camera.limit_top,
+            camera.limit_right - camera.limit_left,
+            camera.limit_bottom - camera.limit_top,
+        ),
+        TownContract.CAMERA_BOUNDS,
+        "town camera bounds applied",
+    )
+    assert_eq(world.get_child_count(), 3, "World keeps exactly three children in town")
+    if world.get_child_count() == 3:
+        assert_eq(String(world.get_child(0).name), "TownMap")
+        assert_eq(String(world.get_child(1).name), "TargetHighlight")
+        assert_eq(String(world.get_child(2).name), "GameHud")
+    assert_eq(hud.prompt_text(), "", "map swap clears the old target prompt")
+    assert_eq(
+        target_highlight.default_color,
+        PlayerController.TARGET_NEUTRAL,
+        "map swap clears the target tint",
+    )
+    assert_false(hud.has_blocking_modal(), "no modal is open after the drive")
+    assert_eq(
+        hud.buy_requested.get_connections().size(),
+        buy_connections,
+        "no duplicate HUD request connections",
+    )
+    await get_tree().process_frame
+    assert_false(is_instance_valid(farm_map), "old farm map freed")
+    assert_null(
+        player.get_node_or_null("ToolFx"), "farm tool overlay retired on travel"
+    )
+
+    # The ordinary preview still runs in town: paving resolves no interact
+    # label, E refuses without swapping the map or mutating the session.
+    await _place_target(world, Vector2i(8, 8), WorldMath.Facing.DOWN)
+    world._process(0.0)
+    assert_eq(hud.prompt_text(), "")
+    var snapshot_in_town := session.snapshot()
+    world.interact()
+    assert_eq(hud.toast_text(), "Nothing to interact with.")
+    assert_eq(session.snapshot(), snapshot_in_town, "a refused E mutates nothing")
+    assert_same(
+        world.get_node_or_null("TownMap"), town_map, "a refused E keeps the town map"
+    )
+    assert_true(
+        bool(session.snapshot()["farm"][0]["tilled"]),
+        "tilled soil survives the drive",
+    )
+
+    await _place_target(world, TownContract.TRUCK_CELL, WorldMath.Facing.LEFT)
+    world._process(0.0)
+    assert_eq(hud.prompt_text(), "[E] Drive home")
+
+    world.interact()
+
+    assert_eq(session.snapshot()["location"], GameRules.MapId.FARM)
+    assert_eq(
+        int(session.snapshot()["time_minutes"]),
+        before_minutes + 2 * GameRules.TRAVEL_MINUTES,
+        "the return drive spends TRAVEL_MINUTES again",
+    )
+    var returned_farm := world.get_node_or_null("FarmMap")
+    assert_not_null(returned_farm, "driving home reinstalls FarmMap")
+    if returned_farm == null:
+        return
+    assert_null(world.get_node_or_null("TownMap"), "the town map is replaced")
+    assert_same(world.player, player, "same Player instance back on the farm")
+    assert_same(player.camera, camera, "same Camera2D back on the farm")
+    assert_same(world._session, session, "same GameSession back on the farm")
+    assert_same(world.hud, hud, "same GameHud back on the farm")
+    var returned_entities := returned_farm.get_node("Entities") as Node2D
+    assert_same(player.get_parent(), returned_entities, "player rejoined farm Entities")
+    assert_same(returned_entities.get_child(0), player, "player first on the farm")
+    assert_eq(
+        player.global_position,
+        WorldMath.grid_to_world(Vector2(WorldContract.TRUCK_ARRIVAL) + Vector2(0.5, 0.5)),
+        "farm truck-side arrival",
+    )
+    assert_same(
+        world.farm_view,
+        returned_entities,
+        "farm_view resolves again on the farm",
+    )
+    assert_eq(hud.prompt_text(), "", "return swap clears the target prompt")
+    assert_false(hud.has_blocking_modal())
+    assert_eq(
+        hud.buy_requested.get_connections().size(),
+        buy_connections,
+        "still no duplicate HUD request connections",
+    )
+    assert_true(
+        bool(session.snapshot()["farm"][0]["tilled"]),
+        "farm state persists across the round trip",
+    )
+
 func test_load_map_closes_open_modals() -> void:
     var world := _world()
     var hud := world.hud
@@ -4144,7 +4293,7 @@ func test_load_map_closes_open_modals() -> void:
     assert_false(world._world_input_enabled)
     sfx.stream = null
 
-    world.load_map(WorldShell.MapId.FARM)
+    world.load_map()
 
     assert_false(hud.has_blocking_modal(), "map replacement closes open modals")
     assert_true(
@@ -4166,7 +4315,7 @@ func test_load_map_closes_open_modals() -> void:
     assert_false(world._world_input_enabled)
     sfx.stream = null
 
-    world.load_map(WorldShell.MapId.FARM)
+    world.load_map()
 
     assert_false(dialogue_panel.visible, "dialogue panel closed on map reload")
     assert_false(hud.has_blocking_modal(), "no blocking modal remains")
@@ -4197,7 +4346,7 @@ func test_load_map_closes_open_modals() -> void:
     assert_true(morning_summary.visible, "close_modals preserves the morning summary")
     assert_eq(visibility_changes.size(), 0, "summary is never hidden and reopened")
 
-    world.load_map(WorldShell.MapId.FARM)
+    world.load_map()
 
     assert_true(morning_summary.visible, "morning summary stays visible across map reload")
     assert_true(hud.has_blocking_modal(), "morning summary continues blocking input")

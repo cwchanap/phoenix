@@ -181,6 +181,7 @@ func _static_entity_names() -> Array:
         "VillageSign",
         "Shipping",
         "HarvestMarket",
+        "Truck",
     ]
 
 func _expected_water_tile(cell: Vector2i) -> Vector2i:
@@ -483,6 +484,7 @@ func _run() -> void:
         "WorkbenchCollision",
         "ShippingCollision",
         "HarvestMarketCollision",
+        "TruckCollision",
         "PerimeterTop",
         "PerimeterRight",
         "PerimeterBottom",
@@ -505,6 +507,7 @@ func _run() -> void:
         "WorkbenchCollision": WorldContract.WORKBENCH_FOOTPRINT,
         "ShippingCollision": WorldContract.SHIPPING_FOOTPRINT,
         "HarvestMarketCollision": WorldContract.MARKET_FOOTPRINT,
+        "TruckCollision": WorldContract.TRUCK_FOOTPRINT,
     }
     var perimeter_rects := WorldContract.perimeter_footprints(WorldContract.MAP_SIZE)
     if not _expect(perimeter_rects.size() == 4, "perimeter footprint count"):
@@ -588,6 +591,15 @@ func _run() -> void:
         village_sign.position, _cell_center(WorldContract.VILLAGE_SIGN_CELL), "village sign anchor"
     ):
         return
+    var truck := entities.get_node("Truck") as Node2D
+    if not _expect(truck != null, "farm truck entity"):
+        return
+    if not _expect_vec2(
+        truck.position,
+        WorldMath.footprint_ground_anchor(WorldContract.TRUCK_FOOTPRINT),
+        "farm truck anchor",
+    ):
+        return
 
     for entry in _prop_entities():
         var entity := entities.get_node(entry.node) as Node2D
@@ -643,6 +655,31 @@ func _run() -> void:
             sprite.offset, Vector2(0.0, -48.0), "%s bottom-center offset" % entry.label
         ):
             return
+
+    if not _expect_names(truck, ["Shadow", "Sprite2D"], "farm truck entity"):
+        return
+    var truck_shadow := truck.get_node("Shadow") as Sprite2D
+    if not _expect(
+        truck_shadow.texture.resource_path == "res://assets/sprites/proof-shadow.png",
+        "farm truck shadow texture",
+    ):
+        return
+    var truck_sprite := truck.get_node("Sprite2D") as Sprite2D
+    if not _expect(
+        truck_sprite.texture.resource_path == "res://assets/sprites/kei-truck.png",
+        "farm truck texture",
+    ):
+        return
+    if not _expect(truck_sprite.hframes == 2, "farm truck frame columns"):
+        return
+    if not _expect(truck_sprite.frame == 0, "farm truck front-view frame"):
+        return
+    if not _expect(truck_sprite.flip_h, "farm truck faces the east road"):
+        return
+    if not _expect_vec2(
+        truck_sprite.offset, Vector2(0.0, -48.0), "farm truck bottom-center offset"
+    ):
+        return
 
     var player := world.player
     if not _expect(player != null, "World must expose its Player"):
@@ -991,6 +1028,284 @@ func _run() -> void:
     await _hold_actions(["move_down"], 130)
     var farm_exit := WorldMath.world_to_grid(player.global_position)
     if not _expect(farm_exit.x > 9.0 and farm_exit.y > 14.0, "farm edge traversal exits south-east"):
+        return
+
+    # The parked truck faces the player at its arrival cell and advertises
+    # the drive; a successful session travel swaps in the authored TownMap.
+    _place_player(player, Vector2(WorldContract.TRUCK_ARRIVAL) + Vector2(0.5, 0.5))
+    player.facing = WorldMath.Facing.RIGHT
+    await physics_frame
+    world._process(0.0)
+    if not _expect(world.hud.prompt_text() == "[E] Drive to town", "farm truck prompt"):
+        return
+    if not _expect(
+        world._session.travel(WorldContract.TRUCK_CELL) == GameRules.CommandCode.TRAVELLED,
+        "farm truck travel command",
+    ):
+        return
+    world.load_map(true)
+
+    var town_names := ["TownMap", "TargetHighlight", "GameHud"]
+    if not _expect_names(world, town_names, "World after travel"):
+        return
+    if not _expect_child_order(world, town_names, "World scene-tree order after travel"):
+        return
+    var town_map := world.get_node("TownMap") as Node2D
+    if not _expect(town_map != null, "World must contain a TownMap"):
+        return
+    var town_map_names := ["Ground", "StaticCollision", "Entities"]
+    if not _expect_names(town_map, town_map_names, "TownMap"):
+        return
+    if not _expect_child_order(town_map, town_map_names, "TownMap scene-tree order"):
+        return
+
+    var town_ground := town_map.get_node("Ground") as TileMapLayer
+    if not _expect(town_ground != null, "TownMap Ground must exist"):
+        return
+    if not _expect(town_ground.position == Vector2(736.0, 0.0), "town Ground alignment transform"):
+        return
+    var town_tile_set := town_ground.tile_set
+    if not _expect(town_tile_set != null, "town Ground must have a TileSet"):
+        return
+    if not _expect(town_tile_set.tile_size == Vector2i(64, 32), "town tile size"):
+        return
+    if not _expect(town_tile_set.tile_shape == TileSet.TILE_SHAPE_ISOMETRIC, "town tile shape"):
+        return
+    if not _expect(town_tile_set.tile_layout == TileSet.TILE_LAYOUT_DIAMOND_DOWN, "town tile layout"):
+        return
+    var town_source := town_tile_set.get_source(0) as TileSetAtlasSource
+    if not _expect(town_source != null, "town Ground source must be an atlas"):
+        return
+    if not _expect(
+        town_source.texture.resource_path == "res://assets/sprites/town-terrain.png",
+        "town atlas texture",
+    ):
+        return
+    if not _expect(town_source.texture_region_size == Vector2i(64, 32), "town atlas tile size"):
+        return
+    if not _expect(town_source.get_tiles_count() == 3, "town atlas tile count"):
+        return
+
+    var town_used := town_ground.get_used_cells()
+    if not _expect(town_used.size() == 192, "town Ground must contain exactly 192 cells"):
+        return
+    for y in TownContract.MAP_SIZE.y:
+        for x in TownContract.MAP_SIZE.x:
+            var cell := Vector2i(x, y)
+            if not _expect(town_used.has(cell), "town Ground missing cell %s" % cell):
+                return
+            var expected_center := WorldMath.grid_to_world(Vector2(cell) + Vector2(0.5, 0.5))
+            if not _expect_vec2(
+                town_ground.to_global(town_ground.map_to_local(cell)),
+                expected_center,
+                "town cell %s center" % cell,
+            ):
+                return
+            var road_cell: bool = cell.y == 9 or (cell.y == 10 and cell.x <= 4)
+            var expected_tile := Vector2i(2, 0) if road_cell else Vector2i(0, 0)
+            if not _expect_vec2i(
+                town_ground.get_cell_atlas_coords(cell), expected_tile, "town cell %s tile" % cell
+            ):
+                return
+
+    var town_collision := town_map.get_node("StaticCollision") as StaticBody2D
+    var town_collision_names := [
+        "StationCollision",
+        "SeedShopCollision",
+        "CafeCollision",
+        "MarketCollision",
+        "TruckCollision",
+        "PerimeterTop",
+        "PerimeterRight",
+        "PerimeterBottom",
+        "PerimeterLeft",
+    ]
+    if not _expect_names(town_collision, town_collision_names, "TownMap StaticCollision"):
+        return
+    if not _expect_child_order(
+        town_collision, town_collision_names, "TownMap StaticCollision scene-tree order"
+    ):
+        return
+    var town_footprints := {
+        "StationCollision": TownContract.STATION_FOOTPRINT,
+        "SeedShopCollision": TownContract.SHOP_FOOTPRINT,
+        "CafeCollision": TownContract.CAFE_FOOTPRINT,
+        "MarketCollision": TownContract.MARKET_FOOTPRINT,
+        "TruckCollision": TownContract.TRUCK_FOOTPRINT,
+    }
+    var town_perimeter := WorldContract.perimeter_footprints(TownContract.MAP_SIZE)
+    for index in town_perimeter.size():
+        town_footprints[town_collision_names[5 + index]] = town_perimeter[index]
+    for collider_name in town_collision_names:
+        var collision := town_collision.get_node(collider_name) as CollisionPolygon2D
+        if not _expect_polygon(
+            collision.polygon,
+            WorldMath.footprint_to_polygon(town_footprints[collider_name]),
+            "town %s polygon" % collider_name,
+        ):
+            return
+
+    var town_entities := town_map.get_node("Entities") as Node2D
+    if not _expect(town_entities.y_sort_enabled, "town Entities must enable y-sort"):
+        return
+    var town_y_sort_nodes: Array[CanvasItem] = []
+    if world.y_sort_enabled:
+        town_y_sort_nodes.append(world)
+    for node in world.find_children("*", "CanvasItem", true, false):
+        var canvas_item := node as CanvasItem
+        if canvas_item.y_sort_enabled:
+            town_y_sort_nodes.append(canvas_item)
+    if not _expect(
+        town_y_sort_nodes.size() == 1 and town_y_sort_nodes[0] == town_entities,
+        "town Entities must be the only enabled y-sort CanvasItem",
+    ):
+        return
+    var town_entity_names := ["Player", "Station", "SeedShop", "Cafe", "Market", "Truck"]
+    if not _expect_names(town_entities, town_entity_names, "town Entities"):
+        return
+    if not _expect_child_order(town_entities, town_entity_names, "town Entities scene-tree order"):
+        return
+
+    var town_props := [
+        {"node": "Station", "frame": 0, "footprint": TownContract.STATION_FOOTPRINT},
+        {"node": "SeedShop", "frame": 1, "footprint": TownContract.SHOP_FOOTPRINT},
+        {"node": "Cafe", "frame": 2, "footprint": TownContract.CAFE_FOOTPRINT},
+        {"node": "Market", "frame": 3, "footprint": TownContract.MARKET_FOOTPRINT},
+    ]
+    for entry in town_props:
+        var prop := town_entities.get_node(entry.node) as Node2D
+        if not _expect(prop != null, "town %s entity" % entry.node):
+            return
+        if not _expect_vec2(
+            prop.position,
+            WorldMath.footprint_ground_anchor(entry.footprint),
+            "town %s anchor" % entry.node,
+        ):
+            return
+        if not _expect_names(prop, ["Shadow", "Sprite2D"], "town %s entity" % entry.node):
+            return
+        var prop_shadow := prop.get_node("Shadow") as Sprite2D
+        if not _expect(
+            prop_shadow.texture.resource_path == "res://assets/sprites/proof-shadow.png",
+            "town %s shadow texture" % entry.node,
+        ):
+            return
+        var prop_sprite := prop.get_node("Sprite2D") as Sprite2D
+        if not _expect(
+            prop_sprite.texture.resource_path == "res://assets/sprites/town-props.png",
+            "town %s texture" % entry.node,
+        ):
+            return
+        if not _expect(prop_sprite.hframes == 2, "town %s frame columns" % entry.node):
+            return
+        if not _expect(prop_sprite.vframes == 2, "town %s frame rows" % entry.node):
+            return
+        if not _expect(prop_sprite.frame == entry.frame, "town %s frame" % entry.node):
+            return
+        if not _expect_vec2(
+            prop_sprite.offset, Vector2(0.0, -48.0), "town %s bottom-center offset" % entry.node
+        ):
+            return
+
+    var town_truck := town_entities.get_node("Truck") as Node2D
+    if not _expect_vec2(
+        town_truck.position,
+        WorldMath.footprint_ground_anchor(TownContract.TRUCK_FOOTPRINT),
+        "town truck anchor",
+    ):
+        return
+    if not _expect_names(town_truck, ["Shadow", "Sprite2D"], "town truck entity"):
+        return
+    var town_truck_sprite := town_truck.get_node("Sprite2D") as Sprite2D
+    if not _expect(
+        town_truck_sprite.texture.resource_path == "res://assets/sprites/kei-truck.png",
+        "town truck texture",
+    ):
+        return
+    if not _expect(town_truck_sprite.hframes == 2, "town truck frame columns"):
+        return
+    if not _expect(town_truck_sprite.frame == 1, "town truck rear-view frame"):
+        return
+    if not _expect(town_truck_sprite.flip_h, "town truck faces the west road"):
+        return
+    if not _expect_vec2(
+        town_truck_sprite.offset, Vector2(0.0, -48.0), "town truck bottom-center offset"
+    ):
+        return
+
+    if not _expect(player.get_parent() == town_entities, "Player must sit under TownMap/Entities"):
+        return
+    if not _expect(town_entities.get_child(0) == player, "Player must be the first town child"):
+        return
+    if not _expect(world.get_node("%Player") == player, "%Player must resolve after travel"):
+        return
+    if not _expect_vec2(
+        player.global_position,
+        WorldMath.grid_to_world(Vector2(TownContract.TRUCK_ARRIVAL) + Vector2(0.5, 0.5)),
+        "town truck arrival position",
+    ):
+        return
+    if not _expect(world.farm_view == null, "farm view is null in town"):
+        return
+    var town_camera_bounds := Rect2(
+        camera.limit_left,
+        camera.limit_top,
+        camera.limit_right - camera.limit_left,
+        camera.limit_bottom - camera.limit_top,
+    )
+    if not _expect(town_camera_bounds == TownContract.CAMERA_BOUNDS, "town camera bounds"):
+        return
+
+    _place_player(player, Vector2(15.5, 11.5))
+    player.facing = WorldMath.Facing.RIGHT
+    await physics_frame
+    if not _expect(not target_highlight.visible, "town east edge target hidden"):
+        return
+    _place_player(player, Vector2(14.5, 10.5))
+    player.facing = WorldMath.Facing.DOWN
+    await physics_frame
+    if not _expect(
+        target_highlight.visible
+        and target_highlight.points == WorldMath.cell_diamond(Vector2i(15, 11)),
+        "town in-bounds target drawn",
+    ):
+        return
+    # The 16x12 perimeter band is real collision: an eastward walk travels
+    # to the map edge and stops inside the authored town.
+    _place_player(player, Vector2(14.5, 10.5))
+    await _hold_actions(["move_right"], 90)
+    var town_grid := WorldMath.world_to_grid(player.global_position)
+    if not _expect(
+        town_grid.x > 14.5 and town_grid.x < 16.0 and town_grid.y > 0.0,
+        "town perimeter walk travels east and stops at the band",
+    ):
+        return
+    _place_player(player, Vector2(TownContract.TRUCK_ARRIVAL) + Vector2(0.5, 0.5))
+    player.facing = WorldMath.Facing.LEFT
+    await physics_frame
+    world._process(0.0)
+    if not _expect(world.hud.prompt_text() == "[E] Drive home", "town truck prompt"):
+        return
+    if not _expect(
+        world._session.travel(TownContract.TRUCK_CELL) == GameRules.CommandCode.TRAVELLED,
+        "town truck travel command",
+    ):
+        return
+    world.load_map(true)
+
+    var return_names := ["FarmMap", "TargetHighlight", "GameHud"]
+    if not _expect_names(world, return_names, "World after driving home"):
+        return
+    if not _expect_child_order(world, return_names, "World scene-tree order after driving home"):
+        return
+    var returned_farm := world.get_node("FarmMap") as FarmMap
+    if not _expect(player.get_parent() == returned_farm.get_node("Entities"), "player rejoins farm"):
+        return
+    if not _expect_vec2(
+        player.global_position,
+        WorldMath.grid_to_world(Vector2(WorldContract.TRUCK_ARRIVAL) + Vector2(0.5, 0.5)),
+        "farm truck arrival position",
+    ):
         return
 
     for entry in EXPECTED_ASSETS:

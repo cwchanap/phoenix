@@ -90,6 +90,20 @@ func test_translations_load_for_each_locale() -> void:
     TranslationServer.set_locale("en")
     assert_eq(tr("Turnip"), "Turnip")
 
+func test_truck_prompt_strings_translate_in_both_locales() -> void:
+    # WorldShell truck labels are UI strings outside the rules tables, so they
+    # are asserted explicitly rather than relying on the rules-string sweep.
+    for locale in TRANSLATED_LOCALES:
+        TranslationServer.set_locale(locale)
+        for text in ["Drive to town", "Drive home"]:
+            assert_ne(tr(text), text, "%s has no %s translation" % [text, locale])
+    TranslationServer.set_locale("zh_TW")
+    assert_eq(tr("Drive to town"), "開車去鎮上")
+    assert_eq(tr("Drive home"), "開車回家")
+    TranslationServer.set_locale("ja")
+    assert_eq(tr("Drive to town"), "町までドライブ")
+    assert_eq(tr("Drive home"), "家までドライブ")
+
 func test_default_language_follows_os_locale() -> void:
     assert_eq(UiSettings.default_language("ja_JP"), "ja")
     assert_eq(UiSettings.default_language("zh_TW"), "zh_TW")

@@ -8,6 +8,7 @@
 [ext_resource type="Script" path="res://scripts/world/farm_view.gd" id="7_farm_view"]
 [ext_resource type="Script" path="res://scripts/world/farm_action_effects.gd" id="9_fx"]
 [ext_resource type="Script" path="res://scripts/world/homestead_ambience.gd" id="10_ambience"]
+[ext_resource type="Texture2D" path="res://assets/sprites/kei-truck.png" id="10_truck"]
 
 [node name="FarmMap" type="Node2D"]
 script = ExtResource("1_farm_map")
@@ -61,6 +62,8 @@ z_index = 6
 [node name="ShippingCollision" type="CollisionPolygon2D" parent="StaticCollision"]
 
 [node name="HarvestMarketCollision" type="CollisionPolygon2D" parent="StaticCollision"]
+
+[node name="TruckCollision" type="CollisionPolygon2D" parent="StaticCollision"]
 
 [node name="PerimeterTop" type="CollisionPolygon2D" parent="StaticCollision" unique_id=1237773536]
 
@@ -359,3 +362,15 @@ texture = ExtResource("3_v5dby")
 offset = Vector2(0, -48)
 hframes = 4
 frame = 3
+
+[node name="Truck" type="Node2D" parent="Entities"]
+position = Vector2(1184, 528)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/Truck"]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/Truck"]
+texture = ExtResource("10_truck")
+offset = Vector2(0, -48)
+hframes = 2
+flip_h = true
