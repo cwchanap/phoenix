@@ -27,12 +27,11 @@ const VILLAGER_COLLISION_NAMES: Array[String] = [
     "VillagerResidentCollision",
 ]
 const CAMERA_BOUNDS := Rect2(384.0, -96.0, 896.0, 544.0)
+const BACKDROP_GRASS_TILE := Vector2i.ZERO
+const BACKDROP_ROAD_TILE := Vector2i(3, 0)
 
 static func villager_cell(id: VillagerRules.VillagerId) -> Vector2i:
     return VILLAGER_CELLS[id]
-
-static func villager_footprint(id: VillagerRules.VillagerId) -> Rect2:
-    return VILLAGER_FOOTPRINTS[id]
 
 static func villager_at(cell: Variant) -> int:
     if not (cell is Vector2i):
@@ -62,3 +61,6 @@ static func backdrop_cells() -> Array[Vector2i]:
             if tile.intersects(CAMERA_BOUNDS):
                 cells.append(cell)
     return cells
+
+static func is_backdrop_road(cell: Vector2i) -> bool:
+    return cell.y == 9 or (cell.y == 10 and cell.x <= 4)

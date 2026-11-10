@@ -144,7 +144,7 @@ func _build() -> void:
 	trail.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	trail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(trail)
-	var resume := UiStyle.primary_action("Esc", "Back to the farm")
+	var resume := UiStyle.primary_action("Esc", "Back to the game")
 	resume.name = "Resume"
 	resume.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	actions.add_child(resume)

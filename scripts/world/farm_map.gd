@@ -1,8 +1,10 @@
 class_name FarmMap
-extends Node2D
+extends GameMap
 
 const SPAWN := WorldContract.PLAYER_SPAWN
+const TRUCK_SPAWN := Vector2(WorldContract.TRUCK_ARRIVAL) + Vector2(0.5, 0.5)
 const CAMERA_BOUNDS := WorldContract.CAMERA_BOUNDS
+const MAP_SIZE := WorldContract.MAP_SIZE
 
 @onready var entities: FarmView = $Entities as FarmView
 @onready var effects: FarmActionEffects = $FarmActionEffects as FarmActionEffects
@@ -17,19 +19,16 @@ func _ready() -> void:
     _fill_collision(static_collision, "WorkbenchCollision", WorldContract.WORKBENCH_FOOTPRINT)
     _fill_collision(static_collision, "ShippingCollision", WorldContract.SHIPPING_FOOTPRINT)
     _fill_collision(static_collision, "TruckCollision", WorldContract.TRUCK_FOOTPRINT)
-
-    var perimeter_names := ["PerimeterTop", "PerimeterRight", "PerimeterBottom", "PerimeterLeft"]
-    var perimeter_rects := WorldContract.perimeter_footprints(WorldContract.MAP_SIZE)
-    for index in perimeter_rects.size():
-        _fill_collision(static_collision, perimeter_names[index], perimeter_rects[index])
+    _fill_perimeters(static_collision, MAP_SIZE)
 
 func bind_player(player: PlayerController) -> void:
     effects.setup(player, entities)
 
-func _fill_collision(
-    static_collision: StaticBody2D,
-    node_name: String,
-    footprint: Rect2,
-) -> void:
-    var collision := static_collision.get_node(node_name) as CollisionPolygon2D
-    collision.polygon = WorldMath.footprint_to_polygon(footprint)
+func spawn_position(arrived_by_truck: bool = false) -> Vector2:
+    return TRUCK_SPAWN if arrived_by_truck else SPAWN
+
+func camera_bounds() -> Rect2:
+    return CAMERA_BOUNDS
+
+func map_size() -> Vector2i:
+    return MAP_SIZE

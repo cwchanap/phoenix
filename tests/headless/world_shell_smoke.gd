@@ -1053,8 +1053,11 @@ func _run() -> void:
         outside += 1
         if not _expect(backdrop_used.has(cell), "town Backdrop missing cell %s" % cell):
             return
-        var road_cell: bool = cell.y == 9 or (cell.y == 10 and cell.x <= 4)
-        var expected_tile := Vector2i(3, 0) if road_cell else Vector2i(0, 0)
+        var expected_tile := (
+            TownContract.BACKDROP_ROAD_TILE
+            if TownContract.is_backdrop_road(cell)
+            else TownContract.BACKDROP_GRASS_TILE
+        )
         if not _expect_vec2i(
             backdrop.get_cell_atlas_coords(cell),
             expected_tile,

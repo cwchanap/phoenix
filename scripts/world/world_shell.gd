@@ -29,7 +29,7 @@ var _action_hold_action: Variant = null
 var clock_running := true
 var _clock_elapsed_seconds := 0.0
 var _clock_window_focused := true
-var _map: Node2D
+var _map: GameMap
 
 @onready var player: PlayerController = $Player as PlayerController
 @onready var hud: GameHud = $GameHud as GameHud
@@ -81,25 +81,9 @@ func _ready() -> void:
     load_map()
 
 func load_map(arrived_by_truck: bool = false) -> void:
-    var location: int = _session.snapshot()["location"]
-    var scene: PackedScene
-    var spawn: Vector2
-    var camera_bounds: Rect2
-    var map_size: Vector2i
-    if location == GameRules.MapId.TOWN:
-        scene = TOWN_MAP_SCENE
-        spawn = Vector2(TownContract.TRUCK_ARRIVAL) + Vector2(0.5, 0.5)
-        camera_bounds = TownContract.CAMERA_BOUNDS
-        map_size = TownContract.MAP_SIZE
-    else:
-        scene = FARM_MAP_SCENE
-        spawn = (
-            Vector2(WorldContract.TRUCK_ARRIVAL) + Vector2(0.5, 0.5)
-            if arrived_by_truck
-            else WorldContract.PLAYER_SPAWN
-        )
-        camera_bounds = WorldContract.CAMERA_BOUNDS
-        map_size = WorldContract.MAP_SIZE
+    var snapshot := _session.snapshot()
+    var location: int = snapshot["location"]
+    var scene := TOWN_MAP_SCENE if location == GameRules.MapId.TOWN else FARM_MAP_SCENE
 
     _cancel_action_hold()
     hud.hide_prompt()
@@ -113,7 +97,8 @@ func load_map(arrived_by_truck: bool = false) -> void:
         remove_child(_map)
         _map.queue_free()
 
-    _map = scene.instantiate() as Node2D
+    var map := scene.instantiate() as GameMap
+    _map = map
     add_child(_map)
     move_child(_map, 0)
 
@@ -121,11 +106,11 @@ func load_map(arrived_by_truck: bool = false) -> void:
     player.reparent(entities)
     entities.move_child(player, 0)
     player.owner = self
-    player.enter_map(spawn, camera_bounds, map_size)
+    player.enter_map(map.spawn_position(arrived_by_truck), map.camera_bounds(), map.map_size())
     var farm := _map as FarmMap
     if farm != null:
         farm.bind_player(player)
-    _refresh_from_session()
+    _refresh_from_session(snapshot)
 
 func _process(delta: float) -> void:
     if clock_running and _clock_window_focused:
@@ -174,29 +159,46 @@ func _process(delta: float) -> void:
     else:
         hud.show_interact_prompt(_prompt_anchor(target), label)
 
-func _interact_label(target: Variant) -> String:
+func _interactable(target: Variant) -> Dictionary:
     if target == null:
-        return ""
+        return {}
     if _map is FarmMap:
         match target:
             WorldContract.BED_CELL:
-                return "Bed"
+                return {"label": "Bed", "action": hud.open_sleep_confirmation}
             WorldContract.SHIPPING_CELL:
-                return "Shipping"
+                return {"label": "Shipping", "action": hud.open_shipping}
             WorldContract.TRUCK_CELL:
-                return "Drive to town"
+                return {
+                    "label": "Drive to town",
+                    "action": func() -> void: _attempt_travel(target),
+                }
     else:
         var villager_id := TownContract.villager_at(target)
         if villager_id >= 0:
-            return VillagerRules.display_name(villager_id)
+            return {
+                "label": VillagerRules.display_name(villager_id),
+                "action": func() -> void:
+                    _finish_social_command(villager_id, _session.talk_to(villager_id)),
+            }
         match target:
             TownContract.SHOP_CELL:
-                return "Seed Shop"
+                return {"label": "Seed Shop", "action": hud.open_shop}
             TownContract.MARKET_CELL:
-                return "Harvest Market"
+                return {
+                    "label": "Harvest Market",
+                    "action": func() -> void:
+                        _finish_finale(_session.trigger_harvest_finale(target)),
+                }
             TownContract.TRUCK_CELL:
-                return "Drive home"
-    return ""
+                return {
+                    "label": "Drive home",
+                    "action": func() -> void: _attempt_travel(target),
+                }
+    return {}
+
+func _interact_label(target: Variant) -> String:
+    return _interactable(target).get("label", "")
 
 ## The target cell's centre in HUD (screen) coordinates.
 func _prompt_anchor(cell: Vector2i) -> Vector2:
@@ -213,8 +215,9 @@ func _advance_passive_clock(delta: float) -> void:
     if _session.advance_clock(whole_minutes):
         _refresh_from_session()
 
-func _refresh_from_session() -> void:
-    var snapshot := _session.snapshot()
+func _refresh_from_session(snapshot: Dictionary = {}) -> void:
+    if snapshot.is_empty():
+        snapshot = _session.snapshot()
     var farm := _map as FarmMap
     if farm != null:
         farm.entities.refresh(snapshot)
@@ -302,27 +305,12 @@ func interact() -> void:
     if not _world_input_enabled:
         return
     var target: Variant = player.current_target_cell()
-    if _map is FarmMap:
-        if target == WorldContract.SHIPPING_CELL:
-            hud.open_shipping()
-        elif target == WorldContract.BED_CELL:
-            hud.open_sleep_confirmation()
-        elif target == WorldContract.TRUCK_CELL:
-            _attempt_travel(target)
-        else:
-            hud.show_feedback(GameRules.CommandCode.NOTHING_TO_INTERACT)
-    else:
-        var villager_id := TownContract.villager_at(target)
-        if villager_id >= 0:
-            _finish_social_command(villager_id, _session.talk_to(villager_id))
-        elif target == TownContract.SHOP_CELL:
-            hud.open_shop()
-        elif target == TownContract.MARKET_CELL:
-            _finish_finale(_session.trigger_harvest_finale(target))
-        elif target == TownContract.TRUCK_CELL:
-            _attempt_travel(target)
-        else:
-            hud.show_feedback(GameRules.CommandCode.NOTHING_TO_INTERACT)
+    var info := _interactable(target)
+    if info.is_empty():
+        hud.show_feedback(GameRules.CommandCode.NOTHING_TO_INTERACT)
+        return
+    var action: Callable = info["action"]
+    action.call()
 
 func _attempt_travel(target: Variant) -> void:
     var code := _session.travel(target)
