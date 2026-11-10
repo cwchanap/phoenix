@@ -511,7 +511,7 @@ func test_pause_resume_pill_sits_inside_the_phone_and_emits() -> void:
 	var caption := resume.find_child("Text", true, false) as Label
 	assert_not_null(caption)
 	if caption != null:
-		assert_eq(caption.text, "Back to the farm")
+		assert_eq(caption.text, "Back to the game")
 	watch_signals(pause)
 	await _click(resume)
 	assert_signal_emitted(pause, "resume_requested")

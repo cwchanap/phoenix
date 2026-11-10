@@ -38,7 +38,7 @@ const TUTORIALS: Array[Dictionary] = [
     {
         "id": &"buy_seeds",
         "title": "Reinvest",
-        "body": "Face the seed counter, press E, and buy seeds to keep planting.",
+        "body": "Face the Seed Shop, press E, and buy seeds to keep planting.",
         "completed_by": GameRules.CommandCode.SEEDS_PURCHASED,
     },
     {
@@ -98,6 +98,7 @@ static func next_tutorial_prompt(
 
 static func _tutorial_relevant(id: StringName, snapshot: Dictionary) -> bool:
     var on_farm: bool = snapshot.get("location") == GameRules.MapId.FARM
+    var in_town: bool = snapshot.get("location") == GameRules.MapId.TOWN
     match id:
         &"farm_basics":
             return on_farm and bool(snapshot.get("intro_acknowledged", false))
@@ -120,25 +121,19 @@ static func _tutorial_relevant(id: StringName, snapshot: Dictionary) -> bool:
                 return true
             return StringName(snapshot["weather"]) == &"rainy" and _has_immature_crop(snapshot["farm"])
         &"talk":
-            return (
-                int(snapshot["day"]) >= 2
-                and snapshot.get("location") == GameRules.MapId.TOWN
-            )
+            return int(snapshot["day"]) >= 2 and in_town
         &"buy_seeds":
             return (
                 int(snapshot["day"]) >= 2
                 and int(snapshot["money"]) >= int(GameRules.SEED_PRICES.min())
-                and snapshot.get("location") == GameRules.MapId.TOWN
+                and in_town
             )
         &"harvest":
             return on_farm and _has_mature_crop(snapshot["farm"])
         &"shipping":
             return on_farm and _has_any_count(snapshot["harvested"])
         &"gift":
-            return (
-                _has_any_count(snapshot["harvested"])
-                and snapshot.get("location") == GameRules.MapId.TOWN
-            )
+            return in_town and _has_any_count(snapshot["harvested"])
         _:
             return false
 

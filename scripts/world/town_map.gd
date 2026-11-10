@@ -1,16 +1,22 @@
 class_name TownMap
-extends Node2D
+extends GameMap
 
-@onready var entities: Node2D = $Entities
+const SPAWN := Vector2(TownContract.TRUCK_ARRIVAL) + Vector2(0.5, 0.5)
+const CAMERA_BOUNDS := TownContract.CAMERA_BOUNDS
+const MAP_SIZE := TownContract.MAP_SIZE
 
 func _ready() -> void:
     var backdrop := $Backdrop as TileMapLayer
-    var map_rect := Rect2i(Vector2i.ZERO, TownContract.MAP_SIZE)
+    var map_rect := Rect2i(Vector2i.ZERO, MAP_SIZE)
     for cell in TownContract.backdrop_cells():
         if map_rect.has_point(cell):
             continue
-        var road := cell.y == 9 or (cell.y == 10 and cell.x <= 4)
-        backdrop.set_cell(cell, 0, Vector2i(3, 0) if road else Vector2i.ZERO)
+        var tile := (
+            TownContract.BACKDROP_ROAD_TILE
+            if TownContract.is_backdrop_road(cell)
+            else TownContract.BACKDROP_GRASS_TILE
+        )
+        backdrop.set_cell(cell, 0, tile)
 
     var static_collision := $StaticCollision as StaticBody2D
     _fill_collision(static_collision, "StationCollision", TownContract.STATION_FOOTPRINT)
@@ -24,16 +30,13 @@ func _ready() -> void:
             TownContract.VILLAGER_COLLISION_NAMES[id],
             TownContract.VILLAGER_FOOTPRINTS[id],
         )
+    _fill_perimeters(static_collision, MAP_SIZE)
 
-    var perimeter_names := ["PerimeterTop", "PerimeterRight", "PerimeterBottom", "PerimeterLeft"]
-    var perimeter_rects := WorldContract.perimeter_footprints(TownContract.MAP_SIZE)
-    for index in perimeter_rects.size():
-        _fill_collision(static_collision, perimeter_names[index], perimeter_rects[index])
+func spawn_position(_arrived_by_truck: bool = false) -> Vector2:
+    return SPAWN
 
-func _fill_collision(
-    static_collision: StaticBody2D,
-    node_name: String,
-    footprint: Rect2,
-) -> void:
-    var collision := static_collision.get_node(node_name) as CollisionPolygon2D
-    collision.polygon = WorldMath.footprint_to_polygon(footprint)
+func camera_bounds() -> Rect2:
+    return CAMERA_BOUNDS
+
+func map_size() -> Vector2i:
+    return MAP_SIZE

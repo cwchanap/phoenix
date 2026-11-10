@@ -85,12 +85,13 @@ There is no JavaScript or Tauri runtime in the current checkout.
   the `watering_can_upgraded` state/snapshot bit that `_cost_for()` reads.
 - Map-owned commands enforce the active `location`: farming/bed/shipping
   commands refuse off the farm (`_farm_index` returns -1 while
-  `location != FARM`), and `buy_seeds`/`buy_watering_can_upgrade`,
-  `talk_to`/`gift_crop`, and `trigger_harvest_finale` require the town
-  shop/villager/market cells. `travel()` requires the exact active truck
-  cell, adds `TRAVEL_MINUTES` (30, clamped at the 22:00 cutoff), and flips
-  the location — it stays legal after 22:00 so a late drive cannot strand
-  the player.
+  `location != FARM`), `buy_seeds`/`buy_watering_can_upgrade` and
+  `trigger_harvest_finale` require the town shop/market cells, and
+  `talk_to`/`gift_crop` require `location == TOWN` while `WorldShell`
+  resolves which villager is faced from town interactables. `travel()`
+  requires the exact active truck cell, adds `TRAVEL_MINUTES` (30, clamped
+  at the 22:00 cutoff), and flips the location — it stays legal after 22:00
+  so a late drive cannot strand the player.
 - GameSession owns relationship points, daily talk/gift flags, and close_friend_dialogue_seen.
 - GameSession derives tutorial completion only inside `_commit()` via
   `ContentRules.tutorial_for_code()`; guard failures never complete a tutorial.
@@ -186,11 +187,11 @@ There is no JavaScript or Tauri runtime in the current checkout.
 - `scripts/player/player_controller.gd` owns input sampling for
   movement/facing/targeting only and a `CharacterBody2D` carrying the one
   `Camera2D`. `WorldShell` reparents it into the active map's `Entities`
-  per load and calls `enter_map(spawn, camera_bounds)`, which applies the
-  map's placement and camera limits and repaints the bound
-  `target_highlight` immediately. `move_and_slide()` supplies Godot-native
-  response against projected logical collision polygons; do not port the
-  old grid-axis resolver.
+  per load and calls `enter_map(spawn, camera_bounds, map_size)`, which
+  applies the map's placement, camera limits, and perimeter bounds and
+  repaints the bound `target_highlight` immediately. `move_and_slide()`
+  supplies Godot-native response against projected logical collision
+  polygons; do not port the old grid-axis resolver.
 - scripts/app/app_root.gd owns title/load/launch lifecycle and one concrete SaveRepository.
 - Completed-run Continue routes straight to `ResultScreen`; the AppRoot
   result teardown removes the live World with `remove_child()` then
