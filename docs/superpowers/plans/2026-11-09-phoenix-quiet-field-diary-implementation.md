@@ -1,63 +1,49 @@
 # HPA-684 — Quiet Field diary/copy: single-PR implementation and verification plan
 
-**Status:** Planning only, no code implemented or tests run on this draft.
+**Status:** Planning-only revision after [GitHub design review](https://github.com/cwchanap/phoenix/pull/39#pullrequestreview-5836415721). No feature code or test results are claimed.
 **Linear:** https://linear.app/cwchanap/issue/HPA-684/add-the-players-morning-diary-and-rewrite-openingresult-copy-for-the
 **Companion design:** [2026-11-09-phoenix-quiet-field-diary-design.md](../specs/2026-11-09-phoenix-quiet-field-diary-design.md)
-**Delivery:** One task → one PR. Implement in this same branch/PR after review; do not create a separate implementation PR.
+**Delivery:** One HPA-684 issue → one PR. Implement in **this same PR** after the design is reviewed. No separate implementation PR.
 
-## Ground-truth baseline
+## Ground-truth baseline (after HPA-686)
 
-Phoenix `main` already includes HPA-683 empty farm, HPA-685 swappable maps, HPA-686 town travel, and HPA-682 native-1080p panels.
+- `ContentRules.build_harvest_result(state)` currently determines the existing `tier` and `title` together. `AppRoot._show_result()` builds this presentation dictionary afresh from persisted state; it is not part of the save schema.
+- `OnboardingOverlay._build_opening()` builds the Intro, Guide, NameTag, Role and Accept controls; it still uses Sato-san's name/role and old copy. `tests/integration/test_vn_surfaces.gd::test_intro_vn_box_keeps_authored_name_role_and_copy` (around line 390) explicitly pins `SATO-SAN` and the old Intro, so updating this test is mandatory.
+- `MorningSummaryPanel.present(summary)` gets the persisted and validated `next_day`; `GameHud.render(snapshot)` displays the panel only while `pending_morning_summary` exists. `summary_state()` exposes rendered labels. The 560×920 `PhoneFrame` already has weather, farm, bank, save error and acknowledgment. `GameRules.MAX_DAY` is the source of the season length (currently 14).
+- `ResultScreen.present(result)` already receives the result dictionary and renders title, scores, villager cards, warning and actions. Its `_header()` has a title and kicker.
+- `assets/i18n/strings.csv` uses `keys,zh_TW,ja`, with English text as the key. Plain text assigned to a Godot Label auto-translates; explicit `tr()` is only needed when transforming text (e.g. translating the Kenji name before uppercasing it).
+- `tools/verify-clean.sh` runs `git archive HEAD` and downloads GUT into a temporary archive; **it never tests uncommitted worktree changes**. Commit each checkpoint first, then run it. GdUnit4 and e2e are separate release gates.
 
-- `ContentRules` has the tutorial table and existing `build_harvest_result(state)`, which returns `tier` and `title`. Tiers are `new_beginning`, `promising_farmer` and `heart_of_harvest`.
-- `OnboardingOverlay._build_opening()` builds `OpeningPanel/DayTag` and an existing dock with `Intro`, `Guide`, `Accept`, and a speaker tag taken from `VillagerRules.VillagerId.SHOPKEEPER`. This now incorrectly credits Sato-san rather than the player. `render(snapshot)` owns the opening visibility; do not change it.
-- `MorningSummaryPanel.present(summary)` receives `completed_day` and `next_day`; `GameHud.render(snapshot)` shows it when `pending_morning_summary != null`. `MorningSummaryPanel` owns a `PhoneFrame`, three notification cards, flexible spacer and footer/save status. `summary_state()` exposes a testable read-only view of rendered text.
-- `ResultScreen.present(result)` already receives `result["tier"]` indirectly from `AppRoot._show_result`, displays the title and all scores/cards, and exposes `result_state()` for tests. `_header()` currently contains only a kicker and title.
-- `assets/i18n/strings.csv` is `keys,zh_TW,ja`; `tests/unit/test_localisation.gd` checks CSV completeness/placeholders and a `_rules_strings()` list. `UiStyle.label` returns an auto-translated Godot Label; dynamic text still follows existing `tr()` conventions.
-- No code changes are needed in `GameSession`, `SessionStateValidator`, `SaveRepository`, `WorldShell` or map scenes.
-
-## Step 1 — Author fixed diary and result copy together with translations
+## Commit 1 — Content and localization (no UI wiring yet)
 
 **Files:** `scripts/game/content_rules.gd`, `assets/i18n/strings.csv`, `tests/unit/test_content_rules.gd`, `tests/unit/test_localisation.gd`.
 
-1. Add `const DIARY_LINES: Array[String]` with the 14 approved English lines from the design (array index 0 = Day 1). Add one tiny static accessor `diary_line(day: int) -> String` with an assertion that day is in 1..14, returning `DIARY_LINES[day - 1]`. This keeps the mapping local, with no runtime save fields or fallback text.
-2. Add `const RESULT_TIER_LINES := { &"new_beginning": ..., &"promising_farmer": ..., &"heart_of_harvest": ... }`. Use the exact existing tiers. A helper is optional if needed for a clean single lookup, but do not introduce a narrative service or dispatch registry. Do not modify `build_harvest_result()` or any tier thresholds.
-3. Add EN-key/zh_TW/ja rows for the 14 diary lines, three tier epilogues, both opening paragraphs, `Kenji` and `Former software engineer` in the one existing CSV. Translate in-house in Taiwan Traditional Chinese and natural Japanese. Escape CSV punctuation correctly and keep every translated row nonblank. The English string is the key.
-4. Extend `test_content_rules.gd` to assert exactly 14 nonempty diary lines, deterministic Day 1/Day 14 mapping, and exact coverage of the three tier keys. Keep a small test that `build_harvest_result()` has unchanged tier/score behavior by reusing existing fixtures, not building a new finale harness.
-5. Extend `test_localisation.gd::_rules_strings()` with all `DIARY_LINES` and `RESULT_TIER_LINES` values; explicitly include the new opening/speaker copy keys because the UI strings aren't automatically discovered by the rules list. Assert both supported locales produce nonempty translations, with the existing CSV row/placeholder contract enforced. Preserve `after_each()` restoring `en`.
-6. Run the existing GUT verifier for a safe checkpoint before committing; no panel changes in this step.
+1. Add `const DIARY_LINES: Array[String]` with the 14 approved English source strings from the design. Add `static func diary_line(day: int) -> String` with a one-based lookup and `assert(day >= 1 and day <= GameRules.MAX_DAY)`. Pin `DIARY_LINES.size() == GameRules.MAX_DAY` in GUT rather than scattering literal 14 checks. No conditionals, storytelling state, JSON or new save keys.
+2. Centralize ending title and epilogue in `const RESULT_TIERS := {&"new_beginning": {"title": "New Beginning", "epilogue": ...}, &"promising_farmer": {...}, &"heart_of_harvest": {...}}`. Keep the three existing tier keys and the existing score/relationship **threshold conditionals** in `build_harvest_result()`. After choosing the tier, read both title and epilogue from `RESULT_TIERS[tier]` and return `"epilogue"` alongside `"title"`. The result dictionary is transient/presentation-only; do **not** add either field to saved game state. Avoid a parallel table or duplicate lookup in the view.
+3. Add CSV rows for the 14 diary lines, 3 epilogues, 2 opening paragraphs, and `Kenji` / `Former software engineer` in EN-key/Traditional Chinese (Taiwan wording)/Japanese. Keep CSV escaping correct. The revised Day 3 diary sentence differs from the New Beginning epilogue so the ending does not repeat the day note.
+4. Extend `test_content_rules.gd` with `DIARY_LINES.size() == GameRules.MAX_DAY`, nonempty entries for every valid day, first/last-day mapping, and exact coverage/contents of the three `RESULT_TIERS` keys. **Reuse** existing `test_harvest_result_tier_boundaries` and totals tests (around lines 290–316) rather than duplicating scoring assertions.
+5. In `test_localisation.gd::_rules_strings()` iterate `ContentRules.DIARY_LINES` and each `RESULT_TIERS` entry's `title` and `epilogue`, replacing the hard-coded ending-title list. Explicitly include the two opening paragraphs and the two speaker strings, which the rules-string scan otherwise misses. The existing CSV duplicate/missing/placeholder tests still apply.
+6. **Commit** content+CSV+tests together. Then run `./tools/verify-clean.sh` against that committed HEAD. No worktree-only GUT run disguised as a clean verification.
 
-**Checkpoint:** All 14 authored lines and three tier epilogues are known, localizable content. Gameplay and save files are unchanged.
+**Checkpoint:** The content has a single source, the localization is complete and the existing scoring behavior remains covered.
 
-## Step 2 — Wire the three existing presentation surfaces
+## Commit 2 — Wire existing surfaces and update the tests they own
 
-**Files:** `scripts/ui/onboarding_overlay.gd`, `scripts/ui/morning_summary_panel.gd`, `scripts/ui/result_screen.gd`, `tests/integration/test_gameplay_shell.gd` and existing result/persistence UI tests as appropriate.
+**Files:** `scripts/ui/onboarding_overlay.gd`, `scripts/ui/morning_summary_panel.gd`, `scripts/ui/result_screen.gd`, plus existing `tests/integration/test_vn_surfaces.gd`, `test_phone_surfaces.gd`, `test_app_launch.gd` and localized README/CLAUDE.md updates. Implement the following surface/test pairs together before committing; never leave a known old-copy assertion red.
 
-1. **Day 1 opening:** In `OnboardingOverlay._build_opening()`, replace the two current static strings with the design's Intro and Guide. Replace the shopkeeper-based `NameTag`/`Role` contents with localized `Kenji` and `Former software engineer` (translate before uppercasing the name tag). Add one concise wrapping `DiaryLine` Label in the existing dock below `Guide`, sourced from `ContentRules.diary_line(1)`. Keep `Intro`, `Guide`, `NameTag`, `Role`, `Accept` and existing node names stable for current tests. Do not show a summary on Day 1; it is an opening note.
-2. **Morning Days 2–14:** Add a named `DiaryLine` label near the bottom of `MorningSummaryPanel`'s main `Column`, before the flexible spacer/footer, styled as a small muted journal entry. In `present(summary)`, use `next_day` and set `_diary_line.text = tr(ContentRules.diary_line(next_day))`. Preserve all three cards, save badge/error, action text, and acknowledgment behavior. Add `"diary_line": _diary_line.text` to `summary_state()` for assertions. No new scrolling container or fourth notification card.
-3. **Result:** Add a single centered wrapping `TierLine` label immediately after `_title` in `ResultScreen._header()`. In `present(result)`, look up `result["tier"]` in `ContentRules.RESULT_TIER_LINES` and assign the localized line. Extend `result_state()` with `"tier_line"`; retain all existing keys and rendered stats/cards. The ending title, score calculation and villager quote logic remain exactly as they are.
-4. **Content ownership:** The two presentation panels read content, but do not write `GameSession`. Do not store the diary in `state()` or duplicate it into `pending_morning_summary`. The existing `next_day`/`tier` fields suffice. No new events or input actions.
-5. **Layout:** The morning `PhoneFrame` is 560×920 and already reserves footer space. Limit diary typography to a short, wrapping note; if the three-card maximum shipment/save-error state overflows, adjust spacing within this panel minimally rather than removing information. Ensure the result subtitle does not push stats or buttons off the supported viewport.
+1. **Opening / `test_vn_surfaces.gd` around line 390:** Replace old Intro and Guide with the approved lottery/Tokyo/Day 14 copy. Change the currently Sato-san-based `NameTag` and `Role` to one-off `Kenji` and `Former software engineer` strings; translate the name **before** calling `to_upper()` in `SlantTag`. Add one named, wrapping `DiaryLine` from `ContentRules.diary_line(1)` below Guide, without altering Intro, Guide, NameTag, Role, Accept node names. Update `test_intro_vn_box_keeps_authored_name_role_and_copy` to expect the new name, role, opening copy and Day 1 diary. Keep the existing blocking/Begin behavior regression; don't create a second opening test suite.
+2. **Morning / `test_phone_surfaces.gd` around lines 979 and 1097:** Add a 16px-or-larger, wrapping `DiaryLine` in the existing `MorningSummaryPanel` main `Column` above its flexible `Spacer`. `present(summary)` assigns `ContentRules.diary_line(int(summary["next_day"]))` directly; **do not** wrap plain Label values in `tr()`, since the Control translates them. Add `"diary_line": _diary_line.text` to `summary_state()`. Extend `test_morning_full_content_long_error_keeps_acknowledge_reachable` to re-present one panel across **`LOCALES` × days 2..`GameRules.MAX_DAY`** with three shipment rows, two withered crops and a long save error; after each settle, run `_assert_controls_inside` and check the Acknowledge remains clickable/inside its footer. Assert the diary corresponds to the active locale/day via `tr(ContentRules.diary_line(day))` in the **test**, or compare against the source key if Control text is stored before translation; use one consistent testable text convention. Keep the existing Day 14 coverage. No fourth notification card, new scroll container or duplicate-node test.
+3. **Result / `test_vn_surfaces.gd` around line 1767:** Add one named wrapping `TierLine` under the header title and assign `String(result["epilogue"])` directly (Control auto-translation). Add `"tier_line"` to `result_state()`. Reuse the existing result fixtures, which already call `ContentRules.build_harvest_result()`, and assert correct epilogues across all three tiers. Extend `test_result_warning_label_is_20px_and_stays_clear_of_actions` with a **Cards vs SavePill and Cards vs Actions** no-overlap assertion in the existing locale × window-size loops. Keep existing scores, villager quotes and button actions unchanged.
+4. **Continue / `test_app_launch.gd` around lines 214 and 257:** Add one rendered `summary_state()["diary_line"]` assertion to `test_continue_restores_one_dry_night_and_wither_summary`, after the loaded world has shown its pending summary. Add one `result_state()["tier_line"]` assertion in `test_continue_with_completed_finale_shows_result_screen`. Reuse these real save roundtrips; do **not** add a "no diary/story keys" save test (strict state validator already rejects unexpected shape), a "no duplicate nodes on re-present" test (present only assigns labels), or a new finale/scoring gate (existing tests cover it).
+5. **Layout:** The 1920×1080 canvas scales proportionally at 960×540. Run automated clipping/containment checks on the native canvas over all three locales and all morning days, with worst-case shipment/error content. Keep a lightweight smaller-window **legibility** spot check rather than duplicating the full clipping matrix; existing result warnbar test can retain both window sizes. Ensure the result subtitle does not push villager cards into the save pill or action buttons. Visually inspect one native 1080p sample per locale.
+6. **Docs:** Update `README.md` to describe the lottery/Kenji/daily diary, and `CLAUDE.md` to document `ContentRules` as owner of diary and result tier copy. Do not modify any game rules, maps, timing, social mechanics or save schema.
 
-**Checkpoint:** Real opening, overnight summary and result routes show only their intended text, without changing modal/input gating.
+**Checkpoint:** **Commit** the UI wiring, updated existing tests, and docs on this same PR; then run `./tools/verify-clean.sh` against that committed HEAD.
 
-## Step 3 — Targeted regressions and localization/layout pass
-
-**Files:** Prefer extending existing GUT integration/persistence tests rather than adding a parallel test framework. Potential homes include `tests/integration/test_gameplay_shell.gd` and `tests/integration/test_persistence_flow.gd`. Touch README/CLAUDE.md only to correct current user/handoff narrative.
-
-1. **Opening:** In the existing locked-world test, assert `OnboardingOverlay`'s `NameTag`, `Role` and `DiaryLine` reflect Kenji and Day 1; `Intro` mentions the lottery/Tokyo move, the existing Begin button still unlocks input and tutorial navigation still proceeds.
-2. **Overnight:** Use an existing real sleep/summary fixture. Verify the second morning uses Day 2 (not Day 1) and the last normal summary uses Day 14. Re-present the same summary and assert the same line (no duplicated nodes). Existing ack gates world input and clears the summary. Do not add an artificial Day 15 state.
-3. **Continue:** Reuse the persistence round trip with a valid pending morning summary. Saving/reloading still yields the same `next_day` and exactly that day's note, while a save with no pending summary produces no extra overlay. Assert the serialized game state contains no `diary` or `story` keys and the current save schema is unchanged.
-4. **Results:** Exercise each of the three existing result tiers through `ContentRules.build_harvest_result()` fixtures or existing result tests. Confirm matching `TierLine`, unchanged title/stat totals/villager cards, and completed-run Continue still opens ResultScreen directly. Use `result_state()` to avoid brittle scene searches.
-5. **Locales:** For EN/zh_TW/ja verify `Intro`, `Guide`, `NameTag`/`Role`, morning `DiaryLine` and all three `TierLine` epilogues. Check native **1920×1080** and supported **960×540** with both typical and maximum shipment count, a visible save error, and all three end tiers. Check no label overlaps/hides acknowledgment or result action buttons. Use existing UI containment checks and a manual visual spot check; screenshot goldens were removed in PR #29 and must not be restored.
-6. **Docs:** Update `README.md` intro/player contract to describe the lottery, Kenji and daily diary, and `CLAUDE.md` to record that `ContentRules` owns diary/tier copy. Keep this in the same issue/PR.
-
-**Checkpoint:** Tests cover day mapping, resume, localisation and screen visibility while gameplay/economy rules stay fixed.
-
-## Four final release gates (run only on implemented committed HEAD)
+## Four final release gates — run on implemented, committed HEAD
 
 ```bash
-# 1. Clean Godot import, GUT tests, headless smokes and audio check
+# 1. Clean Godot import, GUT unit/integration, headless smokes, audio
 ./tools/verify-clean.sh
 
 # 2. GdUnit4
@@ -66,22 +52,18 @@ GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/gdunit -c
 # 3. godot-e2e
 GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/e2e -c
 
-# 4. Headless import, unsigned macOS export and ZIP integrity
+# 4. Headless import, unsigned macOS export + ZIP integrity
 godot --headless --path . --import
 mkdir -p build
 godot --headless --path . --export-release "macOS" build/Phoenix.zip
 unzip -l build/Phoenix.zip | grep -F "Phoenix.app/Contents/MacOS/Phoenix"
 ```
 
-Record commit SHA, actual counts/results, and any unverified native visual checks in the **same** PR. These gates have **not** been run for this docs-only planning commit. Do not state that a design review or implementation has already been approved.
+Record final HEAD SHA, actual pass counts, and any limits of manual native visual verification in PR #39. This document is planning-only: **the above gates have not been run on an implementation**.
 
-## Explicit exclusions
+## Non-goals and done criteria
 
-- No new UI framework, modal, diary navigation screen, dynamic story conditions, branch choice system, cutscene, language engine or character customization.
-- No modifications to day timing, crop economy, endings, townspeople relationship rules, map/truck behavior, `GameSession` state or save schema; no compatibility migration.
-- No new images, portraits, sprite sheets, voice lines, BGM or SFX. Any future art/audio work is a **separate Linear task and separate PR**. HPA-546 owns player walk-cycle implementation and remains separate.
-- Avoid opening separate PRs per screen or per locale. One coherent HPA-684 PR gets all copy, wiring, tests and docs.
-
-## Done when
-
-All 14 diary lines appear exactly once at their intended daily entry point, result-tier epilogues match existing scoring, Kenji's opening establishes the lottery premise, EN/zh_TW/ja are complete, and all four final release gates plus responsive layout checks pass on the final committed implementation. There is still exactly one PR for HPA-684.
+- No branching diary, choice system, dialogue grammar, cutscene, extra UI framework, new JSON format, map or town change, character customization, tier-scoring change, state migration or compatibility shim.
+- No new images, portraits, SFX, BGM or voice; any future asset production belongs to a separate task and PR. HPA-546 player walking remains separate.
+- One ticket → one PR: both commits and their tests stay in **PR #39**, not separate PRs.
+- Done only when every day has its authored localized diary, the opening uses Kenji's lottery premise, each existing finale tier displays its epilogue, the current game/save contracts remain unchanged, the existing named test suites cover the changes, all four release gates pass and native locale layouts are visually acceptable.
