@@ -2342,9 +2342,9 @@ func test_successful_till_spawns_transient_tool_and_soil_effects() -> void:
     assert_not_null(tool, "tool overlay is a child of the Player root")
     if tool != null:
         assert_eq(tool.texture.resource_path, "res://assets/sprites/polish/hoe-overlay.png")
-        # DOWN facing: frame 0 at (4, -16) per the HPA-458 tool-facing contract.
+        # DOWN facing: frame 0 at (10, -12) per the HPA-458 tool-facing contract.
         assert_eq(tool.frame, 0)
-        assert_eq(tool.position, Vector2(4, -16))
+        assert_eq(tool.position, Vector2(10, -12))
         assert_false(tool.flip_h)
     await _await_effects_settled()
     assert_null(effects.get_node_or_null(_fx_name("SoilFx", cell)), "cell effect frees")
@@ -2383,10 +2383,10 @@ func test_tool_overlay_follows_hpa458_facing_table() -> void:
         return
     var cells: Array = WorldContract.farm_cells()
     var cases := [
-        [WorldMath.Facing.UP, 1, false, Vector2(0, -22)],
-        [WorldMath.Facing.RIGHT, 2, false, Vector2(10, -21)],
-        [WorldMath.Facing.DOWN, 0, false, Vector2(4, -16)],
-        [WorldMath.Facing.LEFT, 2, true, Vector2(-10, -21)],
+        [WorldMath.Facing.UP, 1, false, Vector2(6, -16)],
+        [WorldMath.Facing.RIGHT, 2, false, Vector2(10, -15)],
+        [WorldMath.Facing.DOWN, 0, false, Vector2(10, -12)],
+        [WorldMath.Facing.LEFT, 2, true, Vector2(-10, -15)],
     ]
     for index in cases.size():
         var entry: Array = cases[index]
@@ -2428,7 +2428,7 @@ func test_plant_and_water_spawn_their_distinct_cell_effects() -> void:
     if can != null:
         assert_eq(can.texture.resource_path, "res://assets/sprites/polish/watering-can-overlay.png")
         assert_eq(can.frame, 2)
-        assert_eq(can.position, Vector2(10, -21))
+        assert_eq(can.position, Vector2(10, -15))
         assert_false(can.flip_h)
     var splash := effects.get_node_or_null(_fx_name("SplashFx", cell)) as Sprite2D
     assert_not_null(splash, "water spawns the splash at the captured cell")
