@@ -669,6 +669,95 @@ func test_repeated_enable_and_session_refresh_do_not_restart_walk() -> void:
         "the next step continues the cycle instead of restarting",
     )
 
+func _wall_fixture(center: Vector2, size: Vector2) -> StaticBody2D:
+    var wall := StaticBody2D.new()
+    var shape := CollisionShape2D.new()
+    var rectangle := RectangleShape2D.new()
+    rectangle.size = size
+    shape.shape = rectangle
+    wall.add_child(shape)
+    wall.position = center
+    add_child_autoqfree(wall)
+    return wall
+
+func test_wall_blocked_input_paints_idle_and_sliding_stays_animated() -> void:
+    _release_movement_actions()
+    var world := _world()
+    if world == null:
+        return
+    var player := world.player
+    assert_not_null(player)
+    if player == null:
+        return
+
+    player.velocity = Vector2.ZERO
+    player.global_position = WorldMath.grid_to_world(Vector2(8, 12))
+    _wall_fixture(player.global_position + Vector2(34, 0), Vector2(16, 480))
+    await get_tree().physics_frame
+
+    Input.action_press("move_right")
+    var previous := player.global_position
+    var blocked := false
+    for _i in 60:
+        await get_tree().physics_frame
+        if player.global_position.distance_to(previous) <= 0.0001:
+            blocked = true
+            break
+        previous = player.global_position
+    assert_true(blocked, "a real wall stops the pushed player")
+    var contact := player.global_position
+    for _i in 4:
+        await get_tree().physics_frame
+        assert_true(
+            player.global_position.distance_to(contact) <= 0.0001,
+            "input held against the wall produces no displacement",
+        )
+        assert_eq(
+            player.player_sprite.frame,
+            int(WorldMath.Facing.RIGHT) * 4,
+            "input held against the wall paints the idle column",
+        )
+
+    Input.action_press("move_up")
+    var slide_start := player.global_position
+    for _i in 15:
+        await get_tree().physics_frame
+    assert_lt(
+        player.global_position.y,
+        slide_start.y - 4.0,
+        "diagonal input slides the player up along the wall",
+    )
+    assert_true(
+        player.global_position.x <= contact.x + 1.0,
+        "the wall keeps the sliding player pinned on x",
+    )
+    var slide_row := int(WorldMath.Facing.RIGHT) * 4
+    assert_gt(
+        player.player_sprite.frame,
+        slide_row,
+        "sliding along the wall keeps the walk cycle on a stride column",
+    )
+    assert_lt(player.player_sprite.frame, slide_row + 4)
+    Input.action_release("move_up")
+    Input.action_release("move_right")
+    await get_tree().physics_frame
+
+    Input.action_press("move_left")
+    for _i in 3:
+        await get_tree().physics_frame
+    Input.action_release("move_left")
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.LEFT) * 4 + 1,
+        "leaving the wall restarts the walk at column 1",
+    )
+    assert_lt(
+        player.global_position.x,
+        contact.x,
+        "walking left leaves the wall",
+    )
+    _release_movement_actions()
+
 func test_current_target_cell_matches_world_math() -> void:
     var world := _world()
     if world == null:
