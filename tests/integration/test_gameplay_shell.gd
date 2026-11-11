@@ -506,8 +506,20 @@ func test_set_input_enabled_false_zeros_and_stops_player_movement() -> void:
     if not player.has_method("set_input_enabled"):
         return
     player.velocity = Vector2(96, 0)
+    player.facing = WorldMath.Facing.RIGHT
+    player._update_visuals(0.125, true)
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.RIGHT) * 4 + 1,
+        "a moving player stands on a walk column",
+    )
     player.set_input_enabled(false)
     assert_eq(player.velocity, Vector2.ZERO)
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.RIGHT) * 4,
+        "blocking input immediately restores the idle column",
+    )
 
     var before := player.global_position
     Input.action_press("move_right")
@@ -516,6 +528,140 @@ func test_set_input_enabled_false_zeros_and_stops_player_movement() -> void:
     await get_tree().physics_frame
     assert_eq(player.velocity, Vector2.ZERO)
     assert_true(player.global_position.distance_to(before) <= 0.0001)
+
+    player.set_input_enabled(true)
+    player._update_visuals(0.125, true)
+    assert_eq(
+        player.player_sprite.frame,
+        int(player.facing) * 4 + 1,
+        "the next movement restarts the walk at column 1",
+    )
+
+    Input.action_press("move_right")
+    await get_tree().physics_frame
+    await get_tree().physics_frame
+    Input.action_release("move_right")
+    var facing_row := int(player.facing) * 4
+    assert_gt(player.velocity.length(), 0.0, "re-enabled input moves the player")
+    assert_gt(player.player_sprite.frame, facing_row, "real input drives a non-idle frame")
+    assert_lt(player.player_sprite.frame, facing_row + 4)
+    _release_movement_actions()
+
+func test_update_visuals_walks_1_2_3_2_on_every_facing_row() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var player := world.player
+    assert_not_null(player)
+    if player == null:
+        return
+    for facing in [
+        WorldMath.Facing.UP,
+        WorldMath.Facing.RIGHT,
+        WorldMath.Facing.DOWN,
+        WorldMath.Facing.LEFT,
+    ]:
+        player.facing = facing
+        player._update_visuals(0.0, false)
+        assert_eq(
+            player.player_sprite.frame,
+            int(facing) * 4,
+            "idle stands at column 0 on the facing row",
+        )
+        for column in [1, 2, 3, 2, 1]:
+            player._update_visuals(0.125, true)
+            assert_eq(
+                player.player_sprite.frame,
+                int(facing) * 4 + column,
+                "facing %s walks column %s" % [facing, column],
+            )
+
+func test_update_visuals_direction_change_preserves_walk_phase() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var player := world.player
+    assert_not_null(player)
+    if player == null:
+        return
+    player.facing = WorldMath.Facing.DOWN
+    player._update_visuals(0.125, true)
+    player._update_visuals(0.125, true)
+
+    player.facing = WorldMath.Facing.LEFT
+    player._update_visuals(0.125, true)
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.LEFT) * 4 + 3,
+        "turning mid-stride keeps the walk phase on the new row",
+    )
+    player._update_visuals(0.125, true)
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.LEFT) * 4 + 2,
+    )
+
+func test_update_visuals_stop_paints_idle_and_restart_begins_at_column_1() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var player := world.player
+    assert_not_null(player)
+    if player == null:
+        return
+    player.facing = WorldMath.Facing.LEFT
+    player._update_visuals(0.125, true)
+    player._update_visuals(0.125, true)
+
+    player._update_visuals(0.0, false)
+    assert_eq(player.facing, WorldMath.Facing.LEFT, "stopping retains the facing")
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.LEFT) * 4,
+        "stopping immediately paints the idle column",
+    )
+    player._update_visuals(0.125, true)
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.LEFT) * 4 + 1,
+        "the next moving call restarts at column 1",
+    )
+
+func test_repeated_enable_and_session_refresh_do_not_restart_walk() -> void:
+    _release_movement_actions()
+    var world := _world()
+    if world == null:
+        return
+    var player := world.player
+    assert_not_null(player)
+    if player == null:
+        return
+    player.facing = WorldMath.Facing.DOWN
+    player._update_visuals(0.125, true)
+    player._update_visuals(0.125, true)
+    var mid_stride := player.player_sprite.frame
+    assert_eq(
+        mid_stride,
+        int(WorldMath.Facing.DOWN) * 4 + 2,
+        "walk cycle stands mid-stride",
+    )
+
+    player.set_input_enabled(true)
+    world._refresh_from_session()
+    player.set_input_enabled(true)
+    world._refresh_from_session()
+
+    assert_eq(
+        player.player_sprite.frame,
+        mid_stride,
+        "level-triggered refreshes leave the pose untouched",
+    )
+    player._update_visuals(0.125, true)
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.DOWN) * 4 + 3,
+        "the next step continues the cycle instead of restarting",
+    )
 
 func test_current_target_cell_matches_world_math() -> void:
     var world := _world()
@@ -4056,8 +4202,14 @@ func test_load_map_farm_reload_preserves_player_session_and_hud() -> void:
     )
     assert_eq(
         player.player_sprite.frame,
-        int(WorldMath.Facing.DOWN),
+        int(WorldMath.Facing.DOWN) * 4,
         "player sprite frame updated to spawn facing",
+    )
+    player._update_visuals(0.125, true)
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.DOWN) * 4 + 1,
+        "the first moving update after reload starts column 1",
     )
     assert_false(world._action_hold_active, "reload drops the held gesture")
     assert_null(world._action_hold_target)
