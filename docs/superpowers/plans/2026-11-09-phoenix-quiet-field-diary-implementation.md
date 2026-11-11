@@ -59,7 +59,7 @@ godot --headless --path . --export-release "macOS" build/Phoenix.zip
 unzip -l build/Phoenix.zip | grep -F "Phoenix.app/Contents/MacOS/Phoenix"
 ```
 
-Record final HEAD SHA, actual pass counts, and any limits of manual native visual verification in PR #39. This document is planning-only: **the above gates have not been run on an implementation**.
+Final HEAD SHA, actual pass counts, and the limits of manual native visual verification are recorded in PR #39. The above gates were run on the implemented, committed HEAD and **all passed** (540/540 GUT, 13/13 GdUnit4, 7/7 godot-e2e, unsigned macOS export).
 
 ## Non-goals and done criteria
 
