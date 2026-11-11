@@ -16,6 +16,7 @@ const HEART_OUTLINE_ICON := preload("res://assets/ui/icons/heart-outline.png")
 
 var _featured_villager := ""
 var _title: Label
+var _tier_line: Label
 var _stats: Array[Label] = []
 var _save_status: Label
 var _save_pill: PanelContainer
@@ -43,6 +44,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func present(result: Dictionary, save_error: int = OK) -> void:
     _featured_villager = String(result["villager"])
     _title.text = String(result["title"])
+    _tier_line.text = String(result["epilogue"])
     _stats[0].text = "%d" % int(result["shipped_count"])
     _stats[1].text = "%dG" % int(result["shipped_value"])
     _stats[2].text = "%dG" % int(result["final_money"])
@@ -102,6 +104,7 @@ func result_state() -> Dictionary:
         stat_values.append(label.text)
     return {
         "title": _title.text,
+        "tier_line": _tier_line.text,
         "save_status": _save_status.text,
         "stats": stat_values,
         "names": names,
@@ -226,6 +229,11 @@ func _header() -> VBoxContainer:
     _title.name = "Title"
     _title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     header.add_child(_title)
+    _tier_line = UiStyle.label("", 20, Color(1.0, 1.0, 1.0, 0.85), 600)
+    _tier_line.name = "TierLine"
+    _tier_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    _tier_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    header.add_child(_tier_line)
     return header
 
 func _stats_row() -> HBoxContainer:

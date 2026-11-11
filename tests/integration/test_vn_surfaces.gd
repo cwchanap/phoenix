@@ -126,6 +126,23 @@ func _result_data() -> Dictionary:
 	state["finale_triggered"] = true
 	return ContentRules.build_harvest_result(state)
 
+func _tier_result_data(tier: StringName) -> Dictionary:
+	var state := GameSession.new().state()
+	state["day"] = GameRules.MAX_DAY
+	state["finale_triggered"] = true
+	match tier:
+		&"promising_farmer":
+			state["shipped"] = {&"turnip": 4, &"potato": 0, &"pumpkin": 0}
+			state["relationships"][&"shopkeeper"]["points"] = VillagerRules.FRIEND_POINTS
+		&"heart_of_harvest":
+			state["shipped"] = {&"turnip": 4, &"potato": 3, &"pumpkin": 2}
+			state["money"] = 505
+			state["relationships"][&"shopkeeper"]["points"] = VillagerRules.FRIEND_POINTS
+			state["relationships"][&"resident"]["points"] = VillagerRules.CLOSE_FRIEND_POINTS
+		_:
+			state["shipped"] = {&"turnip": 0, &"potato": 0, &"pumpkin": 0}
+	return ContentRules.build_harvest_result(state)
+
 func _result(save_error: int = OK) -> ResultScreen:
 	var screen := _spawn_panel("res://scenes/ui/result_screen.tscn") as ResultScreen
 	if screen == null:
@@ -394,24 +411,50 @@ func test_intro_vn_box_keeps_authored_name_role_and_copy() -> void:
 	await _settle()
 	var opening := overlay.get_node("OpeningPanel") as Control
 	var name_tag := opening.find_child("NameTag", true, false) as SlantTag
-	assert_not_null(name_tag, "the intro keeps its authored SATO-SAN tag")
+	assert_not_null(name_tag, "the intro keeps Kenji's slant name tag")
 	if name_tag != null:
 		var text := name_tag.get_node_or_null("Text") as Label
 		if text != null:
-			assert_eq(text.text, "SATO-SAN")
+			assert_eq(
+				text.text, "KENJI",
+				"the tag stores the stable uppercase source key, not a pre-translation",
+			)
 	var role := opening.find_child("Role", true, false) as Label
 	assert_not_null(role, "the intro keeps the role pill beside the name")
+	if role != null:
+		assert_eq(role.text, "Former software engineer")
+		assert_eq(
+			role.atr(role.text),
+			TranslationServer.translate("Former software engineer"),
+			"the role label localizes through Control auto-translation",
+		)
 	var intro := opening.find_child("Intro", true, false) as Label
 	assert_not_null(intro)
 	if intro != null:
 		assert_eq(
 			intro.text,
-			"This farm has been quiet for a while. "
-				+ "It is yours now — bring it back one day at a time.",
-			"intro copy is the authored story line",
+			"I won the lottery, left my software job in Tokyo, and bought a "
+				+ "field that looks like it hasn't seen a hoe in years.",
+			"intro copy establishes the lottery/Tokyo/field premise",
 		)
 	var guide := opening.find_child("Guide", true, false) as Label
 	assert_not_null(guide)
+	if guide != null:
+		assert_eq(
+			guide.text,
+			"The harvest market opens on Day 14. I have two weeks to grow "
+				+ "something—and maybe get to know the people in town.",
+			"guide copy names the Day 14 market and the two-week window",
+		)
+	var diary := opening.find_child("DiaryLine", true, false) as Label
+	assert_not_null(diary, "the opening adds Kenji's Day 1 diary")
+	if diary != null:
+		assert_eq(diary.text, ContentRules.diary_line(1))
+		assert_ne(diary.autowrap_mode, TextServer.AUTOWRAP_OFF)
+		assert_eq(
+			diary.get_visible_line_count(), diary.get_line_count(),
+			"the Day 1 diary is fully displayed, not clipped",
+		)
 
 func test_intro_accept_is_a_primary_pill_that_acknowledges() -> void:
 	var overlay := _intro()
@@ -755,6 +798,44 @@ func test_result_empty_stats_still_render_the_layout() -> void:
 	assert_not_null(title_label)
 	if title_label != null:
 		assert_ne(title_label.text, "")
+
+func test_result_tier_line_shows_each_ending_epilogue() -> void:
+	for tier in [&"new_beginning", &"promising_farmer", &"heart_of_harvest"]:
+		var expected := _tier_result_data(tier)
+		assert_eq(expected["tier"], tier, "fixture reaches the %s tier" % tier)
+		var screen := _spawn_panel(
+			"res://scenes/ui/result_screen.tscn"
+		) as ResultScreen
+		if screen == null:
+			return
+		screen.present(expected)
+		await _settle()
+		var tier_line := screen.find_child("TierLine", true, false) as Label
+		assert_not_null(tier_line, "%s: the result adds a tier epilogue" % tier)
+		if tier_line == null:
+			continue
+		var state := screen.result_state()
+		assert_eq(
+			state["title"],
+			ContentRules.RESULT_TIERS[tier]["title"],
+			"%s: the existing title is unchanged" % tier,
+		)
+		assert_eq(
+			state["tier_line"],
+			ContentRules.RESULT_TIERS[tier]["epilogue"],
+			"%s: the rendered epilogue comes from the tier table" % tier,
+		)
+		assert_ne(
+			tier_line.autowrap_mode,
+			TextServer.AUTOWRAP_OFF,
+			"%s: the epilogue can wrap instead of clipping" % tier,
+		)
+		assert_eq(
+			tier_line.get_visible_line_count(),
+			tier_line.get_line_count(),
+			"%s: the epilogue is fully displayed" % tier,
+		)
+		screen.visible = false
 
 func _action_button(panel: Control) -> Button:
 	var pill := panel.find_child("ActionPill", true, false) as Control
@@ -1799,11 +1880,25 @@ func test_result_warning_label_is_20px_and_stays_clear_of_actions() -> void:
 				"%s: warning text stays inside the pill" % where,
 			)
 			var actions := screen.find_child("Actions", true, false) as Control
+			var cards := screen.find_child("Cards", true, false) as Control
+			assert_not_null(cards, "%s: villager cards exist" % where)
+			if cards != null:
+				assert_false(
+					cards.get_global_rect().intersects(pill_rect),
+					"%s: villager cards stay clear of the save warnbar" % where,
+				)
 			if actions != null:
 				assert_false(
 					pill_rect.intersects(actions.get_global_rect()),
 					"%s: warnbar stays clear of the action pills" % where,
 				)
+				if cards != null:
+					assert_false(
+						cards.get_global_rect().intersects(
+							actions.get_global_rect()
+						),
+						"%s: villager cards stay clear of the action pills" % where,
+					)
 	window.size = UiSettings.WINDOW_SIZE
 	await _settle()
 

@@ -73,8 +73,11 @@ There is no JavaScript or Tauri runtime in the current checkout.
 - VillagerRules owns frozen HPA-595 content and pure relationship policy.
 - `scripts/game/content_rules.gd` (`ContentRules`) owns the frozen HPA-597
   content policy: `TUTORIALS` is the one tutorial identity/copy/completion
-  table, plus prompt relevance and the harvest result tiers/totals. It is
-  stateless.
+  table, plus prompt relevance and the harvest result tiers/totals. HPA-684
+  adds the authored one-per-day `DIARY_LINES`/`diary_line()` sequence and the
+  single `RESULT_TIERS` table holding each tier's title and epilogue; views
+  render both as plain auto-translated Labels and never duplicate the copy.
+  It is stateless.
 - `scripts/game/game_session.gd` is the only mutable gameplay authority. All
   commands go through it; existing farming/economy commands return `GameRules.CommandCode`;
   social commands `talk_to`/`gift_crop` return one narrow result Dictionary local to those methods; `advance_clock()` is the passive-clock command, returning bool and clamping at the cutoff with no commit; views read the immutable `snapshot()` dictionaries and never session internals.

@@ -35,12 +35,15 @@ Farm saves use schema 4 and have no migration path; older schema versions are
 rejected. UI preferences are stored separately in
 user://phoenix-settings.cfg.
 
-A fresh run opens on a short blocking introduction; pressing Start releases
-the world and is followed by dismissible, contextual help for the current
-step. The introduction still invites getting to know the village under a
-SATO-SAN tag — an accepted interim mismatch that HPA-684's copy pass owns.
-Continuing a completed run opens the final result screen directly —
-there is no post-game or free play.
+A fresh run opens on a short blocking introduction in Kenji's voice: he won
+the lottery, left his software job in Tokyo, and bought a neglected field two
+weeks before the Day 14 harvest market. The opening shows his Day 1 diary;
+pressing Start releases the world and is followed by dismissible, contextual
+help for the current step. Every overnight advance (Days 2–14) puts that
+day's authored diary line in the blocking morning summary, and a completed
+run's result screen adds the ending tier's short epilogue under its title.
+Continuing a completed run opens the final result screen directly — there is
+no post-game or free play.
 
 ## Controls
 
@@ -129,8 +132,8 @@ renders when a town resident is the E target.
    Sleeping pays out the pending shipment and grows watered crops. An
    immature crop withers after two consecutive nights without watering or
    rain; mature crops stay harvestable. Sleep restores stamina, rolls
-   tomorrow's weather, and advances the day — then a morning summary must be
-   acknowledged before play resumes.
+   tomorrow's weather, and advances the day — then a morning summary with
+   the new day's diary must be acknowledged before play resumes.
 
 Anything that blocks world input pauses the passive clock: opening a panel
 or dialogue, the sleep confirmation, Pause, the introduction, or the
@@ -155,7 +158,8 @@ is the fallback route that finishes it instead. The result is one of three
 encouraging endings — New Beginning, Promising Farmer, or Heart of the
 Harvest — based on shipped value and village friendships: 150G of shipped
 produce reaches Promising Farmer, and 300G plus at least one Close Friend
-reaches Heart of the Harvest. The exhaustive crop
+reaches Heart of the Harvest. Each ending keeps its title and adds one short
+epilogue sentence. The exhaustive crop
 economy, action-budget, and command-code tables are frozen in
 `tests/unit/test_game_rules.gd`, `tests/unit/test_game_session.gd`, and
 `tests/integration/test_gameplay_shell.gd`; those tests are the reference,
@@ -246,7 +250,9 @@ content slice: the blocking introduction with contextual help, the Day 14
 harvest market that ends the run (with sleeping as the fallback route),
 shipping-bin deposits as the only farming-result scoring, three encouraging
 endings, and Continue on a completed run reopening the result screen — there
-is no post-game or free play.
+is no post-game or free play. HPA-684 gives the opening Kenji's
+lottery/Tokyo premise, a 14-line authored morning diary from Day 1 to Day 14,
+and one epilogue per existing result tier; `ContentRules` owns that copy.
 
 ## Verification
 

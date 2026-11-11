@@ -74,19 +74,29 @@ func _build_opening() -> void:
     var overlay := dock.find_child("Overlay", true, false) as Control
 
     var intro := UiStyle.label(
-        "This farm has been quiet for a while. It is yours now — bring it back one day at a time.",
+        (
+            "I won the lottery, left my software job in Tokyo, and bought a "
+            + "field that looks like it hasn't seen a hoe in years."
+        ),
         32, UiStyle.INK, 700,
     )
     intro.name = "Intro"
     intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     content.add_child(intro)
     var guide := UiStyle.label(
-        "The village harvest market is on Day 14. Grow what you can, and get to know the village before then.",
+        (
+            "The harvest market opens on Day 14. I have two weeks to grow "
+            + "something—and maybe get to know the people in town."
+        ),
         20, UiStyle.INK_MUTED, 500,
     )
     guide.name = "Guide"
     guide.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     content.add_child(guide)
+    var diary := UiStyle.label(ContentRules.diary_line(1), 18, UiStyle.ACCENT_DEEP, 600)
+    diary.name = "DiaryLine"
+    diary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    content.add_child(diary)
 
     var footer := UiStyle.hbox(18)
     footer.name = "Footer"
@@ -105,7 +115,7 @@ func _build_opening() -> void:
     overlay.add_child(name_row)
     UiStyle.pin(name_row, CORNER_TOP_LEFT, Vector2(40, -28))
     var name_tag := SlantTag.new(
-        VillagerRules.display_name(VillagerRules.VillagerId.SHOPKEEPER).to_upper(),
+        "KENJI",
         UiStyle.ACCENT_GRADIENT,
         UiStyle.CARD,
         30,
@@ -126,10 +136,7 @@ func _build_opening() -> void:
     )
     role_pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
     name_row.add_child(role_pill)
-    var role := UiStyle.label(
-        VillagerRules.role_label(VillagerRules.VillagerId.SHOPKEEPER),
-        16, UiStyle.INK_MUTED, 800,
-    )
+    var role := UiStyle.label("Former software engineer", 16, UiStyle.INK_MUTED, 800)
     role.name = "Role"
     role_pill.add_child(role)
 

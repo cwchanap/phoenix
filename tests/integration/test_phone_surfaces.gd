@@ -989,34 +989,98 @@ func test_morning_full_content_long_error_keeps_acknowledge_reachable() -> void:
 	var summary := _morning_panel(full)
 	if summary == null:
 		return
-	summary.set_save_status(
-		&"error",
-		(
-			"Save failed — this morning is not persisted. The storage card is "
-			+ "full after the long festival season and the ledger could not be "
-			+ "written; keep playing and try again."
-		),
+	var long_message := (
+		"Save failed — this morning is not persisted. The storage card is "
+		+ "full after the long festival season and the ledger could not be "
+		+ "written; keep playing and try again."
 	)
-	await _settle()
-	var screen_rect := _screen_rect(summary)
-	for node_name in ["SaveBadge", "SaveStatusCard", "SaveStatusScroll", "Acknowledge"]:
-		var node := summary.find_child(node_name, true, false) as Control
-		assert_not_null(node, node_name)
-		if node != null:
-			assert_true(
-				screen_rect.encloses(node.get_global_rect()),
-				"%s stays inside the phone" % node_name,
-			)
 	var acknowledge := summary.find_child("Acknowledge", true, false) as Button
-	if acknowledge != null:
-		assert_true(
-			acknowledge.get_global_rect().get_center().y > screen_rect.get_center().y,
-			"acknowledge stays reachable at the bottom",
-		)
-		watch_signals(summary)
-		await _click(acknowledge)
-		assert_signal_emitted(summary, "acknowledged")
-	_assert_controls_inside(summary, "morning full content + long error")
+	var diary := summary.find_child("DiaryLine", true, false) as Label
+	assert_not_null(acknowledge)
+	assert_not_null(diary, "the morning summary carries the new day's diary")
+	if acknowledge == null or diary == null:
+		return
+	assert_eq(diary.get_theme_font_size("font_size"), 16)
+	assert_ne(diary.autowrap_mode, TextServer.AUTOWRAP_OFF)
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		for day in range(2, GameRules.MAX_DAY + 1):
+			full["completed_day"] = day - 1
+			full["next_day"] = day
+			summary.present(full)
+			summary.set_save_status(&"error", long_message)
+			await _settle()
+			var where := "%s day %d" % [locale, day]
+			var screen_rect := _screen_rect(summary)
+			assert_eq(
+				summary.summary_state()["diary_line"],
+				ContentRules.diary_line(day),
+				"%s: the diary shows that day's stable English source key" % where,
+			)
+			assert_lte(
+				diary.get_line_count(), 2,
+				"%s: the diary wraps to one or two lines" % where,
+			)
+			assert_eq(
+				diary.get_visible_line_count(), diary.get_line_count(),
+				"%s: the wrapped diary is fully displayed, not clipped" % where,
+			)
+			var diary_font := diary.get_theme_font("font")
+			var diary_font_size := diary.get_theme_font_size("font_size")
+			var wrapped := diary_font.get_multiline_string_size(
+				diary.atr(diary.text),
+				HORIZONTAL_ALIGNMENT_LEFT,
+				diary.size.x,
+				diary_font_size,
+			)
+			assert_true(
+				diary.size.y >= wrapped.y - 0.5 and diary.size.x >= wrapped.x - 0.5,
+				"%s: the Label's rect fits every wrapped line (%s vs %s)"
+					% [where, diary.size, wrapped],
+			)
+			assert_true(
+				screen_rect.encloses(diary.get_global_rect()),
+				"%s: the diary stays inside the phone screen" % where,
+			)
+			assert_true(
+				diary.get_global_rect().end.y
+					<= acknowledge.get_global_rect().position.y,
+				"%s: the diary stays above acknowledge" % where,
+			)
+			assert_true(
+				screen_rect.encloses(acknowledge.get_global_rect()),
+				"%s: acknowledge stays inside the phone" % where,
+			)
+			assert_true(
+				acknowledge.get_global_rect().get_center().y
+					> screen_rect.get_center().y,
+				"%s: acknowledge stays reachable at the bottom" % where,
+			)
+			_assert_controls_inside(summary, "morning %s" % where)
+	watch_signals(summary)
+	await _click(acknowledge)
+	assert_signal_emitted(summary, "acknowledged")
+
+	# A lightweight smaller-window legibility spot check, not a second matrix.
+	get_window().size = UiSettings.MIN_WINDOW_SIZE
+	TranslationServer.set_locale("zh_TW")
+	full["completed_day"] = GameRules.MAX_DAY - 1
+	full["next_day"] = GameRules.MAX_DAY
+	summary.present(full)
+	await _settle()
+	assert_eq(
+		summary.summary_state()["diary_line"],
+		ContentRules.diary_line(GameRules.MAX_DAY),
+		"960x540 keeps the Day 14 diary source key",
+	)
+	assert_eq(diary.get_theme_font_size("font_size"), 16)
+	assert_eq(
+		diary.get_visible_line_count(), diary.get_line_count(),
+		"960x540 displays the whole Day 14 diary line",
+	)
+	_assert_controls_inside(summary, "morning day 14 at 960x540")
+	get_window().size = UiSettings.WINDOW_SIZE
+	await _settle()
 
 func test_morning_long_error_scrolls_with_move_keys_and_shows_hint() -> void:
 	var summary := _morning_panel()
