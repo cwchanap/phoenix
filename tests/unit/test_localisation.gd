@@ -72,8 +72,18 @@ func _rules_strings() -> Array[String]:
     for tutorial in ContentRules.TUTORIALS:
         result.append(String(tutorial["title"]))
         result.append(String(tutorial["body"]))
-    for tier_title in ["New Beginning", "Promising Farmer", "Heart of the Harvest"]:
-        result.append(tier_title)
+    for line in ContentRules.DIARY_LINES:
+        result.append(String(line))
+    for tier in ContentRules.RESULT_TIERS:
+        result.append(String(ContentRules.RESULT_TIERS[tier]["title"]))
+        result.append(String(ContentRules.RESULT_TIERS[tier]["epilogue"]))
+    for opening_text in [
+        "I won the lottery, left my software job in Tokyo, and bought a field that looks like it hasn't seen a hoe in years.",
+        "The harvest market opens on Day 14. I have two weeks to grow something—and maybe get to know the people in town.",
+        "KENJI",
+        "Former software engineer",
+    ]:
+        result.append(opening_text)
     return result
 
 func test_every_rules_string_is_translated() -> void:
@@ -105,6 +115,12 @@ func test_truck_prompt_strings_translate_in_both_locales() -> void:
     assert_eq(tr("Drive home"), "家までドライブ")
     assert_eq(tr("Seed Shop"), "種屋")
     assert_eq(tr("Talk, shop, bin, bed, truck"), "話す・店・出荷箱・ベッド・トラック")
+
+func test_opening_speaker_and_role_translate_in_both_locales() -> void:
+    for locale in TRANSLATED_LOCALES:
+        TranslationServer.set_locale(locale)
+        for text in ["KENJI", "Former software engineer"]:
+            assert_ne(tr(text), text, "%s has no %s translation" % [text, locale])
 
 func test_default_language_follows_os_locale() -> void:
     assert_eq(UiSettings.default_language("ja_JP"), "ja")
