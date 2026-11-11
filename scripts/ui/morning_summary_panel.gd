@@ -267,7 +267,7 @@ func _build() -> void:
 		layout.add_theme_constant_override("margin_" + side[0], side[1])
 	layout.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_frame.content_mount().add_child(layout)
-	var column := UiStyle.vbox(8)
+	var column := UiStyle.vbox(6)
 	column.name = "Column"
 	layout.add_child(column)
 
@@ -303,7 +303,7 @@ func _build() -> void:
 	_shipment_single.visible = false
 	shipments.add_child(_shipment_single)
 	_single_row = _row_children(_shipment_single)
-	_shipment_compact = UiStyle.vbox(4)
+	_shipment_compact = UiStyle.vbox(3)
 	_shipment_compact.name = "CompactShipmentRows"
 	_shipment_compact.visible = false
 	shipments.add_child(_shipment_compact)
@@ -351,7 +351,7 @@ func _build() -> void:
 	lead.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	lead.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(lead)
-	var actions := UiStyle.vbox(8)
+	var actions := UiStyle.vbox(6)
 	actions.name = "Actions"
 	footer.add_child(actions)
 	var trail := Control.new()
@@ -366,7 +366,7 @@ func _build() -> void:
 	_save_status_card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_save_status_card.visible = false
 	_save_status_card.add_theme_stylebox_override(
-		"panel", UiStyle.card(UiStyle.CARD, 16, [14, 8, 14, 8])
+		"panel", UiStyle.card(UiStyle.CARD, 16, [14, 6, 14, 6])
 	)
 	actions.add_child(_save_status_card)
 	var save_column := UiStyle.vbox(6)
@@ -439,7 +439,7 @@ func _lock_header() -> VBoxContainer:
 	_weather_tail.name = "WeatherTail"
 	day_row.add_child(_weather_tail)
 	var clock := UiStyle.shadowed_label(
-		GameRules.format_time(GameRules.DAY_START_MINUTES), 90, 900
+		GameRules.format_time(GameRules.DAY_START_MINUTES), 84, 900
 	)
 	clock.name = "LockTime"
 	clock.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -453,7 +453,7 @@ func _notification_card(
 	card.name = "%sCard" % card_name
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_theme_stylebox_override(
-		"panel", UiStyle.card(UiStyle.HUD_CARD, 22, [14, 10, 14, 10])
+		"panel", UiStyle.card(UiStyle.HUD_CARD, 22, [14, 6, 14, 6])
 	)
 	var row := UiStyle.hbox(12)
 	card.add_child(row)
@@ -468,7 +468,7 @@ func _notification_card(
 	var tile_icon := UiStyle.icon(icon, 32)
 	tile_icon.name = "Icon"
 	tile.add_child(tile_icon)
-	var lines := UiStyle.vbox(2)
+	var lines := UiStyle.vbox(0)
 	lines.name = "Lines"
 	lines.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lines.size_flags_vertical = Control.SIZE_SHRINK_CENTER

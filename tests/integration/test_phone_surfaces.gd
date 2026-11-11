@@ -695,7 +695,7 @@ func test_morning_lock_header_hides_the_status_clock() -> void:
 	assert_not_null(clock, "big lock clock")
 	if clock != null:
 		assert_eq(clock.text, GameRules.format_time(GameRules.DAY_START_MINUTES))
-		assert_true(clock.get_theme_font_size("font_size") >= 90, "lock clock is huge")
+		assert_true(clock.get_theme_font_size("font_size") >= 84, "lock clock is huge")
 	var day_line := summary.find_child("DayLine", true, false) as Label
 	assert_not_null(day_line)
 	if day_line != null:
@@ -996,9 +996,11 @@ func test_morning_full_content_long_error_keeps_acknowledge_reachable() -> void:
 	)
 	var acknowledge := summary.find_child("Acknowledge", true, false) as Button
 	var diary := summary.find_child("DiaryLine", true, false) as Label
+	var frame := summary.find_child("PhoneFrame", true, false) as PhoneFrame
 	assert_not_null(acknowledge)
 	assert_not_null(diary, "the morning summary carries the new day's diary")
-	if acknowledge == null or diary == null:
+	assert_not_null(frame, "the morning summary keeps the shared phone chrome")
+	if acknowledge == null or diary == null or frame == null:
 		return
 	assert_eq(diary.get_theme_font_size("font_size"), 16)
 	assert_ne(diary.autowrap_mode, TextServer.AUTOWRAP_OFF)
@@ -1012,6 +1014,11 @@ func test_morning_full_content_long_error_keeps_acknowledge_reachable() -> void:
 			await _settle()
 			var where := "%s day %d" % [locale, day]
 			var screen_rect := _screen_rect(summary)
+			assert_eq(
+				frame.size,
+				PhoneFrame.PHONE_SIZE,
+				"%s: the phone keeps its exact 560x920 bounds" % where,
+			)
 			assert_eq(
 				summary.summary_state()["diary_line"],
 				ContentRules.diary_line(day),
