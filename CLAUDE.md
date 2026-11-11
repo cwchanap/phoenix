@@ -406,9 +406,10 @@ Sprite-isometric art contract
 - World terrain and props derive from the two committed
   `starting-farm-*-source.webp` sheets; the sheets stay tracked as source
   provenance and approved art is never regenerated.
-- The proof player/crops/soil/shadow/scenery sprites remain live entity
-  textures; the villager sprite sheets now render the three town residents.
-  Only provably unreferenced proof ground resources were deleted.
+- `player-walk.png` is the active player sprite (a 4x4 walk-cycle sheet);
+  the proof crops/soil/shadow/scenery sprites remain live entity textures;
+  the villager sprite sheets now render the three town residents.
+  Only provably unreferenced proof resources were deleted.
 
 Audio generation convention
 - New Phoenix audio assets are generated through the ElevenLabs MCP
