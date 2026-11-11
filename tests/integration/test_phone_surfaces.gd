@@ -997,13 +997,41 @@ func test_morning_full_content_long_error_keeps_acknowledge_reachable() -> void:
 	var acknowledge := summary.find_child("Acknowledge", true, false) as Button
 	var diary := summary.find_child("DiaryLine", true, false) as Label
 	var frame := summary.find_child("PhoneFrame", true, false) as PhoneFrame
+	var save_status := summary.find_child("SaveStatus", true, false) as Label
+	var save_card := summary.find_child("SaveStatusCard", true, false) as Control
+	var save_hint := summary.find_child("ScrollHint", true, false) as Label
+	var shipment_rows: Array[Control] = []
+	for index in 3:
+		shipment_rows.append(
+			summary.find_child("Row_%d" % index, true, false) as Control
+		)
 	assert_not_null(acknowledge)
 	assert_not_null(diary, "the morning summary carries the new day's diary")
 	assert_not_null(frame, "the morning summary keeps the shared phone chrome")
-	if acknowledge == null or diary == null or frame == null:
+	assert_not_null(save_status)
+	assert_not_null(save_card)
+	assert_not_null(save_hint)
+	for row in shipment_rows:
+		assert_not_null(row, "every compact shipment row exists")
+	if (
+		acknowledge == null or diary == null or frame == null
+		or save_status == null or save_card == null or save_hint == null
+		or shipment_rows.has(null)
+	):
 		return
 	assert_eq(diary.get_theme_font_size("font_size"), 16)
 	assert_ne(diary.autowrap_mode, TextServer.AUTOWRAP_OFF)
+	assert_eq(
+		get_window().size,
+		UiSettings.WINDOW_SIZE,
+		"the matrix runs on the native 1920x1080 canvas",
+	)
+	assert_almost_eq(
+		get_window().get_final_transform().x.x,
+		1.0,
+		0.01,
+		"the native canvas draws at 1:1",
+	)
 	for locale in LOCALES:
 		TranslationServer.set_locale(locale)
 		for day in range(2, GameRules.MAX_DAY + 1):
@@ -1019,10 +1047,56 @@ func test_morning_full_content_long_error_keeps_acknowledge_reachable() -> void:
 				PhoneFrame.PHONE_SIZE,
 				"%s: the phone keeps its exact 560x920 bounds" % where,
 			)
+			var shipment_state := summary.summary_state()["shipments"] as Array
+			assert_eq(
+				shipment_state.size(), 3,
+				"%s: all three shipments stay listed" % where,
+			)
+			for index in 3:
+				var row := shipment_rows[index]
+				assert_true(
+					row.is_visible_in_tree(),
+					"%s: shipment row %d stays visible" % [where, index],
+				)
+				assert_true(
+					screen_rect.encloses(row.get_global_rect()),
+					"%s: shipment row %d stays inside the phone"
+						% [where, index],
+				)
+			assert_eq(
+				summary.save_status_text(), long_message,
+				"%s: the full save error survives present()" % where,
+			)
+			assert_true(
+				save_card.is_visible_in_tree(),
+				"%s: the save error card stays visible" % where,
+			)
+			assert_eq(
+				save_status.get_visible_line_count(),
+				save_status.get_line_count(),
+				"%s: the save error label keeps every wrapped line" % where,
+			)
+			assert_true(
+				save_hint.visible,
+				"%s: the long save error exposes its scroll hint" % where,
+			)
+			assert_true(
+				screen_rect.encloses(save_card.get_global_rect()),
+				"%s: the save error card stays inside the phone" % where,
+			)
+			assert_true(
+				save_card.get_global_rect().end.y
+					<= acknowledge.get_global_rect().position.y,
+				"%s: the save error never covers acknowledge" % where,
+			)
 			assert_eq(
 				summary.summary_state()["diary_line"],
 				ContentRules.diary_line(day),
 				"%s: the diary shows that day's stable English source key" % where,
+			)
+			assert_gte(
+				diary.get_line_count(), 1,
+				"%s: the diary is displayed" % where,
 			)
 			assert_lte(
 				diary.get_line_count(), 2,
@@ -1084,6 +1158,34 @@ func test_morning_full_content_long_error_keeps_acknowledge_reachable() -> void:
 	assert_eq(
 		diary.get_visible_line_count(), diary.get_line_count(),
 		"960x540 displays the whole Day 14 diary line",
+	)
+	assert_eq(
+		get_window().size,
+		UiSettings.MIN_WINDOW_SIZE,
+		"the smaller-window check runs on a real 960x540 window",
+	)
+	var window_scale := get_window().get_final_transform().x.x
+	assert_almost_eq(
+		window_scale, 0.5, 0.01,
+		"the 1080p canvas scales to the 960x540 window",
+	)
+	assert_eq(
+		frame.size, PhoneFrame.PHONE_SIZE,
+		"the phone keeps its 560x920 logical bounds when scaled",
+	)
+	var window_rect := Rect2(Vector2.ZERO, Vector2(get_window().size))
+	var scaled_phone := get_window().get_final_transform() * frame.get_global_rect()
+	assert_almost_eq(
+		scaled_phone.size.x, PhoneFrame.PHONE_SIZE.x * window_scale, 0.01,
+		"the phone lands at its scaled physical size",
+	)
+	assert_almost_eq(
+		scaled_phone.size.y, PhoneFrame.PHONE_SIZE.y * window_scale, 0.01,
+		"the phone's full height fits the scaled window",
+	)
+	assert_true(
+		window_rect.encloses(scaled_phone),
+		"the scaled phone %s stays inside the 960x540 window" % scaled_phone,
 	)
 	_assert_controls_inside(summary, "morning day 14 at 960x540")
 	get_window().size = UiSettings.WINDOW_SIZE

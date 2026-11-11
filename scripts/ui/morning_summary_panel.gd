@@ -303,7 +303,7 @@ func _build() -> void:
 	_shipment_single.visible = false
 	shipments.add_child(_shipment_single)
 	_single_row = _row_children(_shipment_single)
-	_shipment_compact = UiStyle.vbox(3)
+	_shipment_compact = UiStyle.vbox(4)
 	_shipment_compact.name = "CompactShipmentRows"
 	_shipment_compact.visible = false
 	shipments.add_child(_shipment_compact)
@@ -351,7 +351,7 @@ func _build() -> void:
 	lead.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	lead.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(lead)
-	var actions := UiStyle.vbox(6)
+	var actions := UiStyle.vbox(8)
 	actions.name = "Actions"
 	footer.add_child(actions)
 	var trail := Control.new()
