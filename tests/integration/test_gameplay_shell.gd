@@ -536,6 +536,12 @@ func test_set_input_enabled_false_zeros_and_stops_player_movement() -> void:
         int(player.facing) * 4 + 1,
         "the next movement restarts the walk at column 1",
     )
+    player._update_visuals(0.0, false)
+    assert_eq(
+        player.player_sprite.frame,
+        int(player.facing) * 4,
+        "idle restored before driving real input",
+    )
 
     Input.action_press("move_right")
     await get_tree().physics_frame
@@ -4185,6 +4191,13 @@ func test_load_map_farm_reload_preserves_player_session_and_hud() -> void:
 
     player.facing = WorldMath.Facing.UP
     player.velocity = Vector2(100.0, 100.0)
+    player._update_visuals(0.125, true)
+    player._update_visuals(0.125, true)
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.UP) * 4 + 2,
+        "reload begins mid-stride on the UP row",
+    )
 
     world.load_map()
 
