@@ -1,6 +1,6 @@
 # HPA-546 — Single-PR implementation and verification plan
 
-**Status:** Review findings incorporated on 2026-11-11; implementation remains pending.
+**Status:** Follow-up design review incorporated on 2026-11-11; implementation remains pending.
 **Linear:** https://linear.app/cwchanap/issue/HPA-546/game-feel-play-the-player-walk-cycle-while-moving
 **Companion design:** [2026-11-11-phoenix-player-walk-cycle-design.md](../specs/2026-11-11-phoenix-player-walk-cycle-design.md)
 **Dependency:** HPA-539 already delivered the redesigned art; no new asset generation.
@@ -11,30 +11,31 @@
 - `scenes/player/player.tscn` still displays the 128×48 `proof-player.png` with `hframes=4`, DOWN default `frame=2` and offset `(0,-24)`.
 - `scripts/player/player_controller.gd` sets requested `velocity`, calls `move_and_slide()` and sets the static facing frame. `set_input_enabled(false)` only zeroes velocity; `enter_map()` resets DOWN facing and zero velocity.
 - **The existing gate is level-triggered:** `WorldShell._refresh_from_session()` calls `_refresh_world_input_gate()` (`scripts/world/world_shell.gd:218-236`), which calls `player.set_input_enabled(_world_input_enabled)` on every session refresh. The passive clock can cause refreshes roughly every 0.5s during gameplay. Calls with `true` must **not** reset the walk timer or pose.
-- GUT `tests/integration/test_gameplay_shell.gd` checks disabled movement (around line 496) and map reload (around 4058, with the old facing-only index); headless `tests/headless/world_shell_smoke.gd` owns all scene/texture/asset-dimension pins (manifest around line 12 and player around 669). Do not duplicate sprite-config tests in GUT.
+- GUT `tests/integration/test_gameplay_shell.gd` checks disabled movement (around line 496) and map reload (around 4058, with the old facing-only index). Headless `tests/headless/world_shell_smoke.gd` currently lists `proof-player.png` at line 12 and asserts **only** the live player's `hframes == 4` and offset near lines 669–675; it does **not** assert texture path, `vframes` or idle `frame`. Add those missing scene/asset pins there, not in GUT.
 - `scripts/world/farm_action_effects.gd::TOOL_FACING` has player-local hoe/watering anchors fitted to the old proof art, pinned in `tests/integration/test_gameplay_shell.gd` (around lines 2195 and 2232-2237). Visual acceptance must verify and, if misaligned, retune those anchors on **this PR**.
 - HPA-539 `tests/visual/hpa-539/README.md` documents the 128×192, 4×4 sheet and **1 → 2 → 3 → 2** at 8 fps. It explicitly replaces the old idle pose with new art. Phoenix no longer has a screenshot-golden gate.
 
-## Step 1 — Write red GUT behavior tests first
+## Step 1 — Add a parse-safe signature and red GUT behavior tests
 
-**File:** `tests/integration/test_gameplay_shell.gd`.
+**Files:** `scripts/player/player_controller.gd` (signature only), `tests/integration/test_gameplay_shell.gd`.
 
-1. Reuse the existing world/player GUT fixture. Add deterministic cadence tests calling the existing `PlayerController._update_visuals(delta: float = 0.0, moving: bool = false)` seam **once implementation exists**, with `facing` set explicitly and `delta = 0.125`. First moving call displays walk column 1; subsequent calls show 2, 3, 2 and wrap. Verify each row via `int(facing) * 4 + column` and preserve phase when changing direction. The seam is intentionally trivial; do not create a new animator/test harness.
-2. Exercise stop: `_update_visuals(0.0, false)` immediately paints column 0 in the retained facing; the next moving call restarts column 1. Test the pose, not `_walk_seconds`.
-3. Extend `test_set_input_enabled_false_zeros_and_stops_player_movement`: establish a non-idle pose, call `set_input_enabled(false)` and immediately assert zero velocity and idle frame; re-enable and assert that the next movement starts column 1. Retain the existing real-physics no-motion assertion.
-4. **New regression:** while moving and at a non-idle pose, call `player.set_input_enabled(true)` (or `world._refresh_from_session()`) repeatedly. Assert current sprite frame and subsequent walk step continue unchanged. This protects against the recurring level-triggered passive-clock and action refresh path.
-5. Extend the map-reload regression: change its old DOWN frame expectation from `int(WorldMath.Facing.DOWN)` to `int(WorldMath.Facing.DOWN) * 4`; after `world.load_map()` call `_update_visuals(0.125, true)` and assert DOWN column 1. Do not inspect the internal timer.
-6. Preserve one real `_physics_process`-driven movement/blocked-input integration path in addition to the deterministic seam tests. The seam should not replace an assertion that actual player input drives walking.
+1. **Before compiling a test that passes two arguments**, change only the existing `PlayerController` signature to `func _update_visuals(delta: float = 0.0, moving: bool = false) -> void:` while **retaining its old body** (`player_sprite.frame = int(facing)`). The default arguments keep existing production call sites working; this is a compile-time compatibility seam, **not the animation implementation**. Commit the signature and red behavior tests together, never a test-only commit that Godot cannot parse.
+2. Reuse the existing world/player GUT fixture. Add deterministic cadence tests calling `player._update_visuals(0.125, true)` with `facing` set explicitly. First moving call displays walk column 1; subsequent calls show 2, 3, 2 and wrap. Verify each row via `int(facing) * 4 + column` and preserve phase when changing direction. The seam is intentionally trivial; do not create a new animator/test harness.
+3. Exercise stop: `_update_visuals(0.0, false)` immediately paints column 0 in the retained facing; the next moving call restarts column 1. Test the pose, not `_walk_seconds`.
+4. Extend `test_set_input_enabled_false_zeros_and_stops_player_movement`: establish a non-idle pose, call `set_input_enabled(false)` and immediately assert zero velocity and idle frame; re-enable and assert that the next movement starts column 1. Retain the existing real-physics no-motion assertion.
+5. **New regression:** while moving and at a non-idle pose, call `player.set_input_enabled(true)` (or `world._refresh_from_session()`) repeatedly. Assert current sprite frame and subsequent walk step continue unchanged. This protects against the recurring level-triggered passive-clock and action refresh path.
+6. Extend the map-reload regression: change its old DOWN frame expectation from `int(WorldMath.Facing.DOWN)` to `int(WorldMath.Facing.DOWN) * 4`; after `world.load_map()` call `_update_visuals(0.125, true)` and assert DOWN column 1. Do not inspect the internal timer.
+7. Preserve one real `_physics_process`-driven movement/blocked-input integration path in addition to the deterministic seam tests. The seam should not replace an assertion that actual player input drives walking.
 
-**Red checkpoint:** Land/commit the tests **before** changing the scene or controller. The new tests should fail against old frame mapping/missing behavior. Existing static syntax and unchanged regression tests remain runnable; no need for a separate PR.
+**Red checkpoint:** Commit the **signature-only controller change plus tests** before the sprite/playback cutover, then run the focused GUT suite. It must **parse successfully** and fail on expected behavior assertions (old frame mapping/no walking), not on missing-method-argument parse errors. This intentionally red intermediate commit is followed by the green implementation commit **on this same PR**; do not claim full CI success at the red checkpoint.
 
 ## Step 2 — Minimal scene and controller changes to green
 
 **Files:** `scenes/player/player.tscn`, `scripts/player/player_controller.gd`, `tests/headless/world_shell_smoke.gd`.
 
-1. Point `Sprite2D` to the committed `player-walk.png`. Set `hframes=4`, `vframes=4` and authored DOWN idle `frame=8`; preserve `offset=(0,-24)`, shadow and collider. Update the headless asset manifest to `player-walk.png` at `128×192` and the existing live sprite checks for texture path, columns, rows, idle frame and offset.
+1. Point `Sprite2D` to the committed `player-walk.png`. Set `hframes=4`, `vframes=4` and authored DOWN idle `frame=8`; preserve `offset=(0,-24)`, shadow and collider. **Replace** `tests/headless/world_shell_smoke.gd`'s `EXPECTED_ASSETS` player entry (around line 12) with `{"path": "res://assets/sprites/player-walk.png", "size": Vector2i(128, 192), "hframes": 4}`. **Keep** the existing `player_sprite.hframes == 4` and offset checks near lines 669–675, and **add new** assertions beside them for `player_sprite.vframes == 4`, `player_sprite.frame == 8`, and `player_sprite.texture.resource_path == "res://assets/sprites/player-walk.png"`. Those three checks do not exist yet; do not mistake them for updates.
 2. Add only `WALK_FPS := 8.0`, the sequence `[1,2,3,2]`, and one elapsed-seconds member to `PlayerController`. Use `int(facing) * player_sprite.hframes + column`; obtain column using the elapsed index **before** adding the current physics delta, so the initial moving pose is 1.
-3. After `move_and_slide()` call `_update_visuals(delta, get_real_velocity().length() > 1.0)`. Godot's real velocity checks actual movement rather than residual requested `velocity` at blockers. Keep the updater signature `_update_visuals(delta: float = 0.0, moving: bool = false)` so GUT can test exact `0.125`-second boundaries without waiting for physics frames.
+3. After `move_and_slide()` call `_update_visuals(delta, get_real_velocity().length() > 1.0)`. Godot's real velocity checks actual movement rather than residual requested `velocity` at blockers. **Keep the parse-safe updater signature introduced in Step 1** (`_update_visuals(delta: float = 0.0, moving: bool = false)`); now implement its 0.125-second animation behavior.
 4. Reset phase and repaint idle only in the disabled `if not enabled:` branch of `set_input_enabled`, plus normal stop and `enter_map()`. On **every** `set_input_enabled(true)` call, preserve the current phase and frame. Preserve the early return in disabled physics frames; do not edit the world input gate.
 5. Keep changes inside the existing scene/controller plus test assertions; no `AnimatedSprite2D`, Tween loop, state machine, new owner, global service, save field, movement/camera/physics retuning, or localization.
 
@@ -56,7 +57,7 @@
 
 ## Verification on committed HEAD
 
-`./tools/verify-clean.sh` archives committed `HEAD`, not the uncommitted worktree. Commit the red-test and green-implementation checkpoints before claiming a clean pass. Execute:
+`./tools/verify-clean.sh` archives committed `HEAD`, not the uncommitted worktree. Commit the signature+red-test and green-implementation checkpoints before claiming a clean pass. Run the complete verification on the **green** committed HEAD, not the intentionally failing red checkpoint. Execute:
 
 ```bash
 ./tools/verify-clean.sh
