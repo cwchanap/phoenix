@@ -9,7 +9,7 @@ const BANK_SOUTH_TILE := Vector2i(6, 0)
 const TERRAIN_TEXTURE_PATH := "res://assets/sprites/starting-farm-terrain.png"
 const PROPS_TEXTURE_PATH := "res://assets/sprites/starting-farm-props.png"
 const EXPECTED_ASSETS := [
-    {"path": "res://assets/sprites/proof-player.png", "size": Vector2i(128, 48)},
+    {"path": "res://assets/sprites/player-walk.png", "size": Vector2i(128, 192), "hframes": 4},
     {"path": "res://assets/sprites/proof-scenery.png", "size": Vector2i(384, 96)},
     {"path": "res://assets/sprites/proof-soil.png", "size": Vector2i(128, 32)},
     {"path": "res://assets/sprites/proof-crops.png", "size": Vector2i(128, 144)},
@@ -670,6 +670,15 @@ func _run() -> void:
     if not _expect(player_sprite != null, "Player must contain Sprite2D"):
         return
     if not _expect(player_sprite.hframes == 4, "player frame columns"):
+        return
+    if not _expect(player_sprite.vframes == 4, "player frame rows"):
+        return
+    if not _expect(player_sprite.frame == 8, "player authored DOWN idle frame"):
+        return
+    if not _expect(
+        player_sprite.texture.resource_path == "res://assets/sprites/player-walk.png",
+        "player walk texture",
+    ):
         return
     if not _expect_vec2(player_sprite.offset, Vector2(0.0, -24.0), "player bottom-center offset"):
         return
