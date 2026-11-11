@@ -1,6 +1,6 @@
 # HPA-684 — Quiet Field morning diary and narrative copy: design specification
 
-**Status:** Proposed for review; docs-only draft. No implementation or verification is claimed.
+**Status:** Implemented on this PR (runtime, content, and test changes complete)
 **Linear:** https://linear.app/cwchanap/issue/HPA-684/add-the-players-morning-diary-and-rewrite-openingresult-copy-for-the
 **Baseline:** Phoenix `main` after HPA-686 town/travel (PR #38). The farm is empty; Sato-san, Gen-san and Hana live in town; the existing native 1080p City Pop panels support EN, zh_TW and ja.
 **Delivery:** One issue, one PR. Implement on this same PR after design review.
@@ -61,7 +61,7 @@ Existing title and tier are kept for tests and balance. One new sentence sits be
 | Tier key | Existing title | New epilogue |
 | --- | --- | --- |
 | `new_beginning` | New Beginning | The lottery bought the land. Choosing to stay is a different kind of win. |
-| `promising_farmer` | Promising Farmer | The books are finally in the green. For once, success needs no deployment. |
+| `promising_farmer` | Promising Farmer | The days are finally finding their rhythm. For once, success needs no deployment. |
 | `heart_of_harvest` | Heart of the Harvest | The field grew crops. The friendships made it feel like home. |
 
 The result still displays shipped quantity/value, final money, all three villager cards, featured villager, save warning, New Game and Title. Read both title and epilogue through `RESULT_TIERS` in `build_harvest_result()` rather than adding a second tier lookup to the view. Do **not** rewrite the villager's existing relationship-driven finale quotes as part of this ticket.

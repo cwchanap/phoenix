@@ -5,6 +5,7 @@ const LOCALES := ["en", "zh_TW", "ja"]
 
 func after_each() -> void:
 	TranslationServer.set_locale("en")
+	get_window().size = UiSettings.WINDOW_SIZE
 
 class UnhandledSpy:
 	extends Node
@@ -695,7 +696,7 @@ func test_morning_lock_header_hides_the_status_clock() -> void:
 	assert_not_null(clock, "big lock clock")
 	if clock != null:
 		assert_eq(clock.text, GameRules.format_time(GameRules.DAY_START_MINUTES))
-		assert_true(clock.get_theme_font_size("font_size") >= 84, "lock clock is huge")
+		assert_eq(clock.get_theme_font_size("font_size"), 84, "lock clock is 84px to fit the phone")
 	var day_line := summary.find_child("DayLine", true, false) as Label
 	assert_not_null(day_line)
 	if day_line != null:

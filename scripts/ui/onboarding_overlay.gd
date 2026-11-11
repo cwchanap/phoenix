@@ -73,23 +73,11 @@ func _build_opening() -> void:
     var content := dock.find_child("Content", true, false) as VBoxContainer
     var overlay := dock.find_child("Overlay", true, false) as Control
 
-    var intro := UiStyle.label(
-        (
-            "I won the lottery, left my software job in Tokyo, and bought a "
-            + "field that looks like it hasn't seen a hoe in years."
-        ),
-        32, UiStyle.INK, 700,
-    )
+    var intro := UiStyle.label(ContentRules.OPENING_INTRO, 32, UiStyle.INK, 700)
     intro.name = "Intro"
     intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     content.add_child(intro)
-    var guide := UiStyle.label(
-        (
-            "The harvest market opens on Day 14. I have two weeks to grow "
-            + "something—and maybe get to know the people in town."
-        ),
-        20, UiStyle.INK_MUTED, 500,
-    )
+    var guide := UiStyle.label(ContentRules.OPENING_GUIDE, 20, UiStyle.INK_MUTED, 500)
     guide.name = "Guide"
     guide.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     content.add_child(guide)
@@ -115,7 +103,7 @@ func _build_opening() -> void:
     overlay.add_child(name_row)
     UiStyle.pin(name_row, CORNER_TOP_LEFT, Vector2(40, -28))
     var name_tag := SlantTag.new(
-        "KENJI",
+        ContentRules.OPENING_SPEAKER,
         UiStyle.ACCENT_GRADIENT,
         UiStyle.CARD,
         30,
@@ -136,7 +124,7 @@ func _build_opening() -> void:
     )
     role_pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
     name_row.add_child(role_pill)
-    var role := UiStyle.label("Former software engineer", 16, UiStyle.INK_MUTED, 800)
+    var role := UiStyle.label(ContentRules.OPENING_ROLE, 16, UiStyle.INK_MUTED, 800)
     role.name = "Role"
     role_pill.add_child(role)
 

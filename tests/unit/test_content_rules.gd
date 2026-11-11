@@ -66,6 +66,11 @@ func test_diary_line_maps_the_first_and_last_day() -> void:
         "Whatever happens at the market, this is the first thing I chose for myself.",
     )
 
+func test_diary_line_clamps_out_of_range_day() -> void:
+    assert_eq(ContentRules.diary_line(0), ContentRules.diary_line(1))
+    assert_eq(ContentRules.diary_line(-5), ContentRules.diary_line(1))
+    assert_eq(ContentRules.diary_line(99), ContentRules.diary_line(GameRules.MAX_DAY))
+
 func test_watering_can_codes_complete_no_tutorial() -> void:
     assert_eq(
         ContentRules.tutorial_for_code(GameRules.CommandCode.WATERING_CAN_UPGRADED),
@@ -368,7 +373,7 @@ func test_result_tiers_cover_the_three_exact_titles_and_epilogues() -> void:
         },
         &"promising_farmer": {
             "title": "Promising Farmer",
-            "epilogue": "The books are finally in the green. For once, success needs no deployment.",
+            "epilogue": "The days are finally finding their rhythm. For once, success needs no deployment.",
         },
         &"heart_of_harvest": {
             "title": "Heart of the Harvest",

@@ -416,25 +416,29 @@ func test_intro_vn_box_keeps_authored_name_role_and_copy() -> void:
 		var text := name_tag.get_node_or_null("Text") as Label
 		if text != null:
 			assert_eq(
-				text.text, "KENJI",
+				text.text, ContentRules.OPENING_SPEAKER,
 				"the tag stores the stable uppercase source key, not a pre-translation",
 			)
 	var role := opening.find_child("Role", true, false) as Label
 	assert_not_null(role, "the intro keeps the role pill beside the name")
 	if role != null:
-		assert_eq(role.text, "Former software engineer")
-		assert_eq(
-			role.atr(role.text),
-			TranslationServer.translate("Former software engineer"),
-			"the role label localizes through Control auto-translation",
-		)
+		assert_eq(role.text, ContentRules.OPENING_ROLE)
+		for locale in ["zh_TW", "ja"]:
+			TranslationServer.set_locale(locale)
+			var translated := TranslationServer.translate(ContentRules.OPENING_ROLE)
+			assert_ne(translated, ContentRules.OPENING_ROLE, "role translates in %s" % locale)
+			assert_eq(
+				role.atr(role.text),
+				translated,
+				"the role label localizes through Control auto-translation in %s" % locale,
+			)
+		TranslationServer.set_locale("en")
 	var intro := opening.find_child("Intro", true, false) as Label
 	assert_not_null(intro)
 	if intro != null:
 		assert_eq(
 			intro.text,
-			"I won the lottery, left my software job in Tokyo, and bought a "
-				+ "field that looks like it hasn't seen a hoe in years.",
+			ContentRules.OPENING_INTRO,
 			"intro copy establishes the lottery/Tokyo/field premise",
 		)
 	var guide := opening.find_child("Guide", true, false) as Label
@@ -442,8 +446,7 @@ func test_intro_vn_box_keeps_authored_name_role_and_copy() -> void:
 	if guide != null:
 		assert_eq(
 			guide.text,
-			"The harvest market opens on Day 14. I have two weeks to grow "
-				+ "something—and maybe get to know the people in town.",
+			ContentRules.OPENING_GUIDE,
 			"guide copy names the Day 14 market and the two-week window",
 		)
 	var diary := opening.find_child("DiaryLine", true, false) as Label
