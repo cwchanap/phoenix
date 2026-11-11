@@ -70,7 +70,7 @@ func _physics_process(_delta: float) -> void:
     _update_visuals()
     _update_target()
 
-func _update_visuals() -> void:
+func _update_visuals(delta: float = 0.0, moving: bool = false) -> void:
     player_sprite.frame = int(facing)
 
 func _update_target() -> void:
