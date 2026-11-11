@@ -1,53 +1,62 @@
 # HPA-546 — Single-PR implementation and verification plan
 
-**Status:** Planning only. Continue implementation on the same draft PR after review; do not create a second implementation PR.
+**Status:** Review findings incorporated on 2026-11-11; implementation remains pending.
 **Linear:** https://linear.app/cwchanap/issue/HPA-546/game-feel-play-the-player-walk-cycle-while-moving
 **Companion design:** [2026-11-11-phoenix-player-walk-cycle-design.md](../specs/2026-11-11-phoenix-player-walk-cycle-design.md)
-**Dependency:** HPA-539 art is complete and committed. No new asset production is needed.
+**Dependency:** HPA-539 already delivered the redesigned art; no new asset generation.
+**Delivery:** Review, implement, test and verify on **this same HPA-546 draft PR**, not a second PR.
 
 ## Current main baseline
 
-- `player.tscn`: old `proof-player.png`, `hframes = 4`, DOWN default `frame = 2`, offset `(0, -24)`; `Shadow` and `CollisionPolygon2D` are existing siblings.
-- `player_controller.gd`: `_physics_process(_delta)` sets velocity, calls `move_and_slide()` and `_update_visuals()`; the latter sets `frame = int(facing)`. `set_input_enabled(false)` only zeroes velocity; `enter_map()` zeroes velocity/resets facing and then repaints.
-- `tests/integration/test_gameplay_shell.gd` already checks `set_input_enabled(false)` stops the body (around line 496), and map reload currently pins the old DOWN frame index (around line 4058).
-- `tests/headless/world_shell_smoke.gd` expects the **old** proof-player dimensions in `EXPECTED_ASSETS` and checks the player's four horizontal frames/offset (around line 669).
-- `WorldShell._update_input_enabled()` already calls `player.set_input_enabled(...)` whenever HUD modal state changes; map travel calls `player.enter_map(...)` on the persistent Player. No new signal or world-shell integration is required.
-- HPA-539's `tests/visual/hpa-539/README.md` is authoritative for the redesigned sheet and recommended `1 → 2 → 3 → 2` cadence. Ignore the stale pixel-identical-idle sentence in HPA-546: it predates the accepted redesign. The screenshot-golden gate has been retired.
+- `scenes/player/player.tscn` still displays the 128×48 `proof-player.png` with `hframes=4`, DOWN default `frame=2` and offset `(0,-24)`.
+- `scripts/player/player_controller.gd` sets requested `velocity`, calls `move_and_slide()` and sets the static facing frame. `set_input_enabled(false)` only zeroes velocity; `enter_map()` resets DOWN facing and zero velocity.
+- **The existing gate is level-triggered:** `WorldShell._refresh_from_session()` calls `_refresh_world_input_gate()` (`scripts/world/world_shell.gd:218-236`), which calls `player.set_input_enabled(_world_input_enabled)` on every session refresh. The passive clock can cause refreshes roughly every 0.5s during gameplay. Calls with `true` must **not** reset the walk timer or pose.
+- GUT `tests/integration/test_gameplay_shell.gd` checks disabled movement (around line 496) and map reload (around 4058, with the old facing-only index); headless `tests/headless/world_shell_smoke.gd` owns all scene/texture/asset-dimension pins (manifest around line 12 and player around 669). Do not duplicate sprite-config tests in GUT.
+- `scripts/world/farm_action_effects.gd::TOOL_FACING` has player-local hoe/watering anchors fitted to the old proof art, pinned in `tests/integration/test_gameplay_shell.gd` (around lines 2195 and 2232-2237). Visual acceptance must verify and, if misaligned, retune those anchors on **this PR**.
+- HPA-539 `tests/visual/hpa-539/README.md` documents the 128×192, 4×4 sheet and **1 → 2 → 3 → 2** at 8 fps. It explicitly replaces the old idle pose with new art. Phoenix no longer has a screenshot-golden gate.
 
-## Step 1 — Wire the delivered sheet and implement the minimal playback
+## Step 1 — Write red GUT behavior tests first
 
-**Files:** `scenes/player/player.tscn`, `scripts/player/player_controller.gd`.
+**File:** `tests/integration/test_gameplay_shell.gd`.
 
-1. Switch the sprite's resource to `res://assets/sprites/player-walk.png`. Set `hframes = 4` and `vframes = 4`, preserve `offset = Vector2(0, -24)`, and start at DOWN idle (`frame = 8`). No added scene nodes.
-2. Add a fixed `WALK_FPS = 8.0` constant, a four-entry sequence `[1, 2, 3, 2]`, and one elapsed-seconds member to `PlayerController`. Inside `_physics_process(delta)`, after `move_and_slide()` call the existing visual updater with `delta`. Map sprite row by `int(facing) * 4`; use the sequence index from elapsed time and reset elapsed time when velocity reaches zero. Make the first moving pose column 1. Do not tie playback to rendered frames or elapsed real-world wall time.
-3. Extend the existing visual updater (optionally `delta: float = 0.0` for its call sites) rather than adding a second animation component. On `set_input_enabled(false)` zero velocity, repaint idle, and reset phase **synchronously**. `enter_map()` similarly resets phase via its zero-velocity visual update. Keep the disabled physics branch gated as-is.
-4. Avoid touching `WorldShell`, camera, session, input mappings, save fields, movement speed, collider, shadow, or tool FX code unless a concrete regression is demonstrated.
+1. Reuse the existing world/player GUT fixture. Add deterministic cadence tests calling the existing `PlayerController._update_visuals(delta: float = 0.0, moving: bool = false)` seam **once implementation exists**, with `facing` set explicitly and `delta = 0.125`. First moving call displays walk column 1; subsequent calls show 2, 3, 2 and wrap. Verify each row via `int(facing) * 4 + column` and preserve phase when changing direction. The seam is intentionally trivial; do not create a new animator/test harness.
+2. Exercise stop: `_update_visuals(0.0, false)` immediately paints column 0 in the retained facing; the next moving call restarts column 1. Test the pose, not `_walk_seconds`.
+3. Extend `test_set_input_enabled_false_zeros_and_stops_player_movement`: establish a non-idle pose, call `set_input_enabled(false)` and immediately assert zero velocity and idle frame; re-enable and assert that the next movement starts column 1. Retain the existing real-physics no-motion assertion.
+4. **New regression:** while moving and at a non-idle pose, call `player.set_input_enabled(true)` (or `world._refresh_from_session()`) repeatedly. Assert current sprite frame and subsequent walk step continue unchanged. This protects against the recurring level-triggered passive-clock and action refresh path.
+5. Extend the map-reload regression: change its old DOWN frame expectation from `int(WorldMath.Facing.DOWN)` to `int(WorldMath.Facing.DOWN) * 4`; after `world.load_map()` call `_update_visuals(0.125, true)` and assert DOWN column 1. Do not inspect the internal timer.
+6. Preserve one real `_physics_process`-driven movement/blocked-input integration path in addition to the deterministic seam tests. The seam should not replace an assertion that actual player input drives walking.
 
-**Checkpoint:** Open the existing scene, move one direction, stop, open a modal mid-stride, and change maps. Confirm the correct row/column and no frame is frozen by a modal.
+**Red checkpoint:** Land/commit the tests **before** changing the scene or controller. The new tests should fail against old frame mapping/missing behavior. Existing static syntax and unchanged regression tests remain runnable; no need for a separate PR.
 
-## Step 2 — Update existing deterministic regression tests
+## Step 2 — Minimal scene and controller changes to green
 
-**Files:** `tests/integration/test_gameplay_shell.gd` and `tests/headless/world_shell_smoke.gd`.
+**Files:** `scenes/player/player.tscn`, `scripts/player/player_controller.gd`, `tests/headless/world_shell_smoke.gd`.
 
-1. Add focused GUT coverage to `test_gameplay_shell.gd`. Instantiate the existing world/player fixture and check the actual scene texture resource path, `hframes/vframes`, and initial DOWN idle index 8.
-2. Exercise visual advancement with controlled `delta` and movement velocity (or the smallest test seam already exposed by `PlayerController`): at time zero show column 1, then 2, 3, 2, then loop. Check rows for all four `WorldMath.Facing` values. Check a stop leaves the last facing unchanged at column 0 and resets phase for the next walk.
-3. Extend `test_set_input_enabled_false_zeros_and_stops_player_movement` to first advance into a non-idle pose; invoke `set_input_enabled(false)` and immediately assert velocity zero, idle index, and no stale walk phase. After enable, the next walk begins at column 1. Existing modal tests should still pass without special HUD wiring.
-4. Change the existing map-reload frame assertion from `int(WorldMath.Facing.DOWN)` to `int(WorldMath.Facing.DOWN) * 4`; assert phase is cleared on `enter_map()` / travel, not merely that the old facing was restored.
-5. In `world_shell_smoke.gd` replace the proof-player asset in `EXPECTED_ASSETS` with `player-walk.png` (128×192). Pin sprite texture path, `hframes = 4`, `vframes = 4`, initial DOWN idle `frame = 8`, and unchanged offset. Keep old speed, projection, geometry, collision, and Y-sort assertions intact. Search the other GUT/GdUnit/e2e tests for assumptions that frame equals facing and change only affected assertions.
+1. Point `Sprite2D` to the committed `player-walk.png`. Set `hframes=4`, `vframes=4` and authored DOWN idle `frame=8`; preserve `offset=(0,-24)`, shadow and collider. Update the headless asset manifest to `player-walk.png` at `128×192` and the existing live sprite checks for texture path, columns, rows, idle frame and offset.
+2. Add only `WALK_FPS := 8.0`, the sequence `[1,2,3,2]`, and one elapsed-seconds member to `PlayerController`. Use `int(facing) * player_sprite.hframes + column`; obtain column using the elapsed index **before** adding the current physics delta, so the initial moving pose is 1.
+3. After `move_and_slide()` call `_update_visuals(delta, get_real_velocity().length() > 1.0)`. Godot's real velocity checks actual movement rather than residual requested `velocity` at blockers. Keep the updater signature `_update_visuals(delta: float = 0.0, moving: bool = false)` so GUT can test exact `0.125`-second boundaries without waiting for physics frames.
+4. Reset phase and repaint idle only in the disabled `if not enabled:` branch of `set_input_enabled`, plus normal stop and `enter_map()`. On **every** `set_input_enabled(true)` call, preserve the current phase and frame. Preserve the early return in disabled physics frames; do not edit the world input gate.
+5. Keep changes inside the existing scene/controller plus test assertions; no `AnimatedSprite2D`, Tween loop, state machine, new owner, global service, save field, movement/camera/physics retuning, or localization.
 
-**Checkpoint:** Movement/idle/gate/map-reload tests fail against the old frame mapping and pass against the updated scene/controller. No new animation framework or separate test suite.
+**Green checkpoint:** GUT behavior, headless sprite checks and existing world/input regressions pass against the newly displayed sprite.
 
-## Step 3 — Cleanup and handoff
+## Step 3 — Delete obsolete proof art and update the handoff
 
-**Files:** `CLAUDE.md` and, **only if unreferenced**, `assets/sprites/proof-player.png` and `assets/sprites/proof-player.png.import`.
+**Files:** `assets/sprites/proof-player.png`, `assets/sprites/proof-player.png.import`, `CLAUDE.md`.
 
-1. Run `rg -n 'proof-player\.png|player_sprite\.frame|frame = int\(facing\)' .` on the updated implementation checkout. Distinguish live runtime/test references from historical docs. Remove the old proof sprite plus import sidecar only when every live reference has been replaced.
-2. Update the current-assets sentence in `CLAUDE.md` so the walk sheet is listed as the live player texture and the remaining proof sprites are described accurately. Do not alter the historical HPA-539 visual handoff, which documents art production at the time of delivery.
-3. Record the selected pacing (8 fps) and any visual limitations on this PR. No generated art or audio and no new Linear issue are needed unless the manual review exposes a **separate** art/SFX request.
+1. On the implementation checkout, run `rg -n 'proof-player\.png|player_sprite\.frame|frame = int\(facing\)' .`. Replace all live references in code/tests; do not change old HPA-458/HPA-539 provenance docs.
+2. **Delete** the old player PNG **and** its `.import` sidecar on this PR once live references are gone. This is not optional cleanup; report any unexpected live dependency and update it before removal.
+3. Update `CLAUDE.md`'s current-assets statement to describe `player-walk.png` as the active player sprite, while retaining accurate descriptions for other `proof-*` textures.
+
+## Step 4 — Verify visual regression and tool overlay alignment on this PR
+
+1. Run the game at native 1920×1080 and inspect UP/RIGHT/DOWN/LEFT walk and idle, stop/start, modal opened mid-stride, farm↔town travel, feet/shadow/occlusion.
+2. **Explicit acceptance for HPA-459 hoe and watering-can overlays:** inspect their attachment against the new farmer in all facings. If one or more anchors are misaligned, adjust only `FarmActionEffects.TOOL_FACING` (existing position table) on this branch and update its existing `test_gameplay_shell.gd` anchor assertions at the same time. Rerun the focused test. Do **not** ship a known misalignment or defer its fix to a second ticket/PR.
+3. No new overlay art, sprite generation, tool-animation framework or footstep SFX. Any **new art or SFX** request gets its own ticket.
 
 ## Verification on committed HEAD
 
-`./tools/verify-clean.sh` archives the committed `HEAD`, **not** an uncommitted worktree; commit implementation/test checkpoints before invoking it. Execute:
+`./tools/verify-clean.sh` archives committed `HEAD`, not the uncommitted worktree. Commit the red-test and green-implementation checkpoints before claiming a clean pass. Execute:
 
 ```bash
 ./tools/verify-clean.sh
@@ -60,15 +69,15 @@ godot --headless --path . --export-release "macOS" build/Phoenix.zip
 unzip -l build/Phoenix.zip | grep -F "Phoenix.app/Contents/MacOS/Phoenix"
 ```
 
-Then manually run `scenes/app/app.tscn` at native 1920×1080 (and optionally 960×540) and inspect: UP/RIGHT/DOWN/LEFT while walking and still; repeated starts/stops; a modal opened while moving; farm↔town truck travel; feet/shadow aligned with ground and Y-sorted props; hoe and watering-can overlays against the redesigned silhouette. These are visual acceptance checks, **not** screenshot-golden updates.
+Document which gates actually passed; do not claim a manual native inspection without performing it. There is **no screenshot-golden** gate.
 
 ## Done when
 
-- [ ] The new 4×4 sheet drives every directional idle/walk frame at 8 fps.
-- [ ] Zero velocity, blocking input, and map entry all reset to correct idle without stale movement.
-- [ ] Focused GUT and updated headless sprite assertions pass; existing GdUnit4/e2e behavior passes.
-- [ ] Native farm/town manual inspection accepts the redesigned character, contact/occlusion, and tool overlays.
-- [ ] Current handoff/asset references are accurate; unused proof-player is removed only if safe.
-- [ ] Implementation is committed to **this same HPA-546 PR**, reviewed, and then made ready; no follow-up implementation PR.
+- [ ] Existing GUT tests prove 1→2→3→2 cadence at 8 fps for each facing, stop-to-idle, disable-to-idle, **no reset on repeated true**, and a fresh start after map reload.
+- [ ] Existing headless smoke pins the redesigned walk sheet's dimensions, configuration, DOWN idle index, ground-contact geometry.
+- [ ] GUT/headless, GdUnit4, godot-e2e, import and unsigned macOS export regressions are green.
+- [ ] Farm/town visual review accepts redesigned farmer and hoe/watering overlay alignment; any required `TOOL_FACING` retuning and its existing tests land on **this same PR**.
+- [ ] Obsolete `proof-player.png` and `.import` are removed; current `CLAUDE.md` handoff is correct.
+- [ ] Implementation remains on PR #40; no additional PR tied to HPA-546.
 
-**Out of scope:** New sprites, animation state machines, audio, villager motion, gameplay balance, persistence migration, and screenshot-golden infrastructure.
+**Out of scope:** New art, new audio/SFX, villager animation, game balance, save migrations, generic animation framework, screenshot-golden infrastructure.
