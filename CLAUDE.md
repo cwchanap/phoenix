@@ -340,6 +340,11 @@ check remain open.
 
 ## Headless workflow
 
+Godot's `user://` data is shared across Phoenix checkouts. Tests can write
+the default `phoenix-settings.cfg` and remove fixture files there. On macOS,
+set `HOME` to a separate temporary directory when running test commands to
+protect the real player settings and saves.
+
 Run the one clean Godot verifier from the repository root:
 
 ```bash
