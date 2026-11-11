@@ -18,10 +18,10 @@ const CROP_TEXTURE: Texture2D = preload("res://assets/sprites/proof-crops.png")
 
 # tests/visual/hpa-458/README.md tool-facing contract, encoded exactly once.
 const TOOL_FACING := {
-    WorldMath.Facing.UP: {"frame": 1, "flip": false, "anchor": Vector2(0, -22)},
-    WorldMath.Facing.RIGHT: {"frame": 2, "flip": false, "anchor": Vector2(10, -21)},
-    WorldMath.Facing.DOWN: {"frame": 0, "flip": false, "anchor": Vector2(4, -16)},
-    WorldMath.Facing.LEFT: {"frame": 2, "flip": true, "anchor": Vector2(-10, -21)},
+    WorldMath.Facing.UP: {"frame": 1, "flip": false, "anchor": Vector2(6, -16)},
+    WorldMath.Facing.RIGHT: {"frame": 2, "flip": false, "anchor": Vector2(10, -15)},
+    WorldMath.Facing.DOWN: {"frame": 0, "flip": false, "anchor": Vector2(10, -12)},
+    WorldMath.Facing.LEFT: {"frame": 2, "flip": true, "anchor": Vector2(-10, -15)},
 }
 
 const TOOL_MOTION_SECONDS := 0.15
