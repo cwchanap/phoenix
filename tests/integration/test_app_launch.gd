@@ -248,11 +248,21 @@ func test_continue_restores_one_dry_night_and_wither_summary() -> void:
     title.continue_requested.emit()
     await get_tree().process_frame
 
-    var restored := _stop_world_clock(app)._session.state()
+    var world := _stop_world_clock(app)
+    var restored := world._session.state()
     assert_eq(restored, saved_state)
     assert_null(restored["farm"][0]["crop"])
     assert_eq(restored["farm"][1]["crop"]["dry_nights"], 1)
     assert_eq(restored["pending_morning_summary"]["crops_withered"], 1)
+    var summary := world.hud.get_node(
+        "HudRoot/MorningSummaryPanel"
+    ) as MorningSummaryPanel
+    assert_true(summary.visible)
+    assert_eq(
+        summary.summary_state()["diary_line"],
+        ContentRules.diary_line(int(restored["pending_morning_summary"]["next_day"])),
+        "the restored pending summary renders the next day's diary",
+    )
 
 func test_continue_with_completed_finale_shows_result_screen() -> void:
     var repository := SaveRepository.new(TEST_PATH)
@@ -295,6 +305,11 @@ func test_continue_with_completed_finale_shows_result_screen() -> void:
     assert_eq(result_state["hearts"][&"farmer"], [false, false, false])
     assert_eq(result_state["hearts"][&"resident"], [true, true, true])
     assert_eq(result_state["title"], expected["title"])
+    assert_eq(
+        result_state["tier_line"],
+        expected["epilogue"],
+        "completed-run Continue renders the tier epilogue",
+    )
     assert_eq(
         result_state["stats"],
         [

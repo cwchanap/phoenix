@@ -31,6 +31,7 @@ var _shipment_compact: VBoxContainer
 var _compact_rows: Array[Dictionary] = []
 var _shipment_empty: Label
 var _money: Label
+var _diary_line: Label
 var _action_text: Label
 var _save_status: Label
 var _save_status_card: PanelContainer
@@ -105,6 +106,7 @@ func present(summary: Dictionary) -> void:
 			_render_shipment_row(row, shipments[index])
 
 	_money.text = "%dG" % int(summary.get("money_after_shipping", 0))
+	_diary_line.text = ContentRules.diary_line(next_day)
 	_action_text.text = tr("START DAY %d") % next_day
 	visible = true
 
@@ -228,6 +230,7 @@ func summary_state() -> Dictionary:
 		"shipment_mode": shipment_mode,
 		"shipments": shipments,
 		"money_text": _money.text,
+		"diary_line": _diary_line.text,
 		"action_text": _action_text.text,
 		"save_badge_visible": _save_badge.visible,
 	}
@@ -329,6 +332,12 @@ func _build() -> void:
 	_money.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	balance.add_child(_money)
 	column.add_child(bank["card"])
+
+	_diary_line = UiStyle.shadowed_label("", 16, 600)
+	_diary_line.name = "DiaryLine"
+	_diary_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_diary_line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.add_child(_diary_line)
 
 	var spacer := Control.new()
 	spacer.name = "Spacer"
