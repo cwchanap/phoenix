@@ -4,6 +4,17 @@ extends RefCounted
 const PROMISING_SHIPPED_VALUE := 150
 const HEART_SHIPPED_VALUE := 300
 
+const OPENING_INTRO := (
+    "I won the lottery, left my software job in Tokyo, and bought a "
+    + "field that looks like it hasn't seen a hoe in years."
+)
+const OPENING_GUIDE := (
+    "The harvest market opens on Day 14. I have two weeks to grow "
+    + "something—and maybe get to know the people in town."
+)
+const OPENING_SPEAKER := "KENJI"
+const OPENING_ROLE := "Former software engineer"
+
 const RESULT_TIERS: Dictionary = {
     &"new_beginning": {
         "title": "New Beginning",
@@ -11,7 +22,7 @@ const RESULT_TIERS: Dictionary = {
     },
     &"promising_farmer": {
         "title": "Promising Farmer",
-        "epilogue": "The books are finally in the green. For once, success needs no deployment.",
+        "epilogue": "The days are finally finding their rhythm. For once, success needs no deployment.",
     },
     &"heart_of_harvest": {
         "title": "Heart of the Harvest",
@@ -38,8 +49,10 @@ const DIARY_LINES: Array[String] = [
 
 static func diary_line(day: int) -> String:
     assert(DIARY_LINES.size() == GameRules.MAX_DAY)
-    assert(day >= 1 and day <= GameRules.MAX_DAY)
-    return DIARY_LINES[day - 1]
+    if DIARY_LINES.is_empty():
+        return ""
+    var clamped_day := clampi(day, 1, DIARY_LINES.size())
+    return DIARY_LINES[clamped_day - 1]
 
 const TUTORIALS: Array[Dictionary] = [
     {

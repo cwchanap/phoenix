@@ -1,6 +1,6 @@
 # HPA-684 — Quiet Field diary/copy: single-PR implementation and verification plan
 
-**Status:** Planning-only revision after [first GitHub review](https://github.com/cwchanap/phoenix/pull/39#pullrequestreview-5836415721) and [latest re-review](https://github.com/cwchanap/phoenix/pull/39#pullrequestreview-5837125366). No feature code or test results are claimed.
+**Status:** Implemented on this PR — content, localization, UI wiring, and test verification complete.
 **Linear:** https://linear.app/cwchanap/issue/HPA-684/add-the-players-morning-diary-and-rewrite-openingresult-copy-for-the
 **Companion design:** [2026-11-09-phoenix-quiet-field-diary-design.md](../specs/2026-11-09-phoenix-quiet-field-diary-design.md)
 **Delivery:** One HPA-684 issue → one PR. Implement in **this same PR** after the design is reviewed. No separate implementation PR.
