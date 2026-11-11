@@ -54,6 +54,18 @@ func test_tutorial_helpers_derive_from_the_table() -> void:
         assert_false(progress[id])
     assert_eq(ContentRules.tutorial_for_code(GameRules.CommandCode.SEED_SELECTED), &"")
 
+func test_diary_lines_pin_one_nonempty_line_per_day() -> void:
+    assert_eq(ContentRules.DIARY_LINES.size(), GameRules.MAX_DAY)
+    for day in range(1, GameRules.MAX_DAY + 1):
+        assert_ne(ContentRules.diary_line(day).strip_edges(), "", "day %d has no diary line" % day)
+
+func test_diary_line_maps_the_first_and_last_day() -> void:
+    assert_eq(ContentRules.diary_line(1), "No stand-up. No sprint. Just an enormous field and me.")
+    assert_eq(
+        ContentRules.diary_line(GameRules.MAX_DAY),
+        "Whatever happens at the market, this is the first thing I chose for myself.",
+    )
+
 func test_watering_can_codes_complete_no_tutorial() -> void:
     assert_eq(
         ContentRules.tutorial_for_code(GameRules.CommandCode.WATERING_CAN_UPGRADED),
@@ -347,6 +359,43 @@ func test_harvest_result_titles_and_closest_villager_summary() -> void:
     # The strongest relationship names the closest-villager summary.
     var result := _result_for([0, 0, 0], [0, 0, VillagerRules.CLOSE_FRIEND_POINTS])
     assert_eq(result["villager"], "Hana")
+
+func test_result_tiers_cover_the_three_exact_titles_and_epilogues() -> void:
+    var expected := {
+        &"new_beginning": {
+            "title": "New Beginning",
+            "epilogue": "The lottery bought the land. Choosing to stay is a different kind of win.",
+        },
+        &"promising_farmer": {
+            "title": "Promising Farmer",
+            "epilogue": "The books are finally in the green. For once, success needs no deployment.",
+        },
+        &"heart_of_harvest": {
+            "title": "Heart of the Harvest",
+            "epilogue": "The field grew crops. The friendships made it feel like home.",
+        },
+    }
+    assert_eq(ContentRules.RESULT_TIERS.size(), expected.size())
+    for tier in expected:
+        var definition: Dictionary = ContentRules.RESULT_TIERS.get(tier, {})
+        assert_eq(definition.size(), 2, "%s carries only title and epilogue" % tier)
+        assert_eq(definition.get("title", ""), expected[tier]["title"], "%s title" % tier)
+        assert_eq(definition.get("epilogue", ""), expected[tier]["epilogue"], "%s epilogue" % tier)
+
+func test_harvest_result_reads_the_tier_title_and_epilogue_from_the_table() -> void:
+    var cases := [
+        {"shipped": [0, 1, 0], "points": [0, 0, 0], "tier": &"new_beginning"},
+        {"shipped": [0, 2, 0], "points": [0, 0, 0], "tier": &"promising_farmer"},
+        {
+            "shipped": [0, 4, 0],
+            "points": [0, 0, VillagerRules.CLOSE_FRIEND_POINTS],
+            "tier": &"heart_of_harvest",
+        },
+    ]
+    for case in cases:
+        var result := _result_for(case["shipped"], case["points"])
+        assert_eq(result["title"], ContentRules.RESULT_TIERS[case["tier"]]["title"])
+        assert_eq(result["epilogue"], ContentRules.RESULT_TIERS[case["tier"]]["epilogue"])
 
 func test_harvest_result_carries_every_villager_level_and_line() -> void:
     # Mixed final levels: one Close Friend, one Friend, one Stranger.

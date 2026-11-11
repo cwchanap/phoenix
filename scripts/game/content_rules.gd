@@ -4,6 +4,43 @@ extends RefCounted
 const PROMISING_SHIPPED_VALUE := 150
 const HEART_SHIPPED_VALUE := 300
 
+const RESULT_TIERS: Dictionary = {
+    &"new_beginning": {
+        "title": "New Beginning",
+        "epilogue": "The lottery bought the land. Choosing to stay is a different kind of win.",
+    },
+    &"promising_farmer": {
+        "title": "Promising Farmer",
+        "epilogue": "The books are finally in the green. For once, success needs no deployment.",
+    },
+    &"heart_of_harvest": {
+        "title": "Heart of the Harvest",
+        "epilogue": "The field grew crops. The friendships made it feel like home.",
+    },
+}
+
+const DIARY_LINES: Array[String] = [
+    "No stand-up. No sprint. Just an enormous field and me.",
+    "The weeds don't use issue trackers. They still find every edge case.",
+    "The land was easy to buy. Figuring out how to care for it is another matter.",
+    "There's a road to town. I should probably remember how to talk to people.",
+    "The town has a seed shop. Predictable prices—imagine that.",
+    "I could stop by the café. Conversations don't need ticket numbers.",
+    "A week in. The silence is starting to sound less like a warning.",
+    "I can usually tell which patch needs care without a dashboard.",
+    "There is no perfect farming algorithm. The soil keeps proving it.",
+    "The truck can take me to town. It can also bring me home.",
+    "The place is still rough around the edges. So am I.",
+    "The harvest market is close. The field gets the final review.",
+    "I used to count releases. Tomorrow I'll count what grew.",
+    "Whatever happens at the market, this is the first thing I chose for myself.",
+]
+
+static func diary_line(day: int) -> String:
+    assert(DIARY_LINES.size() == GameRules.MAX_DAY)
+    assert(day >= 1 and day <= GameRules.MAX_DAY)
+    return DIARY_LINES[day - 1]
+
 const TUTORIALS: Array[Dictionary] = [
     {
         "id": &"farm_basics",
@@ -214,17 +251,16 @@ static func build_harvest_result(state: Dictionary) -> Dictionary:
         }
 
     var tier := &"new_beginning"
-    var title := "New Beginning"
     if shipped_value >= HEART_SHIPPED_VALUE and has_close_friend:
         tier = &"heart_of_harvest"
-        title = "Heart of the Harvest"
     elif shipped_value >= PROMISING_SHIPPED_VALUE or has_friend:
         tier = &"promising_farmer"
-        title = "Promising Farmer"
 
+    var tier_definition: Dictionary = RESULT_TIERS[tier]
     return {
         "tier": tier,
-        "title": title,
+        "title": tier_definition["title"],
+        "epilogue": tier_definition["epilogue"],
         "shipped_count": shipped_count,
         "shipped_value": shipped_value,
         "final_money": int(state["money"]),
