@@ -9,7 +9,7 @@ const BANK_SOUTH_TILE := Vector2i(6, 0)
 const TERRAIN_TEXTURE_PATH := "res://assets/sprites/starting-farm-terrain.png"
 const PROPS_TEXTURE_PATH := "res://assets/sprites/starting-farm-props.png"
 const EXPECTED_ASSETS := [
-    {"path": "res://assets/sprites/player-walk.png", "size": Vector2i(128, 192), "hframes": 4},
+    {"path": "res://assets/sprites/player-walk.png", "size": Vector2i(128, 192), "hframes": 4, "vframes": 4},
     {"path": "res://assets/sprites/proof-scenery.png", "size": Vector2i(384, 96)},
     {"path": "res://assets/sprites/proof-soil.png", "size": Vector2i(128, 32)},
     {"path": "res://assets/sprites/proof-crops.png", "size": Vector2i(128, 144)},
@@ -673,7 +673,17 @@ func _run() -> void:
         return
     if not _expect(player_sprite.vframes == 4, "player frame rows"):
         return
-    if not _expect(player_sprite.frame == 8, "player authored DOWN idle frame"):
+    # _ready()/enter_map() repaint the frame, so the authored value can only be
+    # read on an instance that never entered the tree.
+    var authored_player := (load("res://scenes/player/player.tscn") as PackedScene).instantiate()
+    var authored_sprite := authored_player.get_node_or_null("Sprite2D") as Sprite2D
+    var authored_frame := -1
+    if authored_sprite != null:
+        authored_frame = authored_sprite.frame
+    authored_player.free()
+    if not _expect(authored_frame == 8, "player.tscn authored DOWN idle frame"):
+        return
+    if not _expect(player_sprite.frame == 8, "player repaints DOWN idle after enter_map"):
         return
     if not _expect(
         player_sprite.texture.resource_path == "res://assets/sprites/player-walk.png",
@@ -1354,23 +1364,29 @@ func _run() -> void:
         ):
             return
         var hframes: int = entry.get("hframes", 1)
+        var vframes: int = entry.get("vframes", 1)
         if not _expect(texture.get_width() % hframes == 0, "%s width divides by hframes" % entry.path):
+            return
+        if not _expect(texture.get_height() % vframes == 0, "%s height divides by vframes" % entry.path):
             return
         var image := texture.get_image()
         var frame_width := texture.get_width() / hframes
-        for frame in hframes:
-            var has_opaque := false
-            var has_transparent := false
-            for y in image.get_height():
-                for x in range(frame * frame_width, (frame + 1) * frame_width):
-                    if image.get_pixel(x, y).a > 0.0:
-                        has_opaque = true
-                    else:
-                        has_transparent = true
-            if not _expect(has_opaque, "%s frame %d has non-transparent pixels" % [entry.path, frame]):
-                return
-            if not _expect(has_transparent, "%s frame %d has transparent pixels" % [entry.path, frame]):
-                return
+        var frame_height := texture.get_height() / vframes
+        for row in vframes:
+            for column in hframes:
+                var has_opaque := false
+                var has_transparent := false
+                for y in range(row * frame_height, (row + 1) * frame_height):
+                    for x in range(column * frame_width, (column + 1) * frame_width):
+                        if image.get_pixel(x, y).a > 0.0:
+                            has_opaque = true
+                        else:
+                            has_transparent = true
+                var frame_label := "cell %d,%d" % [column, row]
+                if not _expect(has_opaque, "%s %s has non-transparent pixels" % [entry.path, frame_label]):
+                    return
+                if not _expect(has_transparent, "%s %s has transparent pixels" % [entry.path, frame_label]):
+                    return
 
     world.hud._sfx_player.stop()
     await create_timer(0.2).timeout

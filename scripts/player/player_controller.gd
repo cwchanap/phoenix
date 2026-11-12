@@ -3,11 +3,17 @@ extends CharacterBody2D
 
 const WALK_FPS := 8.0
 const WALK_CYCLE := [1, 2, 3, 2]
+# Real velocity can dip to zero for a tick or two while the player trades keys
+# or grazes a corner. Granting one 8 fps pose of rest grace keeps a direction
+# change from flashing idle and restarting the cycle; a genuine stop or a held
+# push against a blocker outlasts one pose and still lands on idle.
+const WALK_GRACE_SECONDS := 1.0 / WALK_FPS
 
 var facing: WorldMath.Facing = WorldMath.Facing.DOWN
 var _input_enabled := true
 var _map_size := Vector2i.ZERO
 var _walk_seconds := 0.0
+var _rest_seconds := WALK_GRACE_SECONDS
 
 @onready var player_sprite: Sprite2D = $Sprite2D
 @onready var player_collision: CollisionPolygon2D = $CollisionPolygon2D
@@ -28,6 +34,7 @@ func enter_map(spawn: Vector2, camera_bounds: Rect2, map_size: Vector2i) -> void
     global_position = WorldMath.grid_to_world(spawn)
     velocity = Vector2.ZERO
     facing = WorldMath.Facing.DOWN
+    _rest_seconds = WALK_GRACE_SECONDS
     _update_visuals()
     camera.zoom = Vector2.ONE * WorldContract.CAMERA_ZOOM
     camera.limit_left = int(camera_bounds.position.x)
@@ -41,6 +48,7 @@ func set_input_enabled(enabled: bool) -> void:
     _input_enabled = enabled
     if not enabled:
         velocity = Vector2.ZERO
+        _rest_seconds = WALK_GRACE_SECONDS
         _update_visuals()
 
 func current_target_cell() -> Variant:
@@ -72,7 +80,11 @@ func _physics_process(delta: float) -> void:
     facing = WorldMath.facing_for_input(input_vector, facing)
     velocity = input_vector * WorldContract.MOVE_SPEED
     move_and_slide()
-    _update_visuals(delta, get_real_velocity().length() > 1.0)
+    if get_real_velocity().length() > 1.0:
+        _rest_seconds = 0.0
+    else:
+        _rest_seconds += delta
+    _update_visuals(delta, _rest_seconds < WALK_GRACE_SECONDS)
     _update_target()
 
 func _update_visuals(delta: float = 0.0, moving: bool = false) -> void:
