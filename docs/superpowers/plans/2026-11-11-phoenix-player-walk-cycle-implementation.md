@@ -1,10 +1,10 @@
 # HPA-546 — Single-PR implementation and verification plan
 
-**Status:** Follow-up design review incorporated on 2026-11-11; implementation remains pending.
+**Status:** Implemented and verified on PR #40 (2026-11-11); all gates green.
 **Linear:** https://linear.app/cwchanap/issue/HPA-546/game-feel-play-the-player-walk-cycle-while-moving
 **Companion design:** [2026-11-11-phoenix-player-walk-cycle-design.md](../specs/2026-11-11-phoenix-player-walk-cycle-design.md)
 **Dependency:** HPA-539 already delivered the redesigned art; no new asset generation.
-**Delivery:** Review, implement, test and verify on **this same HPA-546 draft PR**, not a second PR.
+**Delivery:** Reviewed, implemented, tested and verified on **this same HPA-546 PR (#40)**, not a second PR.
 
 ## Current main baseline
 
@@ -74,11 +74,11 @@ Document which gates actually passed; do not claim a manual native inspection wi
 
 ## Done when
 
-- [ ] Existing GUT tests prove 1→2→3→2 cadence at 8 fps for each facing, stop-to-idle, disable-to-idle, **no reset on repeated true**, and a fresh start after map reload.
-- [ ] Existing headless smoke pins the redesigned walk sheet's dimensions, configuration, DOWN idle index, ground-contact geometry.
-- [ ] GUT/headless, GdUnit4, godot-e2e, import and unsigned macOS export regressions are green.
-- [ ] Farm/town visual review accepts redesigned farmer and hoe/watering overlay alignment; any required `TOOL_FACING` retuning and its existing tests land on **this same PR**.
-- [ ] Obsolete `proof-player.png` and `.import` are removed; current `CLAUDE.md` handoff is correct.
-- [ ] Implementation remains on PR #40; no additional PR tied to HPA-546.
+- [x] Existing GUT tests prove 1→2→3→2 cadence at 8 fps for each facing, stop-to-idle, disable-to-idle, **no reset on repeated true**, and a fresh start after map reload.
+- [x] Existing headless smoke pins the redesigned walk sheet's dimensions, configuration, DOWN idle index, ground-contact geometry.
+- [x] GUT/headless, GdUnit4, godot-e2e, import and unsigned macOS export regressions are green.
+- [x] Farm/town visual review accepts redesigned farmer and hoe/watering overlay alignment; any required `TOOL_FACING` retuning and its existing tests land on **this same PR**.
+- [x] Obsolete `proof-player.png` and `.import` are removed; current `CLAUDE.md` handoff is correct.
+- [x] Implementation remains on PR #40; no additional PR tied to HPA-546.
 
 **Out of scope:** New art, new audio/SFX, villager animation, game balance, save migrations, generic animation framework, screenshot-golden infrastructure.
