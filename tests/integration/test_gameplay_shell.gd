@@ -633,6 +633,68 @@ func test_update_visuals_stop_paints_idle_and_restart_begins_at_column_1() -> vo
         "the next moving call restarts at column 1",
     )
 
+func test_real_input_direction_change_across_a_still_tick_keeps_walk_phase() -> void:
+    _release_movement_actions()
+    var world := _world()
+    if world == null:
+        return
+    var player := world.player
+    assert_not_null(player)
+    if player == null:
+        return
+
+    player.global_position = WorldMath.grid_to_world(Vector2(12.5, 12.5))
+    player.velocity = Vector2.ZERO
+    await get_tree().physics_frame
+
+    Input.action_press("move_right")
+    for _i in 9:
+        await get_tree().physics_frame
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.RIGHT) * 4 + 2,
+        "nine real input ticks stand mid-stride on the RIGHT row",
+    )
+
+    # Releasing one key then pressing another spends a tick or two at zero
+    # velocity; the rest grace must carry the phase across that gap instead of
+    # flashing idle and restarting the cycle.
+    Input.action_release("move_right")
+    for _i in 2:
+        await get_tree().physics_frame
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.RIGHT) * 4 + 2,
+        "a still tick inside the rest grace holds the stride frame",
+    )
+
+    Input.action_press("move_down")
+    await get_tree().physics_frame
+    assert_eq(player.facing, WorldMath.Facing.DOWN, "the new input turns the player")
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.DOWN) * 4 + 2,
+        "the direction change continues the walk phase on the DOWN row",
+    )
+
+    Input.action_release("move_down")
+    for _i in 10:
+        await get_tree().physics_frame
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.DOWN) * 4,
+        "a rest past the grace lands on the idle column",
+    )
+
+    Input.action_press("move_down")
+    await get_tree().physics_frame
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.DOWN) * 4 + 1,
+        "walking after a genuine stop restarts at column 1",
+    )
+    _release_movement_actions()
+
 func test_repeated_enable_and_session_refresh_do_not_restart_walk() -> void:
     _release_movement_actions()
     var world := _world()
@@ -706,17 +768,19 @@ func test_wall_blocked_input_paints_idle_and_sliding_stays_animated() -> void:
         previous = player.global_position
     assert_true(blocked, "a real wall stops the pushed player")
     var contact := player.global_position
-    for _i in 4:
+    # The blocked pose goes idle only after the rest grace (one 8 fps pose)
+    # expires, so wait it out instead of asserting on the first still ticks.
+    for _i in 10:
         await get_tree().physics_frame
         assert_true(
             player.global_position.distance_to(contact) <= 0.0001,
             "input held against the wall produces no displacement",
         )
-        assert_eq(
-            player.player_sprite.frame,
-            int(WorldMath.Facing.RIGHT) * 4,
-            "input held against the wall paints the idle column",
-        )
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.RIGHT) * 4,
+        "input held against the wall paints the idle column",
+    )
 
     Input.action_press("move_up")
     var slide_start := player.global_position
@@ -740,7 +804,15 @@ func test_wall_blocked_input_paints_idle_and_sliding_stays_animated() -> void:
     assert_lt(player.player_sprite.frame, slide_row + 4)
     Input.action_release("move_up")
     Input.action_release("move_right")
-    await get_tree().physics_frame
+    # A rest longer than WALK_GRACE_SECONDS is a genuine stop and resets the
+    # phase; a shorter gap only exists inside a direction change.
+    for _i in 10:
+        await get_tree().physics_frame
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.RIGHT) * 4,
+        "stopping past the rest grace paints the idle column",
+    )
 
     Input.action_press("move_left")
     for _i in 3:
@@ -4492,6 +4564,14 @@ func test_truck_round_trip_swaps_maps_preserving_player_session_and_hud() -> voi
     assert_eq(hud.prompt_text(), "[E] Drive to town")
     var before_minutes: int = session.snapshot()["time_minutes"]
 
+    player._update_visuals(0.125, true)
+    player._update_visuals(0.125, true)
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.RIGHT) * 4 + 2,
+        "the drive begins mid-stride on the RIGHT row",
+    )
+
     world.interact()
 
     assert_eq(session.snapshot()["location"], GameRules.MapId.TOWN)
@@ -4520,6 +4600,18 @@ func test_truck_round_trip_swaps_maps_preserving_player_session_and_hud() -> voi
         player.global_position,
         WorldMath.grid_to_world(Vector2(TownContract.TRUCK_ARRIVAL) + Vector2(0.5, 0.5)),
         "town truck-side arrival",
+    )
+    assert_eq(player.facing, WorldMath.Facing.DOWN, "town arrival facing reset to DOWN")
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.DOWN) * 4,
+        "town arrival repaints DOWN idle",
+    )
+    player._update_visuals(0.125, true)
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.DOWN) * 4 + 1,
+        "the first moving update after the drive starts column 1",
     )
     assert_eq(
         Rect2(
@@ -4573,6 +4665,14 @@ func test_truck_round_trip_swaps_maps_preserving_player_session_and_hud() -> voi
     world._process(0.0)
     assert_eq(hud.prompt_text(), "[E] Drive home")
 
+    player._update_visuals(0.125, true)
+    player._update_visuals(0.125, true)
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.LEFT) * 4 + 2,
+        "the return drive begins mid-stride on the LEFT row",
+    )
+
     world.interact()
 
     assert_eq(session.snapshot()["location"], GameRules.MapId.FARM)
@@ -4597,6 +4697,18 @@ func test_truck_round_trip_swaps_maps_preserving_player_session_and_hud() -> voi
         player.global_position,
         WorldMath.grid_to_world(Vector2(WorldContract.TRUCK_ARRIVAL) + Vector2(0.5, 0.5)),
         "farm truck-side arrival",
+    )
+    assert_eq(player.facing, WorldMath.Facing.DOWN, "farm arrival facing reset to DOWN")
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.DOWN) * 4,
+        "farm arrival repaints DOWN idle",
+    )
+    player._update_visuals(0.125, true)
+    assert_eq(
+        player.player_sprite.frame,
+        int(WorldMath.Facing.DOWN) * 4 + 1,
+        "the first moving update after the return drive starts column 1",
     )
     assert_same(
         world.farm_view,
