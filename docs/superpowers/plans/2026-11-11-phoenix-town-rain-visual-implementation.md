@@ -13,7 +13,16 @@ Extend `tests/integration/test_gameplay_shell.gd` using existing `_world()`, `_r
 1. **Rainy travel:** restore rainy weather, refresh, assert world-level rain exists/is falling; drive to town with the real truck command, assert the **same** persistent rain renderer is still falling; drive home, assert it remains active. Keep passive clock disabled by the existing world fixture and do not fake the location by editing session internals.
 2. **Sunny travel:** restore sunny weather, refresh, assert no streaks; drive to town and assert the same renderer remains non-raining.
 
-The red-first tests must use `world.get_node_or_null("RainLayer")` as an untyped `Node2D` lookup, with a non-null assertion/guard, then call the existing intended `is_rain_falling` method only after the guard. The old baseline should fail because the shell renderer is absent, not because a new class is undefined.
+The red-first tests must use a **`Variant`** lookup, not `Node2D` or an as-yet-undefined `RainLayer` class; Godot 4's static checker rejects `Node2D.is_rain_falling()` before any assertion executes. Use a parse-safe dynamic-dispatch seam:
+
+```gdscript
+var rain: Variant = world.get_node_or_null("RainLayer")
+assert_not_null(rain)
+if rain != null:
+    assert_true(rain.is_rain_falling())
+```
+
+For the sunny case use `assert_false(rain.is_rain_falling())` after the same guard. On the old baseline the tests must fail with a **missing shell node assertion**, not a script parse error. After Task 2 introduces `class_name RainLayer` and the typed `WorldShell.rain_layer`, Task 3 can migrate assertions to `world.rain_layer.is_rain_falling()` while retaining the red-first proof.
 
 Do **not** add new snapshot nonmutation, town ripple-count or duplicate-map-ambience tests. Existing tests already cover presentation nonmutation and the farm's authored ripples; the revised architecture makes town ripples impossible without changing the town scene.
 
@@ -37,15 +46,18 @@ Do **not** add new snapshot nonmutation, town ripple-count or duplicate-map-ambi
   - `test_ambience_render_does_not_mutate_session_state`: **migrate** to `RainLayer.render(snapshot)` and rename for clarity; do not add a second duplicate nonmutation test.
   - Keep `test_game_hud_rain_playback_follows_world_refresh` and farm ripple tests as behavior guards, including existing always-on river audio.
 - Update the two three-child World-order pins (farm reload around lines 4402–4406 and town travel around lines 4626–4630) to assert four children in order: `FarmMap|TownMap`, `RainLayer`, `TargetHighlight`, `GameHud`. If the line positions have drifted, search by the assertion strings instead.
-- In `tests/headless/world_shell_smoke.gd`, change the World expected names/order from three to four. Keep its three farm ripple texture/geometry assertions; adjust the rain-related z-index check to the shell node (z=6 between farm effects/soil and highlight/entities) while preserving the existing farm ripple layer pin. No redundant sunny/rainy test in the smoke.
-- Run `rg 'ambience.render|HomesteadAmbience|is_rain_falling|World keeps exactly three|TargetHighlight.*GameHud'` to catch stale references and assertions before verification.
+- In `tests/headless/world_shell_smoke.gd`, update **both** World child-name/order assertions:
+  - **Initial farm load** (around lines **234–242**): `world_names := ["FarmMap", "RainLayer", "TargetHighlight", "GameHud"]`.
+  - **After real truck travel to town** (around lines **1036–1040**): `town_names := ["TownMap", "RainLayer", "TargetHighlight", "GameHud"]`.
+  - Keep the existing three farm-ripple texture/geometry assertions. Move the rain-related z-index check to the shell-owned `RainLayer` (z=6 between farm effects/soil and highlight/entities), while preserving the separate farm ripple-layer pin. No duplicate sunny/rainy test in the smoke.
+- Run `rg 'ambience.render|HomesteadAmbience|RAIN_DELTA_CLAMP|is_rain_falling|world_names|town_names|World keeps exactly three|TargetHighlight.*GameHud'` to catch stale references, **both** smoke World-order arrays, and documentation pins before verification.
 
 **Done when:** Existing behavior/ownership tests and headless scene smoke agree with the four-child shell. No old map-owned rain API consumers remain.
 
 ## Task 4 — Update only affected documentation and settle audio scope
 
 - Update the existing `README.md` passage describing the HPA-686 interim gap: rain streaks will now be shell-owned and visible in town; farm river ripples remain farm-only; rain tint/audio stay in HUD.
-- Update the `CLAUDE.md` map ownership and runtime-order descriptions, `WorldShell` refresh seam, the `HomesteadAmbience` section, and its older `HPA-686` weather-limitation paragraph.
+- Update the `CLAUDE.md` map ownership and runtime-order descriptions, `WorldShell` refresh seam, the `HomesteadAmbience` section, and its older `HPA-686` weather-limitation paragraph. **Also update the separate delta-clamp citation around line 182** from `HomesteadAmbience.RAIN_DELTA_CLAMP` to `RainLayer.RAIN_DELTA_CLAMP` after moving that constant; do not leave a stale source-of-truth reference.
 - **Explicit decision:** River audio continues to play while in town; it is an accepted pre-existing limitation outside this rain-visual task. Documentation must not imply that *all* river presentation is farm-only. No `GameHud` audio gating code, no sound assets and no localisation strings in this PR.
 
 **Done when:** The runtime handoff, PR description and issue all describe the same shell-owned rain behavior and documented town river audio.
