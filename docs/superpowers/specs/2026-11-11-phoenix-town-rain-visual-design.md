@@ -1,64 +1,67 @@
 # HPA-860 — Town rain streaks: design specification
 
-**Status:** Proposed, design review requested. This draft PR contains planning documents only; no runtime or test code has changed.
+**Status:** Revised after [PR #41 design review](https://github.com/cwchanap/phoenix/pull/41#pullrequestreview-5870418693); planning-only draft, no runtime code or tests implemented.
 **Linear:** https://linear.app/cwchanap/issue/HPA-860/show-existing-rain-streaks-in-town-without-farm-river-ripples
 **Baseline:** `main` after HPA-546 / PR #40, inspected 2026-11-11 (Vancouver).
-**Delivery:** One issue, one PR for the plan and subsequent implementation. No extra art/SFX task is needed because all presentation resources exist.
+**Delivery:** One issue → one PR for the plan and subsequent implementation. Existing art and audio are sufficient.
 
-## Player-facing outcome
+## Player-visible outcome
 
-The weather should not appear to switch off visually when the player drives from a rainy farm to the town. Rain streaks appear over both maps in rainy weather, disappear from both in sunny weather, and retain the existing subtle camera-following style. River ripples remain exclusively in the farm's river; town buildings/roads do not acquire artificial river effects.
+Rain should continue visually when Kenji drives from a rainy farm to town, without flickering into clear weather. Both maps show the same subtle, camera-relative rain streaks while weather is rainy and neither shows streaks during sun. The river's three ripple sprites remain exclusive to the farm.
 
-The 30-minute truck travel, shops, dialogue, relationship scores, weather rules, stamina, time, save schema, HUD rain tint and rain audio do not change.
+**Explicit audio decision:** Keep current audio routing unchanged. In particular, the existing `GameHud/RiverAmbience` stream plays in town as it does today, even though town has no river ripple sprites. This is an *accepted pre-existing audio limitation*, not a claim of full river ambience parity. Gate town river audio only in a separate, explicitly scoped follow-up if desired. Rain audio/tint remain HUD-owned and work across both maps.
 
-## Confirmed implementation boundary
+Truck travel (30 in-game minutes), shop/social interactions, weather probabilities, stamina, time, camera, save schema, and localisation must not change.
 
-- `scenes/world/farm_map.tscn` already owns `HomesteadAmbience` (z-index 6), running `scripts/world/homestead_ambience.gd`. The same node owns three river-ripple sprites and a deterministic 72-streak `_draw()` rain layer, positioned relative to the active `Camera2D`.
-- `scenes/world/town_map.tscn` has no ambience node today. It contains `Backdrop`, `Ground`, colliders, and the Y-sorted `Entities` root (z-index 20).
-- `WorldShell.load_map()` swaps `FarmMap`/`TownMap`, retains the Player/Camera2D/HUD/GameSession, then calls `_refresh_from_session(snapshot)`. That refresh calls `farm.ambience.render(snapshot)` *only* when the active map is a `FarmMap`.
-- `GameHud` already handles weather tint and the one rain audio player regardless of which map is installed. PR #38 records the town streaks as a known presentation-only gap.
+## Verified code baseline and ownership
 
-## Design: reuse one existing renderer, no framework
+- `scripts/world/homestead_ambience.gd` currently combines two independent visual effects:
+  - **Map-independent rain:** `_rain_offsets`, `render(snapshot)`, `is_rain_falling()`, `_process()`, `_draw()`, `_rain_span()`, `_world_view_size()`. Rain reads only the weather snapshot and active viewport camera (`WorldContract.CAMERA_ZOOM`).
+  - **Farm-only river ripples:** `_ripple_cells`, `RIPPLE_TEXTURE`, `_add_ripple()`, `_start_ripple_loop()`, `_show_frame()`; anchors derive from `WorldContract.RIVER_*_FOOTPRINT`.
+- `FarmMap` owns `HomesteadAmbience` at z=6; `TownMap` intentionally has no river/ambience node.
+- `WorldShell.load_map()` swaps map nodes and reparents the same player/camera; `_refresh_from_session(snapshot)` currently calls `farm.ambience.render(snapshot)` only on the farm.
+- `WorldShell` already owns a map-independent `TargetHighlight`, and `world.tscn` keeps `GameHud` outside either map. Existing HUD rain tint and audio follow the snapshot; river audio is not map-gated.
+- PR #38 documents missing town rain as an accepted interim rendering difference; [PR #41 review](https://github.com/cwchanap/phoenix/pull/41#pullrequestreview-5870418693) identified the map ownership issue in the initial HPA-860 design.
 
-1. Introduce a small exported Boolean on `HomesteadAmbience`, e.g. `@export var show_river_ripples: bool = true`. Only gate creation of the three ripple sprites and their Tweens in `_ready()`; preserve the deterministic rain offsets, `render(snapshot)`, `_process()`, `_draw()`, and farm default.
-2. Author a `HomesteadAmbience` child in `town_map.tscn` with the same script and `show_river_ripples = false`, at z-index 6. Retain the node name to keep both maps' minimal shared presentation seam; no extra audio nodes or assets. Although the class name is historical, renaming/extracting a generic ambience subsystem is unnecessary for this one new consumer.
-3. In `WorldShell._refresh_from_session()`, keep the farm-only `FarmView.refresh(snapshot)` branch, and apply `render(snapshot)` to the active map's `HomesteadAmbience` node for *both* maps. A direct typed child lookup (with a null guard) is sufficient. No extra `GameMap` virtual method, location state, signal bus, or weather manager.
-4. Map replacement naturally frees the old ambience node and its Tweens. Each new map's ambience receives the same session snapshot during `load_map()`; there is never more than one active map-owned rain layer.
-5. Keep existing layering: both ambience nodes at z=6, below the world target highlight (z=10) and Y-sorted entities (z=20). The HUD remains unchanged, with weather audio and tint applied there.
+## Accepted architecture — one persistent, shell-owned rain layer
 
-## Behavioral contract
+1. **Extract, do not duplicate:** Move the rain-specific constants, offset initialization, snapshot rendering, update, camera-relative drawing and helper methods from `homestead_ambience.gd` into one new `scripts/world/rain_layer.gd` (`class_name RainLayer extends Node2D`). Preserve the 72 deterministic streaks, color/velocity, delta clamp, camera logic and existing behavior.
+2. **Keep the farm class farm-only:** `HomesteadAmbience` retains only the existing river-ripple sprites and Tweens, and no longer has a `render(snapshot)` rain method. `scenes/world/farm_map.tscn` retains that node, z=6. `scenes/world/town_map.tscn` stays unchanged; it has no river ripples by construction. Do **not** add a `show_river_ripples` flag.
+3. **Give rain the correct lifetime:** Add exactly one authored `RainLayer` node in `scenes/world/world.tscn`, z=6, after the persistent Player and before `TargetHighlight`. After `WorldShell.load_map()` moves the current map to index 0 and reparents Player into it, runtime World children are `[FarmMap|TownMap, RainLayer, TargetHighlight, GameHud]`. The rain node remains the same instance across swaps; its animation phase does not restart just because the destination changes.
+4. **One direct refresh seam:** Add a typed `@onready var rain_layer: RainLayer = $RainLayer as RainLayer` in `WorldShell`. Call `rain_layer.render(snapshot)` unconditionally from `_refresh_from_session()`, outside the farm-only `FarmView.refresh(snapshot)` branch. `load_map()` already refreshes after map attachment and player/camera placement. There is no null-guarded map-node lookup and no silent skipped weather renderer.
+5. **Preserve layering:** Rain at z=6 remains above farm soil/effects (at or below z=5) and below shell `TargetHighlight` (z=10) and the map's Y-sorted `Entities` (z=20). Existing farm ripple z=6 remains unchanged. Validate appearance near both maps' camera edges and after travel.
+6. **No new infrastructure:** `GameSession` remains the sole weather authority, `GameHud` remains the only rain/river audio and weather-tint controller. No weather manager, signal bus, virtual `GameMap` method, extra map field or persisted state.
 
-| Active map | Weather | Rain streaks | River ripples |
-| --- | --- | --- | --- |
-| Farm | Rainy | Visible, animated | Present |
-| Farm | Sunny | Hidden | Present |
-| Town | Rainy | Visible, animated | Absent |
-| Town | Sunny | Hidden | Absent |
+## Behavior contract
 
-Travel in either direction rebinds the current snapshot on the newly-instantiated map. No gameplay state is modified by rendering. No copy of the rain draw logic is introduced.
+| Active map | Weather | Shell rain streaks | Map river ripples | Existing river audio |
+| --- | --- | --- | --- | --- |
+| Farm | Rainy | Visible, animated | Three | Playing as today |
+| Farm | Sunny | Hidden | Three | Playing as today |
+| Town | Rainy | Visible, animated | None | Playing as today (accepted limitation) |
+| Town | Sunny | Hidden | None | Playing as today (accepted limitation) |
 
-## Source files and tests
+Only one `RainLayer` lives at `World/RainLayer`. Its active weather state is refreshed from the same session snapshot whether the map is farm or town. World state is not mutated by visuals.
 
-**Runtime:**
-- `scripts/world/homestead_ambience.gd` — an exported ripple-creation switch, defaulting true.
-- `scenes/world/town_map.tscn` — authored rain child, same existing script, river ripples off.
-- `scripts/world/world_shell.gd` — refresh current map's ambience regardless of map type.
+## Files and test ownership
 
-**Regression:**
-- `tests/integration/test_gameplay_shell.gd` — verify rainy/sunny map states, truck transitions, missing town ripple children, farm ripple retention, and no state changes from presentation refresh. Reuse existing `_restore_weather` and travel helpers where practical. Tests must fail against the baseline for a real missing town layer, not because of an unresolved symbol.
-- `tests/headless/world_shell_smoke.gd` — add only the lightweight authored town ambience/flag/z-index scene contract as appropriate; do not repeat GUT behavior checks.
-- `README.md` and `CLAUDE.md` — correct the documented interim town-rain limitation and active-map refresh ownership *after* implementation.
+**Production:** `scripts/world/rain_layer.gd` (new), `scripts/world/homestead_ambience.gd` (ripples only), `scenes/world/world.tscn` (one persistent rain node), and `scripts/world/world_shell.gd` (typed reference + unconditional render). **No edit to `town_map.tscn` or `GameHud`.**
 
-No localisation keys change; no new player-facing copy. Existing rain WAV and ripple texture are retained.
+**Tests:**
+- `tests/integration/test_gameplay_shell.gd`: migrate existing rain-state, refresh, missing-camera and presentation-nonmutation tests from `HomesteadAmbience` to `RainLayer` instead of duplicating them. Add just two end-to-end tests using the existing weather-restore and real-truck helpers: (1) rainy farm → town → farm, rain active at every point and same persistent `RainLayer`; (2) sunny farm → town, rain inactive on both. The new test should fail *semantically* against the old baseline using a scene-path lookup, not a yet-undefined `RainLayer` symbol. Existing ripple scene checks already cover farm-only ripple behavior.
+- Update existing World child/order expectations from three to four in `tests/integration/test_gameplay_shell.gd` (farm reload, town travel) and `tests/headless/world_shell_smoke.gd`. Move the smoke rain/overlay z-order assertion to shell `RainLayer`, while keeping the farm ripple texture/count assertions.
+- No new town-ripple runtime test (there is no ripple node in the authored town scene), no duplicate nonmutation test, no screenshot-golden infrastructure.
 
-## Acceptance criteria
+**After implementation:** Adjust the short, relevant historical limitation/ownership passages in `README.md` and `CLAUDE.md`, explicitly retaining the known town river-*audio* behavior. No `strings.csv` change.
 
-1. macOS native Godot 4.7.1, 1920x1080: visually inspect sunny/rainy farm and town. A rainy farm-to-town drive keeps streaks visible without a visual jump to clear weather; town buildings, villagers, player, targets, and dialogs remain readable. A return drive restores the farm and its ripples. The ticket has no UI mockup; compare against the farm's existing rainfall appearance and screenshots.
-2. GUT exercises rainy/sunny rendering state after `load_map()`, absence of town `RiverRipple*` children, farm ripple presence, and no duplicate/stale map ambience following travel.
-3. The player, camera, HUD, weather rules, audio volume/routing, translations, travel mechanics, social interactions, and save data remain unchanged.
-4. `./tools/verify-clean.sh`, GdUnit4, godot-e2e, and the existing headless import + unsigned macOS export gates pass before implementation is called complete.
-5. Single PR for HPA-860, with no new art/SFX or speculative abstractions. Linux/Android rely on CI only; manual acceptance is for macOS.
+## End-to-end acceptance
 
-## Non-goals
+1. On **macOS**, inspect native Godot 4.7.1 at 1920×1080 in rainy/sunny farm and town. The same subtle rain remains animated across truck travel without weather flicker; camera movement, ground depth, player, villager, target, dialog, shop and market stay readable. Farm ripples remain and town has none. No HPA-860 UI mockup exists; compare visually with the previously accepted farm rain.
+2. Automated tests prove shell rain state across real travel, both weather states and the persistent single renderer. Existing farm-ripple and HUD audio/tint tests continue passing; existing session/nonmutation test is migrated.
+3. Gameplay, HUD audio (including pre-existing town river sound), localisation, save schema, travel and social/shop/finale behavior remain unchanged.
+4. Run `./tools/verify-clean.sh` locally from committed HEAD. Existing PR CI must pass its verify+unsigned macOS export, GdUnit4 and godot-e2e lanes; verify the exported macOS package. No redundant local execution of every CI lane is required.
+5. Exactly one HPA-860 draft→implementation PR. No new art, SFX, general weather framework or second renderer; Android/Linux manual acceptance is not required (CI only).
 
-No new rain particles or material shaders, rain collisions, terrain puddles, umbrellas, indoor shelter logic, weather balancing, river features in town, animation overhaul, persistence migration, or second rendering/audio system.
+## Out of scope
+
+New art/SFX, rain gameplay effects, town river-audio routing changes, shaders, weather balancing, puddles, indoor weather, camera redesign, state migration and additional rendering layers.
