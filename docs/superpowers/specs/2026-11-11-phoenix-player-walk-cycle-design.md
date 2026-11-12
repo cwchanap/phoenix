@@ -1,10 +1,10 @@
 # HPA-546 — Player walk-cycle animation: design specification
 
-**Status:** Design updated after review on 2026-11-11; runtime implementation has not started.
+**Status:** Implemented and verified on PR #40 (2026-11-11); unit/GdUnit4, E2E and macOS export gates pass.
 **Linear:** https://linear.app/cwchanap/issue/HPA-546/game-feel-play-the-player-walk-cycle-while-moving
 **Art prerequisite:** HPA-539 (Done; merged PR #27).
 **Baseline:** Phoenix `main` after HPA-684 / PR #39.
-**Delivery:** One HPA-546 issue → one PR. Implement on this same PR after design review.
+**Delivery:** One HPA-546 issue → one PR. Implemented on PR #40 after design review.
 
 ## Player experience
 
@@ -44,4 +44,4 @@ The farmer visibly walks in each of four isometric directions instead of sliding
 4. Tests are written before the implementation cutover; focused GUT proves cadence, stop/gate/no-reset-on-true and map reload behavior. Headless smoke owns scene/texture pins; GdUnit4 and godot-e2e regressions pass.
 5. Native 1080p farm-and-town visual inspection accepts the redesigned farmer, four directions, feet/shadow/occlusion and hoe/watering attachment. If anchors mismatch, they are retuned and existing anchor tests updated in **this PR**, not deferred.
 6. The obsolete proof sprite and import sidecar are removed after live-reference replacement. No new art, audio, animation framework, persistence or screenshot-golden infrastructure.
-7. One issue → one implementation PR (this draft PR).
+7. One issue → one implementation PR (PR #40).
