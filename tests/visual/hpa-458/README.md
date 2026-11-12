@@ -26,12 +26,12 @@ The accepted tool Sprite2D center positions, in Player-local pixels, are the sam
 
 | Facing | Tool frame | flip_h | local position |
 | --- | ---: | --- | --- |
-| UP | 1 (`UP`) | false | `(0, -22)` |
-| RIGHT | 2 (`SIDE`) | false | `(10, -21)` |
-| DOWN | 0 (`DOWN`) | false | `(4, -16)` |
-| LEFT | 2 (`SIDE`) | true | `(-10, -21)` |
+| UP | 1 (`UP`) | false | `(6, -16)` |
+| RIGHT | 2 (`SIDE`) | false | `(10, -15)` |
+| DOWN | 0 (`DOWN`) | false | `(10, -12)` |
+| LEFT | 2 (`SIDE`) | true | `(-10, -15)` |
 
-These positions were recovered from exact native-pixel composites against the 32x48 player frames (`Sprite2D.offset = (0, -24)`), not from a scaled mockup. HPA-459 may animate the child presentation around these anchors, but should not move the CharacterBody2D/root or invent a fourth directional texture.
+These positions were first recovered from exact native-pixel composites against `proof-player.png`'s 32x48 frames (`Sprite2D.offset = (0, -24)`), not from a scaled mockup. HPA-546 deleted `proof-player.png` when the redesigned `player-walk.png` farmer went live and retuned the anchors against the new silhouette in the same PR; the values above are the current contract encoded in `FarmActionEffects.TOOL_FACING`. HPA-459 may animate the child presentation around these anchors, but should not move the CharacterBody2D/root or invent a fourth directional texture.
 
 **Frame mapping (both tool strips):** frame 0 = `DOWN` pose, frame 1 = `UP` pose, frame 2 = `SIDE` pose. There is no strip playback: one frame is selected per facing and held for the action. Allowed transforms: `flip_h` on frame 2 for LEFT only; no rotation, no scaling.
 
