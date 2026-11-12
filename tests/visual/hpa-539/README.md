@@ -2,8 +2,9 @@
 
 The user requested a full character redesign after reviewing the first proof-preserving take.
 This supersedes the ticket's original pixel-identical-idle requirement: **column 0 now contains new idle art**.
-The committed `proof-player.png` remains unchanged, and the live scene still uses it.
-This PR remains art-only; [HPA-546](https://linear.app/cwchanap/issue/HPA-546/game-feel-play-the-player-walk-cycle-while-moving) owns runtime playback.
+At handoff the committed `proof-player.png` remained unchanged and the live scene still used it.
+HPA-546 later put this sheet live and deleted `proof-player.png`.
+This PR remained art-only; [HPA-546](https://linear.app/cwchanap/issue/HPA-546/game-feel-play-the-player-walk-cycle-while-moving) owned runtime playback.
 
 ## Character and frame contract
 

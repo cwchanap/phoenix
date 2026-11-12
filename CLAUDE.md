@@ -188,13 +188,16 @@ There is no JavaScript or Tauri runtime in the current checkout.
   deterministic test opt-out checked only at the `_process` call site;
   fixtures set it false so frames never tick.
 - `scripts/player/player_controller.gd` owns input sampling for
-  movement/facing/targeting only and a `CharacterBody2D` carrying the one
-  `Camera2D`. `WorldShell` reparents it into the active map's `Entities`
-  per load and calls `enter_map(spawn, camera_bounds, map_size)`, which
-  applies the map's placement, camera limits, and perimeter bounds and
-  repaints the bound `target_highlight` immediately. `move_and_slide()`
-  supplies Godot-native response against projected logical collision
-  polygons; do not port the old grid-axis resolver.
+  movement/facing/targeting plus the `player-walk.png` walk cycle
+  (4x4 facing rows, idle column 0, strides `1→2→3→2` at 8 poses/second
+  gated on real velocity with one pose of rest grace), on a
+  `CharacterBody2D` carrying the one `Camera2D`. `WorldShell` reparents it
+  into the active map's `Entities` per load and calls
+  `enter_map(spawn, camera_bounds, map_size)`, which applies the map's
+  placement, camera limits, and perimeter bounds, resets the walk to DOWN
+  idle, and repaints the bound `target_highlight` immediately.
+  `move_and_slide()` supplies Godot-native response against projected
+  logical collision polygons; do not port the old grid-axis resolver.
 - scripts/app/app_root.gd owns title/load/launch lifecycle and one concrete SaveRepository.
 - Completed-run Continue routes straight to `ResultScreen`; the AppRoot
   result teardown removes the live World with `remove_child()` then
@@ -341,9 +344,11 @@ check remain open.
 ## Headless workflow
 
 Godot's `user://` data is shared across Phoenix checkouts. Tests can write
-the default `phoenix-settings.cfg` and remove fixture files there. On macOS,
-set `HOME` to a separate temporary directory when running test commands to
-protect the real player settings and saves.
+the default `phoenix-settings.cfg` and remove fixture files there.
+`tools/verify-clean.sh` isolates `HOME` inside its temporary archive so the
+verifier never touches real player files. When running Godot test commands
+directly on macOS, set `HOME` to a separate temporary directory to protect
+the real player settings and saves.
 
 Run the one clean Godot verifier from the repository root:
 

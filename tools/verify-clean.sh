@@ -4,6 +4,12 @@ set -euo pipefail
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
+# Godot resolves user:// saves/settings under HOME: isolate it so the suite
+# never reads or wipes the real player files.
+export HOME="$tmp/home"
+unset XDG_CONFIG_HOME XDG_DATA_HOME XDG_CACHE_HOME
+mkdir -p "$HOME"
+
 git archive --format=tar HEAD | tar -xf - -C "$tmp"
 (
   cd "$tmp"
