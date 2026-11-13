@@ -32,6 +32,7 @@ var _clock_window_focused := true
 var _map: GameMap
 
 @onready var player: PlayerController = $Player as PlayerController
+@onready var rain_layer: RainLayer = $RainLayer as RainLayer
 @onready var hud: GameHud = $GameHud as GameHud
 
 var farm_view: FarmView:
@@ -218,10 +219,10 @@ func _advance_passive_clock(delta: float) -> void:
 func _refresh_from_session(snapshot: Dictionary = {}) -> void:
     if snapshot.is_empty():
         snapshot = _session.snapshot()
+    rain_layer.render(snapshot)
     var farm := _map as FarmMap
     if farm != null:
         farm.entities.refresh(snapshot)
-        farm.ambience.render(snapshot)
     hud.render(snapshot)
     _refresh_world_input_gate()
 
