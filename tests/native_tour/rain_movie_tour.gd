@@ -6,6 +6,10 @@ extends SceneTree
 ## discrete get_image captures in rain_tour.gd there are no gaps between
 ## frames, so a brief rendering gap cannot hide between samples. Movie
 ## Maker runs a fixed timestep, so frames cannot be dropped by construction.
+##
+## Evidence-only one-off: backs the validation note, not maintained or run
+## in CI; uses test seams (clock_running opt-out, direct node access) the
+## headless suite never touches. Rerun directions live in the note.
 ## Read-only toward gameplay. Run from the repo root (HOME,
 ## PHOENIX_SAVE_PATH, PHOENIX_SETTINGS_PATH isolated; seed the save first
 ## with tests/native_tour/seed_save.gd):

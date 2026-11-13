@@ -1,6 +1,6 @@
 # HPA-860 — Town rain streaks: single-PR implementation plan
 
-**Status:** Planning only, revised after [PR #41 design review](https://github.com/cwchanap/phoenix/pull/41#pullrequestreview-5870418693). No runtime code or tests implemented yet.
+**Status:** Revised after [PR #41 design review](https://github.com/cwchanap/phoenix/pull/41#pullrequestreview-5870418693). Tasks 1–4 and the local part of Task 5 are implemented and locally verified (commits df08970..e62a2cc; ledger: `.superpowers/sdd/2026-11-11-phoenix-town-rain-visual-implementation/progress.md`). Open: the final-HEAD clean verifier, remote CI/export lanes, PR metadata and the human macOS live checks — all controller-owned after the final review.
 **Design:** [Accepted shell-owned rain specification](../specs/2026-11-11-phoenix-town-rain-visual-design.md)
 **Issue:** https://linear.app/cwchanap/issue/HPA-860/show-existing-rain-streaks-in-town-without-farm-river-ripples
 **Branch:** `agent/hpa-860-town-rain-visual-plan`
@@ -73,14 +73,19 @@ Do **not** add new snapshot nonmutation, town ripple-count or duplicate-map-ambi
 
 ## End-to-end acceptance checklist
 
-- [ ] Rain is visible in rainy farm and town, absent during sunny weather in both.
-- [ ] A single persistent `World/RainLayer` remains alive throughout truck travel.
-- [ ] Farm has its three existing river ripples; town never adds river ripple visuals.
-- [ ] Existing HUD rain tint/audio and pre-existing town river audio continue unchanged.
-- [ ] Farm/day/travel/social/shop/market interactions, localisation and save behavior are unchanged.
-- [ ] Existing rain tests are migrated, scene-order pins updated and headless smoke passes.
-- [ ] `./tools/verify-clean.sh` passes locally; CI verify/macOS export, GdUnit4 and godot-e2e are green.
-- [ ] Native macOS 1080p rainy/sunny travel and layering visual checks are recorded.
-- [ ] One HPA-860 PR; no new assets, no per-map rain flags or generic weather framework.
+Verified through commit `e62a2cc` plus the final fix wave (agent-operated evidence; citations in
+the validation note). The remaining boxes stay open for the controller-owned gates and human
+checks — do not mark them done on evidence not yet gathered.
 
-This draft PR currently contains only the design and implementation plan; do not claim implementation or test completion before code lands.
+- [x] Rain is visible in rainy farm and town, absent during sunny weather in both (travel regressions + native rainy/sunny tours).
+- [x] A single persistent `World/RainLayer` remains alive throughout truck travel (integration tests + instance-ID telemetry across both swaps).
+- [x] Farm has its three existing river ripples; town never adds river ripple visuals (smoke pins + tour `farm_ripples` observations).
+- [x] Existing HUD rain tint/audio and pre-existing town river audio continue unchanged (behavior guards + tour audio-state observations).
+- [x] Farm/day/travel/social/shop/market interactions, localisation and save behavior are unchanged (full GUT suite green on this branch).
+- [x] Existing rain tests are migrated, scene-order pins updated and headless smoke passes (including the restored ripple upper z bounds).
+- [ ] `./tools/verify-clean.sh` passes locally; CI verify/macOS export, GdUnit4 and godot-e2e are green. (Local verifier ran green at `04347d6`, not yet at final HEAD — controller-owned.)
+- [x] Native macOS 1080p rainy/sunny travel and layering visual checks are recorded (agent-operated captures + per-frame movie; human live look/smoothness/audio/pacing checks remain open).
+- [x] One HPA-860 PR; no new assets, no per-map rain flags or generic weather framework.
+
+Implemented as of `e62a2cc`; this checklist previously described a planning-only draft PR, so
+that stale claim is retired. Unchecked items remain open until their evidence exists.

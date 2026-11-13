@@ -1,6 +1,6 @@
 # HPA-860 — Town rain streaks: design specification
 
-**Status:** Revised after [PR #41 design review](https://github.com/cwchanap/phoenix/pull/41#pullrequestreview-5870418693); planning-only draft, no runtime code or tests implemented.
+**Status:** Revised after [PR #41 design review](https://github.com/cwchanap/phoenix/pull/41#pullrequestreview-5870418693) and **implemented** on `agent/hpa-860-town-rain-visual-plan` (PR #41, commits df08970..e62a2cc); this spec is the accepted design of record. Open acceptance items — final-HEAD verifier, remote CI/export, PR metadata and the human macOS live checks — are tracked in the implementation plan's checklist; see also `docs/superpowers/validation/2026-11-13-phoenix-town-rain-native-tour.md`.
 **Linear:** https://linear.app/cwchanap/issue/HPA-860/show-existing-rain-streaks-in-town-without-farm-river-ripples
 **Baseline:** `main` after HPA-546 / PR #40, inspected 2026-11-11 (Vancouver).
 **Delivery:** One issue → one PR for the plan and subsequent implementation. Existing art and audio are sufficient.

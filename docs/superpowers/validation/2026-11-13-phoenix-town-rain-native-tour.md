@@ -41,7 +41,7 @@ Rerun (from repo root):
 TOUR=/tmp/phoenix-hpa860-tour
 export HOME="$TOUR/home" PHOENIX_SAVE_PATH="$TOUR/save/phoenix-save.json" \
   PHOENIX_SETTINGS_PATH="$TOUR/settings/phoenix-settings.cfg"
-mkdir -p "$TOUR/save" "$TOUR/out-rainy" "$TOUR/out-sunny"
+mkdir -p "$TOUR/home" "$TOUR/save" "$TOUR/settings" "$TOUR/out-rainy" "$TOUR/out-sunny"
 TOUR_WEATHER=rainy godot --headless --path . --script res://tests/native_tour/seed_save.gd
 TOUR_WEATHER=rainy TOUR_OUT="$TOUR/out-rainy" \
   godot --path . --resolution 1920x1080 --script res://tests/native_tour/rain_tour.gd
@@ -79,7 +79,12 @@ never change across the whole tour, and a rainy burst must not be entirely byte-
 ## Visual findings (vision review of the actual captures)
 
 - Rain streaks render over the farm and over the town, identical rendering in both maps; absent
-  in sunny captures in both maps. Farm rain look is unchanged from the pre-HPA-860 reference.
+  in sunny captures in both maps. The streak code path and look are unchanged from the
+  pre-HPA-860 reference, with one disclosed layering difference: the old ambience painted
+  streaks on its own canvas item, which draws beneath its child ripple sprites, while the shell
+  `RainLayer` — same z=6, but a later World sibling than `FarmMap` — draws streaks over the
+  ripple strips. Farm captures here therefore show streaks above the ripples where the old
+  build showed them under; geometry, color and motion are unchanged.
 - Persistent layer identity (round 1): `rain_layer_id` (Godot instance ID) is identical at every
   observation and at both map-swap boundaries — the same `RainLayer` node existed across both
   truck travels. The original "no restart gap" phrasing claimed more than still captures plus a
@@ -184,6 +189,7 @@ at every observation), and is read-only toward gameplay.
 
 ```bash
 REC=/tmp/phoenix-hpa860-rec
+mkdir -p "$REC/home" "$REC/save" "$REC/settings" "$REC/run"
 export HOME="$REC/home" PHOENIX_SAVE_PATH="$REC/save/phoenix-save.json" \
   PHOENIX_SETTINGS_PATH="$REC/settings/phoenix-settings.cfg"
 TOUR_WEATHER=rainy godot --headless --path . --script res://tests/native_tour/seed_save.gd
@@ -197,12 +203,15 @@ Result: exit 0, `DONE clean movie tour`, 514 frames at 30 FPS, movie length 17.1
 not committed — no large video assets in the repo). Frame-count integrity: `ffprobe` reports
 `nb_frames=514`, `r_frame_rate=30/1`, `duration=17.133333` — no dropped frames.
 
-**Temporal analysis of every one of the 514 extracted frames (PIL + md5):**
+**Whole-movie frame analysis (PIL + md5 over all 514 extracted frames, plus vision review of
+labeled contact sheets):**
 
-- Liveness: all 13 byte-identical consecutive frame pairs are frames 1–15 (the static title
-  screen before the world loads). Every gameplay frame 15–514 differs from its predecessor —
-  rain animates and the renderer produced a fresh frame on every single frame of the tour, so
-  no stale-frame masquerade is possible.
+- Liveness (hash pass): all 13 byte-identical consecutive frame pairs are frames 1–15 (the
+  static title screen before the world loads). Every gameplay frame 15–514 differs from its
+  predecessor — the renderer produced a fresh frame on every single gameplay frame, so no
+  stale-frame masquerade is possible. The hashes prove frame freshness only, not what a frame
+  depicts: rain presence is established visually on the sheets below, whose walk sheets sample
+  every 2nd frame rather than every frame.
 - Map swap 1 (farm → town): `E-press` at frame 184, `map swapped` logged at frame 185. Frames
   178–185 show the rainy farm with streaks up to the truck ("Drive to town" prompt); frame 186
   — the immediately following frame — already renders the town **with rain streaks over it**
@@ -212,7 +221,8 @@ not committed — no large video assets in the repo). Frame-count integrity: `ff
   482–483 render the rainy town with streaks ("Drive home" prompt, 07:01); frame 484 renders
   the rainy farm with streaks (07:31). Same frame-adjacent continuity, rain on both sides.
 - Camera-edge walk (frames 216–330, contact sheets every 2nd frame plus endpoints): rain
-  streaks present in every inspected tile while the camera pans south-east to the perimeter
+  streaks present in every inspected tile — frames between the every-2nd-frame sheet samples
+  were not vision-checked — while the camera pans south-east to the perimeter
   band corner and back; gold target and the "Gen-san" prompt pill track correctly; no popping,
   no new occlusion or depth regressions at any sampled frame.
 - Farm walk to the truck (frames 16–184, sheets every 10th frame) and the return-farm tail
@@ -226,9 +236,13 @@ not committed — no large video assets in the repo). Frame-count integrity: `ff
 Vision review was performed by the operator on labeled contact sheets built from the movie
 frames (whole-movie coarse sheets, per-frame sheets spanning both swap boundaries, every-2nd-
 frame sheets spanning the camera-edge walk, and full-res boundary frames 185/186 and
-482/483/484). This closes the review-round-2 finding for the game render: rain rendering is
-continuous at single-frame granularity across both truck travels and the camera-edge movement —
-a brief rendering gap between samples is now excluded by evidence, not by sampling luck.
+482/483/484). This closes the review-round-2 finding within the limits of that sampling: rain
+is verified visually at true single-frame granularity across both truck swaps (full-res
+adjacent frames on both sides), and at every-2nd-frame granularity along the camera-edge walk,
+while the md5 pass proves every gameplay frame in the movie is a fresh render — a rendering
+stall or dropped-frame gap is excluded anywhere in the movie by evidence rather than sampling
+luck. What the evidence cannot exclude is a hypothetical one-frame rain absence at an
+uninspected walk frame; frames between the walk-sheet samples were not vision-checked.
 
 **Still open after round 2:** an OS-desktop-level screen recording (needs a human-granted TCC
 Screen Recording permission for the agent's terminal host; both macOS facilities fail with the
@@ -237,16 +251,23 @@ audio listening, unlocked-desktop pacing/focus) from round 1.
 
 ## Limitations
 
-- Locked-session runs never received a real OS focus transition (`window_focus=false` in OBS for
-  the final runs), so the passive day clock stayed frozen during the capture tours; one earlier
-  run of the same build did tick 06:00→06:06 while focused, and clock behavior itself is covered
-  by the deterministic GUT focus-notification tests. A human unlocked-desktop pacing/focus check
-  remains open per the HPA-263 note. (The round-2 movie run, by contrast, had a focused window
-  and the clock is visibly ticking in the movie.)
+- Focus and the passive clock, split by run generation: the original locked-session capture
+  runs never received a real OS focus transition (`window_focus=false` in every OBS line), so
+  the clock stayed frozen in those runs (only the +30 travel steps moved it; one earlier
+  focused run of the same build ticked 06:00→06:06). The corrected final runs ran focused
+  instead — the round-1 rerun kept the window focused (clock ticking 06:09→06:39→07:02→07:32)
+  and the round-2 movie logged `window_focus=true` throughout (clock visibly live,
+  06:02→06:41→07:01→07:33) — so the frozen-clock caveat applies to the original runs, not to
+  the final evidence. Clock freeze/tick/cutoff behavior itself is covered by the deterministic
+  GUT focus-notification tests; a human unlocked-desktop pacing/focus check remains open per
+  the HPA-263 note.
 - Audio was verified by player `playing` state and code identity only — no human listening check.
 - No pixel-diff against the pre-change build: a second checkout at the baseline commit was
-  declined (worktree/branch constraints). Equivalence of farm rain is supported by the unchanged
-  rendering code path, the Task-3 z-order pins, and visual match of the rainy farm captures.
+  declined (worktree/branch constraints). Farm-rain equivalence is of streak geometry, color
+  and motion — supported by the unchanged rendering code path, the Task-3 z-order pins and the
+  visual match of the rainy farm captures — but it is not strict per-pixel identity: the
+  disclosed streak-over-ripple layering difference above is real, and equivalence claims must
+  not cover it.
 - The tour initially failed truck/shop/social interactions; diagnosis showed tour-authoring bugs,
   not product bugs: `WorldMath.TARGET_OFFSETS` are isometric diagonal grid neighbors, town
   perimeter bands sit two cells inside each map edge, and villager footprints block straight-line
@@ -254,8 +275,9 @@ audio listening, unlocked-desktop pacing/focus) from round 1.
 - Temporal review is sampled-frame based in the round-1 tours: burst captures inside the swaps
   (one capture per processed frame) and ~2 s-spaced walk samples establish rain presence, layer
   identity, and no popping at those samples. Round 2 supersedes this for the travel/camera-edge
-  question with the continuous per-frame movie recording above (rain rendering proven present
-  on every frame across both swaps and the walk); the remaining open items are the OS-desktop
+  question with the continuous per-frame movie recording above: rain visually confirmed at
+  single-frame granularity across both swaps, at every-2nd-frame granularity on the walk, and
+  every gameplay frame hash-verified fresh; the remaining open items are the OS-desktop
   recording permission and the human subjective checks (smoothness, audio, pacing/focus).
 - Pre-round-1 tour versions could print `DONE clean` with frozen or unsaved captures (occlusion
   stale frames; `save_png` errors only logged). Treat `DONE clean` as valid only for the round-1
