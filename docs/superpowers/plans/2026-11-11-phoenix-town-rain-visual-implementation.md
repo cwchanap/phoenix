@@ -1,6 +1,6 @@
 # HPA-860 — Town rain streaks: single-PR implementation plan
 
-**Status:** Revised after [PR #41 design review](https://github.com/cwchanap/phoenix/pull/41#pullrequestreview-5870418693). Tasks 1–4 and the local part of Task 5 are implemented and locally verified (commits df08970..e62a2cc; ledger: `.superpowers/sdd/2026-11-11-phoenix-town-rain-visual-implementation/progress.md`). Open: the final-HEAD clean verifier, remote CI/export lanes, PR metadata and the human macOS live checks — all controller-owned after the final review.
+**Status:** Revised after [PR #41 design review](https://github.com/cwchanap/phoenix/pull/41#pullrequestreview-5870418693). Tasks 1–4 and the local part of Task 5 are implemented and locally verified (commits df08970 onward, including the final review fix wave; ledger: `.superpowers/sdd/2026-11-11-phoenix-town-rain-visual-implementation/progress.md`). Open: the final-HEAD clean verifier, remote CI/export lanes, PR metadata and the human macOS live checks — all controller-owned after the final review.
 **Design:** [Accepted shell-owned rain specification](../specs/2026-11-11-phoenix-town-rain-visual-design.md)
 **Issue:** https://linear.app/cwchanap/issue/HPA-860/show-existing-rain-streaks-in-town-without-farm-river-ripples
 **Branch:** `agent/hpa-860-town-rain-visual-plan`
@@ -73,7 +73,7 @@ Do **not** add new snapshot nonmutation, town ripple-count or duplicate-map-ambi
 
 ## End-to-end acceptance checklist
 
-Verified through commit `e62a2cc` plus the final fix wave (agent-operated evidence; citations in
+Verified through `e62a2cc` plus the final review fix wave `41425bc` (agent-operated evidence; citations in
 the validation note). The remaining boxes stay open for the controller-owned gates and human
 checks — do not mark them done on evidence not yet gathered.
 
@@ -87,5 +87,5 @@ checks — do not mark them done on evidence not yet gathered.
 - [x] Native macOS 1080p rainy/sunny travel and layering visual checks are recorded (agent-operated captures + per-frame movie; human live look/smoothness/audio/pacing checks remain open).
 - [x] One HPA-860 PR; no new assets, no per-map rain flags or generic weather framework.
 
-Implemented as of `e62a2cc`; this checklist previously described a planning-only draft PR, so
+Implemented as of `e62a2cc` (plus the final review fix wave); this checklist previously described a planning-only draft PR, so
 that stale claim is retired. Unchecked items remain open until their evidence exists.
