@@ -233,6 +233,7 @@ func _run() -> void:
 
     var world_names := [
         "FarmMap",
+        "RainLayer",
         "TargetHighlight",
         "GameHud",
     ]
@@ -434,11 +435,19 @@ func _run() -> void:
         if not _expect_vec2(ripple.offset, Vector2.ZERO, "ripple %d offset" % index):
             return
     if not _expect(
-        farm_soil.z_index < ambience.z_index
-        and farm_effects.z_index < ambience.z_index
-        and ambience.z_index < (world.get_node("TargetHighlight") as Line2D).z_index
-        and ambience.z_index < (farm_map.get_node("Entities") as Node2D).z_index,
-        "ambience renders above soil/effects below target/entities",
+        farm_soil.z_index < ambience.z_index and farm_effects.z_index < ambience.z_index,
+        "ripple layer renders above soil/effects",
+    ):
+        return
+    var rain_layer := world.get_node("RainLayer") as Node2D
+    if not _expect(rain_layer != null, "World must contain a RainLayer"):
+        return
+    if not _expect(
+        farm_soil.z_index < rain_layer.z_index
+        and farm_effects.z_index < rain_layer.z_index
+        and rain_layer.z_index < (world.get_node("TargetHighlight") as Line2D).z_index
+        and rain_layer.z_index < (farm_map.get_node("Entities") as Node2D).z_index,
+        "rain renders above soil/effects below target/entities",
     ):
         return
     for index in farm_cells.size():
@@ -1033,7 +1042,7 @@ func _run() -> void:
     if not _expect(world.hud.toast_text() == "", "farm truck travel raises no toast"):
         return
 
-    var town_names := ["TownMap", "TargetHighlight", "GameHud"]
+    var town_names := ["TownMap", "RainLayer", "TargetHighlight", "GameHud"]
     if not _expect_names(world, town_names, "World after travel"):
         return
     if not _expect_child_order(world, town_names, "World scene-tree order after travel"):
@@ -1339,7 +1348,7 @@ func _run() -> void:
     if not _expect(world.hud.toast_text() == "", "town truck travel raises no toast"):
         return
 
-    var return_names := ["FarmMap", "TargetHighlight", "GameHud"]
+    var return_names := ["FarmMap", "RainLayer", "TargetHighlight", "GameHud"]
     if not _expect_names(world, return_names, "World after driving home"):
         return
     if not _expect_child_order(world, return_names, "World scene-tree order after driving home"):
