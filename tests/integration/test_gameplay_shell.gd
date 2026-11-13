@@ -3458,20 +3458,20 @@ func test_weather_tint_matches_rainy_and_sunny_snapshots() -> void:
 
 func test_rain_visibility_follows_rainy_and_sunny_snapshots() -> void:
     var world := _world()
-    var ambience := (world._map as FarmMap).ambience
+    var rain := world.rain_layer
     var rainy := world._session.snapshot()
     rainy["weather"] = GameRules.weather_key(GameRules.Weather.RAINY)
     var sunny := world._session.snapshot()
     sunny["weather"] = GameRules.weather_key(GameRules.Weather.SUNNY)
 
-    ambience.render(rainy)
-    assert_true(ambience.is_rain_falling())
+    rain.render(rainy)
+    assert_true(rain.is_rain_falling())
 
-    ambience.render(sunny)
-    assert_false(ambience.is_rain_falling())
+    rain.render(sunny)
+    assert_false(rain.is_rain_falling())
 
-    ambience.render(rainy)
-    assert_true(ambience.is_rain_falling())
+    rain.render(rainy)
+    assert_true(rain.is_rain_falling())
 
 
 func test_refresh_from_session_renders_rainy_snapshot() -> void:
@@ -3479,7 +3479,7 @@ func test_refresh_from_session_renders_rainy_snapshot() -> void:
     _restore_weather(world, GameRules.weather_key(GameRules.Weather.RAINY))
 
     world._refresh_from_session()
-    assert_true((world._map as FarmMap).ambience.is_rain_falling())
+    assert_true(world.rain_layer.is_rain_falling())
 
 
 # The shell owns one persistent world-level rain renderer; these travel
@@ -3615,23 +3615,23 @@ func test_hud_unmute_starts_rain_when_last_render_was_muted() -> void:
 
 
 func test_render_without_camera_keeps_rain_state() -> void:
-    var ambience := HomesteadAmbience.new()
-    add_child_autofree(ambience)
+    var rain := RainLayer.new()
+    add_child_autofree(rain)
     var rainy := {"weather": GameRules.weather_key(GameRules.Weather.RAINY)}
-    ambience.render(rainy)
-    assert_true(ambience.is_rain_falling())
+    rain.render(rainy)
+    assert_true(rain.is_rain_falling())
     var camera := Camera2D.new()
     add_child_autofree(camera)
-    ambience.render(rainy)
-    assert_true(ambience.is_rain_falling())
+    rain.render(rainy)
+    assert_true(rain.is_rain_falling())
 
 
-func test_ambience_render_does_not_mutate_session_state() -> void:
+func test_rain_render_does_not_mutate_session_state() -> void:
     var world := _world()
     var before := world._session.snapshot().duplicate(true)
     var rainy := world._session.snapshot()
     rainy["weather"] = GameRules.weather_key(GameRules.Weather.RAINY)
-    (world._map as FarmMap).ambience.render(rainy)
+    world.rain_layer.render(rainy)
     assert_eq(world._session.snapshot(), before)
 
 
