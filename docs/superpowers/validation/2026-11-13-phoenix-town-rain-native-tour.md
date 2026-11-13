@@ -2,7 +2,8 @@
 
 Date: 2026-11-13 (revised same day, review round 1: layer-identity telemetry, capture-failure
 gating, temporal frame-sequence bursts, continuity claims narrowed — see "Round-1 review
-hardening" below)
+hardening" below; review round 2: continuous per-frame movie recording of the rainy travel and
+camera-edge movement — see "Round-2 continuous movie recording" below)
 Build: committed `HEAD` = `04347d6` (branch `agent/hpa-860-town-rain-visual-plan`), worktree
 `/Users/chanwaichan/orca/workspaces/phoenix/hpa-860-plan-town-rain-visuals-without-farm-rive`
 Operator: agent-operated native run (vision review of real rendered captures), not a human playtest.
@@ -145,13 +146,103 @@ another window, macOS stopped drawing and every later capture silently returned 
 sets `ALWAYS_ON_TOP`, fails stale rainy bursts, and gates on capture write errors; reruns above
 are clean under those guards.
 
+## Round-2 continuous movie recording (2026-11-13)
+
+Task-5 review round 2 required a genuine continuous recording of the rainy truck travel and
+camera-edge movement: the round-1 bursts and ~2 s-spaced walk samples cannot exclude a brief
+rendering gap *between* samples.
+
+**OS screen-recording attempts (both blocked by TCC):**
+
+- `screencapture -v -V 3 probe.mov` (macOS 26.6.2 native facility) → exit 1, no file produced,
+  `could not create image from display` on the still-capture probe too. The shell's host app
+  (`orca-terminal-host`) does not hold Screen Recording permission; granting it requires a human
+  in System Settings → Privacy & Security → Screen Recording plus an app restart, which an agent
+  cannot do. Still captures fail identically, so this is a permission block, not a transient
+  error.
+- `ffmpeg -f avfoundation -i "1:0" -t 5` → ffmpeg lists the device modes but the device open
+  fails with `Error opening input: Input/output error`, exit 1, no file — the same TCC gate
+  expressed as an I/O error.
+
+Exact commands and exits are in the task-5 report. No OS-desktop recording is possible from this
+session without a human granting Screen Recording permission; that check is left open rather than
+faked.
+
+**Continuous per-frame movie recording (performed):** Godot's Movie Maker mode
+(`--write-movie`) records the *actual game render* frame-accurately — it synchronously writes
+every rendered frame at a fixed fps under a fixed timestep, so frames cannot be dropped by
+construction. It is not an OS desktop capture (it records the game's own rendered output, which
+is exactly what HPA-860 changed), but it is a genuine continuous recording, distinct from the
+slow discrete `get_image` captures in `rain_tour.gd`: there are no frames missing between
+samples, so a brief rendering gap cannot hide anywhere in the movie.
+
+`tests/native_tour/rain_movie_tour.gd` (committed with this note) drives the real app through
+the rainy farm truck travel, the town camera-edge walk, and the travel home while the movie is
+written; it logs `frame=<Engine.get_frames_drawn()>` with every observation so movie frames map
+to tour events exactly, keeps the round-1 gates (constant `rain_layer_id`, `rain_falling=true`
+at every observation), and is read-only toward gameplay.
+
+```bash
+REC=/tmp/phoenix-hpa860-rec
+export HOME="$REC/home" PHOENIX_SAVE_PATH="$REC/save/phoenix-save.json" \
+  PHOENIX_SETTINGS_PATH="$REC/settings/phoenix-settings.cfg"
+TOUR_WEATHER=rainy godot --headless --path . --script res://tests/native_tour/seed_save.gd
+TOUR_WEATHER=rainy godot --path . --resolution 1920x1080 \
+  --write-movie "$REC/run/rain-travel.avi" --fixed-fps 30 \
+  -s res://tests/native_tour/rain_movie_tour.gd
+```
+
+Result: exit 0, `DONE clean movie tour`, 514 frames at 30 FPS, movie length 17.133333 s
+(514 = 30 × 17.133333 exactly), MJPEG 1920×1080 AVI (255 MB, kept under `/tmp/phoenix-hpa860-rec`,
+not committed — no large video assets in the repo). Frame-count integrity: `ffprobe` reports
+`nb_frames=514`, `r_frame_rate=30/1`, `duration=17.133333` — no dropped frames.
+
+**Temporal analysis of every one of the 514 extracted frames (PIL + md5):**
+
+- Liveness: all 13 byte-identical consecutive frame pairs are frames 1–15 (the static title
+  screen before the world loads). Every gameplay frame 15–514 differs from its predecessor —
+  rain animates and the renderer produced a fresh frame on every single frame of the tour, so
+  no stale-frame masquerade is possible.
+- Map swap 1 (farm → town): `E-press` at frame 184, `map swapped` logged at frame 185. Frames
+  178–185 show the rainy farm with streaks up to the truck ("Drive to town" prompt); frame 186
+  — the immediately following frame — already renders the town **with rain streaks over it**
+  (station, truck, villagers, clock 06:11→06:41 from the +30 travel). The swap is covered by
+  adjacent frames with no gap, black, or flicker frame, and rain renders on both sides.
+- Map swap 2 (town → farm): `E-press` at frame 482, `map swapped` logged at frame 483. Frames
+  482–483 render the rainy town with streaks ("Drive home" prompt, 07:01); frame 484 renders
+  the rainy farm with streaks (07:31). Same frame-adjacent continuity, rain on both sides.
+- Camera-edge walk (frames 216–330, contact sheets every 2nd frame plus endpoints): rain
+  streaks present in every inspected tile while the camera pans south-east to the perimeter
+  band corner and back; gold target and the "Gen-san" prompt pill track correctly; no popping,
+  no new occlusion or depth regressions at any sampled frame.
+- Farm walk to the truck (frames 16–184, sheets every 10th frame) and the return-farm tail
+  (frames 476–514): rain streaks in every inspected tile; bed prompt, truck prompt, and Y-sort
+  correct throughout.
+- Layer identity: `rain_layer_id` is constant across all five OBS points and both swap logs;
+  `rain_falling=true` at every observation; the window was focused the whole run, so the
+  passive clock is visibly live in the movie (06:02 → 06:41 → 07:01 → 07:33 across the two
+  +30 drives).
+
+Vision review was performed by the operator on labeled contact sheets built from the movie
+frames (whole-movie coarse sheets, per-frame sheets spanning both swap boundaries, every-2nd-
+frame sheets spanning the camera-edge walk, and full-res boundary frames 185/186 and
+482/483/484). This closes the review-round-2 finding for the game render: rain rendering is
+continuous at single-frame granularity across both truck travels and the camera-edge movement —
+a brief rendering gap between samples is now excluded by evidence, not by sampling luck.
+
+**Still open after round 2:** an OS-desktop-level screen recording (needs a human-granted TCC
+Screen Recording permission for the agent's terminal host; both macOS facilities fail with the
+exact errors above until then), and the human subjective live-look checks (rain smoothness,
+audio listening, unlocked-desktop pacing/focus) from round 1.
+
 ## Limitations
 
 - Locked-session runs never received a real OS focus transition (`window_focus=false` in OBS for
   the final runs), so the passive day clock stayed frozen during the capture tours; one earlier
   run of the same build did tick 06:00→06:06 while focused, and clock behavior itself is covered
   by the deterministic GUT focus-notification tests. A human unlocked-desktop pacing/focus check
-  remains open per the HPA-263 note.
+  remains open per the HPA-263 note. (The round-2 movie run, by contrast, had a focused window
+  and the clock is visibly ticking in the movie.)
 - Audio was verified by player `playing` state and code identity only — no human listening check.
 - No pixel-diff against the pre-change build: a second checkout at the baseline commit was
   declined (worktree/branch constraints). Equivalence of farm rain is supported by the unchanged
@@ -160,10 +251,12 @@ are clean under those guards.
   not product bugs: `WorldMath.TARGET_OFFSETS` are isometric diagonal grid neighbors, town
   perimeter bands sit two cells inside each map edge, and villager footprints block straight-line
   walk hops. The committed tour routes around all three and asserts every interaction outcome.
-- Temporal review is sampled-frame based: burst captures inside the swaps (one capture per
-  processed frame) and ~2 s-spaced walk samples establish rain presence, layer identity, and
-  no popping at those samples; rain motion between samples and subjective smoothness are human
-  live checks that remain open.
+- Temporal review is sampled-frame based in the round-1 tours: burst captures inside the swaps
+  (one capture per processed frame) and ~2 s-spaced walk samples establish rain presence, layer
+  identity, and no popping at those samples. Round 2 supersedes this for the travel/camera-edge
+  question with the continuous per-frame movie recording above (rain rendering proven present
+  on every frame across both swaps and the walk); the remaining open items are the OS-desktop
+  recording permission and the human subjective checks (smoothness, audio, pacing/focus).
 - Pre-round-1 tour versions could print `DONE clean` with frozen or unsaved captures (occlusion
   stale frames; `save_png` errors only logged). Treat `DONE clean` as valid only for the round-1
   tour or later.
