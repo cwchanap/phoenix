@@ -435,8 +435,11 @@ func _run() -> void:
         if not _expect_vec2(ripple.offset, Vector2.ZERO, "ripple %d offset" % index):
             return
     if not _expect(
-        farm_soil.z_index < ambience.z_index and farm_effects.z_index < ambience.z_index,
-        "ripple layer renders above soil/effects",
+        farm_soil.z_index < ambience.z_index
+        and farm_effects.z_index < ambience.z_index
+        and ambience.z_index < (world.get_node("TargetHighlight") as Line2D).z_index
+        and ambience.z_index < (farm_map.get_node("Entities") as Node2D).z_index,
+        "ambience renders above soil/effects below target/entities",
     ):
         return
     var rain_layer := world.get_node("RainLayer") as Node2D

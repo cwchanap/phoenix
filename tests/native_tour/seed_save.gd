@@ -3,6 +3,7 @@ extends SceneTree
 ## real GameSession/SaveRepository so the native rain tour can Continue into
 ## rainy or sunny weather deterministically. Env: TOUR_WEATHER, and
 ## PHOENIX_SAVE_PATH pointing at the tour's isolated save file.
+## Evidence-only one-off companion of the rain tours; not run in CI.
 
 func _initialize() -> void:
 	var rainy: bool = OS.get_environment("TOUR_WEATHER") == "rainy"

@@ -7,6 +7,10 @@ extends SceneTree
 ##
 ## Env: TOUR_WEATHER=rainy|sunny, TOUR_OUT=<png dir>,
 ## PHOENIX_SAVE_PATH / PHOENIX_SETTINGS_PATH must point into an isolated dir.
+##
+## Evidence-only one-off: backs the validation note, not maintained or run
+## in CI; uses test seams (clock_running opt-out, direct node access) the
+## headless suite never touches. Rerun directions live in the note.
 
 const APP_SCENE := preload("res://scenes/app/app.tscn")
 
