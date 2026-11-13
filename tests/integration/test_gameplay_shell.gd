@@ -3482,6 +3482,53 @@ func test_refresh_from_session_renders_rainy_snapshot() -> void:
     assert_true((world._map as FarmMap).ambience.is_rain_falling())
 
 
+# The shell owns one persistent world-level rain renderer; these travel
+# checks look it up by scene path with Variant dispatch so they fail as a
+# missing node (not a parse error) while it is still absent.
+func test_rainy_travel_keeps_the_same_rain_layer_falling_across_maps() -> void:
+    var world := _world()
+    if world == null:
+        return
+    _restore_weather(world, &"rainy")
+    world._refresh_from_session()
+
+    var rain: Variant = world.get_node_or_null("RainLayer")
+    assert_not_null(rain)
+    if rain != null:
+        assert_true(rain.is_rain_falling())
+
+    await _drive_to_town(world)
+    var town_rain: Variant = world.get_node_or_null("RainLayer")
+    assert_same(town_rain, rain)
+    if town_rain != null:
+        assert_true(town_rain.is_rain_falling())
+
+    await _drive_home(world)
+    var home_rain: Variant = world.get_node_or_null("RainLayer")
+    assert_same(home_rain, rain)
+    if home_rain != null:
+        assert_true(home_rain.is_rain_falling())
+
+
+func test_sunny_travel_keeps_the_same_rain_layer_not_falling_across_maps() -> void:
+    var world := _world()
+    if world == null:
+        return
+    _restore_weather(world, &"sunny")
+    world._refresh_from_session()
+
+    var rain: Variant = world.get_node_or_null("RainLayer")
+    assert_not_null(rain)
+    if rain != null:
+        assert_false(rain.is_rain_falling())
+
+    await _drive_to_town(world)
+    var town_rain: Variant = world.get_node_or_null("RainLayer")
+    assert_same(town_rain, rain)
+    if town_rain != null:
+        assert_false(town_rain.is_rain_falling())
+
+
 func test_game_hud_rain_playback_follows_world_refresh() -> void:
     var world := _world()
     var hud := _hud(world)
