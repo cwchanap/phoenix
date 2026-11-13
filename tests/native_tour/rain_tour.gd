@@ -16,12 +16,19 @@ var _rainy: bool
 var _label: String
 var _out_dir: String
 var _failures: Array[String] = []
+var _first_layer_id: int = 0
 
 func _initialize() -> void:
 	_label = OS.get_environment("TOUR_WEATHER")
 	_rainy = _label == "rainy"
 	_out_dir = OS.get_environment("TOUR_OUT")
-	DirAccess.make_dir_recursive_absolute(_out_dir)
+	if _out_dir.is_empty():
+		_failures.append("TOUR_OUT is empty; captures cannot be written")
+	elif DirAccess.make_dir_recursive_absolute(_out_dir) != OK:
+		_failures.append("output dir unusable: %s (make_dir failed)" % _out_dir)
+	# Keep the game window unoccludable: an occluded macOS window stops
+	# drawing and every later capture would silently return a stale frame.
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, true)
 	_app = APP_SCENE.instantiate()
 	_app.name = "App"
 	root.add_child.call_deferred(_app)
@@ -75,9 +82,11 @@ func _phase_farm() -> void:
 	_observe("farm-truck")
 
 func _phase_travel_to_town() -> void:
+	await _burst("14-farm-truck-seq", 8)
 	_interact()
 	await _wait_map_location(false)
-	await _frames(30)
+	await _burst("20-town-arrival-seq", 12)
+	await _frames(18)
 	await _shot("20-town-arrival")
 	_observe("town-arrival")
 
@@ -142,8 +151,10 @@ func _phase_town_quick() -> void:
 	await _observe("town-truck")
 
 func _phase_travel_home() -> void:
+	await _burst("27-town-truck-seq", 8)
 	_interact()
 	await _wait_map_location(true)
+	await _burst("30-return-farm-seq", 12)
 	await _frames(10)
 
 # --- helpers --------------------------------------------------------------
@@ -155,9 +166,32 @@ func _frames(n: int) -> void:
 func _shot(shot_name: String) -> void:
 	await process_frame
 	await process_frame
-	var image: Image = root.get_texture().get_image()
+	_save_image(shot_name, root.get_texture().get_image())
+
+func _burst(tag: String, count: int) -> void:
+	# Temporal frame sequence: one capture per frame, in order, so review can
+	# check rain renders on every sampled frame across a swap or camera move.
+	var previous := PackedByteArray()
+	var differing_pairs := 0
+	for index in count:
+		await process_frame
+		var image: Image = root.get_texture().get_image()
+		_save_image("%s-f%02d" % [tag, index], image)
+		var current := image.get_data()
+		if not previous.is_empty() and current != previous:
+			differing_pairs += 1
+		previous = current
+	# Rain animates every drawn frame, so a rainy burst of byte-identical
+	# frames means the renderer stalled and the sequence is stale evidence.
+	if _rainy and differing_pairs == 0:
+		_failures.append("burst %s: %d identical frames; capture looks stale" % [tag, count])
+	_log("burst %s: %d/%d differing consecutive pairs" % [tag, differing_pairs, count - 1])
+
+func _save_image(shot_name: String, image: Image) -> void:
 	var path := "%s/%s-%s.png" % [_out_dir, _label, shot_name]
 	var error := image.save_png(path)
+	if error != OK:
+		_failures.append("capture %s not saved: save_png err=%d path=%s" % [shot_name, error, path])
 	_log("shot %s -> %s (%dx%d) err=%d" % [shot_name, path, image.get_width(), image.get_height(), error])
 
 func _log(message: String) -> void:
@@ -171,8 +205,10 @@ func _observe(phase: String) -> void:
 	var rain: AudioStreamPlayer = hud._rain_ambience_player
 	var river: AudioStreamPlayer = hud._river_ambience_player
 	var falling: bool = _world.rain_layer.is_rain_falling()
+	var layer_id: int = _world.rain_layer.get_instance_id()
 	_log("OBS " + phase
 		+ " | weather=" + str(_session_weather())
+		+ " rain_layer_id=" + str(layer_id)
 		+ " rain_falling=" + str(falling) + "(expect " + str(_rainy) + ")"
 		+ " rain_audio=" + str(rain.playing)
 		+ " river_audio=" + str(river.playing)
@@ -185,6 +221,10 @@ func _observe(phase: String) -> void:
 		+ " facing=" + str(_world.player.facing))
 	if falling != _rainy:
 		_failures.append("%s: rain_falling=%s expected %s" % [phase, str(falling), str(_rainy)])
+	if _first_layer_id == 0:
+		_first_layer_id = layer_id
+	elif layer_id != _first_layer_id:
+		_failures.append("%s: rain layer instance changed %d -> %d" % [phase, _first_layer_id, layer_id])
 
 func _session_weather() -> String:
 	return str(_world._session.snapshot()["weather"])
@@ -238,10 +278,11 @@ func _wait_map_location(farm_expected: bool) -> void:
 	while waited < 30.0:
 		on_farm = _world.farm_view != null
 		if on_farm == farm_expected and not _world.hud.has_blocking_modal():
-			_log("map swapped; farm=%s" % str(on_farm))
+			_log("map swapped; farm=%s rain_layer_id=%d"
+				% [str(on_farm), _world.rain_layer.get_instance_id()])
 			return
-		await _frames(5)
-		waited += 0.2
+		await _frames(1)
+		waited += 1.0 / 60.0
 	_log("swap-poll timeout: on_farm=" + str(on_farm)
 		+ " blocking=" + str(_world.hud.has_blocking_modal()))
 	_failures.append("map swap to %s timed out" % ("farm" if farm_expected else "town"))
@@ -258,10 +299,10 @@ func _walk_to_grid(grid_target: Vector2, capture_mid: bool = false) -> void:
 		_press_movement(delta)
 		await process_frame
 		elapsed += 1.0 / 60.0
-		if capture_mid and captured < 2 and elapsed > 3.0 + 4.0 * captured:
+		if capture_mid and captured < 5 and elapsed > 2.0 + 2.0 * captured:
 			captured += 1
 			_release_all()
-			await _shot("2%d-town-edge-mid%s" % [2 + captured, "a" if captured == 1 else "b"])
+			await _shot("21-town-edge-mid%d" % captured)
 			await _frames(5)
 	_release_all()
 	await _frames(5)
