@@ -3482,9 +3482,6 @@ func test_refresh_from_session_renders_rainy_snapshot() -> void:
     assert_true(world.rain_layer.is_rain_falling())
 
 
-# The shell owns one persistent world-level rain renderer; these travel
-# checks look it up by scene path with Variant dispatch so they fail as a
-# missing node (not a parse error) while it is still absent.
 func test_rainy_travel_keeps_the_same_rain_layer_falling_across_maps() -> void:
     var world := _world()
     if world == null:
@@ -3492,22 +3489,17 @@ func test_rainy_travel_keeps_the_same_rain_layer_falling_across_maps() -> void:
     _restore_weather(world, &"rainy")
     world._refresh_from_session()
 
-    var rain: Variant = world.get_node_or_null("RainLayer")
+    var rain := world.rain_layer
     assert_not_null(rain)
-    if rain != null:
-        assert_true(rain.is_rain_falling())
+    assert_true(rain.is_rain_falling())
 
     await _drive_to_town(world)
-    var town_rain: Variant = world.get_node_or_null("RainLayer")
-    assert_same(town_rain, rain)
-    if town_rain != null:
-        assert_true(town_rain.is_rain_falling())
+    assert_same(world.rain_layer, rain)
+    assert_true(world.rain_layer.is_rain_falling())
 
     await _drive_home(world)
-    var home_rain: Variant = world.get_node_or_null("RainLayer")
-    assert_same(home_rain, rain)
-    if home_rain != null:
-        assert_true(home_rain.is_rain_falling())
+    assert_same(world.rain_layer, rain)
+    assert_true(world.rain_layer.is_rain_falling())
 
 
 func test_sunny_travel_keeps_the_same_rain_layer_not_falling_across_maps() -> void:
@@ -3517,16 +3509,13 @@ func test_sunny_travel_keeps_the_same_rain_layer_not_falling_across_maps() -> vo
     _restore_weather(world, &"sunny")
     world._refresh_from_session()
 
-    var rain: Variant = world.get_node_or_null("RainLayer")
+    var rain := world.rain_layer
     assert_not_null(rain)
-    if rain != null:
-        assert_false(rain.is_rain_falling())
+    assert_false(rain.is_rain_falling())
 
     await _drive_to_town(world)
-    var town_rain: Variant = world.get_node_or_null("RainLayer")
-    assert_same(town_rain, rain)
-    if town_rain != null:
-        assert_false(town_rain.is_rain_falling())
+    assert_same(world.rain_layer, rain)
+    assert_false(world.rain_layer.is_rain_falling())
 
 
 func test_game_hud_rain_playback_follows_world_refresh() -> void:
@@ -4446,11 +4435,12 @@ func test_load_map_farm_reload_preserves_player_session_and_hud() -> void:
         "%Player resolves to the reparented player",
     )
 
-    assert_eq(world.get_child_count(), 3, "World keeps exactly three children")
-    if world.get_child_count() == 3:
+    assert_eq(world.get_child_count(), 4, "World keeps exactly four children")
+    if world.get_child_count() == 4:
         assert_eq(String(world.get_child(0).name), "FarmMap")
-        assert_eq(String(world.get_child(1).name), "TargetHighlight")
-        assert_eq(String(world.get_child(2).name), "GameHud")
+        assert_eq(String(world.get_child(1).name), "RainLayer")
+        assert_eq(String(world.get_child(2).name), "TargetHighlight")
+        assert_eq(String(world.get_child(3).name), "GameHud")
 
     var map := world.get_node_or_null("FarmMap") as Node2D
     assert_not_null(map, "a fresh FarmMap is active after reload")
@@ -4670,11 +4660,12 @@ func test_truck_round_trip_swaps_maps_preserving_player_session_and_hud() -> voi
         TownContract.CAMERA_BOUNDS,
         "town camera bounds applied",
     )
-    assert_eq(world.get_child_count(), 3, "World keeps exactly three children in town")
-    if world.get_child_count() == 3:
+    assert_eq(world.get_child_count(), 4, "World keeps exactly four children in town")
+    if world.get_child_count() == 4:
         assert_eq(String(world.get_child(0).name), "TownMap")
-        assert_eq(String(world.get_child(1).name), "TargetHighlight")
-        assert_eq(String(world.get_child(2).name), "GameHud")
+        assert_eq(String(world.get_child(1).name), "RainLayer")
+        assert_eq(String(world.get_child(2).name), "TargetHighlight")
+        assert_eq(String(world.get_child(3).name), "GameHud")
     assert_eq(hud.prompt_text(), "", "map swap clears the old target prompt")
     assert_eq(
         target_highlight.default_color,
