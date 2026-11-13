@@ -27,11 +27,13 @@ There is no JavaScript or Tauri runtime in the current checkout.
   inverse projection, cell lookup, diamonds, facing, targets, and projected
   logical footprints. It does not own nodes, input, physics, or gameplay state.
 - `scenes/world/world.tscn` and `scripts/world/world_shell.gd` own the world
-  shell: the one authored `Player` instance, the shell-owned
+  shell: the one authored `Player` instance, the shell-owned `RainLayer`
+  (persistent rain drawn above whichever map is active), the shell-owned
   `TargetHighlight`, and the `GameHud`.
 - `scenes/world/farm_map.tscn` and `scripts/world/farm_map.gd` (`FarmMap`)
   own the authored farm map: the ground/water/path/decoration
-  `TileMapLayer`s, `FarmSoil`, `FarmActionEffects`, `HomesteadAmbience`, the
+  `TileMapLayer`s, `FarmSoil`, `FarmActionEffects`, `HomesteadAmbience`
+  (river ripples only — rain rendering lives in the shell `RainLayer`), the
   farm `StaticCollision` bodies, and the `Entities` Y-sort root. `FarmMap`
   derives its collision geometry from `WorldContract` and `WorldMath` at
   `_ready()`, and defines its `SPAWN` and `CAMERA_BOUNDS` from
@@ -57,7 +59,8 @@ There is no JavaScript or Tauri runtime in the current checkout.
   while preserving the morning summary and opening overlay, clears the
   target tint, detaches the persistent `Player`, frees the old map,
   instances the new one as the first `World` child (runtime order
-  `FarmMap`/`TownMap`, `TargetHighlight`, `GameHud`), reparents the same
+  `FarmMap`/`TownMap`, `RainLayer`, `TargetHighlight`, `GameHud`; the same
+  shell-owned `RainLayer` instance persists across swaps), reparents the same
   `Player` under the active `Entities` root at index 0 with `owner`
   restored so `World/%Player` keeps resolving, and places it via
   `player.enter_map()` at the house spawn or the arrived-by-truck
@@ -159,8 +162,9 @@ There is no JavaScript or Tauri runtime in the current checkout.
 - GameHud.has_blocking_modal() remains the single world-input gate.
 - `scripts/world/world_shell.gd` is the only production session holder and
   coordinator: it owns the `GameSession` instance, wires HUD signals to
-  session commands, refreshes the active map's `FarmView`/ambience and
-  `GameHud` from snapshots, and gates world input while a modal blocks.
+  session commands, refreshes the shell `RainLayer` unconditionally plus
+  the active farm map's `FarmView` and `GameHud` from snapshots, and gates
+  world input while a modal blocks.
   Do not create a second session holder.
 - Hold-to-work is transient `WorldShell` state (`ACTION_HOLD_DWELL_SECONDS`,
   0.15s): a fresh press fires the target once and dwelling on eligible cells
@@ -179,7 +183,7 @@ There is no JavaScript or Tauri runtime in the current checkout.
   hidden — and the helper
   itself gates on `_world_input_enabled`, so every blocking modal and
   window focus-out pauses the clock with no catch-up on resume. The
-  per-frame delta clamp (0.1 s, mirroring `HomesteadAmbience.RAIN_DELTA_CLAMP`)
+  per-frame delta clamp (0.1 s, mirroring `RainLayer.RAIN_DELTA_CLAMP`)
   keeps a hitched or stalled frame from banking game minutes. Whole minutes
   tick at `GameRules.REAL_SECONDS_PER_GAME_MINUTE` (0.5 s/min, the
   provisional tuning constant) into `GameSession.advance_clock()`, which
@@ -298,10 +302,12 @@ cells, E opens the dialogue panel for the daily talk plus one crop gift,
 the Seed Shop and Harvest Market live on the town map, and the trucks drive
 between the maps for `GameRules.TRAVEL_MINUTES` each way. Map ownership is
 enforced at the session: farm commands refuse in town and town
-commerce/social/market commands refuse on the farm. `HomesteadAmbience`
-(rain streaks/river ripples) stays farm-authored, so town weather currently
-reads through the HUD rainy tint plus the existing rain/river audio and
-music — an accepted interim limitation, not parity.
+commerce/social/market commands refuse on the farm. HPA-860 moved rain
+streaks into the shell-owned `RainLayer`, so rainy weather renders over the
+town too; the river ripples stay farm-only in `HomesteadAmbience`, and town
+weather still reads through the HUD rainy tint plus the existing rain/river
+audio and music — river audio without river visuals in town is an accepted
+pre-existing limitation, not parity.
 HPA-597 is done: the blocking introduction with contextual dismissible help,
 the Day 14 harvest market, and the terminal result flow all shipped.
 HPA-263 makes the day clock a real constraint: it ticks passively during
