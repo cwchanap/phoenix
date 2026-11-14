@@ -1,6 +1,6 @@
 # HPA-860 — Town rain streaks: single-PR implementation plan
 
-**Status:** Implemented; [PR #41](https://github.com/cwchanap/phoenix/pull/41) is marked ready (`draft=false`) at `9d00869`. Tasks 1–4 and the local part of Task 5 are implemented and locally verified (commits df08970 onward, including the final review fix waves; ledger: `.superpowers/sdd/2026-11-11-phoenix-town-rain-visual-implementation/progress.md`). All three hosted gates are green at `9d00869`: the `verify` lane (`verify-clean.sh`, import, unsigned macOS export/upload), GdUnit4 and godot-e2e. The local `verify-clean.sh` rerun is green at `38d7b04`. Open: only the human macOS subjective visual/audio/focus checks.
+**Status:** Implemented; [PR #41](https://github.com/cwchanap/phoenix/pull/41) is marked ready (`draft=false`) and all gates are closed. Tasks 1–5 are complete (commits df08970 onward, including the final review fix waves; ledger: `.superpowers/sdd/2026-11-11-phoenix-town-rain-visual-implementation/progress.md`). All three hosted gates are green at `c8cf4a9` (`verify` lane = `verify-clean.sh` + import + unsigned macOS export/upload, GdUnit4, godot-e2e); local `verify-clean.sh` is green at `38d7b04`. The human macOS subjective visual/audio/focus checks were waived by the owner.
 **Design:** [Accepted shell-owned rain specification](../specs/2026-11-11-phoenix-town-rain-visual-design.md)
 **Issue:** https://linear.app/cwchanap/issue/HPA-860/show-existing-rain-streaks-in-town-without-farm-river-ripples
 **Branch:** `agent/hpa-860-town-rain-visual-plan`
@@ -74,8 +74,8 @@ Do **not** add new snapshot nonmutation, town ripple-count or duplicate-map-ambi
 ## End-to-end acceptance checklist
 
 Verified through `e62a2cc` plus the review fix waves through `38d7b04` (agent-operated evidence; citations in
-the validation note). Hosted gates are green at `9d00869`; local `verify-clean.sh` is green at `38d7b04`.
-The human checks stay open — do not mark them done on evidence not yet gathered.
+the validation note). Hosted gates are green at `c8cf4a9`; local `verify-clean.sh` is green at `38d7b04`.
+The human checks were waived by the owner — recorded as waived, not performed.
 
 - [x] Rain is visible in rainy farm and town, absent during sunny weather in both (travel regressions + native rainy/sunny tours).
 - [x] A single persistent `World/RainLayer` remains alive throughout truck travel (integration tests + instance-ID telemetry across both swaps).
@@ -83,10 +83,11 @@ The human checks stay open — do not mark them done on evidence not yet gathere
 - [x] Existing HUD rain tint/audio and pre-existing town river audio continue unchanged (behavior guards + tour audio-state observations).
 - [x] Farm/day/travel/social/shop/market interactions, localisation and save behavior are unchanged (full GUT suite green on this branch).
 - [x] Existing rain tests are migrated, scene-order pins updated and headless smoke passes (including the restored ripple upper z bounds).
-- [x] Hosted gates green at `9d00869`: `verify` lane (`verify-clean.sh`, import, unsigned macOS export/upload), GdUnit4 and godot-e2e; PR marked ready (`draft=false`).
+- [x] Hosted gates green at `c8cf4a9`: `verify` lane (`verify-clean.sh`, import, unsigned macOS export/upload), GdUnit4 and godot-e2e; PR marked ready (`draft=false`).
 - [x] Local `./tools/verify-clean.sh` rerun green at `38d7b04`: 548/548 GUT, headless smokes and audio-source checks.
-- [x] Native macOS 1080p rainy/sunny travel and layering visual checks are recorded (agent-operated captures + per-frame movie; human live look/smoothness/audio/pacing checks remain open).
+- [x] Native macOS 1080p rainy/sunny travel and layering visual checks are recorded (agent-operated captures + per-frame movie; human live look/smoothness/audio/pacing checks waived by the owner).
 - [x] One HPA-860 PR; no new assets, no per-map rain flags or generic weather framework.
 
-Implemented through `38d7b04` and marked ready; this checklist previously described a planning-only draft PR, so
-that stale claim is retired. Unchecked items remain open until their evidence exists.
+Implemented through `c8cf4a9` and marked ready; this checklist previously described a planning-only draft PR, so
+that stale claim is retired. All gates are closed — the human checks were waived, not performed, and
+are recorded as such.
