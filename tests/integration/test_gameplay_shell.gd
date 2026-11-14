@@ -3482,6 +3482,19 @@ func test_refresh_from_session_renders_rainy_snapshot() -> void:
     assert_true(world.rain_layer.is_rain_falling())
 
 
+func _assert_live_rain_layer(
+    world: WorldShell, expected_rain: RainLayer, expect_falling: bool
+) -> void:
+    var live_rain := world.get_node_or_null("RainLayer") as RainLayer
+    assert_same(live_rain, expected_rain)
+    assert_same(world.rain_layer, expected_rain)
+    assert_true(expected_rain.is_inside_tree())
+    assert_true(expected_rain.visible)
+    assert_true(expected_rain.is_visible_in_tree())
+    assert_eq(expected_rain.is_rain_falling(), expect_falling)
+    assert_eq(expected_rain.is_processing(), expect_falling)
+
+
 func test_rainy_travel_keeps_the_same_rain_layer_falling_across_maps() -> void:
     var world := _world()
     if world == null:
@@ -3489,17 +3502,17 @@ func test_rainy_travel_keeps_the_same_rain_layer_falling_across_maps() -> void:
     _restore_weather(world, &"rainy")
     world._refresh_from_session()
 
-    var rain := world.rain_layer
+    var rain := world.get_node_or_null("RainLayer") as RainLayer
     assert_not_null(rain)
-    assert_true(rain.is_rain_falling())
+    if rain == null:
+        return
+    _assert_live_rain_layer(world, rain, true)
 
     await _drive_to_town(world)
-    assert_same(world.rain_layer, rain)
-    assert_true(world.rain_layer.is_rain_falling())
+    _assert_live_rain_layer(world, rain, true)
 
     await _drive_home(world)
-    assert_same(world.rain_layer, rain)
-    assert_true(world.rain_layer.is_rain_falling())
+    _assert_live_rain_layer(world, rain, true)
 
 
 func test_sunny_travel_keeps_the_same_rain_layer_not_falling_across_maps() -> void:
@@ -3509,13 +3522,14 @@ func test_sunny_travel_keeps_the_same_rain_layer_not_falling_across_maps() -> vo
     _restore_weather(world, &"sunny")
     world._refresh_from_session()
 
-    var rain := world.rain_layer
+    var rain := world.get_node_or_null("RainLayer") as RainLayer
     assert_not_null(rain)
-    assert_false(rain.is_rain_falling())
+    if rain == null:
+        return
+    _assert_live_rain_layer(world, rain, false)
 
     await _drive_to_town(world)
-    assert_same(world.rain_layer, rain)
-    assert_false(world.rain_layer.is_rain_falling())
+    _assert_live_rain_layer(world, rain, false)
 
 
 func test_game_hud_rain_playback_follows_world_refresh() -> void:

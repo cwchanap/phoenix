@@ -2,10 +2,10 @@ class_name HomesteadAmbience
 extends Node2D
 ## Presentation-only river ripples for the homestead ambience slice.
 ##
-## Direct FarmMap child layered above FarmSoil/FarmActionEffects (z_index 6)
-## and below TargetHighlight/Entities. Owns no gameplay state: three looping
-## ripple strips driven by bound Tweens, freed with the scene. World-level
-## rain moved to RainLayer (scripts/world/rain_layer.gd).
+## Direct FarmMap child layered above FarmSoil/FarmActionEffects/RainLayer
+## (z_index 7) and below TargetHighlight/Entities. Owns no gameplay state: three
+## looping ripple strips driven by bound Tweens, freed with the scene.
+## World-level rain moved to RainLayer (scripts/world/rain_layer.gd).
 
 const RIPPLE_TEXTURE: Texture2D = preload("res://assets/sprites/polish/river-ripple.png")
 # Ripple anchors sit on the river center-lines owned by WorldContract.

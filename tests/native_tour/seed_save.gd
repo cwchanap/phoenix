@@ -6,6 +6,11 @@ extends SceneTree
 ## Evidence-only one-off companion of the rain tours; not run in CI.
 
 func _initialize() -> void:
+	var save_path := OS.get_environment("PHOENIX_SAVE_PATH")
+	if save_path.is_empty() or save_path == SaveRepository.DEFAULT_PATH:
+		push_error("PHOENIX_SAVE_PATH must point to an isolated non-default save file")
+		quit(1)
+		return
 	var rainy: bool = OS.get_environment("TOUR_WEATHER") == "rainy"
 	var session := GameSession.new()
 	var state := session.state()
@@ -20,7 +25,7 @@ func _initialize() -> void:
 		push_error("Seeded state invalid: %s" % error)
 		quit(1)
 		return
-	var repository := SaveRepository.new(OS.get_environment("PHOENIX_SAVE_PATH"))
+	var repository := SaveRepository.new(save_path)
 	var save_error := repository.save(state)
 	print("SEED weather=%s save_error=%d" % [state["weather"], save_error])
 	quit(0 if save_error == OK else 1)

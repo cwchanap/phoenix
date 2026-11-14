@@ -448,9 +448,10 @@ func _run() -> void:
     if not _expect(
         farm_soil.z_index < rain_layer.z_index
         and farm_effects.z_index < rain_layer.z_index
+        and rain_layer.z_index < ambience.z_index
         and rain_layer.z_index < (world.get_node("TargetHighlight") as Line2D).z_index
         and rain_layer.z_index < (farm_map.get_node("Entities") as Node2D).z_index,
-        "rain renders above soil/effects below target/entities",
+        "rain renders above soil/effects and below ambience/target/entities",
     ):
         return
     for index in farm_cells.size():
@@ -1195,6 +1196,18 @@ func _run() -> void:
 
     var town_entities := town_map.get_node("Entities") as Node2D
     if not _expect(town_entities.y_sort_enabled, "town Entities must enable y-sort"):
+        return
+    var town_rain_layer := world.get_node_or_null("RainLayer") as Node2D
+    if not _expect(
+        town_rain_layer == rain_layer
+        and town_rain_layer.is_inside_tree()
+        and town_rain_layer.visible
+        and backdrop.z_index < town_rain_layer.z_index
+        and town_ground.z_index < town_rain_layer.z_index
+        and town_rain_layer.z_index < target_highlight.z_index
+        and town_rain_layer.z_index < town_entities.z_index,
+        "town keeps the same visible RainLayer above backdrop/ground and below target/entities",
+    ):
         return
     var town_y_sort_nodes: Array[CanvasItem] = []
     if world.y_sort_enabled:
