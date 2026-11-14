@@ -155,9 +155,15 @@ func _walk_to_grid(grid_target: Vector2) -> void:
 		elapsed += 1.0 / 60.0
 	_release_all()
 	await _frames(5)
+	var final_delta := world_target - _world.player.global_position
 	_log("walk done grid=%s target=%s" % [
 		str(WorldMath.world_to_grid(_world.player.global_position)), str(grid_target),
 	])
+	if absf(final_delta.x) >= 8.0 or absf(final_delta.y) >= 8.0:
+		_failures.append("walk to %s did not arrive; final grid=%s" % [
+			str(grid_target),
+			str(WorldMath.world_to_grid(_world.player.global_position)),
+		])
 
 func _press_movement(delta: Vector2) -> void:
 	_set_action("move_right", delta.x > 6.0)
