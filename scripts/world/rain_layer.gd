@@ -2,14 +2,16 @@ class_name RainLayer
 extends Node2D
 ## Presentation-only world-level rain renderer.
 ##
-## Authored WorldShell child (z_index 6) layered above both maps and below
-## TargetHighlight, so it survives every map swap without resetting. Owns no
-## gameplay state: deterministic rain drawn as one canvas item via
-## _draw()/draw_multiline, freed with the scene.
+## Authored WorldShell child (z_index 6) layered above ground/soil/effects
+## (<= 5) on both maps and below farm HomesteadAmbience (7), TargetHighlight
+## (10), and each map's Y-sorted Entities (20), so it survives every map swap
+## without resetting. Owns no gameplay state: deterministic rain drawn as one
+## canvas item via _draw()/draw_multiline, freed with the scene.
 
 const RAIN_STREAK_COUNT := 72  # Implementation default; tunable after native review.
 const RAIN_VELOCITY := Vector2(-80.0, 320.0)
 const RAIN_STREAK_VECTOR := Vector2(-4.0, 16.0)
+const RAIN_ENTER_PAD := Vector2(absf(RAIN_STREAK_VECTOR.x), absf(RAIN_STREAK_VECTOR.y))
 const RAIN_COLOR := Color(0.85, 0.9, 1.0, 0.35)
 const RAIN_SPREAD := Vector2(0.618034, 0.754878)
 # Clamp the per-frame advance so a hitch cannot cross a full wrap span.
@@ -61,9 +63,8 @@ func _draw() -> void:
     var view_size := _world_view_size()
     # The wrap domain is the view padded by the streak extent on the entry
     # sides (right for x, top for y), so carried-in streaks start offscreen.
-    var enter_pad := Vector2(abs(RAIN_STREAK_VECTOR.x), abs(RAIN_STREAK_VECTOR.y))
     var view_top_left := camera.get_screen_center_position() - view_size * 0.5
-    var origin := Vector2(view_top_left.x, view_top_left.y - enter_pad.y)
+    var origin := Vector2(view_top_left.x, view_top_left.y - RAIN_ENTER_PAD.y)
     var points := PackedVector2Array()
     points.resize(_rain_offsets.size() * 2)
     for index in _rain_offsets.size():
@@ -73,8 +74,7 @@ func _draw() -> void:
     draw_multiline(points, RAIN_COLOR, 1.0)
 
 func _rain_span() -> Vector2:
-    var enter_pad := Vector2(abs(RAIN_STREAK_VECTOR.x), abs(RAIN_STREAK_VECTOR.y))
-    return _world_view_size() + enter_pad
+    return _world_view_size() + RAIN_ENTER_PAD
 
 # The camera's visible world rect, not the 1920x1080 canvas it is zoomed onto.
 func _world_view_size() -> Vector2:

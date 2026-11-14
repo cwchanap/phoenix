@@ -243,8 +243,10 @@ emptied the farm ahead of HPA-686's town social play, and HPA-686 landed it:
 the authored `16x12` town map carries the three residents, the Seed Shop,
 and the Harvest Market, with the truck driving between the maps for 30
 minutes each way and every farm-owned command refusing to run while the
-player is in town (and vice versa). The shell-owned `RainLayer` draws the
-rain streaks over both maps; the river ripples stay farm-authored, and town
+player is in town (and vice versa). The shell-owned `RainLayer` (`z_index = 6`)
+draws the rain streaks across both maps above ground/soil/effects and below
+`TargetHighlight` (`z_index = 10`), each map's `Entities` (`z_index = 20`), and
+farm river ripples (`z_index = 7`); the river ripples stay farm-authored, and town
 keeps the rainy HUD tint, rain audio, and river audio — river sound without
 river visuals there is an accepted interim difference. HPA-597 finished the
 content slice: the blocking introduction with contextual help, the Day 14

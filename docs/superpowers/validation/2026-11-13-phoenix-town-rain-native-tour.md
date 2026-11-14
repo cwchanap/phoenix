@@ -79,18 +79,18 @@ never change across the whole tour, and a rainy burst must not be entirely byte-
 ## Visual findings (vision review of the actual captures)
 
 - Rain streaks render over the farm and over the town, identical rendering in both maps; absent
-  in sunny captures in both maps. The streak code path and look are unchanged from the
-  pre-HPA-860 reference, with one disclosed layering difference: the old ambience painted
-  streaks on its own canvas item, which draws beneath its child ripple sprites, while the shell
-  `RainLayer` — same z=6, but a later World sibling than `FarmMap` — draws streaks over the
-  ripple strips. Farm captures here therefore show streaks above the ripples where the old
-  build showed them under; geometry, color and motion are unchanged.
-- Persistent layer identity (round 1): `rain_layer_id` (Godot instance ID) is identical at every
-  observation and at both map-swap boundaries — the same `RainLayer` node existed across both
-  truck travels. The original "no restart gap" phrasing claimed more than still captures plus a
-  falling-state boolean could establish (a recreated layer or brief flicker could have passed);
-  the instance-ID comparison and the consecutive-frame bursts (12 frames right after each swap,
-  rain in every sampled frame) are the actual continuity evidence.
+  in sunny captures in both maps. Note on `04347d6` captures: at that commit `HomesteadAmbience`
+  and `RainLayer` shared `z=6`, so `RainLayer` (as the later `World` sibling) drew streaks over
+  the farm's river ripples where the pre-HPA-860 build drew ripples over streaks. Post-review,
+  `HomesteadAmbience` was raised to `z=7` (still below `TargetHighlight` z=10 and `Entities` z=20)
+  so river ripples draw above `RainLayer` again; a fresh native capture is needed to visually
+  re-confirm the `z=7` ordering.
+- Persistent layer identity (round 1 note): in the `04347d6` tour script, `rain_layer_id` read the
+  cached `@onready` field `_world.rain_layer`, which would not detect `World/RainLayer` being
+  replaced or detached (instance persistence across swaps was established separately by the
+  `test_rainy_travel_keeps_the_same_rain_layer_falling_across_maps` GUT test and the 12-frame
+  post-swap bursts). Post-review, `rain_tour_base.gd` looks up `_world.get_node_or_null("RainLayer")`
+  live and asserts `is_inside_tree()`, `visible`, `is_visible_in_tree()`, and `is_processing()`.
 - Farm shows its three river ripple sprites (`farm_ripples=3`); town reports `-1` (no farm
   ambience node) and no ripple visuals appear in any town capture.
 - HUD rainy tint `(0.38, 0.52, 0.72, 0.12)` / Sunny pill vs warm sunny tint
@@ -113,9 +113,10 @@ re-verified with fresh native runs. No production code changed.
 
 1. **Temporal continuity was overstated.** Fixed with two mechanisms: `rain_layer_id` (Godot
    instance ID) telemetry — recorded in every OBS line and both `map swapped` logs, run fails if
-   it ever changes — proves layer persistence by identity instead of inferring it from a falling
-   boolean; and consecutive-frame burst captures around each travel plus ~2 s-spaced camera-edge
-   walk samples give reviewable temporal sequences. A rainy burst that is entirely byte-identical
+   it ever changes (note: the `04347d6` tour read `_world.rain_layer`; post-review `rain_tour_base.gd`
+   queries `_world.get_node_or_null("RainLayer")` live and checks `is_inside_tree()`, `visible`,
+   `is_visible_in_tree()`, and `is_processing()`) — and consecutive-frame burst captures around
+   each travel plus ~2 s-spaced camera-edge walk samples give reviewable temporal sequences. A rainy burst that is entirely byte-identical
    fails the run (rain animates every drawn frame), so a stalled renderer cannot masquerade as
    smooth rain. Vision review of the rerun sequences: rainy farm pre-swap 8/8 frames with
    streaks; town arrival 12/12 frames with streaks over plaza and roofs (clock 06:39→06:41, Day
@@ -185,7 +186,7 @@ samples, so a brief rendering gap cannot hide anywhere in the movie.
 the rainy farm truck travel, the town camera-edge walk, and the travel home while the movie is
 written; it logs `frame=<Engine.get_frames_drawn()>` with every observation so movie frames map
 to tour events exactly, keeps the round-1 gates (constant `rain_layer_id`, `rain_falling=true`
-at every observation), and is read-only toward gameplay.
+at every observation), and does not write saves.
 
 ```bash
 REC=/tmp/phoenix-hpa860-rec
@@ -228,10 +229,11 @@ labeled contact sheets):**
 - Farm walk to the truck (frames 16–184, sheets every 10th frame) and the return-farm tail
   (frames 476–514): rain streaks in every inspected tile; bed prompt, truck prompt, and Y-sort
   correct throughout.
-- Layer identity: `rain_layer_id` is constant across all five OBS points and both swap logs;
-  `rain_falling=true` at every observation; the window was focused the whole run, so the
-  passive clock is visibly live in the movie (06:02 → 06:41 → 07:01 → 07:33 across the two
-  +30 drives).
+- Layer identity: `rain_layer_id` (read from cached `_world.rain_layer` in the `04347d6` run;
+  post-review `rain_tour_base.gd` queries `World/RainLayer` live) is constant across all five OBS
+  points and both swap logs; `rain_falling=true` at every observation; the window was focused the
+  whole run, so the passive clock is visibly live in the movie (06:02 → 06:41 → 07:01 → 07:33
+  across the two +30 drives).
 
 Vision review was performed by the operator on labeled contact sheets built from the movie
 frames (whole-movie coarse sheets, per-frame sheets spanning both swap boundaries, every-2nd-
@@ -265,9 +267,8 @@ audio listening, unlocked-desktop pacing/focus) from round 1.
 - No pixel-diff against the pre-change build: a second checkout at the baseline commit was
   declined (worktree/branch constraints). Farm-rain equivalence is of streak geometry, color
   and motion — supported by the unchanged rendering code path, the Task-3 z-order pins and the
-  visual match of the rainy farm captures — but it is not strict per-pixel identity: the
-  disclosed streak-over-ripple layering difference above is real, and equivalence claims must
-  not cover it.
+  visual match of the rainy farm captures — and the `04347d6` captures predated the post-review
+  `HomesteadAmbience` `z_index = 7` fix that restores ripples over rain streaks.
 - The tour initially failed truck/shop/social interactions; diagnosis showed tour-authoring bugs,
   not product bugs: `WorldMath.TARGET_OFFSETS` are isometric diagonal grid neighbors, town
   perimeter bands sit two cells inside each map edge, and villager footprints block straight-line

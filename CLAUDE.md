@@ -28,12 +28,15 @@ There is no JavaScript or Tauri runtime in the current checkout.
   logical footprints. It does not own nodes, input, physics, or gameplay state.
 - `scenes/world/world.tscn` and `scripts/world/world_shell.gd` own the world
   shell: the one authored `Player` instance, the shell-owned `RainLayer`
-  (persistent rain drawn above whichever map is active), the shell-owned
-  `TargetHighlight`, and the `GameHud`.
+  (persistent rain at `z_index = 6`, drawn above ground/soil/effects and
+  below farm `HomesteadAmbience` at `z_index = 7`, `TargetHighlight` at
+  `z_index = 10`, and each map's Y-sorted `Entities` at `z_index = 20`), the
+  shell-owned `TargetHighlight`, and the `GameHud`.
 - `scenes/world/farm_map.tscn` and `scripts/world/farm_map.gd` (`FarmMap`)
   own the authored farm map: the ground/water/path/decoration
   `TileMapLayer`s, `FarmSoil`, `FarmActionEffects`, `HomesteadAmbience`
-  (river ripples only — rain rendering lives in the shell `RainLayer`), the
+  (`z_index = 7`, river ripples only — rain rendering lives in the shell
+  `RainLayer` at `z_index = 6` so ripples remain over rain streaks), the
   farm `StaticCollision` bodies, and the `Entities` Y-sort root. `FarmMap`
   derives its collision geometry from `WorldContract` and `WorldMath` at
   `_ready()`, and defines its `SPAWN` and `CAMERA_BOUNDS` from

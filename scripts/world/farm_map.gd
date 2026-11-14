@@ -8,7 +8,6 @@ const MAP_SIZE := WorldContract.MAP_SIZE
 
 @onready var entities: FarmView = $Entities as FarmView
 @onready var effects: FarmActionEffects = $FarmActionEffects as FarmActionEffects
-@onready var ambience: HomesteadAmbience = $HomesteadAmbience as HomesteadAmbience
 
 func _ready() -> void:
     var static_collision := $StaticCollision as StaticBody2D
