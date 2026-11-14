@@ -7,7 +7,9 @@ extends SceneTree
 
 func _initialize() -> void:
 	var save_path := OS.get_environment("PHOENIX_SAVE_PATH")
-	if save_path.is_empty() or save_path == SaveRepository.DEFAULT_PATH:
+	var resolved := ProjectSettings.globalize_path(save_path).simplify_path()
+	var default_resolved := ProjectSettings.globalize_path(SaveRepository.DEFAULT_PATH).simplify_path()
+	if save_path.is_empty() or resolved == default_resolved:
 		push_error("PHOENIX_SAVE_PATH must point to an isolated non-default save file")
 		quit(1)
 		return

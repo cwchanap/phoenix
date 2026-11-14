@@ -28,9 +28,11 @@ func _boot_app() -> bool:
 func _require_isolated_paths() -> bool:
 	var save_path := OS.get_environment("PHOENIX_SAVE_PATH")
 	var settings_path := OS.get_environment("PHOENIX_SETTINGS_PATH")
-	if save_path.is_empty() or save_path == SaveRepository.DEFAULT_PATH:
+	var default_save := ProjectSettings.globalize_path(SaveRepository.DEFAULT_PATH).simplify_path()
+	var default_settings := ProjectSettings.globalize_path(UiSettings.DEFAULT_PATH).simplify_path()
+	if save_path.is_empty() or ProjectSettings.globalize_path(save_path).simplify_path() == default_save:
 		_failures.append("PHOENIX_SAVE_PATH must point to an isolated non-default save file")
-	if settings_path.is_empty() or settings_path == UiSettings.DEFAULT_PATH:
+	if settings_path.is_empty() or ProjectSettings.globalize_path(settings_path).simplify_path() == default_settings:
 		_failures.append(
 			"PHOENIX_SETTINGS_PATH must point to an isolated non-default settings file"
 		)
