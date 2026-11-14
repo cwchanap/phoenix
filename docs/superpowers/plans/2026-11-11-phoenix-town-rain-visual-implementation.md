@@ -1,6 +1,6 @@
 # HPA-860 — Town rain streaks: single-PR implementation plan
 
-**Status:** Revised after [PR #41 design review](https://github.com/cwchanap/phoenix/pull/41#pullrequestreview-5870418693). Tasks 1–4 and the local part of Task 5 are implemented and locally verified (commits df08970 onward, including the final review fix wave; ledger: `.superpowers/sdd/2026-11-11-phoenix-town-rain-visual-implementation/progress.md`). Open: the final-HEAD clean verifier, remote CI/export lanes, PR metadata and the human macOS live checks — all controller-owned after the final review.
+**Status:** Implemented; [PR #41](https://github.com/cwchanap/phoenix/pull/41) is marked ready (`draft=false`) at `9d00869`. Tasks 1–4 and the local part of Task 5 are implemented and locally verified (commits df08970 onward, including the final review fix waves; ledger: `.superpowers/sdd/2026-11-11-phoenix-town-rain-visual-implementation/progress.md`). All three hosted gates are green at `9d00869`: the `verify` lane (`verify-clean.sh`, import, unsigned macOS export/upload), GdUnit4 and godot-e2e. Open: the controller-owned local final-HEAD `verify-clean.sh` rerun (last local run at `59e6984`) and the human macOS subjective visual/audio/focus checks.
 **Design:** [Accepted shell-owned rain specification](../specs/2026-11-11-phoenix-town-rain-visual-design.md)
 **Issue:** https://linear.app/cwchanap/issue/HPA-860/show-existing-rain-streaks-in-town-without-farm-river-ripples
 **Branch:** `agent/hpa-860-town-rain-visual-plan`
@@ -73,9 +73,9 @@ Do **not** add new snapshot nonmutation, town ripple-count or duplicate-map-ambi
 
 ## End-to-end acceptance checklist
 
-Verified through `e62a2cc` plus the final review fix wave `41425bc` (agent-operated evidence; citations in
-the validation note). The remaining boxes stay open for the controller-owned gates and human
-checks — do not mark them done on evidence not yet gathered.
+Verified through `e62a2cc` plus the review fix waves through `9d00869` (agent-operated evidence; citations in
+the validation note). Hosted gates are green at `9d00869`. The remaining boxes stay open for the
+local final-HEAD verifier rerun and the human checks — do not mark them done on evidence not yet gathered.
 
 - [x] Rain is visible in rainy farm and town, absent during sunny weather in both (travel regressions + native rainy/sunny tours).
 - [x] A single persistent `World/RainLayer` remains alive throughout truck travel (integration tests + instance-ID telemetry across both swaps).
@@ -83,9 +83,10 @@ checks — do not mark them done on evidence not yet gathered.
 - [x] Existing HUD rain tint/audio and pre-existing town river audio continue unchanged (behavior guards + tour audio-state observations).
 - [x] Farm/day/travel/social/shop/market interactions, localisation and save behavior are unchanged (full GUT suite green on this branch).
 - [x] Existing rain tests are migrated, scene-order pins updated and headless smoke passes (including the restored ripple upper z bounds).
-- [ ] `./tools/verify-clean.sh` passes locally; CI verify/macOS export, GdUnit4 and godot-e2e are green. (Local verifier ran green at `04347d6`, not yet at final HEAD — controller-owned.)
+- [x] Hosted gates green at `9d00869`: `verify` lane (`verify-clean.sh`, import, unsigned macOS export/upload), GdUnit4 and godot-e2e; PR marked ready (`draft=false`).
+- [ ] Local `./tools/verify-clean.sh` rerun at final HEAD (ran green at `59e6984`, one commit before `9d00869` — controller-owned).
 - [x] Native macOS 1080p rainy/sunny travel and layering visual checks are recorded (agent-operated captures + per-frame movie; human live look/smoothness/audio/pacing checks remain open).
 - [x] One HPA-860 PR; no new assets, no per-map rain flags or generic weather framework.
 
-Implemented as of `e62a2cc` (plus the final review fix wave); this checklist previously described a planning-only draft PR, so
+Implemented through `9d00869` and marked ready; this checklist previously described a planning-only draft PR, so
 that stale claim is retired. Unchecked items remain open until their evidence exists.
