@@ -1,0 +1,426 @@
+{
+  "corner_order": [
+    "x0y0",
+    "x1y0",
+    "x0y1",
+    "x1y1"
+  ],
+  "entries": [
+    {
+      "corners": [
+        "dirt",
+        "grass",
+        "dirt",
+        "yard"
+      ],
+      "phase": [
+        0,
+        0
+      ],
+      "atlas_cell": [
+        0,
+        0
+      ]
+    },
+    {
+      "corners": [
+        "dirt",
+        "grass",
+        "water",
+        "water"
+      ],
+      "phase": [
+        1,
+        1
+      ],
+      "atlas_cell": [
+        1,
+        0
+      ]
+    },
+    {
+      "corners": [
+        "dirt",
+        "gravel",
+        "dirt",
+        "grass"
+      ],
+      "phase": [
+        1,
+        0
+      ],
+      "atlas_cell": [
+        2,
+        0
+      ]
+    },
+    {
+      "corners": [
+        "dirt",
+        "water",
+        "reeds",
+        "reeds"
+      ],
+      "phase": [
+        0,
+        0
+      ],
+      "atlas_cell": [
+        3,
+        0
+      ]
+    },
+    {
+      "corners": [
+        "forest",
+        "reeds",
+        "grass",
+        "grass"
+      ],
+      "phase": [
+        1,
+        1
+      ],
+      "atlas_cell": [
+        4,
+        0
+      ]
+    },
+    {
+      "corners": [
+        "forest",
+        "road",
+        "grass",
+        "grass"
+      ],
+      "phase": [
+        1,
+        1
+      ],
+      "atlas_cell": [
+        5,
+        0
+      ]
+    },
+    {
+      "corners": [
+        "forest",
+        "water",
+        "forest",
+        "reeds"
+      ],
+      "phase": [
+        1,
+        0
+      ],
+      "atlas_cell": [
+        6,
+        0
+      ]
+    },
+    {
+      "corners": [
+        "grass",
+        "dirt",
+        "water",
+        "water"
+      ],
+      "phase": [
+        0,
+        1
+      ],
+      "atlas_cell": [
+        7,
+        0
+      ]
+    },
+    {
+      "corners": [
+        "grass",
+        "dirt",
+        "yard",
+        "dirt"
+      ],
+      "phase": [
+        0,
+        0
+      ],
+      "atlas_cell": [
+        8,
+        0
+      ]
+    },
+    {
+      "corners": [
+        "grass",
+        "grass",
+        "forest",
+        "road"
+      ],
+      "phase": [
+        0,
+        0
+      ],
+      "atlas_cell": [
+        9,
+        0
+      ]
+    },
+    {
+      "corners": [
+        "grass",
+        "grass",
+        "forest",
+        "water"
+      ],
+      "phase": [
+        1,
+        0
+      ],
+      "atlas_cell": [
+        10,
+        0
+      ]
+    },
+    {
+      "corners": [
+        "grass",
+        "grass",
+        "road",
+        "paddy"
+      ],
+      "phase": [
+        1,
+        0
+      ],
+      "atlas_cell": [
+        11,
+        0
+      ]
+    },
+    {
+      "corners": [
+        "grass",
+        "grass",
+        "water",
+        "forest"
+      ],
+      "phase": [
+        0,
+        0
+      ],
+      "atlas_cell": [
+        12,
+        0
+      ]
+    },
+    {
+      "corners": [
+        "grass",
+        "road",
+        "gravel",
+        "gravel"
+      ],
+      "phase": [
+        1,
+        1
+      ],
+      "atlas_cell": [
+        13,
+        0
+      ]
+    },
+    {
+      "corners": [
+        "gravel",
+        "gravel",
+        "grass",
+        "road"
+      ],
+      "phase": [
+        1,
+        0
+      ],
+      "atlas_cell": [
+        14,
+        0
+      ]
+    },
+    {
+      "corners": [
+        "reeds",
+        "water",
+        "grass",
+        "grass"
+      ],
+      "phase": [
+        0,
+        1
+      ],
+      "atlas_cell": [
+        15,
+        0
+      ]
+    },
+    {
+      "corners": [
+        "road",
+        "paddy",
+        "grass",
+        "grass"
+      ],
+      "phase": [
+        1,
+        1
+      ],
+      "atlas_cell": [
+        0,
+        1
+      ]
+    },
+    {
+      "corners": [
+        "water",
+        "dirt",
+        "reeds",
+        "reeds"
+      ],
+      "phase": [
+        1,
+        0
+      ],
+      "atlas_cell": [
+        1,
+        1
+      ]
+    },
+    {
+      "corners": [
+        "water",
+        "dirt",
+        "water",
+        "yard"
+      ],
+      "phase": [
+        1,
+        1
+      ],
+      "atlas_cell": [
+        2,
+        1
+      ]
+    },
+    {
+      "corners": [
+        "water",
+        "forest",
+        "grass",
+        "grass"
+      ],
+      "phase": [
+        1,
+        0
+      ],
+      "atlas_cell": [
+        3,
+        1
+      ]
+    },
+    {
+      "corners": [
+        "water",
+        "grass",
+        "water",
+        "yard"
+      ],
+      "phase": [
+        1,
+        0
+      ],
+      "atlas_cell": [
+        4,
+        1
+      ]
+    },
+    {
+      "corners": [
+        "water",
+        "yard",
+        "water",
+        "dirt"
+      ],
+      "phase": [
+        1,
+        1
+      ],
+      "atlas_cell": [
+        5,
+        1
+      ]
+    },
+    {
+      "corners": [
+        "water",
+        "yard",
+        "water",
+        "grass"
+      ],
+      "phase": [
+        1,
+        0
+      ],
+      "atlas_cell": [
+        6,
+        1
+      ]
+    },
+    {
+      "corners": [
+        "yard",
+        "grass",
+        "gravel",
+        "gravel"
+      ],
+      "phase": [
+        1,
+        1
+      ],
+      "atlas_cell": [
+        7,
+        1
+      ]
+    },
+    {
+      "corners": [
+        "yard",
+        "yard",
+        "dirt",
+        "gravel"
+      ],
+      "phase": [
+        1,
+        0
+      ],
+      "atlas_cell": [
+        8,
+        1
+      ]
+    },
+    {
+      "corners": [
+        "yard",
+        "yard",
+        "grass",
+        "dirt"
+      ],
+      "phase": [
+        0,
+        0
+      ],
+      "atlas_cell": [
+        9,
+        1
+      ]
+    }
+  ]
+}

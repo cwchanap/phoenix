@@ -1,0 +1,2576 @@
+[gd_scene load_steps=74 format=3]
+
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/forest-00.png" id="1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/forest-11.png" id="2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/forest-01.png" id="3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/forest-10.png" id="4"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/grass-to-forest.png" id="5"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/grass-00.png" id="6"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/grass-10.png" id="7"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/grass-11.png" id="8"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/grass-01.png" id="9"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/grass-to-yard.png" id="10"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/yard-11.png" id="11"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/yard-01.png" id="12"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/yard-00.png" id="13"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/yard-10.png" id="14"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/dirt-to-yard.png" id="15"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/dirt-11.png" id="16"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/yard-to-gravel.png" id="17"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/multi-junctions.png" id="18"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/grass-to-gravel.png" id="19"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/dirt-00.png" id="20"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/dirt-10.png" id="21"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/gravel-10.png" id="22"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/gravel-00.png" id="23"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/gravel-11.png" id="24"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/gravel-01.png" id="25"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/grass-to-dirt.png" id="26"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/dirt-01.png" id="27"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/dirt-to-gravel.png" id="28"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/fallow-01.png" id="29"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/fallow-11.png" id="30"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/soil-11.png" id="31"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/soil-01.png" id="32"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/fallow-00.png" id="33"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/fallow-10.png" id="34"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/soil-10.png" id="35"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/ground-v2/soil-00.png" id="36"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/tiles/soil-dry.png" id="37"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/tiles/soil-wet.png" id="38"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/bamboo-fence-b.png" id="39"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/bamboo-fence-a.png" id="40"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/persimmon.png" id="41"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/storehouse.png" id="42"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/wood-fence-a.png" id="43"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/wood-fence-b.png" id="44"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/laundry.png" id="45"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/build-board.png" id="46"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/well.png" id="47"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/flowers.png" id="48"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/farmhouse.png" id="49"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/scarecrow.png" id="50"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/crop-0-0.png" id="51"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/rocks.png" id="52"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/crop-0-1.png" id="53"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/crop-1-0.png" id="54"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/stone-lantern.png" id="55"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/bush.png" id="56"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/crop-0-2.png" id="57"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/crop-1-1.png" id="58"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/crop-2-0.png" id="59"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/tool-shed.png" id="60"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/woodpile.png" id="61"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/crop-0-3.png" id="62"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/crop-1-2.png" id="63"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/crop-2-1.png" id="64"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/workbench.png" id="65"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/crop-1-3.png" id="66"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/crop-2-2.png" id="67"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/crop-2-3.png" id="68"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/crates.png" id="69"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/shipping-bin.png" id="70"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/rain-barrel.png" id="71"]
+[ext_resource type="Texture2D" path="res://assets/sprites/hpa-861-review/cutouts/greenhouse.png" id="72"]
+[ext_resource type="Texture2D" path="res://assets/sprites/player-walk.png" id="73"]
+
+[node name="HPA861ArtReview" type="Node2D"]
+texture_filter = 1
+
+[node name="Art0" type="Sprite2D" parent="."]
+position = Vector2(704.0, 368.0)
+texture = ExtResource("1")
+
+[node name="Art1" type="Sprite2D" parent="."]
+position = Vector2(640.0, 368.0)
+texture = ExtResource("2")
+
+[node name="Art2" type="Sprite2D" parent="."]
+position = Vector2(672.0, 384.0)
+texture = ExtResource("3")
+
+[node name="Art3" type="Sprite2D" parent="."]
+position = Vector2(704.0, 400.0)
+texture = ExtResource("2")
+
+[node name="Art4" type="Sprite2D" parent="."]
+position = Vector2(576.0, 368.0)
+texture = ExtResource("1")
+
+[node name="Art5" type="Sprite2D" parent="."]
+position = Vector2(608.0, 384.0)
+texture = ExtResource("4")
+
+[node name="Art6" type="Sprite2D" parent="."]
+position = Vector2(640.0, 400.0)
+texture = ExtResource("1")
+
+[node name="Art7" type="Sprite2D" parent="."]
+position = Vector2(672.0, 416.0)
+texture = ExtResource("4")
+
+[node name="Art8" type="Sprite2D" parent="."]
+position = Vector2(704.0, 432.0)
+texture = ExtResource("1")
+
+[node name="Art9" type="Sprite2D" parent="."]
+position = Vector2(512.0, 368.0)
+texture = ExtResource("5")
+region_enabled = true
+region_rect = Rect2(192, 96, 64, 32)
+
+[node name="Art10" type="Sprite2D" parent="."]
+position = Vector2(544.0, 384.0)
+texture = ExtResource("5")
+region_enabled = true
+region_rect = Rect2(192, 64, 64, 32)
+
+[node name="Art11" type="Sprite2D" parent="."]
+position = Vector2(576.0, 400.0)
+texture = ExtResource("5")
+region_enabled = true
+region_rect = Rect2(192, 96, 64, 32)
+
+[node name="Art12" type="Sprite2D" parent="."]
+position = Vector2(608.0, 416.0)
+texture = ExtResource("5")
+region_enabled = true
+region_rect = Rect2(192, 64, 64, 32)
+
+[node name="Art13" type="Sprite2D" parent="."]
+position = Vector2(640.0, 432.0)
+texture = ExtResource("5")
+region_enabled = true
+region_rect = Rect2(192, 96, 64, 32)
+
+[node name="Art14" type="Sprite2D" parent="."]
+position = Vector2(672.0, 448.0)
+texture = ExtResource("5")
+region_enabled = true
+region_rect = Rect2(192, 64, 64, 32)
+
+[node name="Art15" type="Sprite2D" parent="."]
+position = Vector2(704.0, 464.0)
+texture = ExtResource("5")
+region_enabled = true
+region_rect = Rect2(192, 96, 64, 32)
+
+[node name="Art16" type="Sprite2D" parent="."]
+position = Vector2(448.0, 368.0)
+texture = ExtResource("6")
+
+[node name="Art17" type="Sprite2D" parent="."]
+position = Vector2(480.0, 384.0)
+texture = ExtResource("7")
+
+[node name="Art18" type="Sprite2D" parent="."]
+position = Vector2(512.0, 400.0)
+texture = ExtResource("6")
+
+[node name="Art19" type="Sprite2D" parent="."]
+position = Vector2(544.0, 416.0)
+texture = ExtResource("7")
+
+[node name="Art20" type="Sprite2D" parent="."]
+position = Vector2(576.0, 432.0)
+texture = ExtResource("6")
+
+[node name="Art21" type="Sprite2D" parent="."]
+position = Vector2(608.0, 448.0)
+texture = ExtResource("7")
+
+[node name="Art22" type="Sprite2D" parent="."]
+position = Vector2(640.0, 464.0)
+texture = ExtResource("6")
+
+[node name="Art23" type="Sprite2D" parent="."]
+position = Vector2(672.0, 480.0)
+texture = ExtResource("7")
+
+[node name="Art24" type="Sprite2D" parent="."]
+position = Vector2(704.0, 496.0)
+texture = ExtResource("6")
+
+[node name="Art25" type="Sprite2D" parent="."]
+position = Vector2(384.0, 368.0)
+texture = ExtResource("8")
+
+[node name="Art26" type="Sprite2D" parent="."]
+position = Vector2(416.0, 384.0)
+texture = ExtResource("9")
+
+[node name="Art27" type="Sprite2D" parent="."]
+position = Vector2(448.0, 400.0)
+texture = ExtResource("8")
+
+[node name="Art28" type="Sprite2D" parent="."]
+position = Vector2(480.0, 416.0)
+texture = ExtResource("9")
+
+[node name="Art29" type="Sprite2D" parent="."]
+position = Vector2(512.0, 432.0)
+texture = ExtResource("8")
+
+[node name="Art30" type="Sprite2D" parent="."]
+position = Vector2(544.0, 448.0)
+texture = ExtResource("9")
+
+[node name="Art31" type="Sprite2D" parent="."]
+position = Vector2(576.0, 464.0)
+texture = ExtResource("8")
+
+[node name="Art32" type="Sprite2D" parent="."]
+position = Vector2(608.0, 480.0)
+texture = ExtResource("9")
+
+[node name="Art33" type="Sprite2D" parent="."]
+position = Vector2(640.0, 496.0)
+texture = ExtResource("8")
+
+[node name="Art34" type="Sprite2D" parent="."]
+position = Vector2(672.0, 512.0)
+texture = ExtResource("9")
+
+[node name="Art35" type="Sprite2D" parent="."]
+position = Vector2(704.0, 528.0)
+texture = ExtResource("8")
+
+[node name="Art36" type="Sprite2D" parent="."]
+position = Vector2(320.0, 368.0)
+texture = ExtResource("6")
+
+[node name="Art37" type="Sprite2D" parent="."]
+position = Vector2(352.0, 384.0)
+texture = ExtResource("7")
+
+[node name="Art38" type="Sprite2D" parent="."]
+position = Vector2(384.0, 400.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(512, 0, 64, 32)
+
+[node name="Art39" type="Sprite2D" parent="."]
+position = Vector2(416.0, 416.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(768, 32, 64, 32)
+
+[node name="Art40" type="Sprite2D" parent="."]
+position = Vector2(448.0, 432.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(768, 0, 64, 32)
+
+[node name="Art41" type="Sprite2D" parent="."]
+position = Vector2(480.0, 448.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(768, 32, 64, 32)
+
+[node name="Art42" type="Sprite2D" parent="."]
+position = Vector2(512.0, 464.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(768, 0, 64, 32)
+
+[node name="Art43" type="Sprite2D" parent="."]
+position = Vector2(544.0, 480.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(768, 32, 64, 32)
+
+[node name="Art44" type="Sprite2D" parent="."]
+position = Vector2(576.0, 496.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(768, 0, 64, 32)
+
+[node name="Art45" type="Sprite2D" parent="."]
+position = Vector2(608.0, 512.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(768, 32, 64, 32)
+
+[node name="Art46" type="Sprite2D" parent="."]
+position = Vector2(640.0, 528.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(768, 0, 64, 32)
+
+[node name="Art47" type="Sprite2D" parent="."]
+position = Vector2(672.0, 544.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(768, 32, 64, 32)
+
+[node name="Art48" type="Sprite2D" parent="."]
+position = Vector2(704.0, 560.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(768, 0, 64, 32)
+
+[node name="Art49" type="Sprite2D" parent="."]
+position = Vector2(256.0, 368.0)
+texture = ExtResource("8")
+
+[node name="Art50" type="Sprite2D" parent="."]
+position = Vector2(288.0, 384.0)
+texture = ExtResource("9")
+
+[node name="Art51" type="Sprite2D" parent="."]
+position = Vector2(320.0, 400.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(512, 96, 64, 32)
+
+[node name="Art52" type="Sprite2D" parent="."]
+position = Vector2(352.0, 416.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(896, 64, 64, 32)
+
+[node name="Art53" type="Sprite2D" parent="."]
+position = Vector2(384.0, 432.0)
+texture = ExtResource("11")
+
+[node name="Art54" type="Sprite2D" parent="."]
+position = Vector2(416.0, 448.0)
+texture = ExtResource("12")
+
+[node name="Art55" type="Sprite2D" parent="."]
+position = Vector2(448.0, 464.0)
+texture = ExtResource("11")
+
+[node name="Art56" type="Sprite2D" parent="."]
+position = Vector2(480.0, 480.0)
+texture = ExtResource("12")
+
+[node name="Art57" type="Sprite2D" parent="."]
+position = Vector2(512.0, 496.0)
+texture = ExtResource("11")
+
+[node name="Art58" type="Sprite2D" parent="."]
+position = Vector2(544.0, 512.0)
+texture = ExtResource("12")
+
+[node name="Art59" type="Sprite2D" parent="."]
+position = Vector2(576.0, 528.0)
+texture = ExtResource("11")
+
+[node name="Art60" type="Sprite2D" parent="."]
+position = Vector2(608.0, 544.0)
+texture = ExtResource("12")
+
+[node name="Art61" type="Sprite2D" parent="."]
+position = Vector2(640.0, 560.0)
+texture = ExtResource("11")
+
+[node name="Art62" type="Sprite2D" parent="."]
+position = Vector2(672.0, 576.0)
+texture = ExtResource("12")
+
+[node name="Art63" type="Sprite2D" parent="."]
+position = Vector2(704.0, 592.0)
+texture = ExtResource("11")
+
+[node name="Art64" type="Sprite2D" parent="."]
+position = Vector2(192.0, 368.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(768, 0, 64, 32)
+
+[node name="Art65" type="Sprite2D" parent="."]
+position = Vector2(224.0, 384.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(768, 32, 64, 32)
+
+[node name="Art66" type="Sprite2D" parent="."]
+position = Vector2(256.0, 400.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(768, 0, 64, 32)
+
+[node name="Art67" type="Sprite2D" parent="."]
+position = Vector2(288.0, 416.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(896, 32, 64, 32)
+
+[node name="Art68" type="Sprite2D" parent="."]
+position = Vector2(320.0, 432.0)
+texture = ExtResource("13")
+
+[node name="Art69" type="Sprite2D" parent="."]
+position = Vector2(352.0, 448.0)
+texture = ExtResource("14")
+
+[node name="Art70" type="Sprite2D" parent="."]
+position = Vector2(384.0, 464.0)
+texture = ExtResource("13")
+
+[node name="Art71" type="Sprite2D" parent="."]
+position = Vector2(416.0, 480.0)
+texture = ExtResource("14")
+
+[node name="Art72" type="Sprite2D" parent="."]
+position = Vector2(448.0, 496.0)
+texture = ExtResource("13")
+
+[node name="Art73" type="Sprite2D" parent="."]
+position = Vector2(480.0, 512.0)
+texture = ExtResource("14")
+
+[node name="Art74" type="Sprite2D" parent="."]
+position = Vector2(512.0, 528.0)
+texture = ExtResource("13")
+
+[node name="Art75" type="Sprite2D" parent="."]
+position = Vector2(544.0, 544.0)
+texture = ExtResource("14")
+
+[node name="Art76" type="Sprite2D" parent="."]
+position = Vector2(576.0, 560.0)
+texture = ExtResource("13")
+
+[node name="Art77" type="Sprite2D" parent="."]
+position = Vector2(608.0, 576.0)
+texture = ExtResource("14")
+
+[node name="Art78" type="Sprite2D" parent="."]
+position = Vector2(640.0, 592.0)
+texture = ExtResource("13")
+
+[node name="Art79" type="Sprite2D" parent="."]
+position = Vector2(672.0, 608.0)
+texture = ExtResource("14")
+
+[node name="Art80" type="Sprite2D" parent="."]
+position = Vector2(704.0, 624.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(320, 0, 64, 32)
+
+[node name="Art81" type="Sprite2D" parent="."]
+position = Vector2(128.0, 368.0)
+texture = ExtResource("11")
+
+[node name="Art82" type="Sprite2D" parent="."]
+position = Vector2(160.0, 384.0)
+texture = ExtResource("12")
+
+[node name="Art83" type="Sprite2D" parent="."]
+position = Vector2(192.0, 400.0)
+texture = ExtResource("11")
+
+[node name="Art84" type="Sprite2D" parent="."]
+position = Vector2(224.0, 416.0)
+texture = ExtResource("12")
+
+[node name="Art85" type="Sprite2D" parent="."]
+position = Vector2(256.0, 432.0)
+texture = ExtResource("11")
+
+[node name="Art86" type="Sprite2D" parent="."]
+position = Vector2(288.0, 448.0)
+texture = ExtResource("12")
+
+[node name="Art87" type="Sprite2D" parent="."]
+position = Vector2(320.0, 464.0)
+texture = ExtResource("11")
+
+[node name="Art88" type="Sprite2D" parent="."]
+position = Vector2(352.0, 480.0)
+texture = ExtResource("12")
+
+[node name="Art89" type="Sprite2D" parent="."]
+position = Vector2(384.0, 496.0)
+texture = ExtResource("11")
+
+[node name="Art90" type="Sprite2D" parent="."]
+position = Vector2(416.0, 512.0)
+texture = ExtResource("12")
+
+[node name="Art91" type="Sprite2D" parent="."]
+position = Vector2(448.0, 528.0)
+texture = ExtResource("11")
+
+[node name="Art92" type="Sprite2D" parent="."]
+position = Vector2(480.0, 544.0)
+texture = ExtResource("12")
+
+[node name="Art93" type="Sprite2D" parent="."]
+position = Vector2(512.0, 560.0)
+texture = ExtResource("11")
+
+[node name="Art94" type="Sprite2D" parent="."]
+position = Vector2(544.0, 576.0)
+texture = ExtResource("12")
+
+[node name="Art95" type="Sprite2D" parent="."]
+position = Vector2(576.0, 592.0)
+texture = ExtResource("11")
+
+[node name="Art96" type="Sprite2D" parent="."]
+position = Vector2(608.0, 608.0)
+texture = ExtResource("12")
+
+[node name="Art97" type="Sprite2D" parent="."]
+position = Vector2(640.0, 624.0)
+texture = ExtResource("11")
+
+[node name="Art98" type="Sprite2D" parent="."]
+position = Vector2(672.0, 640.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(320, 64, 64, 32)
+
+[node name="Art99" type="Sprite2D" parent="."]
+position = Vector2(704.0, 656.0)
+texture = ExtResource("8")
+
+[node name="Art100" type="Sprite2D" parent="."]
+position = Vector2(64.0, 368.0)
+texture = ExtResource("13")
+
+[node name="Art101" type="Sprite2D" parent="."]
+position = Vector2(96.0, 384.0)
+texture = ExtResource("14")
+
+[node name="Art102" type="Sprite2D" parent="."]
+position = Vector2(128.0, 400.0)
+texture = ExtResource("13")
+
+[node name="Art103" type="Sprite2D" parent="."]
+position = Vector2(160.0, 416.0)
+texture = ExtResource("14")
+
+[node name="Art104" type="Sprite2D" parent="."]
+position = Vector2(192.0, 432.0)
+texture = ExtResource("15")
+region_enabled = true
+region_rect = Rect2(448, 0, 64, 32)
+
+[node name="Art105" type="Sprite2D" parent="."]
+position = Vector2(224.0, 448.0)
+texture = ExtResource("15")
+region_enabled = true
+region_rect = Rect2(192, 32, 64, 32)
+
+[node name="Art106" type="Sprite2D" parent="."]
+position = Vector2(256.0, 464.0)
+texture = ExtResource("15")
+region_enabled = true
+region_rect = Rect2(704, 0, 64, 32)
+
+[node name="Art107" type="Sprite2D" parent="."]
+position = Vector2(288.0, 480.0)
+texture = ExtResource("14")
+
+[node name="Art108" type="Sprite2D" parent="."]
+position = Vector2(320.0, 496.0)
+texture = ExtResource("13")
+
+[node name="Art109" type="Sprite2D" parent="."]
+position = Vector2(352.0, 512.0)
+texture = ExtResource("14")
+
+[node name="Art110" type="Sprite2D" parent="."]
+position = Vector2(384.0, 528.0)
+texture = ExtResource("13")
+
+[node name="Art111" type="Sprite2D" parent="."]
+position = Vector2(416.0, 544.0)
+texture = ExtResource("14")
+
+[node name="Art112" type="Sprite2D" parent="."]
+position = Vector2(448.0, 560.0)
+texture = ExtResource("13")
+
+[node name="Art113" type="Sprite2D" parent="."]
+position = Vector2(480.0, 576.0)
+texture = ExtResource("14")
+
+[node name="Art114" type="Sprite2D" parent="."]
+position = Vector2(512.0, 592.0)
+texture = ExtResource("13")
+
+[node name="Art115" type="Sprite2D" parent="."]
+position = Vector2(544.0, 608.0)
+texture = ExtResource("14")
+
+[node name="Art116" type="Sprite2D" parent="."]
+position = Vector2(576.0, 624.0)
+texture = ExtResource("13")
+
+[node name="Art117" type="Sprite2D" parent="."]
+position = Vector2(608.0, 640.0)
+texture = ExtResource("14")
+
+[node name="Art118" type="Sprite2D" parent="."]
+position = Vector2(640.0, 656.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(832, 0, 64, 32)
+
+[node name="Art119" type="Sprite2D" parent="."]
+position = Vector2(672.0, 672.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(256, 32, 64, 32)
+
+[node name="Art120" type="Sprite2D" parent="."]
+position = Vector2(704.0, 688.0)
+texture = ExtResource("6")
+
+[node name="Art121" type="Sprite2D" parent="."]
+position = Vector2(64.0, 400.0)
+texture = ExtResource("15")
+region_enabled = true
+region_rect = Rect2(192, 96, 64, 32)
+
+[node name="Art122" type="Sprite2D" parent="."]
+position = Vector2(96.0, 416.0)
+texture = ExtResource("15")
+region_enabled = true
+region_rect = Rect2(192, 64, 64, 32)
+
+[node name="Art123" type="Sprite2D" parent="."]
+position = Vector2(128.0, 432.0)
+texture = ExtResource("15")
+region_enabled = true
+region_rect = Rect2(192, 96, 64, 32)
+
+[node name="Art124" type="Sprite2D" parent="."]
+position = Vector2(160.0, 448.0)
+texture = ExtResource("15")
+region_enabled = true
+region_rect = Rect2(64, 64, 64, 32)
+
+[node name="Art125" type="Sprite2D" parent="."]
+position = Vector2(192.0, 464.0)
+texture = ExtResource("16")
+
+[node name="Art126" type="Sprite2D" parent="."]
+position = Vector2(224.0, 480.0)
+texture = ExtResource("15")
+region_enabled = true
+region_rect = Rect2(640, 64, 64, 32)
+
+[node name="Art127" type="Sprite2D" parent="."]
+position = Vector2(256.0, 496.0)
+texture = ExtResource("11")
+
+[node name="Art128" type="Sprite2D" parent="."]
+position = Vector2(288.0, 512.0)
+texture = ExtResource("12")
+
+[node name="Art129" type="Sprite2D" parent="."]
+position = Vector2(320.0, 528.0)
+texture = ExtResource("11")
+
+[node name="Art130" type="Sprite2D" parent="."]
+position = Vector2(352.0, 544.0)
+texture = ExtResource("12")
+
+[node name="Art131" type="Sprite2D" parent="."]
+position = Vector2(384.0, 560.0)
+texture = ExtResource("11")
+
+[node name="Art132" type="Sprite2D" parent="."]
+position = Vector2(416.0, 576.0)
+texture = ExtResource("12")
+
+[node name="Art133" type="Sprite2D" parent="."]
+position = Vector2(448.0, 592.0)
+texture = ExtResource("11")
+
+[node name="Art134" type="Sprite2D" parent="."]
+position = Vector2(480.0, 608.0)
+texture = ExtResource("12")
+
+[node name="Art135" type="Sprite2D" parent="."]
+position = Vector2(512.0, 624.0)
+texture = ExtResource("11")
+
+[node name="Art136" type="Sprite2D" parent="."]
+position = Vector2(544.0, 640.0)
+texture = ExtResource("12")
+
+[node name="Art137" type="Sprite2D" parent="."]
+position = Vector2(576.0, 656.0)
+texture = ExtResource("11")
+
+[node name="Art138" type="Sprite2D" parent="."]
+position = Vector2(608.0, 672.0)
+texture = ExtResource("17")
+region_enabled = true
+region_rect = Rect2(512, 64, 64, 32)
+
+[node name="Art139" type="Sprite2D" parent="."]
+position = Vector2(640.0, 688.0)
+texture = ExtResource("18")
+region_enabled = true
+region_rect = Rect2(448, 32, 64, 32)
+
+[node name="Art140" type="Sprite2D" parent="."]
+position = Vector2(672.0, 704.0)
+texture = ExtResource("19")
+region_enabled = true
+region_rect = Rect2(768, 64, 64, 32)
+
+[node name="Art141" type="Sprite2D" parent="."]
+position = Vector2(704.0, 720.0)
+texture = ExtResource("19")
+region_enabled = true
+region_rect = Rect2(768, 96, 64, 32)
+
+[node name="Art142" type="Sprite2D" parent="."]
+position = Vector2(64.0, 432.0)
+texture = ExtResource("20")
+
+[node name="Art143" type="Sprite2D" parent="."]
+position = Vector2(96.0, 448.0)
+texture = ExtResource("21")
+
+[node name="Art144" type="Sprite2D" parent="."]
+position = Vector2(128.0, 464.0)
+texture = ExtResource("20")
+
+[node name="Art145" type="Sprite2D" parent="."]
+position = Vector2(160.0, 480.0)
+texture = ExtResource("15")
+region_enabled = true
+region_rect = Rect2(512, 32, 64, 32)
+
+[node name="Art146" type="Sprite2D" parent="."]
+position = Vector2(192.0, 496.0)
+texture = ExtResource("15")
+region_enabled = true
+region_rect = Rect2(896, 0, 64, 32)
+
+[node name="Art147" type="Sprite2D" parent="."]
+position = Vector2(224.0, 512.0)
+texture = ExtResource("14")
+
+[node name="Art148" type="Sprite2D" parent="."]
+position = Vector2(256.0, 528.0)
+texture = ExtResource("13")
+
+[node name="Art149" type="Sprite2D" parent="."]
+position = Vector2(288.0, 544.0)
+texture = ExtResource("14")
+
+[node name="Art150" type="Sprite2D" parent="."]
+position = Vector2(320.0, 560.0)
+texture = ExtResource("13")
+
+[node name="Art151" type="Sprite2D" parent="."]
+position = Vector2(352.0, 576.0)
+texture = ExtResource("14")
+
+[node name="Art152" type="Sprite2D" parent="."]
+position = Vector2(384.0, 592.0)
+texture = ExtResource("13")
+
+[node name="Art153" type="Sprite2D" parent="."]
+position = Vector2(416.0, 608.0)
+texture = ExtResource("14")
+
+[node name="Art154" type="Sprite2D" parent="."]
+position = Vector2(448.0, 624.0)
+texture = ExtResource("13")
+
+[node name="Art155" type="Sprite2D" parent="."]
+position = Vector2(480.0, 640.0)
+texture = ExtResource("14")
+
+[node name="Art156" type="Sprite2D" parent="."]
+position = Vector2(512.0, 656.0)
+texture = ExtResource("13")
+
+[node name="Art157" type="Sprite2D" parent="."]
+position = Vector2(544.0, 672.0)
+texture = ExtResource("14")
+
+[node name="Art158" type="Sprite2D" parent="."]
+position = Vector2(576.0, 688.0)
+texture = ExtResource("17")
+region_enabled = true
+region_rect = Rect2(640, 0, 64, 32)
+
+[node name="Art159" type="Sprite2D" parent="."]
+position = Vector2(608.0, 704.0)
+texture = ExtResource("22")
+
+[node name="Art160" type="Sprite2D" parent="."]
+position = Vector2(640.0, 720.0)
+texture = ExtResource("23")
+
+[node name="Art161" type="Sprite2D" parent="."]
+position = Vector2(672.0, 736.0)
+texture = ExtResource("22")
+
+[node name="Art162" type="Sprite2D" parent="."]
+position = Vector2(704.0, 752.0)
+texture = ExtResource("23")
+
+[node name="Art163" type="Sprite2D" parent="."]
+position = Vector2(32.0, 448.0)
+texture = ExtResource("15")
+region_enabled = true
+region_rect = Rect2(768, 64, 64, 32)
+
+[node name="Art164" type="Sprite2D" parent="."]
+position = Vector2(64.0, 464.0)
+texture = ExtResource("15")
+region_enabled = true
+region_rect = Rect2(768, 96, 64, 32)
+
+[node name="Art165" type="Sprite2D" parent="."]
+position = Vector2(96.0, 480.0)
+texture = ExtResource("15")
+region_enabled = true
+region_rect = Rect2(768, 64, 64, 32)
+
+[node name="Art166" type="Sprite2D" parent="."]
+position = Vector2(128.0, 496.0)
+texture = ExtResource("15")
+region_enabled = true
+region_rect = Rect2(896, 96, 64, 32)
+
+[node name="Art167" type="Sprite2D" parent="."]
+position = Vector2(160.0, 512.0)
+texture = ExtResource("12")
+
+[node name="Art168" type="Sprite2D" parent="."]
+position = Vector2(192.0, 528.0)
+texture = ExtResource("11")
+
+[node name="Art169" type="Sprite2D" parent="."]
+position = Vector2(224.0, 544.0)
+texture = ExtResource("12")
+
+[node name="Art170" type="Sprite2D" parent="."]
+position = Vector2(256.0, 560.0)
+texture = ExtResource("11")
+
+[node name="Art171" type="Sprite2D" parent="."]
+position = Vector2(288.0, 576.0)
+texture = ExtResource("12")
+
+[node name="Art172" type="Sprite2D" parent="."]
+position = Vector2(320.0, 592.0)
+texture = ExtResource("15")
+region_enabled = true
+region_rect = Rect2(448, 96, 64, 32)
+
+[node name="Art173" type="Sprite2D" parent="."]
+position = Vector2(352.0, 608.0)
+texture = ExtResource("15")
+region_enabled = true
+region_rect = Rect2(704, 64, 64, 32)
+
+[node name="Art174" type="Sprite2D" parent="."]
+position = Vector2(384.0, 624.0)
+texture = ExtResource("11")
+
+[node name="Art175" type="Sprite2D" parent="."]
+position = Vector2(416.0, 640.0)
+texture = ExtResource("12")
+
+[node name="Art176" type="Sprite2D" parent="."]
+position = Vector2(448.0, 656.0)
+texture = ExtResource("11")
+
+[node name="Art177" type="Sprite2D" parent="."]
+position = Vector2(480.0, 672.0)
+texture = ExtResource("12")
+
+[node name="Art178" type="Sprite2D" parent="."]
+position = Vector2(512.0, 688.0)
+texture = ExtResource("11")
+
+[node name="Art179" type="Sprite2D" parent="."]
+position = Vector2(544.0, 704.0)
+texture = ExtResource("17")
+region_enabled = true
+region_rect = Rect2(640, 64, 64, 32)
+
+[node name="Art180" type="Sprite2D" parent="."]
+position = Vector2(576.0, 720.0)
+texture = ExtResource("24")
+
+[node name="Art181" type="Sprite2D" parent="."]
+position = Vector2(608.0, 736.0)
+texture = ExtResource("25")
+
+[node name="Art182" type="Sprite2D" parent="."]
+position = Vector2(640.0, 752.0)
+texture = ExtResource("24")
+
+[node name="Art183" type="Sprite2D" parent="."]
+position = Vector2(-32.0, 448.0)
+texture = ExtResource("14")
+
+[node name="Art184" type="Sprite2D" parent="."]
+position = Vector2(0.0, 464.0)
+texture = ExtResource("13")
+
+[node name="Art185" type="Sprite2D" parent="."]
+position = Vector2(32.0, 480.0)
+texture = ExtResource("14")
+
+[node name="Art186" type="Sprite2D" parent="."]
+position = Vector2(64.0, 496.0)
+texture = ExtResource("13")
+
+[node name="Art187" type="Sprite2D" parent="."]
+position = Vector2(96.0, 512.0)
+texture = ExtResource("14")
+
+[node name="Art188" type="Sprite2D" parent="."]
+position = Vector2(128.0, 528.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(448, 0, 64, 32)
+
+[node name="Art189" type="Sprite2D" parent="."]
+position = Vector2(160.0, 544.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(192, 32, 64, 32)
+
+[node name="Art190" type="Sprite2D" parent="."]
+position = Vector2(192.0, 560.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(192, 0, 64, 32)
+
+[node name="Art191" type="Sprite2D" parent="."]
+position = Vector2(224.0, 576.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(192, 32, 64, 32)
+
+[node name="Art192" type="Sprite2D" parent="."]
+position = Vector2(256.0, 592.0)
+texture = ExtResource("18")
+region_enabled = true
+region_rect = Rect2(576, 32, 64, 32)
+
+[node name="Art193" type="Sprite2D" parent="."]
+position = Vector2(288.0, 608.0)
+texture = ExtResource("15")
+region_enabled = true
+region_rect = Rect2(64, 32, 64, 32)
+
+[node name="Art194" type="Sprite2D" parent="."]
+position = Vector2(320.0, 624.0)
+texture = ExtResource("15")
+region_enabled = true
+region_rect = Rect2(128, 0, 64, 32)
+
+[node name="Art195" type="Sprite2D" parent="."]
+position = Vector2(352.0, 640.0)
+texture = ExtResource("18")
+region_enabled = true
+region_rect = Rect2(512, 32, 64, 32)
+
+[node name="Art196" type="Sprite2D" parent="."]
+position = Vector2(384.0, 656.0)
+texture = ExtResource("17")
+region_enabled = true
+region_rect = Rect2(768, 0, 64, 32)
+
+[node name="Art197" type="Sprite2D" parent="."]
+position = Vector2(416.0, 672.0)
+texture = ExtResource("17")
+region_enabled = true
+region_rect = Rect2(768, 32, 64, 32)
+
+[node name="Art198" type="Sprite2D" parent="."]
+position = Vector2(448.0, 688.0)
+texture = ExtResource("17")
+region_enabled = true
+region_rect = Rect2(768, 0, 64, 32)
+
+[node name="Art199" type="Sprite2D" parent="."]
+position = Vector2(480.0, 704.0)
+texture = ExtResource("17")
+region_enabled = true
+region_rect = Rect2(768, 32, 64, 32)
+
+[node name="Art200" type="Sprite2D" parent="."]
+position = Vector2(512.0, 720.0)
+texture = ExtResource("17")
+region_enabled = true
+region_rect = Rect2(896, 0, 64, 32)
+
+[node name="Art201" type="Sprite2D" parent="."]
+position = Vector2(544.0, 736.0)
+texture = ExtResource("22")
+
+[node name="Art202" type="Sprite2D" parent="."]
+position = Vector2(576.0, 752.0)
+texture = ExtResource("23")
+
+[node name="Art203" type="Sprite2D" parent="."]
+position = Vector2(-96.0, 448.0)
+texture = ExtResource("12")
+
+[node name="Art204" type="Sprite2D" parent="."]
+position = Vector2(-64.0, 464.0)
+texture = ExtResource("11")
+
+[node name="Art205" type="Sprite2D" parent="."]
+position = Vector2(-32.0, 480.0)
+texture = ExtResource("12")
+
+[node name="Art206" type="Sprite2D" parent="."]
+position = Vector2(0.0, 496.0)
+texture = ExtResource("11")
+
+[node name="Art207" type="Sprite2D" parent="."]
+position = Vector2(32.0, 512.0)
+texture = ExtResource("12")
+
+[node name="Art208" type="Sprite2D" parent="."]
+position = Vector2(64.0, 528.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(448, 96, 64, 32)
+
+[node name="Art209" type="Sprite2D" parent="."]
+position = Vector2(96.0, 544.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(64, 64, 64, 32)
+
+[node name="Art210" type="Sprite2D" parent="."]
+position = Vector2(128.0, 560.0)
+texture = ExtResource("8")
+
+[node name="Art211" type="Sprite2D" parent="."]
+position = Vector2(160.0, 576.0)
+texture = ExtResource("9")
+
+[node name="Art212" type="Sprite2D" parent="."]
+position = Vector2(192.0, 592.0)
+texture = ExtResource("8")
+
+[node name="Art213" type="Sprite2D" parent="."]
+position = Vector2(224.0, 608.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(640, 64, 64, 32)
+
+[node name="Art214" type="Sprite2D" parent="."]
+position = Vector2(256.0, 624.0)
+texture = ExtResource("16")
+
+[node name="Art215" type="Sprite2D" parent="."]
+position = Vector2(288.0, 640.0)
+texture = ExtResource("27")
+
+[node name="Art216" type="Sprite2D" parent="."]
+position = Vector2(320.0, 656.0)
+texture = ExtResource("28")
+region_enabled = true
+region_rect = Rect2(640, 96, 64, 32)
+
+[node name="Art217" type="Sprite2D" parent="."]
+position = Vector2(352.0, 672.0)
+texture = ExtResource("25")
+
+[node name="Art218" type="Sprite2D" parent="."]
+position = Vector2(384.0, 688.0)
+texture = ExtResource("24")
+
+[node name="Art219" type="Sprite2D" parent="."]
+position = Vector2(416.0, 704.0)
+texture = ExtResource("25")
+
+[node name="Art220" type="Sprite2D" parent="."]
+position = Vector2(448.0, 720.0)
+texture = ExtResource("24")
+
+[node name="Art221" type="Sprite2D" parent="."]
+position = Vector2(480.0, 736.0)
+texture = ExtResource("25")
+
+[node name="Art222" type="Sprite2D" parent="."]
+position = Vector2(512.0, 752.0)
+texture = ExtResource("24")
+
+[node name="Art223" type="Sprite2D" parent="."]
+position = Vector2(-160.0, 448.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(192, 32, 64, 32)
+
+[node name="Art224" type="Sprite2D" parent="."]
+position = Vector2(-128.0, 464.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(192, 0, 64, 32)
+
+[node name="Art225" type="Sprite2D" parent="."]
+position = Vector2(-96.0, 480.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(192, 32, 64, 32)
+
+[node name="Art226" type="Sprite2D" parent="."]
+position = Vector2(-64.0, 496.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(192, 0, 64, 32)
+
+[node name="Art227" type="Sprite2D" parent="."]
+position = Vector2(-32.0, 512.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(192, 32, 64, 32)
+
+[node name="Art228" type="Sprite2D" parent="."]
+position = Vector2(0.0, 528.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(192, 0, 64, 32)
+
+[node name="Art229" type="Sprite2D" parent="."]
+position = Vector2(32.0, 544.0)
+texture = ExtResource("10")
+region_enabled = true
+region_rect = Rect2(64, 32, 64, 32)
+
+[node name="Art230" type="Sprite2D" parent="."]
+position = Vector2(64.0, 560.0)
+texture = ExtResource("6")
+
+[node name="Art231" type="Sprite2D" parent="."]
+position = Vector2(96.0, 576.0)
+texture = ExtResource("7")
+
+[node name="Art232" type="Sprite2D" parent="."]
+position = Vector2(128.0, 592.0)
+texture = ExtResource("6")
+
+[node name="Art233" type="Sprite2D" parent="."]
+position = Vector2(160.0, 608.0)
+texture = ExtResource("7")
+
+[node name="Art234" type="Sprite2D" parent="."]
+position = Vector2(192.0, 624.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(640, 0, 64, 32)
+
+[node name="Art235" type="Sprite2D" parent="."]
+position = Vector2(224.0, 640.0)
+texture = ExtResource("21")
+
+[node name="Art236" type="Sprite2D" parent="."]
+position = Vector2(256.0, 656.0)
+texture = ExtResource("20")
+
+[node name="Art237" type="Sprite2D" parent="."]
+position = Vector2(288.0, 672.0)
+texture = ExtResource("18")
+region_enabled = true
+region_rect = Rect2(128, 0, 64, 32)
+
+[node name="Art238" type="Sprite2D" parent="."]
+position = Vector2(320.0, 688.0)
+texture = ExtResource("19")
+region_enabled = true
+region_rect = Rect2(192, 0, 64, 32)
+
+[node name="Art239" type="Sprite2D" parent="."]
+position = Vector2(352.0, 704.0)
+texture = ExtResource("19")
+region_enabled = true
+region_rect = Rect2(192, 32, 64, 32)
+
+[node name="Art240" type="Sprite2D" parent="."]
+position = Vector2(384.0, 720.0)
+texture = ExtResource("19")
+region_enabled = true
+region_rect = Rect2(192, 0, 64, 32)
+
+[node name="Art241" type="Sprite2D" parent="."]
+position = Vector2(416.0, 736.0)
+texture = ExtResource("19")
+region_enabled = true
+region_rect = Rect2(192, 32, 64, 32)
+
+[node name="Art242" type="Sprite2D" parent="."]
+position = Vector2(448.0, 752.0)
+texture = ExtResource("19")
+region_enabled = true
+region_rect = Rect2(192, 0, 64, 32)
+
+[node name="Art243" type="Sprite2D" parent="."]
+position = Vector2(-224.0, 448.0)
+texture = ExtResource("9")
+
+[node name="Art244" type="Sprite2D" parent="."]
+position = Vector2(-192.0, 464.0)
+texture = ExtResource("8")
+
+[node name="Art245" type="Sprite2D" parent="."]
+position = Vector2(-160.0, 480.0)
+texture = ExtResource("9")
+
+[node name="Art246" type="Sprite2D" parent="."]
+position = Vector2(-128.0, 496.0)
+texture = ExtResource("8")
+
+[node name="Art247" type="Sprite2D" parent="."]
+position = Vector2(-96.0, 512.0)
+texture = ExtResource("9")
+
+[node name="Art248" type="Sprite2D" parent="."]
+position = Vector2(-64.0, 528.0)
+texture = ExtResource("8")
+
+[node name="Art249" type="Sprite2D" parent="."]
+position = Vector2(-32.0, 544.0)
+texture = ExtResource("9")
+
+[node name="Art250" type="Sprite2D" parent="."]
+position = Vector2(0.0, 560.0)
+texture = ExtResource("8")
+
+[node name="Art251" type="Sprite2D" parent="."]
+position = Vector2(32.0, 576.0)
+texture = ExtResource("9")
+
+[node name="Art252" type="Sprite2D" parent="."]
+position = Vector2(64.0, 592.0)
+texture = ExtResource("8")
+
+[node name="Art253" type="Sprite2D" parent="."]
+position = Vector2(96.0, 608.0)
+texture = ExtResource("9")
+
+[node name="Art254" type="Sprite2D" parent="."]
+position = Vector2(128.0, 624.0)
+texture = ExtResource("8")
+
+[node name="Art255" type="Sprite2D" parent="."]
+position = Vector2(160.0, 640.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(640, 64, 64, 32)
+
+[node name="Art256" type="Sprite2D" parent="."]
+position = Vector2(192.0, 656.0)
+texture = ExtResource("16")
+
+[node name="Art257" type="Sprite2D" parent="."]
+position = Vector2(224.0, 672.0)
+texture = ExtResource("27")
+
+[node name="Art258" type="Sprite2D" parent="."]
+position = Vector2(256.0, 688.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(320, 96, 64, 32)
+
+[node name="Art259" type="Sprite2D" parent="."]
+position = Vector2(288.0, 704.0)
+texture = ExtResource("9")
+
+[node name="Art260" type="Sprite2D" parent="."]
+position = Vector2(320.0, 720.0)
+texture = ExtResource("8")
+
+[node name="Art261" type="Sprite2D" parent="."]
+position = Vector2(352.0, 736.0)
+texture = ExtResource("9")
+
+[node name="Art262" type="Sprite2D" parent="."]
+position = Vector2(384.0, 752.0)
+texture = ExtResource("8")
+
+[node name="Art263" type="Sprite2D" parent="."]
+position = Vector2(-288.0, 448.0)
+texture = ExtResource("7")
+
+[node name="Art264" type="Sprite2D" parent="."]
+position = Vector2(-256.0, 464.0)
+texture = ExtResource("6")
+
+[node name="Art265" type="Sprite2D" parent="."]
+position = Vector2(-224.0, 480.0)
+texture = ExtResource("7")
+
+[node name="Art266" type="Sprite2D" parent="."]
+position = Vector2(-192.0, 496.0)
+texture = ExtResource("6")
+
+[node name="Art267" type="Sprite2D" parent="."]
+position = Vector2(-160.0, 512.0)
+texture = ExtResource("7")
+
+[node name="Art268" type="Sprite2D" parent="."]
+position = Vector2(-128.0, 528.0)
+texture = ExtResource("6")
+
+[node name="Art269" type="Sprite2D" parent="."]
+position = Vector2(-96.0, 544.0)
+texture = ExtResource("7")
+
+[node name="Art270" type="Sprite2D" parent="."]
+position = Vector2(-64.0, 560.0)
+texture = ExtResource("6")
+
+[node name="Art271" type="Sprite2D" parent="."]
+position = Vector2(-32.0, 576.0)
+texture = ExtResource("7")
+
+[node name="Art272" type="Sprite2D" parent="."]
+position = Vector2(0.0, 592.0)
+texture = ExtResource("6")
+
+[node name="Art273" type="Sprite2D" parent="."]
+position = Vector2(32.0, 608.0)
+texture = ExtResource("7")
+
+[node name="Art274" type="Sprite2D" parent="."]
+position = Vector2(64.0, 624.0)
+texture = ExtResource("6")
+
+[node name="Art275" type="Sprite2D" parent="."]
+position = Vector2(96.0, 640.0)
+texture = ExtResource("7")
+
+[node name="Art276" type="Sprite2D" parent="."]
+position = Vector2(128.0, 656.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(640, 0, 64, 32)
+
+[node name="Art277" type="Sprite2D" parent="."]
+position = Vector2(160.0, 672.0)
+texture = ExtResource("21")
+
+[node name="Art278" type="Sprite2D" parent="."]
+position = Vector2(192.0, 688.0)
+texture = ExtResource("20")
+
+[node name="Art279" type="Sprite2D" parent="."]
+position = Vector2(224.0, 704.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(320, 32, 64, 32)
+
+[node name="Art280" type="Sprite2D" parent="."]
+position = Vector2(256.0, 720.0)
+texture = ExtResource("6")
+
+[node name="Art281" type="Sprite2D" parent="."]
+position = Vector2(288.0, 736.0)
+texture = ExtResource("7")
+
+[node name="Art282" type="Sprite2D" parent="."]
+position = Vector2(320.0, 752.0)
+texture = ExtResource("6")
+
+[node name="Art283" type="Sprite2D" parent="."]
+position = Vector2(-352.0, 448.0)
+texture = ExtResource("29")
+
+[node name="Art284" type="Sprite2D" parent="."]
+position = Vector2(-320.0, 464.0)
+texture = ExtResource("30")
+
+[node name="Art285" type="Sprite2D" parent="."]
+position = Vector2(-288.0, 480.0)
+texture = ExtResource("29")
+
+[node name="Art286" type="Sprite2D" parent="."]
+position = Vector2(-256.0, 496.0)
+texture = ExtResource("30")
+
+[node name="Art287" type="Sprite2D" parent="."]
+position = Vector2(-224.0, 512.0)
+texture = ExtResource("29")
+
+[node name="Art288" type="Sprite2D" parent="."]
+position = Vector2(-192.0, 528.0)
+texture = ExtResource("30")
+
+[node name="Art289" type="Sprite2D" parent="."]
+position = Vector2(-160.0, 544.0)
+texture = ExtResource("9")
+
+[node name="Art290" type="Sprite2D" parent="."]
+position = Vector2(-128.0, 560.0)
+texture = ExtResource("31")
+
+[node name="Art291" type="Sprite2D" parent="."]
+position = Vector2(-96.0, 576.0)
+texture = ExtResource("32")
+
+[node name="Art292" type="Sprite2D" parent="."]
+position = Vector2(-64.0, 592.0)
+texture = ExtResource("31")
+
+[node name="Art293" type="Sprite2D" parent="."]
+position = Vector2(-32.0, 608.0)
+texture = ExtResource("32")
+
+[node name="Art294" type="Sprite2D" parent="."]
+position = Vector2(0.0, 624.0)
+texture = ExtResource("31")
+
+[node name="Art295" type="Sprite2D" parent="."]
+position = Vector2(32.0, 640.0)
+texture = ExtResource("32")
+
+[node name="Art296" type="Sprite2D" parent="."]
+position = Vector2(64.0, 656.0)
+texture = ExtResource("8")
+
+[node name="Art297" type="Sprite2D" parent="."]
+position = Vector2(96.0, 672.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(640, 64, 64, 32)
+
+[node name="Art298" type="Sprite2D" parent="."]
+position = Vector2(128.0, 688.0)
+texture = ExtResource("16")
+
+[node name="Art299" type="Sprite2D" parent="."]
+position = Vector2(160.0, 704.0)
+texture = ExtResource("27")
+
+[node name="Art300" type="Sprite2D" parent="."]
+position = Vector2(192.0, 720.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(320, 96, 64, 32)
+
+[node name="Art301" type="Sprite2D" parent="."]
+position = Vector2(224.0, 736.0)
+texture = ExtResource("9")
+
+[node name="Art302" type="Sprite2D" parent="."]
+position = Vector2(256.0, 752.0)
+texture = ExtResource("8")
+
+[node name="Art303" type="Sprite2D" parent="."]
+position = Vector2(-416.0, 448.0)
+texture = ExtResource("7")
+
+[node name="Art304" type="Sprite2D" parent="."]
+position = Vector2(-384.0, 464.0)
+texture = ExtResource("33")
+
+[node name="Art305" type="Sprite2D" parent="."]
+position = Vector2(-352.0, 480.0)
+texture = ExtResource("34")
+
+[node name="Art306" type="Sprite2D" parent="."]
+position = Vector2(-320.0, 496.0)
+texture = ExtResource("33")
+
+[node name="Art307" type="Sprite2D" parent="."]
+position = Vector2(-288.0, 512.0)
+texture = ExtResource("34")
+
+[node name="Art308" type="Sprite2D" parent="."]
+position = Vector2(-256.0, 528.0)
+texture = ExtResource("33")
+
+[node name="Art309" type="Sprite2D" parent="."]
+position = Vector2(-224.0, 544.0)
+texture = ExtResource("34")
+
+[node name="Art310" type="Sprite2D" parent="."]
+position = Vector2(-192.0, 560.0)
+texture = ExtResource("6")
+
+[node name="Art311" type="Sprite2D" parent="."]
+position = Vector2(-160.0, 576.0)
+texture = ExtResource("35")
+
+[node name="Art312" type="Sprite2D" parent="."]
+position = Vector2(-128.0, 592.0)
+texture = ExtResource("36")
+
+[node name="Art313" type="Sprite2D" parent="."]
+position = Vector2(-96.0, 608.0)
+texture = ExtResource("35")
+
+[node name="Art314" type="Sprite2D" parent="."]
+position = Vector2(-64.0, 624.0)
+texture = ExtResource("36")
+
+[node name="Art315" type="Sprite2D" parent="."]
+position = Vector2(-32.0, 640.0)
+texture = ExtResource("35")
+
+[node name="Art316" type="Sprite2D" parent="."]
+position = Vector2(0.0, 656.0)
+texture = ExtResource("36")
+
+[node name="Art317" type="Sprite2D" parent="."]
+position = Vector2(32.0, 672.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(512, 32, 64, 32)
+
+[node name="Art318" type="Sprite2D" parent="."]
+position = Vector2(64.0, 688.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(896, 0, 64, 32)
+
+[node name="Art319" type="Sprite2D" parent="."]
+position = Vector2(96.0, 704.0)
+texture = ExtResource("21")
+
+[node name="Art320" type="Sprite2D" parent="."]
+position = Vector2(128.0, 720.0)
+texture = ExtResource("20")
+
+[node name="Art321" type="Sprite2D" parent="."]
+position = Vector2(160.0, 736.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(320, 32, 64, 32)
+
+[node name="Art322" type="Sprite2D" parent="."]
+position = Vector2(192.0, 752.0)
+texture = ExtResource("6")
+
+[node name="Art323" type="Sprite2D" parent="."]
+position = Vector2(224.0, 768.0)
+texture = ExtResource("7")
+
+[node name="Art324" type="Sprite2D" parent="."]
+position = Vector2(-448.0, 464.0)
+texture = ExtResource("8")
+
+[node name="Art325" type="Sprite2D" parent="."]
+position = Vector2(-416.0, 480.0)
+texture = ExtResource("29")
+
+[node name="Art326" type="Sprite2D" parent="."]
+position = Vector2(-384.0, 496.0)
+texture = ExtResource("30")
+
+[node name="Art327" type="Sprite2D" parent="."]
+position = Vector2(-352.0, 512.0)
+texture = ExtResource("29")
+
+[node name="Art328" type="Sprite2D" parent="."]
+position = Vector2(-320.0, 528.0)
+texture = ExtResource("30")
+
+[node name="Art329" type="Sprite2D" parent="."]
+position = Vector2(-288.0, 544.0)
+texture = ExtResource("29")
+
+[node name="Art330" type="Sprite2D" parent="."]
+position = Vector2(-256.0, 560.0)
+texture = ExtResource("30")
+
+[node name="Art331" type="Sprite2D" parent="."]
+position = Vector2(-224.0, 576.0)
+texture = ExtResource("9")
+
+[node name="Art332" type="Sprite2D" parent="."]
+position = Vector2(-192.0, 592.0)
+texture = ExtResource("31")
+
+[node name="Art333" type="Sprite2D" parent="."]
+position = Vector2(-160.0, 608.0)
+texture = ExtResource("32")
+
+[node name="Art334" type="Sprite2D" parent="."]
+position = Vector2(-128.0, 624.0)
+texture = ExtResource("31")
+
+[node name="Art335" type="Sprite2D" parent="."]
+position = Vector2(-96.0, 640.0)
+texture = ExtResource("32")
+
+[node name="Art336" type="Sprite2D" parent="."]
+position = Vector2(-64.0, 656.0)
+texture = ExtResource("31")
+
+[node name="Art337" type="Sprite2D" parent="."]
+position = Vector2(-32.0, 672.0)
+texture = ExtResource("32")
+
+[node name="Art338" type="Sprite2D" parent="."]
+position = Vector2(0.0, 688.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(128, 96, 64, 32)
+
+[node name="Art339" type="Sprite2D" parent="."]
+position = Vector2(32.0, 704.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(704, 64, 64, 32)
+
+[node name="Art340" type="Sprite2D" parent="."]
+position = Vector2(64.0, 720.0)
+texture = ExtResource("16")
+
+[node name="Art341" type="Sprite2D" parent="."]
+position = Vector2(96.0, 736.0)
+texture = ExtResource("27")
+
+[node name="Art342" type="Sprite2D" parent="."]
+position = Vector2(128.0, 752.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(320, 96, 64, 32)
+
+[node name="Art343" type="Sprite2D" parent="."]
+position = Vector2(160.0, 768.0)
+texture = ExtResource("9")
+
+[node name="Art344" type="Sprite2D" parent="."]
+position = Vector2(192.0, 784.0)
+texture = ExtResource("8")
+
+[node name="Art345" type="Sprite2D" parent="."]
+position = Vector2(224.0, 800.0)
+texture = ExtResource("9")
+
+[node name="Art346" type="Sprite2D" parent="."]
+position = Vector2(-448.0, 496.0)
+texture = ExtResource("33")
+
+[node name="Art347" type="Sprite2D" parent="."]
+position = Vector2(-416.0, 512.0)
+texture = ExtResource("34")
+
+[node name="Art348" type="Sprite2D" parent="."]
+position = Vector2(-384.0, 528.0)
+texture = ExtResource("33")
+
+[node name="Art349" type="Sprite2D" parent="."]
+position = Vector2(-352.0, 544.0)
+texture = ExtResource("34")
+
+[node name="Art350" type="Sprite2D" parent="."]
+position = Vector2(-320.0, 560.0)
+texture = ExtResource("33")
+
+[node name="Art351" type="Sprite2D" parent="."]
+position = Vector2(-288.0, 576.0)
+texture = ExtResource("34")
+
+[node name="Art352" type="Sprite2D" parent="."]
+position = Vector2(-256.0, 592.0)
+texture = ExtResource("6")
+
+[node name="Art353" type="Sprite2D" parent="."]
+position = Vector2(-224.0, 608.0)
+texture = ExtResource("35")
+
+[node name="Art354" type="Sprite2D" parent="."]
+position = Vector2(-192.0, 624.0)
+texture = ExtResource("36")
+
+[node name="Art355" type="Sprite2D" parent="."]
+position = Vector2(-160.0, 640.0)
+texture = ExtResource("35")
+
+[node name="Art356" type="Sprite2D" parent="."]
+position = Vector2(-128.0, 656.0)
+texture = ExtResource("36")
+
+[node name="Art357" type="Sprite2D" parent="."]
+position = Vector2(-96.0, 672.0)
+texture = ExtResource("35")
+
+[node name="Art358" type="Sprite2D" parent="."]
+position = Vector2(-64.0, 688.0)
+texture = ExtResource("36")
+
+[node name="Art359" type="Sprite2D" parent="."]
+position = Vector2(-32.0, 704.0)
+texture = ExtResource("7")
+
+[node name="Art360" type="Sprite2D" parent="."]
+position = Vector2(0.0, 720.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(640, 0, 64, 32)
+
+[node name="Art361" type="Sprite2D" parent="."]
+position = Vector2(32.0, 736.0)
+texture = ExtResource("21")
+
+[node name="Art362" type="Sprite2D" parent="."]
+position = Vector2(64.0, 752.0)
+texture = ExtResource("20")
+
+[node name="Art363" type="Sprite2D" parent="."]
+position = Vector2(96.0, 768.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(320, 32, 64, 32)
+
+[node name="Art364" type="Sprite2D" parent="."]
+position = Vector2(128.0, 784.0)
+texture = ExtResource("6")
+
+[node name="Art365" type="Sprite2D" parent="."]
+position = Vector2(160.0, 800.0)
+texture = ExtResource("7")
+
+[node name="Art366" type="Sprite2D" parent="."]
+position = Vector2(192.0, 816.0)
+texture = ExtResource("6")
+
+[node name="Art367" type="Sprite2D" parent="."]
+position = Vector2(-448.0, 528.0)
+texture = ExtResource("30")
+
+[node name="Art368" type="Sprite2D" parent="."]
+position = Vector2(-416.0, 544.0)
+texture = ExtResource("29")
+
+[node name="Art369" type="Sprite2D" parent="."]
+position = Vector2(-384.0, 560.0)
+texture = ExtResource("30")
+
+[node name="Art370" type="Sprite2D" parent="."]
+position = Vector2(-352.0, 576.0)
+texture = ExtResource("29")
+
+[node name="Art371" type="Sprite2D" parent="."]
+position = Vector2(-320.0, 592.0)
+texture = ExtResource("30")
+
+[node name="Art372" type="Sprite2D" parent="."]
+position = Vector2(-288.0, 608.0)
+texture = ExtResource("9")
+
+[node name="Art373" type="Sprite2D" parent="."]
+position = Vector2(-256.0, 624.0)
+texture = ExtResource("31")
+
+[node name="Art374" type="Sprite2D" parent="."]
+position = Vector2(-224.0, 640.0)
+texture = ExtResource("32")
+
+[node name="Art375" type="Sprite2D" parent="."]
+position = Vector2(-192.0, 656.0)
+texture = ExtResource("31")
+
+[node name="Art376" type="Sprite2D" parent="."]
+position = Vector2(-160.0, 672.0)
+texture = ExtResource("32")
+
+[node name="Art377" type="Sprite2D" parent="."]
+position = Vector2(-128.0, 688.0)
+texture = ExtResource("31")
+
+[node name="Art378" type="Sprite2D" parent="."]
+position = Vector2(-96.0, 704.0)
+texture = ExtResource("32")
+
+[node name="Art379" type="Sprite2D" parent="."]
+position = Vector2(-64.0, 720.0)
+texture = ExtResource("8")
+
+[node name="Art380" type="Sprite2D" parent="."]
+position = Vector2(-32.0, 736.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(640, 64, 64, 32)
+
+[node name="Art381" type="Sprite2D" parent="."]
+position = Vector2(0.0, 752.0)
+texture = ExtResource("16")
+
+[node name="Art382" type="Sprite2D" parent="."]
+position = Vector2(32.0, 768.0)
+texture = ExtResource("27")
+
+[node name="Art383" type="Sprite2D" parent="."]
+position = Vector2(64.0, 784.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(320, 96, 64, 32)
+
+[node name="Art384" type="Sprite2D" parent="."]
+position = Vector2(96.0, 800.0)
+texture = ExtResource("9")
+
+[node name="Art385" type="Sprite2D" parent="."]
+position = Vector2(128.0, 816.0)
+texture = ExtResource("8")
+
+[node name="Art386" type="Sprite2D" parent="."]
+position = Vector2(-448.0, 560.0)
+texture = ExtResource("6")
+
+[node name="Art387" type="Sprite2D" parent="."]
+position = Vector2(-416.0, 576.0)
+texture = ExtResource("7")
+
+[node name="Art388" type="Sprite2D" parent="."]
+position = Vector2(-384.0, 592.0)
+texture = ExtResource("6")
+
+[node name="Art389" type="Sprite2D" parent="."]
+position = Vector2(-352.0, 608.0)
+texture = ExtResource("7")
+
+[node name="Art390" type="Sprite2D" parent="."]
+position = Vector2(-320.0, 624.0)
+texture = ExtResource("6")
+
+[node name="Art391" type="Sprite2D" parent="."]
+position = Vector2(-288.0, 640.0)
+texture = ExtResource("7")
+
+[node name="Art392" type="Sprite2D" parent="."]
+position = Vector2(-256.0, 656.0)
+texture = ExtResource("6")
+
+[node name="Art393" type="Sprite2D" parent="."]
+position = Vector2(-224.0, 672.0)
+texture = ExtResource("7")
+
+[node name="Art394" type="Sprite2D" parent="."]
+position = Vector2(-192.0, 688.0)
+texture = ExtResource("6")
+
+[node name="Art395" type="Sprite2D" parent="."]
+position = Vector2(-160.0, 704.0)
+texture = ExtResource("7")
+
+[node name="Art396" type="Sprite2D" parent="."]
+position = Vector2(-128.0, 720.0)
+texture = ExtResource("6")
+
+[node name="Art397" type="Sprite2D" parent="."]
+position = Vector2(-96.0, 736.0)
+texture = ExtResource("7")
+
+[node name="Art398" type="Sprite2D" parent="."]
+position = Vector2(-64.0, 752.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(640, 0, 64, 32)
+
+[node name="Art399" type="Sprite2D" parent="."]
+position = Vector2(-32.0, 768.0)
+texture = ExtResource("21")
+
+[node name="Art400" type="Sprite2D" parent="."]
+position = Vector2(0.0, 784.0)
+texture = ExtResource("20")
+
+[node name="Art401" type="Sprite2D" parent="."]
+position = Vector2(32.0, 800.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(320, 32, 64, 32)
+
+[node name="Art402" type="Sprite2D" parent="."]
+position = Vector2(64.0, 816.0)
+texture = ExtResource("6")
+
+[node name="Art403" type="Sprite2D" parent="."]
+position = Vector2(-448.0, 592.0)
+texture = ExtResource("30")
+
+[node name="Art404" type="Sprite2D" parent="."]
+position = Vector2(-416.0, 608.0)
+texture = ExtResource("29")
+
+[node name="Art405" type="Sprite2D" parent="."]
+position = Vector2(-384.0, 624.0)
+texture = ExtResource("30")
+
+[node name="Art406" type="Sprite2D" parent="."]
+position = Vector2(-352.0, 640.0)
+texture = ExtResource("9")
+
+[node name="Art407" type="Sprite2D" parent="."]
+position = Vector2(-320.0, 656.0)
+texture = ExtResource("30")
+
+[node name="Art408" type="Sprite2D" parent="."]
+position = Vector2(-288.0, 672.0)
+texture = ExtResource("29")
+
+[node name="Art409" type="Sprite2D" parent="."]
+position = Vector2(-256.0, 688.0)
+texture = ExtResource("30")
+
+[node name="Art410" type="Sprite2D" parent="."]
+position = Vector2(-224.0, 704.0)
+texture = ExtResource("29")
+
+[node name="Art411" type="Sprite2D" parent="."]
+position = Vector2(-192.0, 720.0)
+texture = ExtResource("30")
+
+[node name="Art412" type="Sprite2D" parent="."]
+position = Vector2(-160.0, 736.0)
+texture = ExtResource("29")
+
+[node name="Art413" type="Sprite2D" parent="."]
+position = Vector2(-128.0, 752.0)
+texture = ExtResource("8")
+
+[node name="Art414" type="Sprite2D" parent="."]
+position = Vector2(-96.0, 768.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(640, 64, 64, 32)
+
+[node name="Art415" type="Sprite2D" parent="."]
+position = Vector2(-64.0, 784.0)
+texture = ExtResource("16")
+
+[node name="Art416" type="Sprite2D" parent="."]
+position = Vector2(-32.0, 800.0)
+texture = ExtResource("27")
+
+[node name="Art417" type="Sprite2D" parent="."]
+position = Vector2(0.0, 816.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(320, 96, 64, 32)
+
+[node name="Art418" type="Sprite2D" parent="."]
+position = Vector2(-448.0, 624.0)
+texture = ExtResource("33")
+
+[node name="Art419" type="Sprite2D" parent="."]
+position = Vector2(-416.0, 640.0)
+texture = ExtResource("34")
+
+[node name="Art420" type="Sprite2D" parent="."]
+position = Vector2(-384.0, 656.0)
+texture = ExtResource("6")
+
+[node name="Art421" type="Sprite2D" parent="."]
+position = Vector2(-352.0, 672.0)
+texture = ExtResource("34")
+
+[node name="Art422" type="Sprite2D" parent="."]
+position = Vector2(-320.0, 688.0)
+texture = ExtResource("33")
+
+[node name="Art423" type="Sprite2D" parent="."]
+position = Vector2(-288.0, 704.0)
+texture = ExtResource("34")
+
+[node name="Art424" type="Sprite2D" parent="."]
+position = Vector2(-256.0, 720.0)
+texture = ExtResource("33")
+
+[node name="Art425" type="Sprite2D" parent="."]
+position = Vector2(-224.0, 736.0)
+texture = ExtResource("34")
+
+[node name="Art426" type="Sprite2D" parent="."]
+position = Vector2(-192.0, 752.0)
+texture = ExtResource("33")
+
+[node name="Art427" type="Sprite2D" parent="."]
+position = Vector2(-160.0, 768.0)
+texture = ExtResource("7")
+
+[node name="Art428" type="Sprite2D" parent="."]
+position = Vector2(-128.0, 784.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(640, 0, 64, 32)
+
+[node name="Art429" type="Sprite2D" parent="."]
+position = Vector2(-96.0, 800.0)
+texture = ExtResource("21")
+
+[node name="Art430" type="Sprite2D" parent="."]
+position = Vector2(-64.0, 816.0)
+texture = ExtResource("20")
+
+[node name="Art431" type="Sprite2D" parent="."]
+position = Vector2(-448.0, 656.0)
+texture = ExtResource("30")
+
+[node name="Art432" type="Sprite2D" parent="."]
+position = Vector2(-416.0, 672.0)
+texture = ExtResource("9")
+
+[node name="Art433" type="Sprite2D" parent="."]
+position = Vector2(-384.0, 688.0)
+texture = ExtResource("30")
+
+[node name="Art434" type="Sprite2D" parent="."]
+position = Vector2(-352.0, 704.0)
+texture = ExtResource("29")
+
+[node name="Art435" type="Sprite2D" parent="."]
+position = Vector2(-320.0, 720.0)
+texture = ExtResource("30")
+
+[node name="Art436" type="Sprite2D" parent="."]
+position = Vector2(-288.0, 736.0)
+texture = ExtResource("29")
+
+[node name="Art437" type="Sprite2D" parent="."]
+position = Vector2(-256.0, 752.0)
+texture = ExtResource("30")
+
+[node name="Art438" type="Sprite2D" parent="."]
+position = Vector2(-224.0, 768.0)
+texture = ExtResource("29")
+
+[node name="Art439" type="Sprite2D" parent="."]
+position = Vector2(-192.0, 784.0)
+texture = ExtResource("8")
+
+[node name="Art440" type="Sprite2D" parent="."]
+position = Vector2(-160.0, 800.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(640, 64, 64, 32)
+
+[node name="Art441" type="Sprite2D" parent="."]
+position = Vector2(-128.0, 816.0)
+texture = ExtResource("16")
+
+[node name="Art442" type="Sprite2D" parent="."]
+position = Vector2(-448.0, 688.0)
+texture = ExtResource("6")
+
+[node name="Art443" type="Sprite2D" parent="."]
+position = Vector2(-416.0, 704.0)
+texture = ExtResource("34")
+
+[node name="Art444" type="Sprite2D" parent="."]
+position = Vector2(-384.0, 720.0)
+texture = ExtResource("33")
+
+[node name="Art445" type="Sprite2D" parent="."]
+position = Vector2(-352.0, 736.0)
+texture = ExtResource("34")
+
+[node name="Art446" type="Sprite2D" parent="."]
+position = Vector2(-320.0, 752.0)
+texture = ExtResource("33")
+
+[node name="Art447" type="Sprite2D" parent="."]
+position = Vector2(-288.0, 768.0)
+texture = ExtResource("34")
+
+[node name="Art448" type="Sprite2D" parent="."]
+position = Vector2(-256.0, 784.0)
+texture = ExtResource("33")
+
+[node name="Art449" type="Sprite2D" parent="."]
+position = Vector2(-224.0, 800.0)
+texture = ExtResource("7")
+
+[node name="Art450" type="Sprite2D" parent="."]
+position = Vector2(-192.0, 816.0)
+texture = ExtResource("26")
+region_enabled = true
+region_rect = Rect2(640, 0, 64, 32)
+
+[node name="Art451" type="Sprite2D" parent="."]
+position = Vector2(-448.0, 720.0)
+texture = ExtResource("30")
+
+[node name="Art452" type="Sprite2D" parent="."]
+position = Vector2(-416.0, 736.0)
+texture = ExtResource("29")
+
+[node name="Art453" type="Sprite2D" parent="."]
+position = Vector2(-384.0, 752.0)
+texture = ExtResource("30")
+
+[node name="Art454" type="Sprite2D" parent="."]
+position = Vector2(-352.0, 768.0)
+texture = ExtResource("29")
+
+[node name="Art455" type="Sprite2D" parent="."]
+position = Vector2(-320.0, 784.0)
+texture = ExtResource("30")
+
+[node name="Art456" type="Sprite2D" parent="."]
+position = Vector2(-288.0, 800.0)
+texture = ExtResource("29")
+
+[node name="Art457" type="Sprite2D" parent="."]
+position = Vector2(-256.0, 816.0)
+texture = ExtResource("8")
+
+[node name="Art458" type="Sprite2D" parent="."]
+position = Vector2(-448.0, 752.0)
+texture = ExtResource("6")
+
+[node name="Art459" type="Sprite2D" parent="."]
+position = Vector2(-416.0, 768.0)
+texture = ExtResource("7")
+
+[node name="Art460" type="Sprite2D" parent="."]
+position = Vector2(-384.0, 784.0)
+texture = ExtResource("6")
+
+[node name="Art461" type="Sprite2D" parent="."]
+position = Vector2(-352.0, 800.0)
+texture = ExtResource("7")
+
+[node name="Art462" type="Sprite2D" parent="."]
+position = Vector2(-320.0, 816.0)
+texture = ExtResource("6")
+
+[node name="Art463" type="Sprite2D" parent="."]
+position = Vector2(-128.0, 560.0)
+texture = ExtResource("37")
+
+[node name="Art464" type="Sprite2D" parent="."]
+position = Vector2(-96.0, 576.0)
+texture = ExtResource("38")
+
+[node name="Art465" type="Sprite2D" parent="."]
+position = Vector2(-160.0, 576.0)
+texture = ExtResource("38")
+
+[node name="Art466" type="Sprite2D" parent="."]
+position = Vector2(-64.0, 592.0)
+texture = ExtResource("37")
+
+[node name="Art467" type="Sprite2D" parent="."]
+position = Vector2(-128.0, 592.0)
+texture = ExtResource("37")
+
+[node name="Art468" type="Sprite2D" parent="."]
+position = Vector2(-192.0, 592.0)
+texture = ExtResource("37")
+
+[node name="Art469" type="Sprite2D" parent="."]
+position = Vector2(-32.0, 608.0)
+texture = ExtResource("38")
+
+[node name="Art470" type="Sprite2D" parent="."]
+position = Vector2(-96.0, 608.0)
+texture = ExtResource("38")
+
+[node name="Art471" type="Sprite2D" parent="."]
+position = Vector2(-160.0, 608.0)
+texture = ExtResource("38")
+
+[node name="Art472" type="Sprite2D" parent="."]
+position = Vector2(-64.0, 624.0)
+texture = ExtResource("37")
+
+[node name="Art473" type="Sprite2D" parent="."]
+position = Vector2(-128.0, 624.0)
+texture = ExtResource("37")
+
+[node name="Art474" type="Sprite2D" parent="."]
+position = Vector2(-96.0, 640.0)
+texture = ExtResource("38")
+
+[node name="Art475" type="Sprite2D" parent="."]
+position = Vector2(384.0, 352.0)
+texture = ExtResource("39")
+
+[node name="Art476" type="Sprite2D" parent="."]
+position = Vector2(416.0, 368.0)
+texture = ExtResource("40")
+
+[node name="Art477" type="Sprite2D" parent="."]
+position = Vector2(352.0, 368.0)
+texture = ExtResource("39")
+
+[node name="Art478" type="Sprite2D" parent="."]
+position = Vector2(448.0, 384.0)
+texture = ExtResource("40")
+
+[node name="Art479" type="Sprite2D" parent="."]
+position = Vector2(320.0, 384.0)
+texture = ExtResource("39")
+
+[node name="Art480" type="Sprite2D" parent="."]
+position = Vector2(384.0, 400.0)
+texture = ExtResource("41")
+
+[node name="Art481" type="Sprite2D" parent="."]
+position = Vector2(480.0, 400.0)
+texture = ExtResource("40")
+
+[node name="Art482" type="Sprite2D" parent="."]
+position = Vector2(288.0, 400.0)
+texture = ExtResource("39")
+
+[node name="Art483" type="Sprite2D" parent="."]
+position = Vector2(144.0, 336.0)
+texture = ExtResource("42")
+
+[node name="Art484" type="Sprite2D" parent="."]
+position = Vector2(512.0, 416.0)
+texture = ExtResource("40")
+
+[node name="Art485" type="Sprite2D" parent="."]
+position = Vector2(-256.0, 416.0)
+texture = ExtResource("43")
+
+[node name="Art486" type="Sprite2D" parent="."]
+position = Vector2(-448.0, 416.0)
+texture = ExtResource("44")
+
+[node name="Art487" type="Sprite2D" parent="."]
+position = Vector2(384.0, 432.0)
+texture = ExtResource("45")
+
+[node name="Art488" type="Sprite2D" parent="."]
+position = Vector2(544.0, 432.0)
+texture = ExtResource("40")
+
+[node name="Art489" type="Sprite2D" parent="."]
+position = Vector2(224.0, 432.0)
+texture = ExtResource("39")
+
+[node name="Art490" type="Sprite2D" parent="."]
+position = Vector2(-224.0, 432.0)
+texture = ExtResource("43")
+
+[node name="Art491" type="Sprite2D" parent="."]
+position = Vector2(576.0, 448.0)
+texture = ExtResource("40")
+
+[node name="Art492" type="Sprite2D" parent="."]
+position = Vector2(192.0, 448.0)
+texture = ExtResource("39")
+
+[node name="Art493" type="Sprite2D" parent="."]
+position = Vector2(-192.0, 448.0)
+texture = ExtResource("43")
+
+[node name="Art494" type="Sprite2D" parent="."]
+position = Vector2(128.0, 464.0)
+texture = ExtResource("46")
+
+[node name="Art495" type="Sprite2D" parent="."]
+position = Vector2(608.0, 464.0)
+texture = ExtResource("40")
+
+[node name="Art496" type="Sprite2D" parent="."]
+position = Vector2(160.0, 464.0)
+texture = ExtResource("39")
+
+[node name="Art497" type="Sprite2D" parent="."]
+position = Vector2(-160.0, 464.0)
+texture = ExtResource("43")
+
+[node name="Art498" type="Sprite2D" parent="."]
+position = Vector2(288.0, 480.0)
+texture = ExtResource("47")
+
+[node name="Art499" type="Sprite2D" parent="."]
+position = Vector2(352.0, 480.0)
+texture = ExtResource("48")
+
+[node name="Art500" type="Sprite2D" parent="."]
+position = Vector2(640.0, 480.0)
+texture = ExtResource("40")
+
+[node name="Art501" type="Sprite2D" parent="."]
+position = Vector2(128.0, 480.0)
+texture = ExtResource("39")
+
+[node name="Art502" type="Sprite2D" parent="."]
+position = Vector2(-128.0, 480.0)
+texture = ExtResource("43")
+
+[node name="Art503" type="Sprite2D" parent="."]
+position = Vector2(672.0, 496.0)
+texture = ExtResource("40")
+
+[node name="Art504" type="Sprite2D" parent="."]
+position = Vector2(160.0, 496.0)
+texture = ExtResource("40")
+
+[node name="Art505" type="Sprite2D" parent="."]
+position = Vector2(-96.0, 496.0)
+texture = ExtResource("43")
+
+[node name="Art506" type="Sprite2D" parent="."]
+position = Vector2(480.0, 464.0)
+texture = ExtResource("49")
+
+[node name="Art507" type="Sprite2D" parent="."]
+position = Vector2(-352.0, 512.0)
+texture = ExtResource("50")
+
+[node name="Art508" type="Sprite2D" parent="."]
+position = Vector2(704.0, 512.0)
+texture = ExtResource("40")
+
+[node name="Art509" type="Sprite2D" parent="."]
+position = Vector2(192.0, 512.0)
+texture = ExtResource("40")
+
+[node name="Art510" type="Sprite2D" parent="."]
+position = Vector2(-64.0, 512.0)
+texture = ExtResource("43")
+
+[node name="Art511" type="Sprite2D" parent="."]
+position = Vector2(-128.0, 536.0)
+texture = ExtResource("51")
+
+[node name="Art512" type="Sprite2D" parent="."]
+position = Vector2(0.0, 528.0)
+texture = ExtResource("52")
+
+[node name="Art513" type="Sprite2D" parent="."]
+position = Vector2(736.0, 528.0)
+texture = ExtResource("40")
+
+[node name="Art514" type="Sprite2D" parent="."]
+position = Vector2(224.0, 528.0)
+texture = ExtResource("40")
+
+[node name="Art515" type="Sprite2D" parent="."]
+position = Vector2(-32.0, 528.0)
+texture = ExtResource("43")
+
+[node name="Art516" type="Sprite2D" parent="."]
+position = Vector2(-96.0, 552.0)
+texture = ExtResource("53")
+
+[node name="Art517" type="Sprite2D" parent="."]
+position = Vector2(-160.0, 552.0)
+texture = ExtResource("54")
+
+[node name="Art518" type="Sprite2D" parent="."]
+position = Vector2(480.0, 544.0)
+texture = ExtResource("48")
+
+[node name="Art519" type="Sprite2D" parent="."]
+position = Vector2(288.0, 544.0)
+texture = ExtResource("55")
+
+[node name="Art520" type="Sprite2D" parent="."]
+position = Vector2(96.0, 544.0)
+texture = ExtResource("56")
+
+[node name="Art521" type="Sprite2D" parent="."]
+position = Vector2(256.0, 544.0)
+texture = ExtResource("40")
+
+[node name="Art522" type="Sprite2D" parent="."]
+position = Vector2(0.0, 544.0)
+texture = ExtResource("43")
+
+[node name="Art523" type="Sprite2D" parent="."]
+position = Vector2(-64.0, 568.0)
+texture = ExtResource("57")
+
+[node name="Art524" type="Sprite2D" parent="."]
+position = Vector2(-128.0, 568.0)
+texture = ExtResource("58")
+
+[node name="Art525" type="Sprite2D" parent="."]
+position = Vector2(-192.0, 568.0)
+texture = ExtResource("59")
+
+[node name="Art526" type="Sprite2D" parent="."]
+position = Vector2(640.0, 536.0)
+texture = ExtResource("60")
+
+[node name="Art527" type="Sprite2D" parent="."]
+position = Vector2(704.0, 560.0)
+texture = ExtResource("61")
+
+[node name="Art528" type="Sprite2D" parent="."]
+position = Vector2(736.0, 560.0)
+texture = ExtResource("39")
+
+[node name="Art529" type="Sprite2D" parent="."]
+position = Vector2(32.0, 560.0)
+texture = ExtResource("43")
+
+[node name="Art530" type="Sprite2D" parent="."]
+position = Vector2(-32.0, 584.0)
+texture = ExtResource("62")
+
+[node name="Art531" type="Sprite2D" parent="."]
+position = Vector2(-96.0, 584.0)
+texture = ExtResource("63")
+
+[node name="Art532" type="Sprite2D" parent="."]
+position = Vector2(-160.0, 584.0)
+texture = ExtResource("64")
+
+[node name="Art533" type="Sprite2D" parent="."]
+position = Vector2(544.0, 576.0)
+texture = ExtResource("65")
+
+[node name="Art534" type="Sprite2D" parent="."]
+position = Vector2(704.0, 576.0)
+texture = ExtResource("39")
+
+[node name="Art535" type="Sprite2D" parent="."]
+position = Vector2(64.0, 576.0)
+texture = ExtResource("43")
+
+[node name="Art536" type="Sprite2D" parent="."]
+position = Vector2(-64.0, 600.0)
+texture = ExtResource("66")
+
+[node name="Art537" type="Sprite2D" parent="."]
+position = Vector2(-128.0, 600.0)
+texture = ExtResource("67")
+
+[node name="Art538" type="Sprite2D" parent="."]
+position = Vector2(384.0, 592.0)
+texture = ExtResource("55")
+
+[node name="Art539" type="Sprite2D" parent="."]
+position = Vector2(672.0, 592.0)
+texture = ExtResource("39")
+
+[node name="Art540" type="Sprite2D" parent="."]
+position = Vector2(352.0, 592.0)
+texture = ExtResource("40")
+
+[node name="Art541" type="Sprite2D" parent="."]
+position = Vector2(96.0, 592.0)
+texture = ExtResource("44")
+
+[node name="Art542" type="Sprite2D" parent="."]
+position = Vector2(-96.0, 616.0)
+texture = ExtResource("68")
+
+[node name="Art543" type="Sprite2D" parent="."]
+position = Vector2(608.0, 608.0)
+texture = ExtResource("69")
+
+[node name="Art544" type="Sprite2D" parent="."]
+position = Vector2(640.0, 608.0)
+texture = ExtResource("39")
+
+[node name="Art545" type="Sprite2D" parent="."]
+position = Vector2(384.0, 608.0)
+texture = ExtResource("40")
+
+[node name="Art546" type="Sprite2D" parent="."]
+position = Vector2(64.0, 608.0)
+texture = ExtResource("44")
+
+[node name="Art547" type="Sprite2D" parent="."]
+position = Vector2(416.0, 624.0)
+texture = ExtResource("40")
+
+[node name="Art548" type="Sprite2D" parent="."]
+position = Vector2(96.0, 640.0)
+texture = ExtResource("70")
+
+[node name="Art549" type="Sprite2D" parent="."]
+position = Vector2(448.0, 640.0)
+texture = ExtResource("40")
+
+[node name="Art550" type="Sprite2D" parent="."]
+position = Vector2(544.0, 656.0)
+texture = ExtResource("39")
+
+[node name="Art551" type="Sprite2D" parent="."]
+position = Vector2(480.0, 656.0)
+texture = ExtResource("40")
+
+[node name="Art552" type="Sprite2D" parent="."]
+position = Vector2(-32.0, 656.0)
+texture = ExtResource("44")
+
+[node name="Art553" type="Sprite2D" parent="."]
+position = Vector2(512.0, 672.0)
+texture = ExtResource("39")
+
+[node name="Art554" type="Sprite2D" parent="."]
+position = Vector2(-64.0, 672.0)
+texture = ExtResource("44")
+
+[node name="Art555" type="Sprite2D" parent="."]
+position = Vector2(256.0, 688.0)
+texture = ExtResource("56")
+
+[node name="Art556" type="Sprite2D" parent="."]
+position = Vector2(-96.0, 688.0)
+texture = ExtResource("44")
+
+[node name="Art557" type="Sprite2D" parent="."]
+position = Vector2(-32.0, 704.0)
+texture = ExtResource("71")
+
+[node name="Art558" type="Sprite2D" parent="."]
+position = Vector2(-128.0, 704.0)
+texture = ExtResource("44")
+
+[node name="Art559" type="Sprite2D" parent="."]
+position = Vector2(-448.0, 704.0)
+texture = ExtResource("43")
+
+[node name="Art560" type="Sprite2D" parent="."]
+position = Vector2(-160.0, 720.0)
+texture = ExtResource("44")
+
+[node name="Art561" type="Sprite2D" parent="."]
+position = Vector2(-416.0, 720.0)
+texture = ExtResource("43")
+
+[node name="Art562" type="Sprite2D" parent="."]
+position = Vector2(-192.0, 736.0)
+texture = ExtResource("44")
+
+[node name="Art563" type="Sprite2D" parent="."]
+position = Vector2(-384.0, 736.0)
+texture = ExtResource("43")
+
+[node name="Art564" type="Sprite2D" parent="."]
+position = Vector2(-224.0, 752.0)
+texture = ExtResource("44")
+
+[node name="Art565" type="Sprite2D" parent="."]
+position = Vector2(-352.0, 752.0)
+texture = ExtResource("43")
+
+[node name="Art566" type="Sprite2D" parent="."]
+position = Vector2(-256.0, 768.0)
+texture = ExtResource("44")
+
+[node name="Art567" type="Sprite2D" parent="."]
+position = Vector2(-320.0, 768.0)
+texture = ExtResource("43")
+
+[node name="Art568" type="Sprite2D" parent="."]
+position = Vector2(-288.0, 784.0)
+texture = ExtResource("44")
+
+[node name="Art569" type="Sprite2D" parent="."]
+position = Vector2(272.0, 752.0)
+texture = ExtResource("72")
+
+[node name="PlayerScaleReference" type="Sprite2D" parent="."]
+position = Vector2(384.0, 536.0)
+texture = ExtResource("73")
+hframes = 4
+vframes = 4
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(384.0, 560.0)
+zoom = Vector2(3, 3)
