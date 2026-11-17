@@ -682,6 +682,7 @@ func _run_travel_beat(
 			"max_frames": 1200,
 			"samples": [
 				{"name": "alpha", "path": overlay_path, "property": "modulate:a"},
+				{"name": "cover", "path": overlay_path + "/Scrim", "property": "color:a"},
 				{"name": "gate", "path": WORLD, "property": "_world_input_enabled"},
 				{"name": "modal", "path": GAME_HUD, "method": "has_blocking_modal"},
 				{"name": "elapsed", "path": WORLD, "property": "_clock_elapsed_seconds"},
@@ -736,6 +737,7 @@ func _run_travel_beat(
 	var pos_changes := 0
 	var swap_flips := 0
 	var swap_alpha := 0.0
+	var swap_cover := 0.0
 	var last_pos: Variant = null
 	var last_dest := false
 	var bad_frames: Array[String] = []
@@ -750,6 +752,7 @@ func _run_travel_beat(
 		if dest_now != last_dest:
 			swap_flips += 1
 			swap_alpha = alpha_now
+			swap_cover = alpha_now * float(record.get("cover", 0.0))
 		last_dest = dest_now
 		var elapsed_now = record.get("elapsed", null)
 		if elapsed_now != null:
@@ -802,6 +805,9 @@ func _run_travel_beat(
 	assert_float(swap_alpha).append_failure_message(
 		"the map swapped while the overlay was opaque"
 	).is_greater_equal(0.9)
+	assert_float(swap_cover).append_failure_message(
+		"the map swapped while the scrim effectively covered the screen"
+	).is_greater_equal(0.85)
 	if arrival_clock != "":
 		assert_str(arrival_clock).is_not_equal(depart_clock)
 	# At most one position change is allowed (the swap teleport); a

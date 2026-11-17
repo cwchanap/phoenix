@@ -890,6 +890,10 @@ func _panel(hud: GameHud, name: String) -> Control:
 func _travel_overlay(hud: GameHud) -> Control:
     return _panel(hud, "TravelOverlay")
 
+func _overlay_cover(overlay: Control) -> float:
+    var scrim := overlay.get_node("Scrim") as ColorRect
+    return overlay.modulate.a * scrim.color.a
+
 func _chrome(hud: GameHud) -> Control:
     return hud.get_node("HudRoot/Chrome") as Control
 
@@ -5056,6 +5060,7 @@ func test_finish_travel_fires_one_swap_one_signal_and_lands_on_the_destination_m
     var session := world._session
     var overlay := _travel_overlay(hud)
     var swaps: Array[bool] = []
+    var covers: Array[float] = []
     var finishes: Array[bool] = []
     overlay.finished.connect(func() -> void: finishes.append(true))
     var before := session.snapshot()
@@ -5065,6 +5070,7 @@ func test_finish_travel_fires_one_swap_one_signal_and_lands_on_the_destination_m
     )
     var swap := func() -> void:
         swaps.append(true)
+        covers.append(_overlay_cover(overlay))
         world.load_map(true)
 
     hud.play_travel(before, session.snapshot(), swap)
@@ -5076,11 +5082,35 @@ func test_finish_travel_fires_one_swap_one_signal_and_lands_on_the_destination_m
 
     assert_eq(swaps.size(), 1, "the swap callback fired exactly once")
     assert_eq(finishes.size(), 1, "the completion signal emitted exactly once")
+    assert_almost_eq(
+        covers[0],
+        1.0,
+        0.001,
+        "the outbound swap fired under effective full-screen cover",
+    )
     assert_false(overlay.is_active())
     assert_false(hud.has_blocking_modal())
     assert_true(world._world_input_enabled)
     assert_null(world.get_node_or_null("FarmMap"))
     assert_not_null(world.get_node_or_null("TownMap"))
+
+    var home_before := session.snapshot()
+    assert_eq(
+        session.travel(TownContract.TRUCK_CELL),
+        GameRules.CommandCode.TRAVELLED,
+    )
+    hud.play_travel(home_before, session.snapshot(), swap)
+    hud.finish_travel()
+    assert_eq(swaps.size(), 2, "the return swap callback fired once more")
+    assert_eq(finishes.size(), 2, "the completion signal emitted again")
+    assert_almost_eq(
+        covers[1],
+        1.0,
+        0.001,
+        "the return swap fired under effective full-screen cover",
+    )
+    assert_null(world.get_node_or_null("TownMap"))
+    assert_not_null(world.get_node_or_null("FarmMap"))
 
 func _push_probe_keys(world: WorldShell) -> void:
     for code: Key in [KEY_E, KEY_SPACE, KEY_2, KEY_I]:
@@ -5195,6 +5225,7 @@ func test_travel_overlay_gates_input_clock_esc_and_mouse_until_the_beat_finishes
     var pos_changes := 0
     var illegal_moves := 0
     var swap_flips := 0
+    var swap_cover := 0.0
     var post_swap_probed := false
     var last_pos: Vector2 = world.player.global_position
     var had_town := false
@@ -5226,6 +5257,7 @@ func test_travel_overlay_gates_input_clock_esc_and_mouse_until_the_beat_finishes
         if flipped:
             swap_flips += 1
             had_town = has_town
+            swap_cover = _overlay_cover(overlay)
         var pos: Vector2 = world.player.global_position
         if pos != last_pos:
             pos_changes += 1
@@ -5259,6 +5291,11 @@ func test_travel_overlay_gates_input_clock_esc_and_mouse_until_the_beat_finishes
     assert_eq(minute_ticks, 0, "game minutes stayed frozen all beat")
     assert_eq(modal_opens, 0, "no modal opened during the beat")
     assert_eq(swap_flips, 1, "the map swapped exactly once")
+    assert_gt(
+        swap_cover,
+        0.85,
+        "the swap fired while the scrim effectively covered the screen",
+    )
     assert_eq(illegal_moves, 0, "no movement outside the swap teleport")
     assert_eq(pos_changes, 1, "exactly one position change: the teleport")
     assert_true(post_swap_probed, "the live tween reached the deferred swap")

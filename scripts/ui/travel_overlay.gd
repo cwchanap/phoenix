@@ -5,12 +5,14 @@ signal finished
 
 const TRUCK_SHEET := preload("res://assets/sprites/kei-truck.png")
 const CLOCK_ICON := preload("res://assets/ui/icons/clock.png")
+const SCRIM_COLOR := Color(0.04, 0.03, 0.08, 0.8)
 const FADE_SECONDS := 0.25
 const HOLD_SECONDS := 1.0
 const FINISH_STEP_SECONDS := 0.5
 const FINISH_MAX_STEPS := 16
 
 var _tween: Tween
+var _scrim: ColorRect
 var _title: Label
 var _departure: Label
 var _arrival: Label
@@ -34,10 +36,12 @@ func play(before: Dictionary, after: Dictionary, swap: Callable) -> void:
 		_tween.kill()
 	visible = true
 	modulate.a = 0.0
+	_scrim.color = SCRIM_COLOR
 	_tween = create_tween()
 	_tween.tween_property(self, "modulate:a", 1.0, FADE_SECONDS)
+	_tween.parallel().tween_property(_scrim, "color:a", 1.0, FADE_SECONDS)
 	_tween.tween_callback(swap)
-	_tween.tween_interval(HOLD_SECONDS)
+	_tween.tween_property(_scrim, "color:a", SCRIM_COLOR.a, HOLD_SECONDS)
 	_tween.tween_property(self, "modulate:a", 0.0, FADE_SECONDS)
 	_tween.tween_callback(_on_beat_finished)
 
@@ -57,12 +61,12 @@ func _on_beat_finished() -> void:
 	finished.emit()
 
 func _build() -> void:
-	var scrim := ColorRect.new()
-	scrim.name = "Scrim"
-	scrim.color = Color(0.04, 0.03, 0.08, 0.8)
-	scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(scrim)
+	_scrim = ColorRect.new()
+	_scrim.name = "Scrim"
+	_scrim.color = SCRIM_COLOR
+	_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_scrim)
 	var center := CenterContainer.new()
 	center.name = "Center"
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
