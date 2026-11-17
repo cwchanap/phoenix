@@ -433,7 +433,13 @@ Sprite-isometric art contract
 Audio generation convention
 - New Phoenix audio assets are generated through the ElevenLabs MCP
   sound-effects tool `eleven_text_to_sound_v2`, not hand-written synthesis
-  scripts. The committed WAV is the artifact of record; record the prompt,
+  scripts. Background music is the exception: the four `music-*.wav` loops
+  come from Eleven Music (`POST /v1/music`, `music_v2_5`), which has no loop
+  option, so each take is cut on a whole bar at 30 s with the next bar
+  crossfaded into the opening (recipe in `assets/audio/README.md`).
+  `GameHud.music_for()` picks farm day/night (18:00) or town from the
+  snapshot; `AppRoot` plays the title loop on the title and result screens.
+  The committed WAV is the artifact of record; record the prompt,
   model id, plan tier/license terms, and any loop post-processing in
   `assets/audio/README.md`. Byte-identical regeneration gates do not apply to
   MCP-generated audio.
