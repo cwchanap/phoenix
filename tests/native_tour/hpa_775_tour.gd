@@ -84,6 +84,7 @@ func _run() -> void:
 		)
 	await _phase_travel()
 	await _phase_market()
+	await _phase_title_completed()
 	_finish("tour=hpa-775")
 
 func _await_overlay_opaque(overlay: Control) -> void:
@@ -306,8 +307,14 @@ func _run_beat(
 		or not _world._world_input_enabled
 	):
 		_failures.append("travel: gate did not release after the beat")
-	if int(watch["beat_minutes"]) != minutes_before + GameRules.TRAVEL_MINUTES:
-		_failures.append("travel: drive did not spend exactly TRAVEL_MINUTES")
+	var expected_minutes := mini(
+		minutes_before + GameRules.TRAVEL_MINUTES,
+		GameRules.ACTION_CUTOFF_MINUTES
+	)
+	if int(watch["beat_minutes"]) != expected_minutes:
+		_failures.append(
+			"travel: drive did not spend the expected cutoff-clamped travel minutes"
+		)
 	var arrival := (
 		TownContract.TRUCK_ARRIVAL if expect_town else WorldContract.TRUCK_ARRIVAL
 	)
@@ -344,13 +351,27 @@ func _phase_travel() -> void:
 		false,
 		"B1-driving-home",
 	)
-	await _stand_at(
+	_world._session._time_minutes = GameRules.ACTION_CUTOFF_MINUTES - 15
+	_log(
+		"travel: late departure from %s"
+		% GameRules.format_time(int(_world._session.snapshot()["time_minutes"]))
+	)
+	await _run_beat(
+		WorldContract.TRUCK_CELL,
 		_stand_facing(WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT, Vector2(0.4, 0.3)),
 		"move_right",
-		WorldMath.Facing.RIGHT
+		WorldMath.Facing.RIGHT,
+		true,
+		"B1-driving-to-town-late",
 	)
-	await _interact()
-	await _wait_map_location(false)
+	_log(
+		"travel: late arrival clock=%s input_released=%s modal=%s"
+		% [
+			GameRules.format_time(int(_world._session.snapshot()["time_minutes"])),
+			str(_world._world_input_enabled),
+			str(_world.hud.has_blocking_modal()),
+		]
+	)
 
 func _phase_market() -> void:
 	_world.clock_running = false
@@ -406,6 +427,61 @@ func _phase_market() -> void:
 		return
 	await _shot("A2-market-result")
 	_log("market: result visible after one confirm")
+
+func _phase_title_completed() -> void:
+	await _key(KEY_ESCAPE)
+	var title := _app.get_node("TitleScreen")
+	var result := _app.get_node_or_null("ResultScreen") as ResultScreen
+	var waited := 0.0
+	while (
+		(not title.visible or not bool(title._continue_available))
+		and waited < 15.0
+	):
+		await _frames(10)
+		waited += 0.3
+	if result != null and result.visible:
+		_failures.append("title: Esc did not close the result screen")
+	if not title.visible:
+		_failures.append("title: title screen never returned after Esc")
+		return
+	if not bool(title._continue_available):
+		_failures.append("title: completed save did not keep Continue available")
+	_log(
+		"title selection=%s (expect new_game for completed save)"
+		% str(title.selected_action())
+	)
+	if str(title.selected_action()) != "new_game":
+		_failures.append(
+			"title: completed save did not default to New Game (got %s)"
+			% str(title.selected_action())
+		)
+	await _shot("A1-title-completed-newgame")
+	await _key(KEY_S)
+	await _frames(10)
+	_log("title selection=%s" % str(title.selected_action()))
+	if str(title.selected_action()) != "continue":
+		_failures.append(
+			"title: move_down did not select Continue (got %s)"
+			% str(title.selected_action())
+		)
+		return
+	await _shot("A1-title-completed-continue")
+	await _key(KEY_ENTER)
+	result = _app.get_node_or_null("ResultScreen") as ResultScreen
+	waited = 0.0
+	while (result == null or not result.visible) and waited < 15.0:
+		await _frames(10)
+		waited += 0.3
+		result = _app.get_node_or_null("ResultScreen") as ResultScreen
+	if result == null or not result.visible:
+		_failures.append(
+			"title: Continue on the completed save did not reopen the result"
+		)
+		return
+	if _app.get_node_or_null("World") != null:
+		_failures.append("title: Continue on the completed save re-entered the world")
+	await _shot("A1-title-completed-result")
+	_log("title: completed-save Continue reopened the result screen")
 
 func _shot(shot_name: String) -> void:
 	await process_frame
