@@ -40,7 +40,11 @@ const CONFIRM_SFX := preload("res://assets/audio/confirm.wav")
 const CANCEL_SFX := preload("res://assets/audio/cancel.wav")
 const DAY_TRANSITION_SFX := preload("res://assets/audio/day-transition.wav")
 const FINALE_SFX := preload("res://assets/audio/finale.wav")
-const FARM_DAY_LOOP := preload("res://assets/audio/farm-day-loop.wav")
+const MUSIC_FARM_DAY := preload("res://assets/audio/music-farm-day.wav")
+const MUSIC_FARM_NIGHT := preload("res://assets/audio/music-farm-night.wav")
+const MUSIC_TOWN := preload("res://assets/audio/music-town.wav")
+## The farm switches to its night loop from 18:00 until the next morning.
+const NIGHT_MUSIC_START_MINUTES := 18 * 60
 const RIVER_AMBIENCE := preload("res://assets/audio/river-ambience.wav")
 const RAIN_AMBIENCE := preload("res://assets/audio/rain-ambience.wav")
 const AMBIENCE_HEADROOM_DB := -12.0
@@ -177,6 +181,7 @@ func render(snapshot: Dictionary) -> void:
             _rain_ambience_player.play()
     elif _rain_ambience_player.playing or _rain_ambience_player.stream_paused:
         _rain_ambience_player.stop()
+    _play_music(music_for(snapshot))
     _chrome.render(snapshot)
     var day := int(snapshot["day"])
     var status_time := GameRules.format_time(int(snapshot["time_minutes"]))
@@ -464,9 +469,25 @@ func _sfx_for_code(code: GameRules.CommandCode) -> AudioStream:
 
 func _build_audio() -> void:
     _sfx_player = _add_audio_player(&"SfxPlayer", null, -8.0)
-    _music_player = _add_audio_player(&"MusicPlayer", FARM_DAY_LOOP, -20.0, true)
+    _music_player = _add_audio_player(&"MusicPlayer", MUSIC_FARM_DAY, -20.0, true)
     _river_ambience_player = _add_audio_player(&"RiverAmbience", RIVER_AMBIENCE, -80.0, true)
     _rain_ambience_player = _add_audio_player(&"RainAmbience", RAIN_AMBIENCE, -80.0)
+
+## The background loop for the live map and time of day.
+static func music_for(snapshot: Dictionary) -> AudioStream:
+    if snapshot["location"] == GameRules.MapId.TOWN:
+        return MUSIC_TOWN
+    if int(snapshot["time_minutes"]) >= NIGHT_MUSIC_START_MINUTES:
+        return MUSIC_FARM_NIGHT
+    return MUSIC_FARM_DAY
+
+## Swaps the loop only when the track changes, so clock ticks never restart it.
+func _play_music(stream: AudioStream) -> void:
+    if _music_player.stream == stream:
+        return
+    _music_player.stream = stream
+    if is_inside_tree():
+        _music_player.play()
 
 func _add_audio_player(
     node_name: StringName,

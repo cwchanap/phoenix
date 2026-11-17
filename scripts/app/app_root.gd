@@ -2,9 +2,12 @@ class_name AppRoot
 extends Node
 
 const WORLD_SCENE := preload("res://scenes/world/world.tscn")
+const MUSIC_TITLE := preload("res://assets/audio/music-title.wav")
 var _save_repository: SaveRepository
 var _settings: UiSettings
 var _continue_state: Variant = null
+## Plays under the title and result screens; the World's HUD owns in-game music.
+var _title_music: AudioStreamPlayer
 @onready var _title_screen: TitleScreen = $TitleScreen as TitleScreen
 @onready var _result_screen: ResultScreen = $ResultScreen as ResultScreen
 
@@ -30,7 +33,17 @@ func _ready() -> void:
     _title_screen.continue_requested.connect(_on_continue_requested)
     _result_screen.new_game_requested.connect(_on_result_new_game_requested)
     _result_screen.return_to_title_requested.connect(_on_result_return_to_title)
+    _title_music = AudioStreamPlayer.new()
+    _title_music.name = "TitleMusic"
+    _title_music.stream = MUSIC_TITLE
+    add_child(_title_music)
     _load_title_state()
+    _play_title_music()
+
+func _play_title_music() -> void:
+    _title_music.volume_db = _settings.db_for_level(_settings.music)
+    if not _title_music.playing:
+        _title_music.play()
 
 func _load_title_state() -> void:
     var result := _save_repository.load()
@@ -69,6 +82,7 @@ func _launch(initial_state: Variant) -> void:
     world.finale_completed.connect(_on_finale_completed)
     add_child(world)
     _title_screen.visible = false
+    _title_music.stop()
 
 func _on_finale_completed(final_state: Dictionary, save_error: int) -> void:
     _show_result(final_state, save_error)
@@ -80,6 +94,7 @@ func _show_result(state: Dictionary, save_error: int) -> void:
         world.queue_free()
     _title_screen.visible = false
     _result_screen.present(ContentRules.build_harvest_result(state), save_error)
+    _play_title_music()
 
 func _on_result_new_game_requested() -> void:
     _result_screen.visible = false
@@ -89,3 +104,4 @@ func _on_result_return_to_title() -> void:
     _result_screen.visible = false
     _title_screen.visible = true
     _load_title_state()
+    _play_title_music()

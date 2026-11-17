@@ -3638,14 +3638,42 @@ func test_rain_render_does_not_mutate_session_state() -> void:
     assert_eq(world._session.snapshot(), before)
 
 
+func test_music_follows_map_and_evening() -> void:
+    var world := _world()
+    var music := world.hud.get_node("MusicPlayer") as AudioStreamPlayer
+    assert_eq(music.stream, GameHud.MUSIC_FARM_DAY)
+
+    var evening := world._session.snapshot()
+    evening["time_minutes"] = GameHud.NIGHT_MUSIC_START_MINUTES - 1
+    assert_eq(GameHud.music_for(evening), GameHud.MUSIC_FARM_DAY)
+    evening["time_minutes"] = GameHud.NIGHT_MUSIC_START_MINUTES
+    assert_eq(GameHud.music_for(evening), GameHud.MUSIC_FARM_NIGHT)
+    evening["location"] = GameRules.MapId.TOWN
+    assert_eq(GameHud.music_for(evening), GameHud.MUSIC_TOWN)
+
+    await _drive_to_town(world)
+    assert_eq(music.stream, GameHud.MUSIC_TOWN)
+    assert_true(music.playing)
+    # A re-render on the same track keeps the loop running from where it is.
+    var position := music.get_playback_position()
+    world.hud.render(world._session.snapshot())
+    assert_true(music.get_playback_position() >= position)
+    await _drive_home(world)
+    assert_eq(music.stream, GameHud.MUSIC_FARM_DAY)
+
 func test_hud_audio_players_and_representative_feedback_streams() -> void:
     var world := _world()
     var sfx := world.hud.get_node("SfxPlayer") as AudioStreamPlayer
     var music := world.hud.get_node("MusicPlayer") as AudioStreamPlayer
     assert_not_null(sfx)
     assert_not_null(music)
-    assert_eq(music.stream.resource_path, "res://assets/audio/farm-day-loop.wav")
-    assert_eq((music.stream as AudioStreamWAV).loop_mode, AudioStreamWAV.LOOP_FORWARD)
+    assert_eq(music.stream.resource_path, "res://assets/audio/music-farm-day.wav")
+    for stream: AudioStreamWAV in [
+        GameHud.MUSIC_FARM_DAY, GameHud.MUSIC_FARM_NIGHT, GameHud.MUSIC_TOWN, AppRoot.MUSIC_TITLE,
+    ]:
+        assert_eq(stream.loop_mode, AudioStreamWAV.LOOP_FORWARD, stream.resource_path)
+        assert_eq(stream.loop_begin, 0, stream.resource_path)
+        assert_eq(stream.loop_end, 1323000, "full 30 s clip wraps: %s" % stream.resource_path)
 
     var river := world.hud.get_node_or_null("RiverAmbience") as AudioStreamPlayer
     var rain := world.hud.get_node_or_null("RainAmbience") as AudioStreamPlayer

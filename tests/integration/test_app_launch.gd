@@ -138,6 +138,22 @@ func test_new_game_propagates_settings_and_tutorial_toggle_to_world_hud() -> voi
     assert_true(card.visible)
     assert_eq(world._session.snapshot()["tutorial"], tutorial_before)
 
+func test_title_music_plays_on_title_and_stops_in_game() -> void:
+    var settings := UiSettings.load(SETTINGS_PATH)
+    assert_eq(settings.set_music(5), OK)
+    var app := _spawn_app(SaveRepository.new(TEST_PATH), settings)
+    if app == null:
+        return
+    var title_music := app.get_node("TitleMusic") as AudioStreamPlayer
+    assert_eq(title_music.stream, AppRoot.MUSIC_TITLE)
+    assert_true(title_music.playing)
+    assert_eq(title_music.volume_db, settings.db_for_level(5))
+
+    (app.get_node("TitleScreen") as TitleScreen).new_game_requested.emit()
+    await get_tree().process_frame
+    _stop_world_clock(app)
+    assert_false(title_music.playing)
+
 func test_settings_environment_path_is_loaded_without_using_save_override() -> void:
     var settings := UiSettings.load(SETTINGS_PATH)
     assert_eq(settings.set_music(0), OK)
