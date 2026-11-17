@@ -87,13 +87,24 @@ func _run() -> void:
 	await _phase_title_completed()
 	_finish("tour=hpa-775")
 
+func _overlay_cover(overlay: Control) -> float:
+	var scrim := overlay.get_node("Scrim") as ColorRect
+	return overlay.modulate.a * scrim.color.a
+
 func _await_overlay_opaque(overlay: Control) -> void:
 	var frames := 0
-	while overlay.visible and overlay.modulate.a < 0.9 and frames < 900:
+	while overlay.visible and _overlay_cover(overlay) < 0.9 and frames < 900:
 		await _frames(1)
 		frames += 1
-	if overlay.visible and overlay.modulate.a < 0.9:
+	if overlay.visible and _overlay_cover(overlay) < 0.9:
 		_failures.append("travel: overlay never reached the opaque phase")
+
+func _await_overlay_dimmed(overlay: Control) -> void:
+	var scrim := overlay.get_node("Scrim") as ColorRect
+	var frames := 0
+	while overlay.visible and scrim.color.a > 0.85 and frames < 600:
+		await _frames(1)
+		frames += 1
 
 func _push_key_event(keycode: Key, pressed: bool) -> void:
 	var event := InputEventKey.new()
@@ -161,6 +172,7 @@ func _observe_beat(overlay: Control, watch: Dictionary) -> void:
 		var on_farm := _world.farm_view != null
 		if on_farm != last_on_farm:
 			watch["swap_flips"] = int(watch["swap_flips"]) + 1
+			watch["swap_cover"] = _overlay_cover(overlay)
 			last_on_farm = on_farm
 		for panel in _world.hud._primary_modals:
 			if panel.visible:
@@ -209,6 +221,7 @@ func _run_beat(
 		"position_changes": 0,
 		"modal_opens": 0,
 		"swap_flips": 0,
+		"swap_cover": -1.0,
 		"seed_requests": 0,
 		"dismiss_presses": 0,
 		"beat_minutes": -1,
@@ -240,6 +253,7 @@ func _run_beat(
 	if not overlay.visible:
 		_failures.append("travel: beat ended before the mid-transition frame")
 	else:
+		await _await_overlay_dimmed(overlay)
 		await _shot(shot_name)
 	var waited := 0
 	while overlay.visible and int(watch["swap_flips"]) == 0 and waited < 900:
@@ -276,6 +290,11 @@ func _run_beat(
 		_failures.append(
 			"travel: map flipped %d times, expected exactly one swap"
 			% int(watch["swap_flips"])
+		)
+	elif float(watch["swap_cover"]) < 0.85:
+		_failures.append(
+			"travel: map swap fired at %.2f effective cover, expected >= 0.85"
+			% float(watch["swap_cover"])
 		)
 	if int(watch["position_changes"]) != 1:
 		_failures.append(
