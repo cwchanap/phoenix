@@ -4349,6 +4349,30 @@ func test_passive_clock_ticks_pauses_and_keeps_late_day_interactive() -> void:
     assert_eq(session.snapshot(), market_before)
     assert_true(world._world_input_enabled)
 
+    session._day = GameRules.MAX_DAY
+    session._time_minutes = 21 * 60
+    world._refresh_from_session()
+    world._advance_passive_clock(0.05)
+    assert_almost_eq(world._clock_elapsed_seconds, 0.1, 0.001)
+    assert_eq(int(session.snapshot()["time_minutes"]), 21 * 60)
+    world.interact()
+    assert_true(_panel(hud, "MarketConfirmPanel").visible)
+    assert_true(hud.has_blocking_modal())
+    assert_false(world._world_input_enabled)
+    world._advance_passive_clock(5.0)
+    world._advance_passive_clock(2.0)
+    assert_eq(int(session.snapshot()["time_minutes"]), 21 * 60)
+    assert_almost_eq(world._clock_elapsed_seconds, 0.1, 0.001)
+    hud.close_market_confirmation()
+    assert_false(_panel(hud, "MarketConfirmPanel").visible)
+    assert_true(world._world_input_enabled)
+    world._advance_passive_clock(0.1)
+    assert_eq(int(session.snapshot()["time_minutes"]), 21 * 60 + 1)
+    assert_almost_eq(world._clock_elapsed_seconds, 0.05, 0.001)
+    assert_eq(time_label.text, "21:01")
+    session._day = 1
+    world._refresh_from_session()
+
     await _drive_home(world)
     _set_target(world, WorldContract.SHIPPING_CELL)
     world.interact()
