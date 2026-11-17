@@ -8,21 +8,16 @@
  
  var _handler = null
  var _log_capture = null
-@@ -75,6 +76,13 @@
+@@ -75,6 +76,8 @@
  # --- Physics frame counter ---
  var _physics_frame_counter: int = 0
  
-+# --- Frame observer ---
-+# Armed by the "observe" command; samples the requested node values every
-+# _process frame while the "while" condition holds. Unlike a wait it does
-+# not occupy the command channel, so probes can be sent while it records
-+# and the durable samples are retrieved afterward via "observe_result".
 +var _observer := {}
 +
  # --- Log capture ---
  # Tracks the highest sequence number drained so far for the current
  # connection. Reset to -1 on disconnect so the next session starts fresh
-@@ -132,6 +140,8 @@
+@@ -132,6 +135,8 @@
  			get_tree().quit()
  			return
  
@@ -31,26 +26,53 @@
  	match _state:
  		State.LISTENING:
  			_poll_listening()
-@@ -467,6 +477,103 @@
+@@ -467,6 +472,141 @@
  	_wait_type = WaitType.NONE
  
  
-+# ---------------------------------------------------------------------------
-+# Frame observer (non-blocking; armed by "observe", drained by "observe_result")
-+# ---------------------------------------------------------------------------
-+
 +func _observer_start(cmd: Dictionary) -> Dictionary:
 +	var while_spec = cmd.get("while", {})
-+	if not while_spec is Dictionary or not while_spec.has("path"):
++	if (
++		not while_spec is Dictionary
++		or not while_spec.get("path") is String
++		or not while_spec.get("property") is String
++	):
 +		return {"error": "observe requires a while {path, property, value} spec"}
++	var samples = cmd.get("samples", [])
++	if not samples is Array:
++		return {"error": "observe requires 'samples' to be a list"}
++	for sample in samples:
++		if not _observer_sample_valid(sample):
++			return {
++				"error": "observe sample requires 'name' plus 'exists', or 'path' with 'method'/'property'"
++			}
++	var release_on = cmd.get("release_on", {})
++	if not release_on is Dictionary:
++		return {"error": "observe requires 'release_on' to be a map"}
++	if not release_on.is_empty():
++		if (
++			not release_on.get("sample") is String
++			or not release_on.get("actions") is Array
++		):
++			return {"error": "observe release_on requires {sample, value, actions}"}
++		for action_name in release_on["actions"]:
++			if not action_name is String:
++				return {"error": "observe release_on actions must be strings"}
++	var arm_frames = cmd.get("arm_frames", 300)
++	var max_frames = cmd.get("max_frames", 1200)
++	if (
++		not (arm_frames is int or arm_frames is float)
++		or not (max_frames is int or max_frames is float)
++	):
++		return {"error": "observe arm_frames/max_frames must be numbers"}
 +	_observer = {
-+		"while_path": str(while_spec.get("path", "")),
-+		"while_property": str(while_spec.get("property", "")),
++		"while_path": str(while_spec["path"]),
++		"while_property": str(while_spec["property"]),
 +		"while_value": while_spec.get("value", true),
-+		"samples": cmd.get("samples", []),
-+		"release_on": cmd.get("release_on", {}),
-+		"arm_frames": max(1, int(cmd.get("arm_frames", 300))),
-+		"max_frames": max(1, int(cmd.get("max_frames", 1200))),
++		"samples": samples,
++		"release_on": release_on,
++		"arm_frames": max(1, int(arm_frames)),
++		"max_frames": max(1, int(max_frames)),
 +		"armed": 0,
 +		"frames": 0,
 +		"active": false,
@@ -59,6 +81,20 @@
 +		"data": [],
 +	}
 +	return {"ok": true}
++
++
++func _observer_sample_valid(sample) -> bool:
++	if not sample is Dictionary:
++		return false
++	if not sample.get("name") is String:
++		return false
++	if sample.has("exists"):
++		return sample["exists"] is String
++	if not sample.get("path") is String:
++		return false
++	if sample.has("args") and not sample["args"] is Array:
++		return false
++	return sample.get("method") is String or sample.get("property") is String
 +
 +
 +func _observer_result() -> Dictionary:
@@ -118,9 +154,6 @@
 +				node.get_indexed(NodePath(str(sample["property"])))
 +			)
 +	_observer["data"].append(record)
-+	# release_on: inject the listed action releases in-process the first
-+	# frame a named sample matches — held-input release is scheduled here
-+	# so later RPC delivery cannot hold it past the observed condition.
 +	var on: Dictionary = _observer["release_on"]
 +	if not _observer["released"] and not on.is_empty():
 +		if record.get(str(on.get("sample", ""))) == on.get("value", true):
@@ -150,12 +183,10 @@
  		"input_mouse_button":
  			return _cmd_input_mouse_button(cmd, id)
  		"input_mouse_motion":
-@@ -473,19 +479,24 @@
+@@ -473,19 +479,22 @@
  	}
  
  
-+# Screen position for click-style commands: Control center or a Node2D's
-+# projected origin; null when the node kind has no screen position.
 +func _node_screen_position(node: Node) -> Variant:
 +	if node is Control:
 +		return node.get_global_rect().get_center()
@@ -182,17 +213,10 @@
  		return {"id": id, "error": "Cannot determine screen position for node: " + path}
  
  	var press_event := InputEventMouseButton.new()
-@@ -541,6 +552,98 @@
+@@ -540,6 +549,86 @@
+ 	}
  
  
- # ---------------------------------------------------------------------------
-+# input_sequence — inject an ordered list of input specs in one dispatch
-+# tick. Every spec reports its own outcome, so a missing click target or an
-+# unknown spec surfaces as a per-entry error instead of a silent skip.
-+# Events queued this way flush in order on the next input phase; callers
-+# own any settling waits afterward.
-+# ---------------------------------------------------------------------------
-+
 +func _cmd_input_sequence(cmd: Dictionary, id) -> Dictionary:
 +	var specs: Array = cmd.get("specs", [])
 +	if specs.is_empty():
@@ -261,10 +285,6 @@
 +			return {"ok": false, "error": "Unknown input spec type: " + kind}
 +
 +
-+# ---------------------------------------------------------------------------
-+# observe / observe_result — see automation_server._poll_observer()
-+# ---------------------------------------------------------------------------
-+
 +func _cmd_observe(cmd: Dictionary, id) -> Dictionary:
 +	var result: Dictionary = _server._observer_start(cmd)
 +	result["id"] = id
@@ -277,7 +297,6 @@
 +	return result
 +
 +
-+# ---------------------------------------------------------------------------
+ # ---------------------------------------------------------------------------
  # Frame Sync (deferred)
  # ---------------------------------------------------------------------------
- 

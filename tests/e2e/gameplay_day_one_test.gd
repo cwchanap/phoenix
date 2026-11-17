@@ -497,11 +497,6 @@ func test_continue_seeded_save_buys_upgrade_and_waters_with_one_stamina() -> voi
 	await _assert_stamina(game, 19)
 
 
-# The e2e channel is serial — one command in flight — but every wait_* the
-# child receives is an app-side per-frame poll: armed once, it cannot miss a
-# state that persists, and a missed state surfaces as a loud timeout rather
-# than a silent skip. Mid-beat probes are real inputs; their rejection is
-# proven by durable post-release state (seed, tutorial, modals, +30 min).
 func _find_node_path(game, base: String, node_name: String) -> String:
 	var tree: Dictionary = await game.get_tree(base, 8)
 	return _walk_for_name(tree, node_name)
@@ -556,11 +551,6 @@ func _run_travel_beat(
 		PLAYER, "global_position"
 	)
 
-	# Ungated control: every probe binding must reach its real action while
-	# the gate is open, or a mid-beat rejection proves nothing. Gameplay
-	# bindings use physical keycodes, so their key events are physical;
-	# ui_cancel is the built-in binding and only matches a non-physical
-	# Escape — a physical Esc never fires it.
 	var bag_path := HUD + "/BagPanel"
 	var pause_path := HUD + "/PausePanel"
 	var control_seed: String = await game.get_property(seed_name_path, "text")
@@ -639,10 +629,6 @@ func _run_travel_beat(
 	var dismiss_path := await _find_node_path(
 		game, HUD + "/OnboardingOverlay", "Dismiss"
 	)
-	# render() re-evaluates the tutorial on every session snapshot, so the
-	# card may legitimately hide after the swap — visibility alone cannot
-	# prove the Dismiss click leaked. Only _on_dismiss_pressed appends to
-	# _dismissed, so its size is the durable leak signal.
 	var dismissed_before_list: Variant = await game.get_property(
 		HUD + "/OnboardingOverlay", "_dismissed"
 	)
@@ -658,23 +644,10 @@ func _run_travel_beat(
 	).is_true()
 	assert_bool(await game.set_property(WORLD, "clock_running", true)).is_true()
 
-	# The e2e channel is serial — one command in flight, about as long as the
-	# whole beat — so mid-beat evidence cannot ride later RPCs. Instead an
-	# in-process observer is armed BEFORE the travel input: it samples these
-	# values on every child frame the overlay is live, and the durable
-	# records are read back after release. The probe wave then goes through
-	# input_sequence in one dispatch tick: queued events flush in order on
-	# the next input phase, so the physical E tap starts the beat and closes
-	# the gate synchronously, and every probe queued behind it lands while
-	# gated — move_right stays held through the swap for real movement
-	# rejection, then releases in-child while still gated.
 	var observe_result = await game.send_command(
 		"observe",
 		{
 			"while": {"path": overlay_path, "property": "visible", "value": true},
-			# The held move_right is released in-child the frame the
-			# destination map lands — still gated, so serial RPC latency can
-			# never hold the input past gate-open and let the player walk.
 			"release_on": {
 				"sample": "dest", "value": true, "actions": ["move_right"]
 			},
@@ -711,9 +684,6 @@ func _run_travel_beat(
 		probe_specs.append({"type": "click", "path": dismiss_path})
 	await _send_specs(game, probe_specs)
 
-	# The observer is already recording; poll its durable state until the
-	# beat releases it. The held-input release was scheduled in-child, so
-	# this poll's latency cannot affect it.
 	var observed: Dictionary = {}
 	var observe_deadline := Time.get_ticks_msec() + 30000
 	while Time.get_ticks_msec() < observe_deadline:
@@ -760,10 +730,6 @@ func _run_travel_beat(
 				frozen_elapsed = float(elapsed_now)
 			elif not is_equal_approx(float(elapsed_now), frozen_elapsed):
 				bad_frames.append("elapsed")
-		# The passive clock is frozen inside each phase — baselines are the
-		# first sampled value per phase, since pre-E RPC latency may already
-		# have ticked whole minutes. The only legal in-beat label change is
-		# the one-time render inside the swap callback.
 		var clock_now := str(record.get("clock", ""))
 		if clock_now != "":
 			if not dest_now:
@@ -790,7 +756,6 @@ func _run_travel_beat(
 		var pos_now = record.get("pos", null)
 		if pos_now != null:
 			if last_pos == null and not dest_now:
-				# First sampled frame predates the swap: still on the stand cell.
 				assert_vector(pos_now).is_equal_approx(
 					stand_pos, Vector2(2.0, 2.0)
 				)
@@ -810,16 +775,11 @@ func _run_travel_beat(
 	).is_greater_equal(0.85)
 	if arrival_clock != "":
 		assert_str(arrival_clock).is_not_equal(depart_clock)
-	# At most one position change is allowed (the swap teleport); a
-	# pathological first-sample-post-swap frame could legitimately hide it.
 	assert_int(pos_changes).is_less_equal(1)
 	assert_int(frozen_dismissed).is_equal(dismissed_before)
 	if last_pos != null:
 		assert_vector(last_pos).is_equal_approx(spawn, Vector2(2.0, 2.0))
 
-	# Post-release durable facts: overlay hidden, gate and modals released,
-	# destination map loaded, clock past departure, accumulation resumed
-	# past the frozen in-process baseline.
 	assert_bool(await game.get_property(overlay_path, "visible")).is_false()
 	assert_bool(await game.get_property(WORLD, "_world_input_enabled")).is_true()
 	assert_bool(
@@ -832,9 +792,6 @@ func _run_travel_beat(
 	assert_str(
 		await game.get_property(clock_path, "text")
 	).is_not_equal(start_clock)
-	# The passive clock froze for the whole recorded beat and must resume
-	# once the gate opens. _clock_elapsed_seconds wraps every game minute
-	# (0.15 s), so the durable resume signal is the minute label ticking on.
 	var release_clock := str(await game.get_property(clock_path, "text"))
 	var resumed := false
 	var resume_deadline := Time.get_ticks_msec() + 8000
@@ -863,3 +820,45 @@ func test_travel_overlay_blocks_input_and_resumes_the_clock() -> void:
 		game, TownContract.TRUCK_CELL, LEFT, "FarmMap", WorldContract.TRUCK_ARRIVAL
 	)
 	assert_bool(await game.node_exists(WORLD + "/TownMap")).is_false()
+
+
+func test_observe_rejects_malformed_specs_and_keeps_the_armed_observer() -> void:
+	var game = await _start_new_game()
+	if game == null or is_failure():
+		return
+	var arm = await game.send_command(
+		"observe",
+		{
+			"while": {"path": WORLD, "property": "visible", "value": true},
+			"samples": [
+				{"name": "gate", "path": WORLD, "property": "_world_input_enabled"}
+			],
+			"arm_frames": 300,
+			"max_frames": 1200,
+		}
+	)
+	assert_bool(arm.ok).is_true()
+	for bad in [
+		{"while": WORLD},
+		{"while": {"path": WORLD}},
+		{"while": {"path": WORLD, "property": "visible"}, "samples": {"name": "x"}},
+		{"while": {"path": WORLD, "property": "visible"}, "samples": [{"name": "x"}]},
+		{"while": {"path": WORLD, "property": "visible"}, "samples": [{"path": WORLD}]},
+		{"while": {"path": WORLD, "property": "visible"}, "release_on": ["move_right"]},
+		{"while": {"path": WORLD, "property": "visible"}, "release_on": {"sample": "x"}},
+		{"while": {"path": WORLD, "property": "visible"}, "arm_frames": "lots"},
+	]:
+		var res = await game.send_command("observe", bad)
+		assert_bool(res.ok).is_false()
+	await game.wait_seconds(0.3)
+	var poll = await game.send_command("observe_result")
+	assert_bool(poll.ok).is_true()
+	assert_bool(bool(poll.value.get("active", false))).is_true()
+	var rearm = await game.send_command(
+		"observe",
+		{
+			"while": {"path": WORLD, "property": "visible", "value": true},
+			"max_frames": 2,
+		}
+	)
+	assert_bool(rearm.ok).is_true()
