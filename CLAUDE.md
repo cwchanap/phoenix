@@ -188,8 +188,8 @@ There is no JavaScript or Tauri runtime in the current checkout.
   window focus-out pauses the clock with no catch-up on resume. The
   per-frame delta clamp (0.1 s, mirroring `RainLayer.RAIN_DELTA_CLAMP`)
   keeps a hitched or stalled frame from banking game minutes. Whole minutes
-  tick at `GameRules.REAL_SECONDS_PER_GAME_MINUTE` (0.5 s/min, the
-  provisional tuning constant) into `GameSession.advance_clock()`, which
+  tick at `GameRules.REAL_SECONDS_PER_GAME_MINUTE` (0.15 s/min, the
+  UAT-derived modeled pacing rate) into `GameSession.advance_clock()`, which
   clamps at the 22:00 cutoff — farming is refused there while movement,
   the truck, town shopping, shipping, and sleep stay open. `clock_running` is the
   deterministic test opt-out checked only at the `_process` call site;
@@ -314,12 +314,17 @@ pre-existing limitation, not parity.
 HPA-597 is done: the blocking introduction with contextual dismissible help,
 the Day 14 harvest market, and the terminal result flow all shipped.
 HPA-263 makes the day clock a real constraint: it ticks passively during
-unblocked focused play at a provisional 0.5 s/min, pauses on modals and
-focus-out, and clamps at the 22:00 farming cutoff. An agent-operated
+unblocked focused play, pauses on modals and focus-out, and clamps at the
+22:00 farming cutoff. HPA-775 set the rate to 0.15 s/min as a modeled
+estimate from the 15 Nov UAT: ~48.5 active UAT farming seconds plus a
+town round trip give a stated 75-second active-play assumption over a
+~240-action, 60-travel-minute day, landing at a modeled 19:20 inside the
+18:00–22:00 window. `tests/native_tour/hpa_775_day_tour.gd` records a
+scripted day's real timing and focus flags as diagnostics only —
+automation cannot prove subjective human pacing, so the constant is not
+iterated to match any bot's wall-clock speed. An earlier agent-operated
 native playtest (see below) observed ticking, modal freeze, the cutoff,
-and late interactions end to end on the pre-seeding build; the rate stays
-provisional because human subjective pacing and an unlocked-desktop focus
-check remain open.
+and late interactions end to end on the pre-seeding build.
 - Native evidence:
   `docs/superpowers/validation/2026-10-22-phoenix-passive-day-clock-native-playtest.md`
   is agent-operated, not human, evidence, recorded at `2119495` before the
@@ -328,9 +333,9 @@ check remain open.
   true), so under the current code that session could not tick at all: the
   run exercised the pre-seeding always-true flag, and the focus-seeded
   path is covered only by the deterministic GUT notification dispatch
-  (`test_gameplay_shell.gd`); a human-run defocus check on an unlocked
-  desktop and a human subjective pace check are still required before the
-  0.5 s/min rate is final.
+  (`test_gameplay_shell.gd`); the modeled 0.15 s/min rate stays an
+  estimate — a human-run defocus check on an unlocked desktop and human
+  subjective pace evidence remain open.
 - HPA-598 owns serialization; HPA-594 defines no save schema.
 - HPA-599 owns balance/polish/export.
 - HPA-685 extracted the authored farm into `scenes/world/farm_map.tscn`

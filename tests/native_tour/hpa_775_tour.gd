@@ -164,6 +164,7 @@ func _observe_beat(overlay: Control, watch: Dictionary) -> void:
 		for panel in _world.hud._primary_modals:
 			if panel.visible:
 				watch["modal_opens"] = int(watch["modal_opens"]) + 1
+	watch["beat_minutes"] = minutes0
 	watch["done"] = true
 
 func _stand_at(stand: Vector2, action: String, facing: WorldMath.Facing) -> void:
@@ -209,6 +210,7 @@ func _run_beat(
 		"swap_flips": 0,
 		"seed_requests": 0,
 		"dismiss_presses": 0,
+		"beat_minutes": -1,
 	}
 	_world.hud.select_seed_requested.connect(
 		func(_kind: int) -> void: watch["seed_requests"] = int(watch["seed_requests"]) + 1
@@ -304,10 +306,7 @@ func _run_beat(
 		or not _world._world_input_enabled
 	):
 		_failures.append("travel: gate did not release after the beat")
-	if (
-		int(_world._session.snapshot()["time_minutes"])
-		!= minutes_before + GameRules.TRAVEL_MINUTES
-	):
+	if int(watch["beat_minutes"]) != minutes_before + GameRules.TRAVEL_MINUTES:
 		_failures.append("travel: drive did not spend exactly TRAVEL_MINUTES")
 	var arrival := (
 		TownContract.TRUCK_ARRIVAL if expect_town else WorldContract.TRUCK_ARRIVAL

@@ -112,7 +112,7 @@ renders when a town resident is the E target.
    release before working the next stage.
 2. **Budget the day.** Each action costs clock minutes and stamina; the day
    runs 06:00 to 22:00 and stamina caps at 20. The clock also advances
-   passively while the world accepts input — 0.5 real seconds per game
+   passively while the world accepts input — 0.15 real seconds per game
    minute — so a focused day has a real-time budget, not only a stamina
    one. Watering costs 2 stamina, or 1 with the Efficient Can upgrade. Rain
    waters every crop for
@@ -141,13 +141,23 @@ morning summary all stop it, and so does switching away from the game
 window. Resuming never banks the paused time — the clock picks up from
 where it stopped, with no catch-up. At 22:00 farming actions are refused
 as too late, but the day is not over: moving, driving the truck, shopping,
-shipping crops, and sleeping all remain possible. The 0.5 s/min
-rate is provisional tuning: an agent-operated native playtest
+shipping crops, and sleeping all remain possible. The 0.15 s/min
+rate is a UAT-derived modeled estimate, not measured human pacing: the
+15 Nov UAT session's ~97 passive minutes beside 210 Day-1 action minutes
+imply ~48.5 real seconds of active farming at the old 0.5 s/min, and a
+stated 75-second active-play day (farming plus the town round trip) over
+~240 action and 60 travel minutes lands at a modeled 19:20 bedtime inside
+the 18:00–22:00 target window. A scripted native tour
+(`tests/native_tour/hpa_775_day_tour.gd`) records one played day's real
+timing, game clocks, and window/clock focus flags as diagnostics only —
+automated play cannot prove a person's subjective pacing, so the constant
+is not iterated against any bot's wall-clock speed. An earlier
+agent-operated native playtest
 (`docs/superpowers/validation/2026-10-22-phoenix-passive-day-clock-native-playtest.md`)
-observed the designed behavior end to end on a build that predates the
-`Window.has_focus()` seeding, so its locked session exercised the
+observed the designed clock behavior end to end on a build that predates
+the `Window.has_focus()` seeding, so its locked session exercised the
 pre-seeding flag only — human subjective pacing and an unlocked-desktop
-window-focus check remain open before the rate is final.
+window-focus check remain open.
 
 The season runs 14 days and the HUD's MARKET pill counts down to the Day 14
 harvest market; a Bin pill shows tomorrow's payout while the shipping bin is

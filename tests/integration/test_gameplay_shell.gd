@@ -4188,15 +4188,15 @@ func test_passive_clock_ticks_pauses_and_keeps_late_day_interactive() -> void:
     assert_eq(int(session.snapshot()["time_minutes"]), 360)
 
     # Fractional seconds accumulate; whole minutes tick once into the HUD.
-    world._advance_passive_clock(0.25)
-    assert_eq(world._clock_elapsed_seconds, 0.25)
+    world._advance_passive_clock(0.1)
+    assert_eq(world._clock_elapsed_seconds, 0.1)
     assert_eq(int(session.snapshot()["time_minutes"]), 360)
     assert_eq(time_label.text, "06:00")
-    world._advance_passive_clock(0.25)
-    assert_eq(world._clock_elapsed_seconds, 0.0)
+    world._advance_passive_clock(GameRules.REAL_SECONDS_PER_GAME_MINUTE)
+    assert_eq(world._clock_elapsed_seconds, 0.1)
     assert_eq(int(session.snapshot()["time_minutes"]), 361)
     assert_eq(time_label.text, "06:01")
-    world._advance_passive_clock(5.0)
+    world._advance_passive_clock(GameRules.REAL_SECONDS_PER_GAME_MINUTE * 10)
     assert_eq(int(session.snapshot()["time_minutes"]), 371)
     assert_eq(time_label.text, "06:11")
 
@@ -4207,18 +4207,18 @@ func test_passive_clock_ticks_pauses_and_keeps_late_day_interactive() -> void:
     world._advance_passive_clock(3.0)
     world._advance_passive_clock(1.5)
     assert_eq(int(session.snapshot()["time_minutes"]), 371)
-    assert_eq(world._clock_elapsed_seconds, 0.0)
+    assert_almost_eq(world._clock_elapsed_seconds, 0.1, 0.001)
     hud.close_pause()
     assert_true(world._world_input_enabled)
-    world._advance_passive_clock(0.25)
-    assert_eq(int(session.snapshot()["time_minutes"]), 371)
-    assert_eq(world._clock_elapsed_seconds, 0.25)
+    world._advance_passive_clock(0.05)
+    assert_eq(int(session.snapshot()["time_minutes"]), 372)
+    assert_eq(time_label.text, "06:12")
 
     # The tutorial card stays visible and non-blocking while time advances.
     assert_true(card.visible)
-    world._advance_passive_clock(0.75)
-    assert_eq(int(session.snapshot()["time_minutes"]), 373)
-    assert_eq(time_label.text, "06:13")
+    world._advance_passive_clock(GameRules.REAL_SECONDS_PER_GAME_MINUTE * 2)
+    assert_eq(int(session.snapshot()["time_minutes"]), 374)
+    assert_eq(time_label.text, "06:14")
 
     # Focus gating lives only at the _process call site. Automatic processing
     # is disabled so each _process invocation is fully controlled. Only the
@@ -4229,34 +4229,36 @@ func test_passive_clock_ticks_pauses_and_keeps_late_day_interactive() -> void:
     world.notification(Node.NOTIFICATION_WM_WINDOW_FOCUS_OUT)
     assert_false(world._clock_window_focused)
     world._process(5.0)
-    assert_eq(int(session.snapshot()["time_minutes"]), 373)
-    assert_eq(world._clock_elapsed_seconds, 0.0)
+    assert_eq(int(session.snapshot()["time_minutes"]), 374)
+    assert_almost_eq(world._clock_elapsed_seconds, 0.0, 0.001)
     world.notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
     assert_false(world._clock_window_focused)
     world._process(5.0)
-    assert_eq(int(session.snapshot()["time_minutes"]), 373)
-    assert_eq(world._clock_elapsed_seconds, 0.0)
+    assert_eq(int(session.snapshot()["time_minutes"]), 374)
+    assert_almost_eq(world._clock_elapsed_seconds, 0.0, 0.001)
     world.notification(Node.NOTIFICATION_WM_WINDOW_FOCUS_IN)
     assert_true(world._clock_window_focused)
-    # A stalled frame credits only the clamped span; five normal frames then
-    # tick one whole minute.
+    # A stalled frame credits only the clamped span; at 0.15 s/min each
+    # normal 0.1 s frame after it then ticks a whole minute.
     world._process(20.0)
-    assert_eq(world._clock_elapsed_seconds, WorldShell.CLOCK_DELTA_CLAMP)
-    assert_eq(int(session.snapshot()["time_minutes"]), 373)
-    for _frame in 4:
-        world._process(0.1)
+    assert_almost_eq(world._clock_elapsed_seconds, WorldShell.CLOCK_DELTA_CLAMP, 0.001)
     assert_eq(int(session.snapshot()["time_minutes"]), 374)
-    assert_eq(time_label.text, "06:14")
+    world._process(0.1)
+    assert_eq(int(session.snapshot()["time_minutes"]), 375)
+    assert_eq(time_label.text, "06:15")
+    world._process(0.1)
+    assert_eq(int(session.snapshot()["time_minutes"]), 376)
+    assert_eq(time_label.text, "06:16")
     world.clock_running = false
     world._process(5.0)
-    assert_eq(int(session.snapshot()["time_minutes"]), 374)
+    assert_eq(int(session.snapshot()["time_minutes"]), 376)
     world.set_process(true)
 
     # With the switch off, real awaited frames can never advance the clock.
     await get_tree().process_frame
     await get_tree().process_frame
-    assert_eq(int(session.snapshot()["time_minutes"]), 374)
-    assert_eq(world._clock_elapsed_seconds, 0.0)
+    assert_eq(int(session.snapshot()["time_minutes"]), 376)
+    assert_almost_eq(world._clock_elapsed_seconds, 0.0, 0.001)
 
     # One long drive clamps at the 22:00 cutoff; a further tick consumes its
     # whole-minute seconds even though the session cannot advance.
@@ -4266,12 +4268,12 @@ func test_passive_clock_ticks_pauses_and_keeps_late_day_interactive() -> void:
         GameRules.ACTION_CUTOFF_MINUTES,
     )
     assert_eq(time_label.text, "22:00")
-    world._advance_passive_clock(1.0)
+    world._advance_passive_clock(GameRules.REAL_SECONDS_PER_GAME_MINUTE)
     assert_eq(
         int(session.snapshot()["time_minutes"]),
         GameRules.ACTION_CUTOFF_MINUTES,
     )
-    assert_eq(world._clock_elapsed_seconds, 0.0)
+    assert_almost_eq(world._clock_elapsed_seconds, 0.05, 0.001)
 
     # Past the cutoff the farm guard rejects work but the day stays live.
     var cell: Vector2i = WorldContract.farm_cells()[0]
@@ -4282,7 +4284,22 @@ func test_passive_clock_ticks_pauses_and_keeps_late_day_interactive() -> void:
     assert_eq(session.hoe(cell), GameRules.CommandCode.ACTION_TOO_LATE)
     assert_true(world._world_input_enabled)
 
-    await _drive_to_town(world)
+    await _place_target(world, WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT)
+    world.interact()
+    var travel_overlay := _travel_overlay(hud)
+    assert_true(travel_overlay.visible)
+    assert_true(hud.has_blocking_modal())
+    assert_false(world._world_input_enabled)
+    world._advance_passive_clock(5.0)
+    assert_eq(
+        int(session.snapshot()["time_minutes"]),
+        GameRules.ACTION_CUTOFF_MINUTES,
+    )
+    hud.finish_travel()
+    assert_eq(session.snapshot()["location"], GameRules.MapId.TOWN)
+    assert_not_null(world.get_node_or_null("TownMap"))
+    assert_true(world._world_input_enabled)
+
     _set_target(world, TownContract.SHOP_CELL, WorldMath.Facing.UP)
     world.interact()
     assert_true(_panel(hud, "ShopPanel").visible)
@@ -4294,6 +4311,14 @@ func test_passive_clock_ticks_pauses_and_keeps_late_day_interactive() -> void:
     var seeds: Dictionary = session.snapshot()["seeds"]
     assert_eq(int(seeds[&"turnip"]), 4)
     hud.close_shop()
+    assert_true(world._world_input_enabled)
+
+    await _place_target(world, TownContract.MARKET_CELL)
+    var market_before := session.snapshot()
+    world.interact()
+    assert_eq(hud.toast_text(), "The Harvest Market opens on Day 14.")
+    assert_false(_panel(hud, "MarketConfirmPanel").visible)
+    assert_eq(session.snapshot(), market_before)
     assert_true(world._world_input_enabled)
 
     await _drive_home(world)
@@ -4328,7 +4353,7 @@ func test_passive_clock_ticks_pauses_and_keeps_late_day_interactive() -> void:
     )
     hud.morning_summary_acknowledged.emit()
     assert_true(world._world_input_enabled)
-    world._advance_passive_clock(0.5)
+    world._advance_passive_clock(GameRules.REAL_SECONDS_PER_GAME_MINUTE)
     assert_eq(
         int(session.snapshot()["time_minutes"]),
         GameRules.DAY_START_MINUTES + 1,
