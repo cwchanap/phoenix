@@ -1,15 +1,4 @@
 extends "res://tests/native_tour/rain_tour_base.gd"
-## Agent-operated native tour for HPA-775 save-aware title defaults. Seeds a
-## valid unfinished save through the real GameSession/SaveRepository (the same
-## pattern as seed_save.gd), boots the real app windowed, asserts the title
-## opens with Continue selected, captures the A1 mockup frame at native
-## 1920x1080, then presses the real Enter key and verifies the saved day
-## resumes without rewriting the slot.
-##
-## Env: TOUR_OUT=<png dir>; PHOENIX_SAVE_PATH / PHOENIX_SETTINGS_PATH must
-## point into an isolated dir.
-## Evidence-only one-off: backs the validation note, not maintained or run
-## in CI; uses direct node inspection seams the headless suite never touches.
 
 const SEEDED_DAY := 5
 
