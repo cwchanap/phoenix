@@ -74,6 +74,7 @@ func _ready() -> void:
     hud.upgrade_requested.connect(_on_upgrade_requested)
     hud.deposit_requested.connect(_on_deposit_requested)
     hud.sleep_requested.connect(_on_sleep_requested)
+    hud.market_confirmed.connect(_on_market_confirmed)
     hud.gift_requested.connect(_on_gift_requested)
     hud.morning_summary_acknowledged.connect(_on_morning_summary_acknowledged)
     hud.intro_acknowledged.connect(_on_intro_acknowledged)
@@ -188,8 +189,7 @@ func _interactable(target: Variant) -> Dictionary:
             TownContract.MARKET_CELL:
                 return {
                     "label": "Harvest Market",
-                    "action": func() -> void:
-                        _finish_finale(_session.trigger_harvest_finale(target)),
+                    "action": func() -> void: _attempt_market(target),
                 }
             TownContract.TRUCK_CELL:
                 return {
@@ -319,6 +319,12 @@ func _attempt_travel(target: Variant) -> void:
     if code == GameRules.CommandCode.TRAVELLED:
         load_map(true)
 
+func _attempt_market(target: Variant) -> void:
+    if int(_session.snapshot()["day"]) == GameRules.MAX_DAY:
+        hud.open_market_confirmation()
+        return
+    _finish_finale(_session.trigger_harvest_finale(target))
+
 func _unhandled_input(event: InputEvent) -> void:
     if event.is_action_pressed("select_seeds"):
         cycle_seed()
@@ -383,6 +389,11 @@ func _on_sleep_requested() -> void:
     else:
         hud.set_save_status(&"error", "Save failed — this morning is not persisted.")
 
+func _on_market_confirmed() -> void:
+    if _finale_in_progress:
+        return
+    _finish_finale(_session.trigger_harvest_finale(player.current_target_cell()))
+
 func _finish_finale(code: GameRules.CommandCode) -> void:
     if code != GameRules.CommandCode.FINALE_TRIGGERED:
         _finish_command(code)
@@ -395,7 +406,7 @@ func _finish_finale(code: GameRules.CommandCode) -> void:
     # await_feedback_cue() window. The HUD finale lock suppresses
     # CONFIRM_SFX, so the modal closes silently and only FINALE_SFX plays.
     # No-op on the market path, where the sleep modal was never opened.
-    hud.close_sleep_confirmation()
+    hud.close_modals()
     hud.show_feedback(code)
     _refresh_from_session()
     var state := _session.state()

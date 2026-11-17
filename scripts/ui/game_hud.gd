@@ -6,6 +6,7 @@ signal buy_requested(kind: int, quantity: int)
 signal upgrade_requested
 signal deposit_requested(kind: int, quantity: int)
 signal sleep_requested
+signal market_confirmed
 signal gift_requested(villager_id: int, crop_kind: int)
 signal morning_summary_acknowledged
 signal intro_acknowledged
@@ -57,6 +58,7 @@ const CALENDAR_SCENE := preload("res://scenes/ui/calendar_panel.tscn")
 const DIALOGUE_SCENE := preload("res://scenes/ui/dialogue_panel.tscn")
 const MORNING_SUMMARY_SCENE := preload("res://scenes/ui/morning_summary_panel.tscn")
 const SLEEP_SCENE := preload("res://scenes/ui/sleep_panel.tscn")
+const MARKET_CONFIRM_SCENE := preload("res://scenes/ui/market_confirm_panel.tscn")
 const PAUSE_SCENE := preload("res://scenes/ui/pause_panel.tscn")
 const SETTINGS_SCENE := preload("res://scenes/ui/settings_panel.tscn")
 
@@ -72,6 +74,7 @@ var _bag_panel: BagPanel
 var _almanac_panel: AlmanacPanel
 var _calendar_panel: CalendarPanel
 var _sleep_panel: SleepPanel
+var _market_panel: MarketConfirmPanel
 var _dialogue_panel: DialoguePanel
 var _onboarding_overlay: OnboardingOverlay
 var _morning_summary_panel: MorningSummaryPanel
@@ -102,6 +105,7 @@ func _ready() -> void:
         _almanac_panel,
         _calendar_panel,
         _sleep_panel,
+        _market_panel,
         _dialogue_panel,
         _morning_summary_panel,
         _settings_panel,
@@ -115,6 +119,7 @@ func _ready() -> void:
         {"control": _almanac_panel, "close": close_almanac},
         {"control": _calendar_panel, "close": close_calendar},
         {"control": _sleep_panel, "close": close_sleep_confirmation},
+        {"control": _market_panel, "close": close_market_confirmation},
         {"control": _settings_panel, "close": close_settings},
         {"control": _pause_panel, "close": close_pause},
     ]
@@ -170,6 +175,8 @@ func render(snapshot: Dictionary) -> void:
         _almanac_panel.present(snapshot)
     if _calendar_panel.visible:
         _calendar_panel.present(snapshot)
+    if _market_panel.visible:
+        _market_panel.present(snapshot)
     _onboarding_overlay.render(snapshot)
     var rainy: bool = snapshot["weather"] == GameRules.weather_key(GameRules.Weather.RAINY)
     _weather_tint.color = RAINY_TINT if rainy else SUNNY_TINT
@@ -299,6 +306,13 @@ func open_sleep_confirmation() -> void:
 
 func close_sleep_confirmation() -> void:
     _close_modal(_sleep_panel)
+
+func open_market_confirmation() -> void:
+    if _open_modal(_market_panel):
+        _market_panel.present(_last_snapshot)
+
+func close_market_confirmation() -> void:
+    _close_modal(_market_panel)
 
 func open_dialogue(villager_id: int, result: Dictionary, snapshot: Dictionary) -> void:
     if _open_modal(_dialogue_panel):
@@ -593,6 +607,12 @@ func _build_modals() -> void:
         sleep_requested.emit()
     )
     _sleep_panel.close_requested.connect(close_sleep_confirmation)
+    _market_panel = MARKET_CONFIRM_SCENE.instantiate() as MarketConfirmPanel
+    _root.add_child(_market_panel)
+    _market_panel.market_confirmed.connect(func() -> void:
+        market_confirmed.emit()
+    )
+    _market_panel.close_requested.connect(close_market_confirmation)
     _morning_summary_panel = MORNING_SUMMARY_SCENE.instantiate() as MorningSummaryPanel
     _root.add_child(_morning_summary_panel)
     _morning_summary_panel.acknowledged.connect(func() -> void:
@@ -621,6 +641,7 @@ func _build_modals() -> void:
     _almanac_panel.visible = false
     _calendar_panel.visible = false
     _sleep_panel.visible = false
+    _market_panel.visible = false
     _dialogue_panel.visible = false
     _morning_summary_panel.visible = false
     _pause_panel.visible = false

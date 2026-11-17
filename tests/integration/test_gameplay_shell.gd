@@ -1262,7 +1262,7 @@ func test_inventory_modal_keys_are_exclusive_same_key_closes_and_gate_input() ->
     var hud := _hud(world)
     if hud == null:
         return
-    assert_eq(hud._primary_modals.size(), 10)
+    assert_eq(hud._primary_modals.size(), 11)
     for entry in [
         {"action": &"toggle_bag", "panel": "BagPanel"},
         {"action": &"toggle_almanac", "panel": "AlmanacPanel"},
@@ -1280,6 +1280,56 @@ func test_inventory_modal_keys_are_exclusive_same_key_closes_and_gate_input() ->
         await _press_panel_action(entry["action"])
         assert_false(_panel(hud, entry["panel"]).visible)
         assert_true(world._world_input_enabled)
+
+func test_day14_market_confirmation_cancel_restores_identical_state() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var state := world._session.state()
+    state["day"] = GameRules.MAX_DAY
+    var weather_history: Array = []
+    for _day in GameRules.MAX_DAY:
+        weather_history.append(&"sunny")
+    state["weather_history"] = weather_history
+    assert_true(world._session.restore_state(state))
+    world._refresh_from_session()
+
+    await _drive_to_town(world)
+    await _place_target(world, TownContract.MARKET_CELL)
+    var before := world._session.snapshot()
+    world.interact()
+
+    var market_panel := _panel(hud, "MarketConfirmPanel")
+    assert_true(market_panel.visible, "Day 14 market E opens the confirmation")
+    assert_false(world._world_input_enabled)
+    assert_eq(world._session.snapshot(), before)
+    assert_false(bool(world._session.state()["finale_triggered"]))
+    assert_false(world._finale_in_progress)
+
+    await _press_escape()
+    assert_false(market_panel.visible, "Esc closes the confirmation")
+    assert_true(world._world_input_enabled, "world control returns")
+    assert_eq(world._session.snapshot(), before)
+    assert_false(bool(world._session.state()["finale_triggered"]))
+
+    world.interact()
+    assert_true(market_panel.visible, "market E reopens the confirmation")
+    var finale_emits: Array = []
+    world.finale_completed.connect(
+        func(_final_state: Dictionary, save_error: int) -> void:
+            finale_emits.append(save_error)
+    )
+    hud.market_confirmed.emit()
+    assert_true(bool(world._session.state()["finale_triggered"]))
+    assert_false(market_panel.visible, "close_modals hides the card before the cue")
+    for _frame in 120:
+        if finale_emits.size() == 1:
+            break
+        await get_tree().process_frame
+    assert_eq(finale_emits.size(), 1)
 
 func test_inventory_escape_closes_one_surface_and_morning_summary_guard_wins() -> void:
     var world := _world()
@@ -1787,11 +1837,12 @@ func test_primary_modal_registry_keeps_surfaces_exclusive() -> void:
     var hud := _hud(world)
     if hud == null:
         return
-    assert_eq(hud._primary_modals.size(), 10)
+    assert_eq(hud._primary_modals.size(), 11)
     for entry in [
         {"name": "ShopPanel", "open": Callable(hud, "open_shop"), "close": Callable(hud, "close_shop")},
         {"name": "ShippingPanel", "open": Callable(hud, "open_shipping"), "close": Callable(hud, "close_shipping")},
         {"name": "SleepPanel", "open": Callable(hud, "open_sleep_confirmation"), "close": Callable(hud, "close_sleep_confirmation")},
+        {"name": "MarketConfirmPanel", "open": Callable(hud, "open_market_confirmation"), "close": Callable(hud, "close_market_confirmation")},
         {"name": "DialoguePanel", "open": Callable(hud, "open_dialogue").bind(
             VillagerRules.VillagerId.RESIDENT,
             {"code": GameRules.CommandCode.VILLAGER_TALKED, "lines": ["Hello"]},
@@ -4883,6 +4934,10 @@ func test_farm_market_dispatch_survives_truck_round_trip_on_day14() -> void:
     world._process(0.0)
     assert_eq(hud.prompt_text(), "[E] Harvest Market")
     world.interact()
+    var market_panel := _panel(hud, "MarketConfirmPanel")
+    assert_true(market_panel.visible)
+    assert_false(bool(session.snapshot()["finale_triggered"]))
+    hud.market_confirmed.emit()
     assert_true(bool(session.snapshot()["finale_triggered"]))
     assert_true(world._finale_in_progress)
     assert_false(world._world_input_enabled)

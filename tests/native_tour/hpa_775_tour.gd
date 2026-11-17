@@ -1,6 +1,6 @@
 extends "res://tests/native_tour/rain_tour_base.gd"
 
-const SEEDED_DAY := 5
+const SEEDED_DAY := GameRules.MAX_DAY
 
 var _out_dir: String
 
@@ -82,7 +82,62 @@ func _run() -> void:
 			"save slot changed after launch: status=%s day=%s"
 			% [str(reread["status"]), str(reread.get("state", {}).get("day", "?"))]
 		)
+	await _phase_market()
 	_finish("tour=hpa-775")
+
+func _phase_market() -> void:
+	_world.clock_running = false
+	await _walk_to_grid(
+		_stand_facing(WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT, Vector2(0.4, 0.3))
+	)
+	await _face("move_right", WorldMath.Facing.RIGHT)
+	await _interact()
+	await _wait_map_location(false)
+	await _walk_to_grid(Vector2(14.5, 9.5))
+	await _walk_to_grid(
+		_stand_facing(TownContract.MARKET_CELL, WorldMath.Facing.UP, Vector2(0.5, 0.5))
+	)
+	await _face("move_up", WorldMath.Facing.UP)
+	await _frames(10)
+	var state_before := _world._session.state()
+	await _interact()
+	await _frames(10)
+	var panel := _world.hud.get_node_or_null("HudRoot/MarketConfirmPanel") as Control
+	if panel == null or not panel.visible:
+		_failures.append(
+			"market: Day-14 E did not open MarketConfirmPanel (target %s)"
+			% str(_world.player.current_target_cell())
+		)
+		return
+	if _world._session.state() != state_before:
+		_failures.append("market: opening the confirmation changed the session state")
+	await _shot("A2-market-confirm")
+	await _key(KEY_ESCAPE)
+	await _frames(10)
+	if panel.visible:
+		_failures.append("market: Esc did not close the confirmation")
+	if _world._session.state() != state_before:
+		_failures.append("market: Esc changed the session state")
+	if not _world._world_input_enabled:
+		_failures.append("market: world input stayed gated after Esc")
+	await _shot("A2-market-cancelled")
+	await _interact()
+	await _frames(10)
+	if not panel.visible:
+		_failures.append("market: second E did not reopen the confirmation")
+		return
+	await _key(KEY_ENTER)
+	var waited := 0.0
+	var result := _app.get_node_or_null("ResultScreen") as ResultScreen
+	while (result == null or not result.visible) and waited < 15.0:
+		await _frames(10)
+		waited += 0.3
+		result = _app.get_node_or_null("ResultScreen") as ResultScreen
+	if result == null or not result.visible:
+		_failures.append("market: result screen never appeared after confirm")
+		return
+	await _shot("A2-market-result")
+	_log("market: result visible after one confirm")
 
 func _shot(shot_name: String) -> void:
 	await process_frame
