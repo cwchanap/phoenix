@@ -21,3 +21,24 @@ Generated with ElevenLabs Eleven Music via the REST API
 
 All eight files measure 75.0 s (macOS `afinfo`), MP3 44.1 kHz 128 kbps, ~1.1 MB each.
 Loop seams have not been edited or checked by ear yet.
+
+## Seamless loop drafts (`loop/`)
+
+Eleven Music has no loop parameter, so the loop is cut after generation.
+
+### `loop/title-loop-v1.wav` (+ `title-loop-v1-x3.m4a` review copy)
+
+- Model `music_v2_5`, `force_instrumental = true`, `music_length_ms = 40000`,
+  `output_format = mp3_44100_192`.
+- Prompt: Instrumental only, no vocals. Nostalgic 1980s Japanese City Pop ballad at a steady 80 bpm in 4/4. Warm Rhodes electric piano chords, soft round bass, gentle shimmering synth pads. Evening city skyline feeling with a cozy rural warmth. Mellow and quiet background music for a video game title screen. Designed as a seamless loop: starts immediately mid-groove with no intro, constant tempo and dynamics throughout, no build-up, no breakdown, no ending, no fade-out; the last bar flows straight back into the first.
+- Measured source tempo ~79.5 bpm (onset autocorrelation), so one bar is 3.0 s
+  and 30.0 s is exactly 10 bars. Loudness held steady (-13 to -15 dBFS per
+  3 s window) with no intro; only the last ~4 s of the take sags and is unused.
+- Recipe: decode to 16-bit 44.1 kHz stereo WAV; loop body = source 0.0-30.0 s;
+  the next bar (30.0-33.0 s) is equal-power crossfaded (sin/cos) into the
+  first 3.0 s of the body. Output is exactly 30.000 s (1,323,000 frames) and
+  wraps onto its own start.
+- Seam check: wrap step (last -> first sample) L 208 / R 655, versus median
+  neighbouring step 150 / 139 and 99th percentile 2071 / 1881.
+- The `-x3.m4a` file is the loop repeated three times (AAC 192 kbps, 90 s) for
+  listening to the seam twice; the WAV is the file to use in Godot.
