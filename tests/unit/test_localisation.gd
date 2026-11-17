@@ -167,6 +167,48 @@ func test_market_confirmation_card_strings_translate_for_each_locale() -> void:
                 "%s: %s" % [locale, source],
             )
 
+func test_travel_overlay_card_strings_translate_for_each_locale() -> void:
+    var overlay := TravelOverlay.new()
+    add_child_autoqfree(overlay)
+    overlay.play(
+        {"location": GameRules.MapId.FARM, "time_minutes": 12 * 60 + 5},
+        {"location": GameRules.MapId.TOWN, "time_minutes": 12 * 60 + 35},
+        func() -> void: pass,
+    )
+    var card_strings := {
+        "Center/Column/Title": "Driving to town",
+        "Center/Column/TimePill/Row/Departure": "12:05",
+        "Center/Column/TimePill/Row/Arrival": "12:35",
+        "Center/Column/Duration": "+30 min",
+    }
+    for label_path in card_strings:
+        var label := overlay.get_node(label_path) as Label
+        assert_eq(label.text, card_strings[label_path])
+    var expected_translations := {
+        "Driving to town": {"zh_TW": "開車進鎮中", "ja": "町までドライブ中"},
+        "Driving home": {"zh_TW": "開車回家中", "ja": "家までドライブ中"},
+        "+%d min": {"zh_TW": "+%d 分鐘", "ja": "+%d分"},
+    }
+    for source in expected_translations:
+        for locale in TRANSLATED_LOCALES:
+            TranslationServer.set_locale(locale)
+            assert_eq(
+                tr(source),
+                expected_translations[source][locale],
+                "%s: %s" % [locale, source],
+            )
+    TranslationServer.set_locale("en")
+    overlay.play(
+        {"location": GameRules.MapId.TOWN, "time_minutes": 100},
+        {"location": GameRules.MapId.FARM, "time_minutes": 130},
+        func() -> void: pass,
+    )
+    assert_eq(
+        (overlay.get_node("Center/Column/Title") as Label).text,
+        "Driving home",
+    )
+    overlay.finish()
+
 func test_default_language_follows_os_locale() -> void:
     assert_eq(UiSettings.default_language("ja_JP"), "ja")
     assert_eq(UiSettings.default_language("zh_TW"), "zh_TW")

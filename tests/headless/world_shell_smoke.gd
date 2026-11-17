@@ -1045,6 +1045,7 @@ func _run() -> void:
         return
     if not _expect(world.hud.toast_text() == "", "farm truck travel raises no toast"):
         return
+    world.hud.finish_travel()
 
     var town_names := ["TownMap", "RainLayer", "TargetHighlight", "GameHud"]
     if not _expect_names(world, town_names, "World after travel"):
@@ -1363,6 +1364,7 @@ func _run() -> void:
         return
     if not _expect(world.hud.toast_text() == "", "town truck travel raises no toast"):
         return
+    world.hud.finish_travel()
 
     var return_names := ["FarmMap", "RainLayer", "TargetHighlight", "GameHud"]
     if not _expect_names(world, return_names, "World after driving home"):

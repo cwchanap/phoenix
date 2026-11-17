@@ -82,22 +82,126 @@ func _run() -> void:
 			"save slot changed after launch: status=%s day=%s"
 			% [str(reread["status"]), str(reread.get("state", {}).get("day", "?"))]
 		)
+	await _phase_travel()
 	await _phase_market()
 	_finish("tour=hpa-775")
 
-func _phase_market() -> void:
+func _await_overlay_opaque(overlay: Control) -> void:
+	while overlay.visible and overlay.modulate.a < 0.9:
+		await _frames(1)
+
+func _tap_key(keycode: Key) -> void:
+	var press := InputEventKey.new()
+	press.keycode = keycode
+	press.physical_keycode = keycode
+	press.pressed = true
+	Input.parse_input_event(press)
+	await _frames(1)
+	var release := InputEventKey.new()
+	release.keycode = keycode
+	release.physical_keycode = keycode
+	Input.parse_input_event(release)
+	await _frames(1)
+
+func _stand_at(stand: Vector2, action: String, facing: WorldMath.Facing) -> void:
+	await _walk_to_grid(stand)
+	_world.player.global_position = WorldMath.grid_to_world(stand)
+	await _face(action, facing)
+	_world.player.global_position = WorldMath.grid_to_world(stand)
+	await _frames(3)
+
+func _phase_travel() -> void:
 	_world.clock_running = false
-	await _walk_to_grid(
-		_stand_facing(WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT, Vector2(0.4, 0.3))
+	await _stand_at(
+		_stand_facing(WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT, Vector2(0.4, 0.3)),
+		"move_right",
+		WorldMath.Facing.RIGHT
 	)
-	await _face("move_right", WorldMath.Facing.RIGHT)
+	if _world.player.current_target_cell() != WorldContract.TRUCK_CELL:
+		_failures.append(
+			"travel: not facing the farm truck (target %s)"
+			% str(_world.player.current_target_cell())
+		)
+		return
+	var minutes_before := int(_world._session.snapshot()["time_minutes"])
+	var beat_start := Time.get_ticks_msec()
+	await _tap_key(KEY_E)
+	var overlay := _world.hud.get_node_or_null("HudRoot/TravelOverlay") as Control
+	if overlay == null:
+		_failures.append("travel: HudRoot/TravelOverlay missing")
+		return
+	if (
+		not overlay.visible
+		or not _world.hud.has_blocking_modal()
+		or _world._world_input_enabled
+	):
+		_failures.append("travel: overlay did not gate input synchronously")
+	var pause := _world.hud.get_node("HudRoot/PausePanel") as Control
+	await _tap_key(KEY_ESCAPE)
+	await _await_overlay_opaque(overlay)
+	if pause.visible:
+		_failures.append("travel: Esc opened Pause during the beat")
+	if not overlay.visible:
+		_failures.append("travel: beat ended before the mid-transition frame")
+	await _shot("B1-driving-to-town")
+	await _wait_map_location(false)
+	_log("beat released after %.2fs" % ((Time.get_ticks_msec() - beat_start) / 1000.0))
+	if (
+		overlay.visible
+		or _world.hud.has_blocking_modal()
+		or not _world._world_input_enabled
+	):
+		_failures.append("travel: gate did not release after the beat")
+	if (
+		int(_world._session.snapshot()["time_minutes"])
+		!= minutes_before + GameRules.TRAVEL_MINUTES
+	):
+		_failures.append("travel: drive did not spend exactly TRAVEL_MINUTES")
+
+	await _stand_at(
+		_stand_facing(TownContract.TRUCK_CELL, WorldMath.Facing.LEFT, Vector2(0.4, 0.3)),
+		"move_left",
+		WorldMath.Facing.LEFT
+	)
+	if _world.player.current_target_cell() != TownContract.TRUCK_CELL:
+		_failures.append(
+			"travel: not facing the town truck (target %s)"
+			% str(_world.player.current_target_cell())
+		)
+		return
+	beat_start = Time.get_ticks_msec()
+	await _tap_key(KEY_E)
+	if not overlay.visible:
+		_failures.append("travel: home beat did not reactivate the overlay")
+	await _await_overlay_opaque(overlay)
+	await _shot("B1-driving-home")
+	await _wait_map_location(true)
+	_log("home beat released after %.2fs" % ((Time.get_ticks_msec() - beat_start) / 1000.0))
+	if not _world._world_input_enabled:
+		_failures.append("travel: input gate did not release on the farm")
+
+	await _stand_at(
+		_stand_facing(WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT, Vector2(0.4, 0.3)),
+		"move_right",
+		WorldMath.Facing.RIGHT
+	)
 	await _interact()
 	await _wait_map_location(false)
+
+func _phase_market() -> void:
+	_world.clock_running = false
 	await _walk_to_grid(Vector2(14.5, 9.5))
-	await _walk_to_grid(
-		_stand_facing(TownContract.MARKET_CELL, WorldMath.Facing.UP, Vector2(0.5, 0.5))
+	await _stand_at(
+		_stand_facing(TownContract.MARKET_CELL, WorldMath.Facing.UP, Vector2(0.5, 0.5)),
+		"move_up",
+		WorldMath.Facing.UP
 	)
-	await _face("move_up", WorldMath.Facing.UP)
+	if _world.player.current_target_cell() != TownContract.MARKET_CELL:
+		_failures.append(
+			"market: could not face MARKET_CELL (target %s)"
+			% str(_world.player.current_target_cell())
+		)
+		return
 	await _frames(10)
 	var state_before := _world._session.state()
 	await _interact()

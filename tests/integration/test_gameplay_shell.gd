@@ -873,17 +873,22 @@ func _place_target(
 func _drive_to_town(world: WorldShell) -> void:
     await _place_target(world, WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT)
     world.interact()
+    world.hud.finish_travel()
     assert_eq(world._session.snapshot()["location"], GameRules.MapId.TOWN)
     assert_not_null(world.get_node_or_null("TownMap"))
 
 func _drive_home(world: WorldShell) -> void:
     await _place_target(world, TownContract.TRUCK_CELL, WorldMath.Facing.LEFT)
     world.interact()
+    world.hud.finish_travel()
     assert_eq(world._session.snapshot()["location"], GameRules.MapId.FARM)
     assert_not_null(world.get_node_or_null("FarmMap"))
 
 func _panel(hud: GameHud, name: String) -> Control:
     return hud.get_node("HudRoot/%s" % name) as Control
+
+func _travel_overlay(hud: GameHud) -> Control:
+    return _panel(hud, "TravelOverlay")
 
 func _chrome(hud: GameHud) -> Control:
     return hud.get_node("HudRoot/Chrome") as Control
@@ -4703,6 +4708,7 @@ func test_truck_round_trip_swaps_maps_preserving_player_session_and_hud() -> voi
     )
 
     world.interact()
+    world.hud.finish_travel()
 
     assert_eq(session.snapshot()["location"], GameRules.MapId.TOWN)
     assert_eq(
@@ -4805,6 +4811,7 @@ func test_truck_round_trip_swaps_maps_preserving_player_session_and_hud() -> voi
     )
 
     world.interact()
+    world.hud.finish_travel()
 
     assert_eq(session.snapshot()["location"], GameRules.MapId.FARM)
     assert_eq(
@@ -4865,6 +4872,7 @@ func test_farm_shop_and_bed_dispatch_survive_truck_round_trip() -> void:
 
     await _place_target(world, WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT)
     world.interact()
+    world.hud.finish_travel()
     assert_not_null(world.get_node_or_null("TownMap"))
 
     await _place_target(world, TownContract.SHOP_CELL, WorldMath.Facing.UP)
@@ -4890,6 +4898,7 @@ func test_farm_shop_and_bed_dispatch_survive_truck_round_trip() -> void:
 
     await _place_target(world, TownContract.TRUCK_CELL, WorldMath.Facing.LEFT)
     world.interact()
+    world.hud.finish_travel()
     assert_not_null(world.get_node_or_null("FarmMap"))
 
     await _place_target(world, WorldContract.BED_CELL, WorldMath.Facing.UP)
@@ -4917,9 +4926,11 @@ func test_farm_market_dispatch_survives_truck_round_trip_on_day14() -> void:
 
     await _place_target(world, WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT)
     world.interact()
+    world.hud.finish_travel()
     assert_not_null(world.get_node_or_null("TownMap"))
     await _place_target(world, TownContract.TRUCK_CELL, WorldMath.Facing.LEFT)
     world.interact()
+    world.hud.finish_travel()
     assert_not_null(world.get_node_or_null("FarmMap"))
     assert_eq(int(session.snapshot()["day"]), GameRules.MAX_DAY)
 
@@ -4978,6 +4989,189 @@ func test_truck_travel_refusal_keeps_session_and_active_map() -> void:
     assert_same(world.get_child(0), farm_map)
     assert_null(world.get_node_or_null("TownMap"))
     assert_true(hud.toast_text().contains("morning summary"))
+    assert_false(_travel_overlay(hud).visible)
+
+func test_travel_refusal_shows_no_overlay_swap_or_clock_change() -> void:
+    var world := _world()
+    var hud := world.hud
+    var session := world._session
+    var overlay := _travel_overlay(hud)
+    var farm_map := world.get_node("FarmMap")
+    var before := session.snapshot()
+
+    world._attempt_travel(Vector2i(3, 3))
+
+    assert_false(overlay.visible)
+    assert_false(hud.has_blocking_modal())
+    assert_true(world._world_input_enabled)
+    assert_same(world.get_child(0), farm_map)
+    assert_null(world.get_node_or_null("TownMap"))
+    assert_eq(session.snapshot(), before)
+    assert_eq(hud.toast_text(), "Nothing to interact with.")
+
+func test_finish_travel_is_a_noop_when_no_beat_is_active() -> void:
+    var world := _world()
+    var hud := world.hud
+    var session := world._session
+    var overlay := _travel_overlay(hud)
+    var before := session.snapshot()
+
+    hud.finish_travel()
+
+    assert_false(overlay.visible)
+    assert_not_null(world.get_node_or_null("FarmMap"))
+    assert_null(world.get_node_or_null("TownMap"))
+    assert_eq(session.snapshot(), before)
+
+func test_travel_overlay_gates_input_clock_esc_and_mouse_until_the_beat_finishes() -> void:
+    var world := _world()
+    var hud := world.hud
+    var session := world._session
+    var overlay := _travel_overlay(hud)
+    assert_not_null(overlay)
+    if overlay == null:
+        return
+    assert_false(overlay.visible, "overlay starts hidden")
+    assert_eq(hud._primary_modals.size(), 11, "overlay stays outside primary modals")
+    assert_false(hud._primary_modals.has(overlay))
+    var hud_root := hud.get_node("HudRoot")
+    assert_eq(
+        hud_root.get_child(hud_root.get_child_count() - 2),
+        overlay,
+        "overlay draws above every modal and below the toast",
+    )
+    assert_eq(String(hud_root.get_child(hud_root.get_child_count() - 1).name), "Toast")
+
+    var farm_map := world.get_node("FarmMap")
+    await _place_target(world, WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT)
+    var before_minutes: int = session.snapshot()["time_minutes"]
+    world.interact()
+
+    assert_eq(session.snapshot()["location"], GameRules.MapId.TOWN)
+    assert_eq(
+        int(session.snapshot()["time_minutes"]),
+        before_minutes + GameRules.TRAVEL_MINUTES,
+    )
+    assert_true(overlay.visible, "travel overlay activates synchronously")
+    assert_true(hud.has_blocking_modal(), "the beat blocks like a modal")
+    assert_false(world._world_input_enabled, "world input locks without a frame gap")
+    assert_same(world.get_child(0), farm_map, "the map swap defers to mid-beat")
+    assert_null(world.get_node_or_null("TownMap"))
+    assert_eq(overlay.mouse_filter, Control.MOUSE_FILTER_STOP)
+    assert_eq(
+        overlay.get_global_rect(),
+        Rect2(Vector2.ZERO, Vector2(UiSettings.WINDOW_SIZE)),
+        "the active overlay covers the whole canvas",
+    )
+
+    var snapshot_during := session.snapshot()
+    world.interact()
+    world.use_target_action()
+    world.cycle_seed()
+    assert_eq(session.snapshot(), snapshot_during)
+
+    hud.close_modals()
+    assert_true(overlay.visible, "load_map's modal teardown cannot hide the beat")
+
+    world.clock_running = true
+    world._clock_window_focused = true
+    world._process(0.1)
+    assert_eq(
+        session.snapshot()["time_minutes"],
+        snapshot_during["time_minutes"],
+        "the passive clock is frozen for the whole beat",
+    )
+    assert_eq(world._clock_elapsed_seconds, 0.0)
+
+    var esc_press := InputEventAction.new()
+    esc_press.action = &"ui_cancel"
+    esc_press.pressed = true
+    var esc_release := InputEventAction.new()
+    esc_release.action = &"ui_cancel"
+    esc_release.pressed = false
+    world.get_viewport().push_input(esc_press)
+    world.get_viewport().push_input(esc_release)
+    await get_tree().process_frame
+    assert_false(_panel(hud, "PausePanel").visible, "Esc cannot open Pause mid-beat")
+    assert_true(overlay.visible)
+
+    hud.finish_travel()
+    assert_false(overlay.visible)
+    assert_false(hud.has_blocking_modal())
+    assert_true(world._world_input_enabled)
+    var town_maps := world.get_children().filter(
+        func(child: Node) -> bool: return child.name == "TownMap"
+    )
+    assert_eq(town_maps.size(), 1, "the swap callback ran exactly once")
+    assert_null(world.get_node_or_null("FarmMap"))
+
+    world.get_viewport().push_input(esc_press)
+    world.get_viewport().push_input(esc_release)
+    await get_tree().process_frame
+    assert_true(_panel(hud, "PausePanel").visible, "Esc opens Pause again once released")
+    hud.close_pause()
+    world.clock_running = false
+
+func test_travel_overlay_card_shows_direction_and_exact_source_arrival_times() -> void:
+    var world := _world()
+    var hud := world.hud
+    var session := world._session
+    var overlay := _travel_overlay(hud)
+
+    var state := session.state()
+    state["time_minutes"] = 12 * 60 + 5
+    assert_true(session.restore_state(state))
+    world._refresh_from_session()
+
+    await _place_target(world, WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT)
+    world.interact()
+    var title := overlay.get_node("Center/Column/Title") as Label
+    var departure := overlay.get_node("Center/Column/TimePill/Row/Departure") as Label
+    var arrival := overlay.get_node("Center/Column/TimePill/Row/Arrival") as Label
+    var duration := overlay.get_node("Center/Column/Duration") as Label
+    assert_eq(title.text, "Driving to town")
+    assert_eq(departure.text, "12:05")
+    assert_eq(arrival.text, "12:35")
+    assert_eq(duration.text, "+30 min")
+    var truck := overlay.get_node("Center/Column/Road/Truck") as TextureRect
+    var atlas := truck.texture as AtlasTexture
+    assert_not_null(atlas, "one truck frame, not the raw two-frame sheet")
+    if atlas != null:
+        assert_eq(atlas.region, Rect2(0, 0, 96, 96))
+        assert_eq(atlas.atlas.resource_path, "res://assets/sprites/kei-truck.png")
+    assert_eq(truck.texture_filter, CanvasItem.TEXTURE_FILTER_NEAREST)
+    hud.finish_travel()
+
+    await _place_target(world, TownContract.TRUCK_CELL, WorldMath.Facing.LEFT)
+    world.interact()
+    assert_eq(title.text, "Driving home")
+    assert_eq(departure.text, "12:35")
+    assert_eq(arrival.text, "13:05")
+    hud.finish_travel()
+    assert_not_null(world.get_node_or_null("FarmMap"))
+
+func test_travel_overlay_clamps_a_late_trip_at_the_cutoff() -> void:
+    var world := _world()
+    var hud := world.hud
+    var session := world._session
+    var overlay := _travel_overlay(hud)
+
+    var state := session.state()
+    state["time_minutes"] = 21 * 60 + 45
+    assert_true(session.restore_state(state))
+    world._refresh_from_session()
+
+    await _place_target(world, WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT)
+    world.interact()
+    assert_eq(int(session.snapshot()["time_minutes"]), GameRules.ACTION_CUTOFF_MINUTES)
+    var departure := overlay.get_node("Center/Column/TimePill/Row/Departure") as Label
+    var arrival := overlay.get_node("Center/Column/TimePill/Row/Arrival") as Label
+    var duration := overlay.get_node("Center/Column/Duration") as Label
+    assert_eq(departure.text, "21:45")
+    assert_eq(arrival.text, "22:00")
+    assert_eq(duration.text, "+30 min")
+    hud.finish_travel()
+    assert_not_null(world.get_node_or_null("TownMap"))
 
 func test_load_map_closes_open_modals() -> void:
     var world := _world()

@@ -540,6 +540,7 @@ func test_native_ui_roots_fill_the_1080p_canvas() -> void:
         "SleepPanel",
         "MorningSummaryPanel",
         "MarketConfirmPanel",
+        "TravelOverlay",
     ]:
         var modal := world.hud.get_node("HudRoot/%s" % panel_name) as Control
         assert_eq(modal.scale, Vector2.ONE)

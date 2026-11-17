@@ -86,9 +86,9 @@ func _crop_path(cell: Vector2i) -> String:
 	return WORLD + "/FarmMap/Entities/FarmCrop_%d_%d" % [cell.x, cell.y]
 
 
-func _tap_key(game, keycode: Key) -> void:
-	assert_bool(await game.input_key(keycode, true, true)).is_true()
-	assert_bool(await game.input_key(keycode, false, true)).is_true()
+func _tap_key(game, keycode: Key, physical := true) -> void:
+	assert_bool(await game.input_key(keycode, true, physical)).is_true()
+	assert_bool(await game.input_key(keycode, false, physical)).is_true()
 
 
 # Successes raise no HUD text (only refusals toast), so each caller asserts
@@ -110,6 +110,12 @@ func _wait_for_call_value(game, path: String, method: String, expected: Variant,
 	return value
 
 
+func _wait_travel_release(game) -> void:
+	assert_bool(
+		await _wait_for_call_value(game, GAME_HUD, "has_blocking_modal", false, 10.0)
+	).is_false()
+
+
 func test_day_one_town_trip_farming_loop_and_sleep() -> void:
 	var game = await _start_new_game()
 	if game == null or is_failure():
@@ -129,6 +135,7 @@ func test_day_one_town_trip_farming_loop_and_sleep() -> void:
 	)
 	await _tap_key(game, KEY_E)
 	assert_bool(await game.wait_for_node(WORLD + "/TownMap", 5.0)).is_true()
+	await _wait_travel_release(game)
 
 	await _stand_at_target(game, TownContract.SHOP_CELL, RIGHT)
 	await _tap_key(game, KEY_E)
@@ -156,6 +163,7 @@ func test_day_one_town_trip_farming_loop_and_sleep() -> void:
 	)
 	await _tap_key(game, KEY_E)
 	assert_bool(await game.wait_for_node(WORLD + "/FarmMap", 5.0)).is_true()
+	await _wait_travel_release(game)
 
 	# Hoe, plant, and water a farm cell well outside the old 3x3 patch, from
 	# its south-east. The farm view pre-creates all crop sprites hidden, so
@@ -337,6 +345,7 @@ func test_shop_purchase_updates_money() -> void:
 	# target the authored shop cell.
 	await _stand_at_target(game, WorldContract.TRUCK_CELL, RIGHT)
 	await game.call_method(WORLD, "interact")
+	await _wait_travel_release(game)
 	await _stand_at_target(game, TownContract.SHOP_CELL, RIGHT)
 	await game.call_method(WORLD, "interact")
 	if is_failure():
@@ -422,6 +431,7 @@ func test_continue_seeded_save_buys_upgrade_and_waters_with_one_stamina() -> voi
 	# W/S navigation down to the Efficient Can row.
 	await _stand_at_target(game, WorldContract.TRUCK_CELL, RIGHT)
 	await game.call_method(WORLD, "interact")
+	await _wait_travel_release(game)
 	await _stand_at_target(game, TownContract.SHOP_CELL, RIGHT)
 	await game.call_method(WORLD, "interact")
 	if is_failure():
@@ -455,6 +465,7 @@ func test_continue_seeded_save_buys_upgrade_and_waters_with_one_stamina() -> voi
 
 	await _stand_at_target(game, TownContract.TRUCK_CELL, LEFT)
 	await game.call_method(WORLD, "interact")
+	await _wait_travel_release(game)
 
 	# Primary feedback: the Water prompt reads 1 stamina. Secondary: its
 	# icon swapped to the efficient-can glint.
@@ -478,3 +489,46 @@ func test_continue_seeded_save_buys_upgrade_and_waters_with_one_stamina() -> voi
 	if is_failure():
 		return
 	await _assert_stamina(game, 19)
+
+
+func test_travel_overlay_blocks_input_and_resumes_the_clock() -> void:
+	var game = await _start_new_game()
+	if game == null or is_failure():
+		return
+	var clock_path := CHROME + "/ClockCard/Surface/Body/Row/Clock"
+	assert_bool(
+		await game.set_property(WORLD, "_clock_window_focused", true)
+	).is_true()
+
+	await _stand_at_target(game, WorldContract.TRUCK_CELL, RIGHT)
+	assert_bool(await game.input_key(KEY_E, true, true)).is_true()
+	assert_bool(
+		await game.wait_for_property(HUD + "/TravelOverlay", "visible", true, 5.0)
+	).is_true()
+	assert_bool(
+		await _wait_for_call_value(game, GAME_HUD, "has_blocking_modal", true, 5.0)
+	).is_true()
+	assert_bool(await game.input_key(KEY_E, false, true)).is_true()
+
+	assert_bool(await game.wait_for_node(WORLD + "/TownMap", 10.0)).is_true()
+	await _wait_travel_release(game)
+	assert_bool(await game.get_property(WORLD, "_world_input_enabled")).is_true()
+	assert_bool(
+		await game.get_property(HUD + "/TravelOverlay", "visible")
+	).is_false()
+	var release_clock: String = await game.get_property(clock_path, "text")
+
+	var deadline_msec := Time.get_ticks_msec() + 8000
+	var resumed := false
+	var last_elapsed := -1.0
+	while Time.get_ticks_msec() < deadline_msec and not resumed:
+		await game.wait_seconds(0.2)
+		var elapsed: float = await game.get_property(WORLD, "_clock_elapsed_seconds")
+		var clock_text: String = await game.get_property(clock_path, "text")
+		if (
+			clock_text != release_clock
+			or (last_elapsed >= 0.0 and elapsed > last_elapsed)
+		):
+			resumed = true
+		last_elapsed = elapsed
+	assert_bool(resumed).is_true()

@@ -61,6 +61,7 @@ const SLEEP_SCENE := preload("res://scenes/ui/sleep_panel.tscn")
 const MARKET_CONFIRM_SCENE := preload("res://scenes/ui/market_confirm_panel.tscn")
 const PAUSE_SCENE := preload("res://scenes/ui/pause_panel.tscn")
 const SETTINGS_SCENE := preload("res://scenes/ui/settings_panel.tscn")
+const TRAVEL_OVERLAY_SCENE := preload("res://scenes/ui/travel_overlay.tscn")
 
 var _root: Control
 var _weather_tint: ColorRect
@@ -80,6 +81,7 @@ var _onboarding_overlay: OnboardingOverlay
 var _morning_summary_panel: MorningSummaryPanel
 var _pause_panel: PausePanel
 var _settings_panel: SettingsPanel
+var _travel_overlay: TravelOverlay
 var _sfx_player: AudioStreamPlayer
 var _music_player: AudioStreamPlayer
 var _river_ambience_player: AudioStreamPlayer
@@ -208,12 +210,19 @@ func render(snapshot: Dictionary) -> void:
     _sleep_panel.present(snapshot)
 
 func has_blocking_modal() -> bool:
-    if _onboarding_overlay.is_opening_visible():
+    if _onboarding_overlay.is_opening_visible() or _travel_overlay.is_active():
         return true
     for panel in _primary_modals:
         if panel.visible:
             return true
     return false
+
+func play_travel(before: Dictionary, after: Dictionary, swap: Callable) -> void:
+    _travel_overlay.play(before, after, swap)
+    modal_state_changed.emit()
+
+func finish_travel() -> void:
+    _travel_overlay.finish()
 
 func set_finale_in_progress(value: bool) -> void:
     # While the finale cue plays, no close path may replace FINALE_SFX with
@@ -646,6 +655,11 @@ func _build_modals() -> void:
     _morning_summary_panel.visible = false
     _pause_panel.visible = false
     _settings_panel.visible = false
+    _travel_overlay = TRAVEL_OVERLAY_SCENE.instantiate() as TravelOverlay
+    _root.add_child(_travel_overlay)
+    _travel_overlay.finished.connect(func() -> void:
+        modal_state_changed.emit()
+    )
 
 func _on_settings_changed(_error: int) -> void:
     apply_settings()
@@ -748,7 +762,11 @@ func _unhandled_input(event: InputEvent) -> void:
         return
     if not event.is_action_pressed("ui_cancel"):
         return
-    if _morning_summary_panel.visible or _onboarding_overlay.is_opening_visible():
+    if (
+        _morning_summary_panel.visible
+        or _onboarding_overlay.is_opening_visible()
+        or _travel_overlay.is_active()
+    ):
         get_viewport().set_input_as_handled()
         return
     for entry in _esc_close_order:

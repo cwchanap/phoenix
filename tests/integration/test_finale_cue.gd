@@ -43,6 +43,7 @@ func _drive_to_town(world: WorldShell) -> void:
     world.player.facing = WorldMath.Facing.RIGHT
     assert_eq(world.player.current_target_cell(), WorldContract.TRUCK_CELL)
     world.interact()
+    world.hud.finish_travel()
     assert_not_null(world.get_node_or_null("TownMap"))
 
 func test_market_interact_keeps_world_audible_until_cue_finishes() -> void:
