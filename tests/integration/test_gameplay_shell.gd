@@ -5241,11 +5241,6 @@ func test_travel_overlay_gates_input_clock_esc_and_mouse_until_the_beat_finishes
     world.get_viewport().push_input(esc_press)
     world.get_viewport().push_input(esc_release)
 
-    # Sample every live frame instead of assuming a fixed frame window: at
-    # 30 fps the fade+swap lands inside ~8 frames, on the llvmpipe box in
-    # fewer, so the loop keys off the overlay's own lifetime. A position
-    # change is only legitimate on the frame the destination map appears —
-    # every other change is a movement leak.
     var gate_gaps := 0
     var elapsed_ticks := 0
     var minute_ticks := 0
@@ -5305,8 +5300,6 @@ func test_travel_overlay_gates_input_clock_esc_and_mouse_until_the_beat_finishes
     Input.action_release("move_right")
     Input.action_release("move_left")
     if overlay.visible:
-        # Record the failure BEFORE the cleanup finish so the assertions
-        # below can never pass on a force-finished beat.
         assert_true(false, "the live beat must complete without finish_travel()")
         hud.finish_travel()
     assert_gt(frames, 0, "the real tween was sampled mid-beat")
