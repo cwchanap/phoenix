@@ -121,6 +121,7 @@ func _warning_card() -> PanelContainer:
 		"panel", UiStyle.card(UiStyle.WARN, 16, [16, 12, 16, 12], false)
 	)
 	var row := UiStyle.hbox(12)
+	row.name = "Row"
 	card.add_child(row)
 	var icon := UiStyle.icon(WARNING_ICON, 32)
 	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER

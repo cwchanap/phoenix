@@ -36,9 +36,9 @@ func _stand_at_target(game, target: Vector2i, facing: int) -> void:
 		await game.call_method(PLAYER, "current_target_cell")
 	).is_equal(target)
 
-func _tap_key(game, keycode: Key) -> void:
-	assert_bool(await game.input_key(keycode, true, true)).is_true()
-	assert_bool(await game.input_key(keycode, false, true)).is_true()
+func _tap_key(game, keycode: Key, physical := true) -> void:
+	assert_bool(await game.input_key(keycode, true, physical)).is_true()
+	assert_bool(await game.input_key(keycode, false, physical)).is_true()
 
 func test_day14_market_cancel_then_confirm_finale() -> void:
 	var options := E2ELaunchOptions.new()
@@ -74,19 +74,18 @@ func test_day14_market_cancel_then_confirm_finale() -> void:
 	var seeded_reread := SaveRepository.new(_save_path).load()
 	assert_bool(bool(seeded_reread["state"]["finale_triggered"])).is_false()
 
-	assert_bool(await game.input_action("ui_cancel", true)).is_true()
-	assert_bool(await game.input_action("ui_cancel", false)).is_true()
+	await _tap_key(game, KEY_ESCAPE, false)
 	assert_bool(
 		await game.wait_for_property(MARKET_PANEL, "visible", false, 5.0)
 	).is_true()
 	assert_bool(await game.get_property(WORLD, "_world_input_enabled")).is_true()
+	assert_that(SaveRepository.new(_save_path).load()).is_equal(seeded_reread)
 
 	await _tap_key(game, KEY_E)
 	assert_bool(
 		await game.wait_for_property(MARKET_PANEL, "visible", true, 5.0)
 	).is_true()
-	assert_bool(await game.input_action("ui_accept", true)).is_true()
-	assert_bool(await game.input_action("ui_accept", false)).is_true()
+	await _tap_key(game, KEY_ENTER, false)
 	assert_bool(
 		await game.wait_for_property(RESULT, "visible", true, 15.0)
 	).is_true()

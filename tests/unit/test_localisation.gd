@@ -116,6 +116,57 @@ func test_truck_prompt_strings_translate_in_both_locales() -> void:
     assert_eq(tr("Seed Shop"), "種屋")
     assert_eq(tr("Talk, shop, bin, bed, truck"), "話す・店・出荷箱・ベッド・トラック")
 
+func test_market_confirmation_card_strings_translate_for_each_locale() -> void:
+    var panel := MarketConfirmPanel.new()
+    add_child_autoqfree(panel)
+    var card_strings := {
+        "Center/Card/Column/HeaderBand/Row/Titles/Title": "End the season?",
+        "Center/Card/Column/Body/Content/Finality": "The market settles your shipments and friendships and shows your result. You can't keep playing after this.",
+        "Center/Card/Column/Body/Content/Warning/Row/Text": "Crops in your bag are not sold. Ship them first.",
+        "Center/Card/Column/Body/Content/Actions/Confirm/Pill/Row/Text": "Open the market",
+        "Center/Card/Column/Body/Content/Actions/Cancel/Pill/Row/Text": "Not yet",
+    }
+    var expected_headers := {
+        "en": "HARVEST MARKET · DAY 14",
+        "zh_TW": "豐收市集 · 第 14 天",
+        "ja": "収穫市 · 14日目",
+    }
+    var expected_translations := {
+        "zh_TW": [
+            "要結束這一季嗎？",
+            "市集會結算你的出貨與友誼並顯示成果。之後你就不能再繼續遊玩。",
+            "背包裡的作物不會出售。請先出貨。",
+            "開啟市集",
+            "還不要",
+        ],
+        "ja": [
+            "シーズンを終えますか？",
+            "収穫市は出荷と友好関係を精算して結果を表示します。これ以降はプレイを続けられません。",
+            "かばんの中の作物は売れません。先に出荷してください。",
+            "マーケットを開く",
+            "まだ",
+        ],
+    }
+    var day_label := panel.get_node(
+        "Center/Card/Column/HeaderBand/Row/Titles/Day"
+    ) as Label
+    for locale in ["en"] + TRANSLATED_LOCALES:
+        TranslationServer.set_locale(locale)
+        panel.present({"day": GameRules.MAX_DAY})
+        assert_eq(day_label.text, expected_headers[locale], "%s header" % locale)
+    for label_path in card_strings:
+        var source: String = card_strings[label_path]
+        var label := panel.get_node(label_path) as Label
+        assert_eq(label.text, source)
+        var index: int = card_strings.keys().find(label_path)
+        for locale in TRANSLATED_LOCALES:
+            TranslationServer.set_locale(locale)
+            assert_eq(
+                tr(source),
+                expected_translations[locale][index],
+                "%s: %s" % [locale, source],
+            )
+
 func test_default_language_follows_os_locale() -> void:
     assert_eq(UiSettings.default_language("ja_JP"), "ja")
     assert_eq(UiSettings.default_language("zh_TW"), "zh_TW")
