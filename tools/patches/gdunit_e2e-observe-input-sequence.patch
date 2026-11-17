@@ -31,7 +31,7 @@
  	match _state:
  		State.LISTENING:
  			_poll_listening()
-@@ -467,6 +477,88 @@
+@@ -467,6 +477,103 @@
  	_wait_type = WaitType.NONE
  
  
@@ -48,12 +48,14 @@
 +		"while_property": str(while_spec.get("property", "")),
 +		"while_value": while_spec.get("value", true),
 +		"samples": cmd.get("samples", []),
++		"release_on": cmd.get("release_on", {}),
 +		"arm_frames": max(1, int(cmd.get("arm_frames", 300))),
 +		"max_frames": max(1, int(cmd.get("max_frames", 1200))),
 +		"armed": 0,
 +		"frames": 0,
 +		"active": false,
 +		"done": false,
++		"released": false,
 +		"data": [],
 +	}
 +	return {"ok": true}
@@ -67,6 +69,7 @@
 +		"active": _observer["active"],
 +		"frames": _observer["frames"],
 +		"armed": _observer["armed"],
++		"released": _observer["released"],
 +		"data": _observer["data"],
 +	}
 +
@@ -115,6 +118,18 @@
 +				node.get_indexed(NodePath(str(sample["property"])))
 +			)
 +	_observer["data"].append(record)
++	# release_on: inject the listed action releases in-process the first
++	# frame a named sample matches — held-input release is scheduled here
++	# so later RPC delivery cannot hold it past the observed condition.
++	var on: Dictionary = _observer["release_on"]
++	if not _observer["released"] and not on.is_empty():
++		if record.get(str(on.get("sample", ""))) == on.get("value", true):
++			for action_name in on.get("actions", []):
++				var release := InputEventAction.new()
++				release.action = StringName(str(action_name))
++				release.pressed = false
++				Input.parse_input_event(release)
++			_observer["released"] = true
 +
 +
  func _cleanup_wait() -> void:
