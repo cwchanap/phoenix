@@ -2338,9 +2338,9 @@ func _run_benchmark_route(session: GameSession, crop_count: int) -> void:
     # projected displacement.
     #   upgraded legs: spawn->(3.5,9.5) 3.4832s, 5x0.4024s row-10 steps,
     #     ->(5.5,12.5) 2.0000s, 3x0.4024s row-11 steps, ->(13.5,8.5) 3.0690s
-    #     = 11.7714s -> 23min; 360+400+23 ends 13:03.
+    #     = 11.7714s -> 78min; 360+400+78 ends 13:58.
     #   baseline legs: spawn->(3.5,9.5) 3.4832s, 5x0.4024s row-10 steps,
-    #     ->(13.5,8.5) 2.2761s = 7.7712s -> 15min; 360+240+15 ends 10:15.
+    #     ->(13.5,8.5) 2.2761s = 7.7712s -> 51min; 360+240+51 ends 10:51.
     # Whole minutes consume travel seconds / REAL_SECONDS_PER_GAME_MINUTE and
     # the sub-minute remainder carries across legs; blocked shop-panel time
     # adds nothing and action minutes are charged separately. Expected
@@ -2417,6 +2417,19 @@ func _run_benchmark_route(session: GameSession, crop_count: int) -> void:
     )
     assert_eq(session.sleep(WorldContract.BED_CELL), GameRules.CommandCode.DAY_ADVANCED)
     assert_eq(int(session.snapshot()["day"]), 9)
+
+func test_passive_clock_rate_models_the_uat_reference_day() -> void:
+    var passive_minutes := floori(75.0 / GameRules.REAL_SECONDS_PER_GAME_MINUTE)
+    assert_eq(passive_minutes, 500)
+    var modeled_bed_minutes := (
+        GameRules.DAY_START_MINUTES
+        + 240
+        + 2 * GameRules.TRAVEL_MINUTES
+        + passive_minutes
+    )
+    assert_eq(modeled_bed_minutes, 19 * 60 + 20)
+    assert_gte(modeled_bed_minutes, 18 * 60)
+    assert_lte(modeled_bed_minutes, GameRules.ACTION_CUTOFF_MINUTES)
 
 func test_balance_gate_two_hundred_gold_buys_real_throughput_by_day_nine() -> void:
     var baseline := _benchmark_session(false)

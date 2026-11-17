@@ -828,7 +828,7 @@ func _run_travel_beat(
 	).is_not_equal(start_clock)
 	# The passive clock froze for the whole recorded beat and must resume
 	# once the gate opens. _clock_elapsed_seconds wraps every game minute
-	# (0.5 s), so the durable resume signal is the minute label ticking on.
+	# (0.15 s), so the durable resume signal is the minute label ticking on.
 	var release_clock := str(await game.get_property(clock_path, "text"))
 	var resumed := false
 	var resume_deadline := Time.get_ticks_msec() + 8000
