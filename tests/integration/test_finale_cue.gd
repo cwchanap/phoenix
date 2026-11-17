@@ -63,6 +63,18 @@ func test_market_interact_keeps_world_audible_until_cue_finishes() -> void:
 
     world.interact()
 
+    var market_panel := world.hud.get_node("HudRoot/MarketConfirmPanel") as Control
+    assert_true(market_panel.visible, "market E should open the confirmation card")
+    var confirm := InputEventAction.new()
+    confirm.action = &"ui_accept"
+    confirm.pressed = true
+    get_viewport().push_input(confirm)
+    await get_tree().process_frame
+    var release := InputEventAction.new()
+    release.action = &"ui_accept"
+    release.pressed = false
+    get_viewport().push_input(release)
+
     # The world must survive the trigger frame with the finale cue still
     # playing, and the result must not have presented yet.
     assert_true(world.is_inside_tree(), "world should stay in tree during the finale cue")

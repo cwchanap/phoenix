@@ -173,13 +173,19 @@ func test_market_and_bed_finalizations_save_once_and_reach_identical_result() ->
     )
     _drive_to_town(market_world)
     _target_market(market_world)
+    var state_before_open := market_world._session.state()
     market_world.interact()
+    var market_panel := market_world.hud.get_node("HudRoot/MarketConfirmPanel") as Control
+    assert_true(market_panel.visible)
+    assert_eq(market_world._session.state(), state_before_open)
+    assert_eq(market_repository.save_calls, 0)
+    market_world.hud.market_confirmed.emit()
     # The save stays synchronous; only the emit/teardown wait out the cue.
     assert_eq(market_repository.save_calls, 1)
     var market_state := market_world._session.state()
 
     # A duplicate terminal attempt during the cue cannot add a save.
-    market_world.interact()
+    market_world.hud.market_confirmed.emit()
     assert_eq(market_repository.save_calls, 1)
 
     await _await_world_teardown(market_app)
@@ -304,6 +310,10 @@ func test_terminal_settlement_pays_pending_once_and_keeps_carried_crops() -> voi
     _drive_to_town(world)
     _target_market(world)
     world.interact()
+    assert_true(
+        (world.hud.get_node("HudRoot/MarketConfirmPanel") as Control).visible
+    )
+    world.hud.market_confirmed.emit()
 
     var state := world._session.state()
     assert_eq(int(state["money"]), GameRules.STARTING_MONEY + 2 * 35)
@@ -346,6 +356,7 @@ func test_finale_save_failure_still_completes_and_shows_unsaved_result() -> void
     assert_eq(DirAccess.remove_absolute(failure_dir), OK)
 
     world.interact()
+    world.hud.market_confirmed.emit()
     assert_true(bool(world._session.state()["finale_triggered"]))
 
     await _await_world_teardown(app)
@@ -364,6 +375,7 @@ func test_result_return_to_title_reloads_save_and_new_game_keeps_slot() -> void:
     _drive_to_town(world)
     _target_market(world)
     world.interact()
+    world.hud.market_confirmed.emit()
     assert_eq(repository.save_calls, 1)
     await _await_world_teardown(app)
     var result := app.get_node("ResultScreen") as ResultScreen
