@@ -1,0 +1,268 @@
+--- a/server/automation_server.gd
++++ b/server/automation_server.gd
+@@ -15,6 +15,7 @@
+ const LogCaptureScript = preload("log_capture.gd")
+ const E2EProtocolScript = preload("../protocol/e2e_protocol.gd")
+ const E2EFramingScript = preload("../protocol/e2e_framing.gd")
++const E2ESerializerScript = preload("../protocol/e2e_serializer.gd")
+ 
+ var _handler = null
+ var _log_capture = null
+@@ -75,6 +76,13 @@
+ # --- Physics frame counter ---
+ var _physics_frame_counter: int = 0
+ 
++# --- Frame observer ---
++# Armed by the "observe" command; samples the requested node values every
++# _process frame while the "while" condition holds. Unlike a wait it does
++# not occupy the command channel, so probes can be sent while it records
++# and the durable samples are retrieved afterward via "observe_result".
++var _observer := {}
++
+ # --- Log capture ---
+ # Tracks the highest sequence number drained so far for the current
+ # connection. Reset to -1 on disconnect so the next session starts fresh
+@@ -132,6 +140,8 @@
+ 			get_tree().quit()
+ 			return
+ 
++	_poll_observer()
++
+ 	match _state:
+ 		State.LISTENING:
+ 			_poll_listening()
+@@ -467,6 +477,88 @@
+ 	_wait_type = WaitType.NONE
+ 
+ 
++# ---------------------------------------------------------------------------
++# Frame observer (non-blocking; armed by "observe", drained by "observe_result")
++# ---------------------------------------------------------------------------
++
++func _observer_start(cmd: Dictionary) -> Dictionary:
++	var while_spec = cmd.get("while", {})
++	if not while_spec is Dictionary or not while_spec.has("path"):
++		return {"error": "observe requires a while {path, property, value} spec"}
++	_observer = {
++		"while_path": str(while_spec.get("path", "")),
++		"while_property": str(while_spec.get("property", "")),
++		"while_value": while_spec.get("value", true),
++		"samples": cmd.get("samples", []),
++		"arm_frames": max(1, int(cmd.get("arm_frames", 300))),
++		"max_frames": max(1, int(cmd.get("max_frames", 1200))),
++		"armed": 0,
++		"frames": 0,
++		"active": false,
++		"done": false,
++		"data": [],
++	}
++	return {"ok": true}
++
++
++func _observer_result() -> Dictionary:
++	if _observer.is_empty():
++		return {"done": true, "active": false, "frames": 0, "armed": 0, "data": []}
++	return {
++		"done": _observer["done"],
++		"active": _observer["active"],
++		"frames": _observer["frames"],
++		"armed": _observer["armed"],
++		"data": _observer["data"],
++	}
++
++
++func _poll_observer() -> void:
++	if _observer.is_empty() or _observer["done"]:
++		return
++	var root := get_tree().root
++	var while_node := root.get_node_or_null(_observer["while_path"])
++	var live: bool = (
++		while_node != null
++		and while_node.get_indexed(NodePath(_observer["while_property"]))
++		== _observer["while_value"]
++	)
++	if not live:
++		if _observer["active"]:
++			_observer["done"] = true
++		else:
++			_observer["armed"] += 1
++			if _observer["armed"] >= _observer["arm_frames"]:
++				_observer["done"] = true
++		return
++	_observer["active"] = true
++	_observer["frames"] += 1
++	if _observer["frames"] > _observer["max_frames"]:
++		_observer["done"] = true
++		return
++	var record := {}
++	for sample in _observer["samples"]:
++		var name: String = str(sample.get("name", ""))
++		var node = root.get_node_or_null(str(sample.get("path", "")))
++		if sample.has("exists"):
++			record[name] = root.get_node_or_null(str(sample["exists"])) != null
++		elif node == null:
++			record[name] = {"_observe_error": "node_not_found"}
++		elif sample.has("method"):
++			var method: String = str(sample["method"])
++			if node.has_method(method):
++				record[name] = E2ESerializerScript.serialize(
++					node.callv(method, sample.get("args", []))
++				)
++			else:
++				record[name] = {"_observe_error": "method_not_found"}
++		elif sample.has("property"):
++			record[name] = E2ESerializerScript.serialize(
++				node.get_indexed(NodePath(str(sample["property"])))
++			)
++	_observer["data"].append(record)
++
++
+ func _cleanup_wait() -> void:
+ 	# Disconnect any pending signal connections.
+ 	if _wait_type == WaitType.SIGNAL_EMITTED and _wait_signal_source != null:
+--- a/server/command_handler.gd
++++ b/server/command_handler.gd
+@@ -43,6 +43,12 @@
+ 			return _cmd_input_key(cmd, id)
+ 		"input_action":
+ 			return _cmd_input_action(cmd, id)
++		"input_sequence":
++			return _cmd_input_sequence(cmd, id)
++		"observe":
++			return _cmd_observe(cmd, id)
++		"observe_result":
++			return _cmd_observe_result(cmd, id)
+ 		"input_mouse_button":
+ 			return _cmd_input_mouse_button(cmd, id)
+ 		"input_mouse_motion":
+@@ -473,19 +479,24 @@
+ 	}
+ 
+ 
++# Screen position for click-style commands: Control center or a Node2D's
++# projected origin; null when the node kind has no screen position.
++func _node_screen_position(node: Node) -> Variant:
++	if node is Control:
++		return node.get_global_rect().get_center()
++	if node is Node2D:
++		return node.get_viewport_transform() * node.get_global_transform() * Vector2.ZERO
++	return null
++
++
+ func _cmd_click_node(cmd: Dictionary, id) -> Dictionary:
+ 	var path: String = cmd.get("path", "")
+ 	var node = _server.get_tree().root.get_node_or_null(path)
+ 	if node == null:
+ 		return {"id": id, "error": "Node not found: " + path}
+ 
+-	var screen_pos := Vector2.ZERO
+-
+-	if node is Control:
+-		screen_pos = node.get_global_rect().get_center()
+-	elif node is Node2D:
+-		screen_pos = node.get_viewport_transform() * node.get_global_transform() * Vector2.ZERO
+-	else:
++	var screen_pos = _node_screen_position(node)
++	if screen_pos == null:
+ 		return {"id": id, "error": "Cannot determine screen position for node: " + path}
+ 
+ 	var press_event := InputEventMouseButton.new()
+@@ -541,6 +552,98 @@
+ 
+ 
+ # ---------------------------------------------------------------------------
++# input_sequence — inject an ordered list of input specs in one dispatch
++# tick. Every spec reports its own outcome, so a missing click target or an
++# unknown spec surfaces as a per-entry error instead of a silent skip.
++# Events queued this way flush in order on the next input phase; callers
++# own any settling waits afterward.
++# ---------------------------------------------------------------------------
++
++func _cmd_input_sequence(cmd: Dictionary, id) -> Dictionary:
++	var specs: Array = cmd.get("specs", [])
++	if specs.is_empty():
++		return {"id": id, "error": "input_sequence requires a non-empty 'specs' list"}
++	var results: Array = []
++	for spec in specs:
++		if spec is Dictionary:
++			results.append(_inject_input_spec(spec))
++		else:
++			results.append({"ok": false, "error": "spec is not a Dictionary"})
++	return {"id": id, "results": results}
++
++
++func _inject_input_spec(spec: Dictionary) -> Dictionary:
++	var kind: String = str(spec.get("type", ""))
++	match kind:
++		"key":
++			var event := InputEventKey.new()
++			if bool(spec.get("physical", false)):
++				event.physical_keycode = int(spec.get("keycode", 0))
++			else:
++				event.keycode = int(spec.get("keycode", 0))
++			event.pressed = bool(spec.get("pressed", true))
++			Input.parse_input_event(event)
++			return {"ok": true}
++		"action":
++			var event := InputEventAction.new()
++			event.action = StringName(str(spec.get("action_name", "")))
++			event.pressed = bool(spec.get("pressed", true))
++			event.strength = float(spec.get("strength", 1.0))
++			Input.parse_input_event(event)
++			return {"ok": true}
++		"mouse_button":
++			var event := InputEventMouseButton.new()
++			event.position = Vector2(float(spec.get("x", 0.0)), float(spec.get("y", 0.0)))
++			event.global_position = event.position
++			event.button_index = int(spec.get("button", 1))
++			event.pressed = bool(spec.get("pressed", true))
++			Input.parse_input_event(event)
++			return {"ok": true}
++		"click":
++			var path: String = str(spec.get("path", ""))
++			var node = _server.get_tree().root.get_node_or_null(path)
++			if node == null:
++				return {"ok": false, "error": "Node not found: " + path}
++			var screen_pos = _node_screen_position(node)
++			if screen_pos == null:
++				return {
++					"ok": false,
++					"error": "Cannot determine screen position for node: " + path,
++				}
++			var press_event := InputEventMouseButton.new()
++			press_event.position = screen_pos
++			press_event.global_position = screen_pos
++			press_event.button_index = MOUSE_BUTTON_LEFT
++			press_event.pressed = true
++			Input.parse_input_event(press_event)
++			var release_event := InputEventMouseButton.new()
++			release_event.position = screen_pos
++			release_event.global_position = screen_pos
++			release_event.button_index = MOUSE_BUTTON_LEFT
++			release_event.pressed = false
++			Input.parse_input_event(release_event)
++			return {"ok": true, "position": JsonSerializer.serialize(screen_pos)}
++		_:
++			return {"ok": false, "error": "Unknown input spec type: " + kind}
++
++
++# ---------------------------------------------------------------------------
++# observe / observe_result — see automation_server._poll_observer()
++# ---------------------------------------------------------------------------
++
++func _cmd_observe(cmd: Dictionary, id) -> Dictionary:
++	var result: Dictionary = _server._observer_start(cmd)
++	result["id"] = id
++	return result
++
++
++func _cmd_observe_result(cmd: Dictionary, id) -> Dictionary:
++	var result: Dictionary = _server._observer_result()
++	result["id"] = id
++	return result
++
++
++# ---------------------------------------------------------------------------
+ # Frame Sync (deferred)
+ # ---------------------------------------------------------------------------
+ 

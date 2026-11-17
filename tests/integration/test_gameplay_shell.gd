@@ -5115,77 +5115,97 @@ func test_travel_overlay_gates_input_clock_esc_and_mouse_until_the_beat_finishes
     world.clock_running = true
     world._clock_window_focused = true
     Input.action_press("move_right")
-    var farm_pos: Vector2 = world.player.global_position
-    for _i in 12:
-        await get_tree().process_frame
-    assert_eq(
-        world._clock_elapsed_seconds,
-        0.0,
-        "twelve live _process frames accrue nothing while gated",
-    )
-    assert_eq(
-        session.snapshot()["time_minutes"],
-        snapshot_during["time_minutes"],
-        "the passive clock is frozen for the whole beat",
-    )
-    assert_eq(
-        world.player.global_position,
-        farm_pos,
-        "held move_right cannot drift the player pre-swap",
-    )
-    _push_probe_keys(world)
-    _push_click(world, seed_card.get_global_rect().get_center())
-    if dismiss != null and dismiss.is_visible_in_tree():
-        _push_click(world, dismiss.get_global_rect().get_center())
-
     var esc_press := InputEventAction.new()
     esc_press.action = &"ui_cancel"
     esc_press.pressed = true
     var esc_release := InputEventAction.new()
     esc_release.action = &"ui_cancel"
     esc_release.pressed = false
-    world.get_viewport().push_input(esc_press)
-    world.get_viewport().push_input(esc_release)
-    await get_tree().process_frame
-    await get_tree().process_frame
-    assert_false(_panel(hud, "PausePanel").visible, "Esc cannot open Pause mid-beat")
-    assert_true(overlay.visible)
-    assert_eq(seed_requests[0], 0, "the SeedCard never saw the mid-beat click")
-    assert_eq(dismiss_presses[0], 0, "the tutorial Dismiss never saw the mid-beat click")
-    assert_eq(session.selected_seed(), seed_before)
-    assert_eq(hud._onboarding_overlay._dismissed.size(), dismissed_before)
-    assert_eq(session.snapshot(), snapshot_during, "probes left the session untouched")
-
-    var swapped := false
-    for _i in 240:
-        if world.get_node_or_null("TownMap") != null:
-            swapped = true
-            break
-        await get_tree().process_frame
-    assert_true(swapped, "the live tween reached the deferred swap")
-    Input.action_press("move_left")
-    var town_pos: Vector2 = world.player.global_position
     _push_probe_keys(world)
     _push_click(world, seed_card.get_global_rect().get_center())
     if dismiss != null and dismiss.is_visible_in_tree():
         _push_click(world, dismiss.get_global_rect().get_center())
-    for _i in 8:
+    world.get_viewport().push_input(esc_press)
+    world.get_viewport().push_input(esc_release)
+
+    # Sample every live frame instead of assuming a fixed frame window: at
+    # 30 fps the fade+swap lands inside ~8 frames, on the llvmpipe box in
+    # fewer, so the loop keys off the overlay's own lifetime. A position
+    # change is only legitimate on the frame the destination map appears —
+    # every other change is a movement leak.
+    var gate_gaps := 0
+    var elapsed_ticks := 0
+    var minute_ticks := 0
+    var modal_opens := 0
+    var pos_changes := 0
+    var illegal_moves := 0
+    var swap_flips := 0
+    var post_swap_probed := false
+    var last_pos: Vector2 = world.player.global_position
+    var had_town := false
+    var frames := 0
+    while overlay.visible and frames < 240:
         await get_tree().process_frame
+        if not overlay.visible:
+            break
+        frames += 1
+        if world._world_input_enabled or not hud.has_blocking_modal():
+            gate_gaps += 1
+        if world._clock_elapsed_seconds != 0.0:
+            elapsed_ticks += 1
+        if (
+            int(session.snapshot()["time_minutes"])
+            != int(snapshot_during["time_minutes"])
+        ):
+            minute_ticks += 1
+        for panel in hud._primary_modals:
+            if panel.visible:
+                modal_opens += 1
+        var has_town := world.get_node_or_null("TownMap") != null
+        var flipped := has_town != had_town
+        if flipped:
+            swap_flips += 1
+            had_town = has_town
+        var pos: Vector2 = world.player.global_position
+        if pos != last_pos:
+            pos_changes += 1
+            if not flipped:
+                illegal_moves += 1
+            last_pos = pos
+        if has_town and not post_swap_probed:
+            post_swap_probed = true
+            Input.action_release("move_right")
+            Input.action_press("move_left")
+            _push_probe_keys(world)
+            _push_click(world, seed_card.get_global_rect().get_center())
+            if dismiss != null and dismiss.is_visible_in_tree():
+                _push_click(world, dismiss.get_global_rect().get_center())
+            world.get_viewport().push_input(esc_press)
+            world.get_viewport().push_input(esc_release)
     Input.action_release("move_right")
     Input.action_release("move_left")
+    if overlay.visible:
+        hud.finish_travel()
+    assert_gt(frames, 0, "the real tween was sampled mid-beat")
+    assert_eq(gate_gaps, 0, "input gate held on every observed frame")
     assert_eq(
-        world.player.global_position,
-        town_pos,
-        "post-swap movement stays rejected through the hold",
+        elapsed_ticks,
+        0,
+        "the passive clock accrued nothing on any observed frame",
     )
-    assert_eq(world._clock_elapsed_seconds, 0.0, "the clock stays frozen through the swap")
-    assert_eq(session.snapshot()["time_minutes"], snapshot_during["time_minutes"])
-    assert_eq(seed_requests[0], 0)
-    assert_eq(dismiss_presses[0], 0)
-    assert_eq(session.snapshot(), snapshot_during)
-    assert_true(overlay.visible)
+    assert_eq(minute_ticks, 0, "game minutes stayed frozen all beat")
+    assert_eq(modal_opens, 0, "no modal opened during the beat")
+    assert_eq(swap_flips, 1, "the map swapped exactly once")
+    assert_eq(illegal_moves, 0, "no movement outside the swap teleport")
+    assert_eq(pos_changes, 1, "exactly one position change: the teleport")
+    assert_true(post_swap_probed, "the live tween reached the deferred swap")
+    assert_eq(seed_requests[0], 0, "the SeedCard never saw a mid-beat click")
+    assert_eq(dismiss_presses[0], 0, "the tutorial Dismiss never saw a mid-beat click")
+    assert_eq(session.selected_seed(), seed_before)
+    assert_eq(hud._onboarding_overlay._dismissed.size(), dismissed_before)
+    assert_eq(session.snapshot(), snapshot_during, "probes left the session untouched")
+    assert_false(_panel(hud, "PausePanel").visible, "Esc cannot open Pause mid-beat")
 
-    hud.finish_travel()
     assert_false(overlay.visible)
     assert_false(hud.has_blocking_modal())
     assert_true(world._world_input_enabled)
@@ -5194,6 +5214,13 @@ func test_travel_overlay_gates_input_clock_esc_and_mouse_until_the_beat_finishes
     )
     assert_eq(town_maps.size(), 1, "the swap callback ran exactly once")
     assert_null(world.get_node_or_null("FarmMap"))
+    await get_tree().process_frame
+    await get_tree().process_frame
+    assert_gt(
+        world._clock_elapsed_seconds,
+        0.0,
+        "the passive clock resumes once the gate opens",
+    )
 
     world.get_viewport().push_input(esc_press)
     world.get_viewport().push_input(esc_release)

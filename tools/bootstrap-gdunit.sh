@@ -29,6 +29,14 @@ rm -rf "$root/addons/gdUnit4" "$root/addons/gdunit_e2e"
 cp -R "$tmp"/gdunit4/*/addons/gdUnit4 "$root/addons/gdUnit4"
 cp -R "$tmp"/e2e/*/addons/gdunit_e2e "$root/addons/gdunit_e2e"
 
+# Repo-tracked addons/ patches, applied over the pinned checkout so the
+# e2e harness gains the non-blocking observer + input_sequence commands
+# the travel-beat test needs. git apply fails loudly if the pin moves.
+for patch_file in "$root"/tools/patches/*.patch; do
+  [ -e "$patch_file" ] || continue
+  git -C "$root/addons/gdunit_e2e" apply --whitespace=nowarn "$patch_file"
+done
+
 if [ -n "$godot_bin" ] && [ -x "$godot_bin" ]; then
   "$godot_bin" --headless --editor --path "$root" --quit
 else
