@@ -5023,6 +5023,63 @@ func test_finish_travel_is_a_noop_when_no_beat_is_active() -> void:
     assert_null(world.get_node_or_null("TownMap"))
     assert_eq(session.snapshot(), before)
 
+func test_finish_travel_fires_one_swap_one_signal_and_lands_on_the_destination_map() -> void:
+    var world := _world()
+    var hud := world.hud
+    var session := world._session
+    var overlay := _travel_overlay(hud)
+    var swaps: Array[bool] = []
+    var finishes: Array[bool] = []
+    overlay.finished.connect(func() -> void: finishes.append(true))
+    var before := session.snapshot()
+    assert_eq(
+        session.travel(WorldContract.TRUCK_CELL),
+        GameRules.CommandCode.TRAVELLED,
+    )
+    var swap := func() -> void:
+        swaps.append(true)
+        world.load_map(true)
+
+    hud.play_travel(before, session.snapshot(), swap)
+    assert_true(overlay.is_active())
+    assert_true(hud.has_blocking_modal())
+
+    hud.finish_travel()
+    hud.finish_travel()
+
+    assert_eq(swaps.size(), 1, "the swap callback fired exactly once")
+    assert_eq(finishes.size(), 1, "the completion signal emitted exactly once")
+    assert_false(overlay.is_active())
+    assert_false(hud.has_blocking_modal())
+    assert_true(world._world_input_enabled)
+    assert_null(world.get_node_or_null("FarmMap"))
+    assert_not_null(world.get_node_or_null("TownMap"))
+
+func _push_probe_keys(world: WorldShell) -> void:
+    for code: Key in [KEY_E, KEY_SPACE, KEY_2, KEY_I]:
+        var press := InputEventKey.new()
+        press.keycode = code
+        press.physical_keycode = code
+        press.pressed = true
+        world.get_viewport().push_input(press)
+        var release := InputEventKey.new()
+        release.keycode = code
+        release.physical_keycode = code
+        world.get_viewport().push_input(release)
+
+func _push_click(world: WorldShell, screen_point: Vector2) -> void:
+    var press := InputEventMouseButton.new()
+    press.button_index = MOUSE_BUTTON_LEFT
+    press.pressed = true
+    press.position = screen_point
+    press.global_position = screen_point
+    world.get_viewport().push_input(press)
+    var release := InputEventMouseButton.new()
+    release.button_index = MOUSE_BUTTON_LEFT
+    release.position = screen_point
+    release.global_position = screen_point
+    world.get_viewport().push_input(release)
+
 func test_travel_overlay_gates_input_clock_esc_and_mouse_until_the_beat_finishes() -> void:
     var world := _world()
     var hud := world.hud
@@ -5073,15 +5130,41 @@ func test_travel_overlay_gates_input_clock_esc_and_mouse_until_the_beat_finishes
     hud.close_modals()
     assert_true(overlay.visible, "load_map's modal teardown cannot hide the beat")
 
+    var seed_requests := [0]
+    var dismiss_presses := [0]
+    hud.select_seed_requested.connect(func(_kind: int) -> void: seed_requests[0] += 1)
+    var dismiss := hud.find_child("Dismiss", true, false) as Button
+    if dismiss != null:
+        dismiss.pressed.connect(func() -> void: dismiss_presses[0] += 1)
+    var dismissed_before := hud._onboarding_overlay._dismissed.size()
+    var seed_before := session.selected_seed()
+    var seed_card := hud.find_child("SeedCard", true, false) as Control
+
     world.clock_running = true
     world._clock_window_focused = true
-    world._process(0.1)
+    Input.action_press("move_right")
+    var farm_pos: Vector2 = world.player.global_position
+    for _i in 12:
+        await get_tree().process_frame
+    assert_eq(
+        world._clock_elapsed_seconds,
+        0.0,
+        "twelve live _process frames accrue nothing while gated",
+    )
     assert_eq(
         session.snapshot()["time_minutes"],
         snapshot_during["time_minutes"],
         "the passive clock is frozen for the whole beat",
     )
-    assert_eq(world._clock_elapsed_seconds, 0.0)
+    assert_eq(
+        world.player.global_position,
+        farm_pos,
+        "held move_right cannot drift the player pre-swap",
+    )
+    _push_probe_keys(world)
+    _push_click(world, seed_card.get_global_rect().get_center())
+    if dismiss != null and dismiss.is_visible_in_tree():
+        _push_click(world, dismiss.get_global_rect().get_center())
 
     var esc_press := InputEventAction.new()
     esc_press.action = &"ui_cancel"
@@ -5092,7 +5175,42 @@ func test_travel_overlay_gates_input_clock_esc_and_mouse_until_the_beat_finishes
     world.get_viewport().push_input(esc_press)
     world.get_viewport().push_input(esc_release)
     await get_tree().process_frame
+    await get_tree().process_frame
     assert_false(_panel(hud, "PausePanel").visible, "Esc cannot open Pause mid-beat")
+    assert_true(overlay.visible)
+    assert_eq(seed_requests[0], 0, "the SeedCard never saw the mid-beat click")
+    assert_eq(dismiss_presses[0], 0, "the tutorial Dismiss never saw the mid-beat click")
+    assert_eq(session.selected_seed(), seed_before)
+    assert_eq(hud._onboarding_overlay._dismissed.size(), dismissed_before)
+    assert_eq(session.snapshot(), snapshot_during, "probes left the session untouched")
+
+    var swapped := false
+    for _i in 240:
+        if world.get_node_or_null("TownMap") != null:
+            swapped = true
+            break
+        await get_tree().process_frame
+    assert_true(swapped, "the live tween reached the deferred swap")
+    Input.action_press("move_left")
+    var town_pos: Vector2 = world.player.global_position
+    _push_probe_keys(world)
+    _push_click(world, seed_card.get_global_rect().get_center())
+    if dismiss != null and dismiss.is_visible_in_tree():
+        _push_click(world, dismiss.get_global_rect().get_center())
+    for _i in 8:
+        await get_tree().process_frame
+    Input.action_release("move_right")
+    Input.action_release("move_left")
+    assert_eq(
+        world.player.global_position,
+        town_pos,
+        "post-swap movement stays rejected through the hold",
+    )
+    assert_eq(world._clock_elapsed_seconds, 0.0, "the clock stays frozen through the swap")
+    assert_eq(session.snapshot()["time_minutes"], snapshot_during["time_minutes"])
+    assert_eq(seed_requests[0], 0)
+    assert_eq(dismiss_presses[0], 0)
+    assert_eq(session.snapshot(), snapshot_during)
     assert_true(overlay.visible)
 
     hud.finish_travel()

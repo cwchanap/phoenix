@@ -491,44 +491,231 @@ func test_continue_seeded_save_buys_upgrade_and_waters_with_one_stamina() -> voi
 	await _assert_stamina(game, 19)
 
 
+# The e2e channel is serial — one command in flight — but every wait_* the
+# child receives is an app-side per-frame poll: armed once, it cannot miss a
+# state that persists, and a missed state surfaces as a loud timeout rather
+# than a silent skip. Mid-beat probes are real inputs; their rejection is
+# proven by durable post-release state (seed, tutorial, modals, +30 min).
+func _find_node_path(game, base: String, node_name: String) -> String:
+	var tree: Dictionary = await game.get_tree(base, 8)
+	return _walk_for_name(tree, node_name)
+
+
+func _walk_for_name(node: Dictionary, node_name: String) -> String:
+	if String(node.get("name", "")) == node_name:
+		return String(node.get("path", ""))
+	for child in node.get("children", []):
+		var found := _walk_for_name(child, node_name)
+		if found != "":
+			return found
+	return ""
+
+
+func _run_travel_beat(
+	game, target: Vector2i, facing: int, dest_map: String, arrival: Vector2i
+) -> void:
+	var clock_path := CHROME + "/ClockCard/Surface/Body/Row/Clock"
+	var overlay_path := HUD + "/TravelOverlay"
+	var tutorial_path := HUD + "/OnboardingOverlay/TutorialCard"
+	var seed_name_path := CHROME + "/SeedCard/Row/Info/Name"
+	await _stand_at_target(game, target, facing)
+	if is_failure():
+		return
+	var stand_pos: Vector2 = await game.get_property(
+		PLAYER, "global_position"
+	)
+	var tutorial_visible: bool = (
+		await game.get_property(tutorial_path, "visible") == true
+	)
+	var dismiss_path := await _find_node_path(
+		game, HUD + "/OnboardingOverlay", "Dismiss"
+	)
+	# render() re-evaluates the tutorial on every session snapshot, so the
+	# card may legitimately hide after the swap — visibility alone cannot
+	# prove the Dismiss click leaked. Only _on_dismiss_pressed appends to
+	# _dismissed, so its size is the durable leak signal.
+	var dismissed_before_list: Variant = await game.get_property(
+		HUD + "/OnboardingOverlay", "_dismissed"
+	)
+	var dismissed_before: int = (
+		dismissed_before_list.size() if dismissed_before_list is Array else 0
+	)
+	var seed_before: String = await game.get_property(seed_name_path, "text")
+	var start_clock: String = await game.get_property(clock_path, "text")
+	var spawn := WorldMath.grid_to_world(Vector2(arrival) + Vector2(0.5, 0.5))
+	assert_bool(await game.get_property(WORLD, "_world_input_enabled")).is_true()
+
+	# The e2e channel is serial — one command in flight, about as long as the
+	# whole beat — so the full probe wave goes out in ONE batch: the server
+	# executes it inside a single _process tick and every queued event
+	# dispatches in order on the next input flush. The physical E tap starts
+	# the beat and closes the input gate synchronously, so each probe queued
+	# behind it provably lands while the overlay owns input. The clock reset
+	# rides in the same tick, so pre-gate accumulation is bounded by one
+	# input-flush frame. Deferred sub-commands report "not supported in
+	# batch" entries, but their Input.parse_input_event side effect already
+	# ran.
+	var probe_commands: Array = [
+		{"action": "set_property", "path": WORLD, "property": "_clock_elapsed_seconds", "value": 0.0},
+		{"action": "set_property", "path": WORLD, "property": "clock_running", "value": true},
+		{"action": "input_key", "keycode": KEY_E, "pressed": true, "physical": true},
+		{"action": "input_key", "keycode": KEY_E, "pressed": false, "physical": true},
+		{"action": "input_action", "action_name": "move_right", "pressed": true},
+		{"action": "input_action", "action_name": "move_right", "pressed": false},
+		{"action": "input_key", "keycode": KEY_E, "pressed": true, "physical": true},
+		{"action": "input_key", "keycode": KEY_E, "pressed": false, "physical": true},
+		{"action": "input_key", "keycode": KEY_ESCAPE, "pressed": true, "physical": true},
+		{"action": "input_key", "keycode": KEY_ESCAPE, "pressed": false, "physical": true},
+		{"action": "input_key", "keycode": KEY_SPACE, "pressed": true, "physical": true},
+		{"action": "input_key", "keycode": KEY_SPACE, "pressed": false, "physical": true},
+		{"action": "input_key", "keycode": KEY_2, "pressed": true, "physical": true},
+		{"action": "input_key", "keycode": KEY_2, "pressed": false, "physical": true},
+		{"action": "input_key", "keycode": KEY_I, "pressed": true, "physical": true},
+		{"action": "input_key", "keycode": KEY_I, "pressed": false, "physical": true},
+		{"action": "click_node", "path": CHROME + "/SeedCard"},
+	]
+	if tutorial_visible and dismiss_path != "":
+		probe_commands.append({"action": "click_node", "path": dismiss_path})
+	var beat_reset_ms := Time.get_ticks_msec()
+	var batch_result = await game.send_command(
+		"batch", {"commands": probe_commands}
+	)
+	assert_bool(batch_result.ok).is_true()
+	assert_int(
+		Array(batch_result.value.get("results", [])).size()
+	).is_equal(probe_commands.size())
+
+	# Armed child-process observers: each wait_* polls the live value on the
+	# child every frame and resolves the frame the condition holds, so RPC
+	# latency can never skip a phase — a miss is a loud timeout, not a silent
+	# pass. Proven live, the next batch lands mid-beat and samples one frame.
+	assert_bool(
+		await game.wait_for_property(overlay_path, "visible", true, 10.0)
+	).is_true()
+	var mid_beat = await game.send_command(
+		"batch",
+		{
+			"commands": [
+				{"action": "get_property", "path": overlay_path, "property": "visible"},
+				{"action": "get_property", "path": overlay_path, "property": "modulate:a"},
+				{"action": "get_property", "path": WORLD, "property": "_world_input_enabled"},
+				{"action": "call_method", "path": GAME_HUD, "method": "has_blocking_modal"},
+				{"action": "get_property", "path": WORLD, "property": "_clock_elapsed_seconds"},
+				{"action": "node_exists", "path": WORLD + "/" + dest_map},
+				{"action": "get_property", "path": PLAYER, "property": "global_position"},
+			],
+		}
+	)
+	assert_bool(mid_beat.ok).is_true()
+	var snap: Array = mid_beat.value.get("results", [])
+	assert_int(snap.size()).is_equal(7)
+	var mid_visible: bool = snap[0].get("result", false) == true
+	var mid_alpha: float = float(snap[1].get("result", 0.0))
+	var mid_gate: bool = snap[2].get("result", true) == true
+	var mid_modal: bool = snap[3].get("result", false) == true
+	var mid_elapsed: float = float(snap[4].get("result", -1.0))
+	var mid_dest: bool = snap[5].get("exists", false) == true
+	var mid_pos = snap[6].get("result", null)
+	assert_bool(mid_visible).is_true()
+	assert_float(mid_alpha).is_greater(0.0)
+	assert_bool(mid_gate).is_false()
+	assert_bool(mid_modal).is_true()
+	# Freeze proof: the snapshot is inside the live beat yet accumulation
+	# never passed the ~1 input-flush frame between the batch tick and the
+	# gate closing — an unfrozen clock would have accrued the whole wait
+	# round trip plus the beat's head start.
+	assert_float(mid_elapsed).is_greater_equal(0.0)
+	assert_float(mid_elapsed).is_less(0.6)
+	# Movement probe was rejected: the player stands wherever the beat found
+	# them — the stand cell pre-swap or the arrival spawn post-swap.
+	if mid_pos != null:
+		var expected_pos: Vector2 = spawn if mid_dest else stand_pos
+		assert_vector(mid_pos).is_equal_approx(expected_pos, Vector2(2.0, 2.0))
+
+	# Armed release observer: resolves the frame the overlay hides.
+	assert_bool(
+		await game.wait_for_property(overlay_path, "visible", false, 10.0)
+	).is_true()
+
+	# Post-release durable snapshot: release facts and every probe-effect
+	# check in a single frame — a leaked probe leaves permanent evidence
+	# (open modal, cycled seed, dismissed tutorial, moved player).
+	var post_beat = await game.send_command(
+		"batch",
+		{
+			"commands": [
+				{"action": "get_property", "path": overlay_path, "property": "visible"},
+				{"action": "get_property", "path": WORLD, "property": "_world_input_enabled"},
+				{"action": "call_method", "path": GAME_HUD, "method": "has_blocking_modal"},
+				{"action": "get_property", "path": PLAYER, "property": "global_position"},
+				{"action": "get_property", "path": HUD + "/PausePanel", "property": "visible"},
+				{"action": "get_property", "path": HUD + "/BagPanel", "property": "visible"},
+				{"action": "get_property", "path": seed_name_path, "property": "text"},
+				{"action": "get_property", "path": HUD + "/OnboardingOverlay", "property": "_dismissed"},
+				{"action": "get_property", "path": clock_path, "property": "text"},
+				{"action": "get_property", "path": WORLD, "property": "_clock_elapsed_seconds"},
+			],
+		}
+	)
+	assert_bool(post_beat.ok).is_true()
+	var post: Array = post_beat.value.get("results", [])
+	assert_int(post.size()).is_equal(10)
+	assert_bool(post[0].get("result", true)).is_false()
+	assert_bool(post[1].get("result", false)).is_true()
+	assert_bool(post[2].get("result", true)).is_false()
+	var post_pos = post[3].get("result", null)
+	if post_pos != null:
+		assert_vector(post_pos).is_equal_approx(spawn, Vector2(2.0, 2.0))
+	assert_bool(post[4].get("result", true)).is_false()
+	assert_bool(post[5].get("result", true)).is_false()
+	assert_str(str(post[6].get("result", ""))).is_equal(seed_before)
+	var dismissed_after: Variant = post[7].get("result", [])
+	assert_int(
+		dismissed_after.size() if dismissed_after is Array else -1
+	).is_equal(dismissed_before)
+	assert_str(str(post[8].get("result", ""))).is_not_equal(start_clock)
+	# The clock froze for the whole beat and resumed on release: resumed
+	# accumulation is bounded by the wall time since the beat started minus
+	# the full 1.5s beat, while unfrozen accumulation would equal that wall
+	# time outright.
+	var post_elapsed: float = float(post[9].get("result", -1.0))
+	var wall_seconds := (Time.get_ticks_msec() - beat_reset_ms) / 1000.0
+	assert_float(post_elapsed).is_greater_equal(mid_elapsed)
+	assert_float(post_elapsed).is_less(wall_seconds - 1.3)
+
+	assert_bool(await game.node_exists(WORLD + "/" + dest_map)).is_true()
+
+	# The passive clock froze for the beat and must resume after release.
+	assert_bool(
+		await game.set_property(WORLD, "_clock_elapsed_seconds", 0.0)
+	).is_true()
+	assert_bool(await game.set_property(WORLD, "clock_running", true)).is_true()
+	var resumed := false
+	var resume_deadline := Time.get_ticks_msec() + 8000
+	while Time.get_ticks_msec() < resume_deadline and not resumed:
+		await game.wait_seconds(0.2)
+		var elapsed_now: float = await game.get_property(
+			WORLD, "_clock_elapsed_seconds"
+		)
+		if elapsed_now > 0.0:
+			resumed = true
+	assert_bool(resumed).is_true()
+	await game.set_property(WORLD, "clock_running", false)
+
+
 func test_travel_overlay_blocks_input_and_resumes_the_clock() -> void:
 	var game = await _start_new_game()
 	if game == null or is_failure():
 		return
-	var clock_path := CHROME + "/ClockCard/Surface/Body/Row/Clock"
+	assert_bool(await game.set_property(WORLD, "clock_running", false)).is_true()
 	assert_bool(
 		await game.set_property(WORLD, "_clock_window_focused", true)
 	).is_true()
 
-	await _stand_at_target(game, WorldContract.TRUCK_CELL, RIGHT)
-	assert_bool(await game.input_key(KEY_E, true, true)).is_true()
-	assert_bool(
-		await game.wait_for_property(HUD + "/TravelOverlay", "visible", true, 5.0)
-	).is_true()
-	assert_bool(
-		await _wait_for_call_value(game, GAME_HUD, "has_blocking_modal", true, 5.0)
-	).is_true()
-	assert_bool(await game.input_key(KEY_E, false, true)).is_true()
-
-	assert_bool(await game.wait_for_node(WORLD + "/TownMap", 10.0)).is_true()
-	await _wait_travel_release(game)
-	assert_bool(await game.get_property(WORLD, "_world_input_enabled")).is_true()
-	assert_bool(
-		await game.get_property(HUD + "/TravelOverlay", "visible")
-	).is_false()
-	var release_clock: String = await game.get_property(clock_path, "text")
-
-	var deadline_msec := Time.get_ticks_msec() + 8000
-	var resumed := false
-	var last_elapsed := -1.0
-	while Time.get_ticks_msec() < deadline_msec and not resumed:
-		await game.wait_seconds(0.2)
-		var elapsed: float = await game.get_property(WORLD, "_clock_elapsed_seconds")
-		var clock_text: String = await game.get_property(clock_path, "text")
-		if (
-			clock_text != release_clock
-			or (last_elapsed >= 0.0 and elapsed > last_elapsed)
-		):
-			resumed = true
-		last_elapsed = elapsed
-	assert_bool(resumed).is_true()
+	await _run_travel_beat(
+		game, WorldContract.TRUCK_CELL, RIGHT, "TownMap", TownContract.TRUCK_ARRIVAL
+	)
+	await _run_travel_beat(
+		game, TownContract.TRUCK_CELL, LEFT, "FarmMap", WorldContract.TRUCK_ARRIVAL
+	)
+	assert_bool(await game.node_exists(WORLD + "/TownMap")).is_false()
