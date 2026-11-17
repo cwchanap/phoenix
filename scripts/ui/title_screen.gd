@@ -30,13 +30,14 @@ func _ready() -> void:
     set_continue_state(false)
     _refresh_selection()
 
-func set_continue_state(available: bool, status: String = "") -> void:
+func set_continue_state(
+    available: bool, status: String = "", prefer_continue: bool = true
+) -> void:
     _continue_available = available
     _continue_button.disabled = not available
     _status_label.text = status
     _status_pill.visible = not status.is_empty()
-    if not available:
-        _selected_index = 0
+    _selected_index = 1 if (available and prefer_continue) else 0
     _refresh_selection()
 
 func selected_action() -> StringName:
