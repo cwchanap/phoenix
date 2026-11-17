@@ -5,11 +5,20 @@ const FARM_CELLS := 3
 
 var _out_dir: String
 var _t0 := -1
+var _start_clock_minutes := -1
+var _start_acc := 0.0
 var _bed_clock_minutes := -1
+var _bed_acc := 0.0
 var _active_seconds := 0.0
+var _credited_seconds := 0.0
 var _ungated_frames := 0
 var _clock_focused_frames := 0
 var _window_focus_seen := false
+var _day1_frozen := false
+var _day2_active_seconds := 0.0
+var _day2_credited_seconds := 0.0
+var _day2_ungated_frames := 0
+var _day2_clock_focused_frames := 0
 
 func _initialize() -> void:
 	_out_dir = OS.get_environment("TOUR_OUT")
@@ -66,17 +75,29 @@ func _track_clock() -> void:
 			if root.has_focus():
 				_window_focus_seen = true
 			if _world._clock_window_focused:
-				_clock_focused_frames += 1
+				if _day1_frozen:
+					_day2_clock_focused_frames += 1
+				else:
+					_clock_focused_frames += 1
 				if _world.clock_running and _world._world_input_enabled:
-					_active_seconds += (now - last) / 1000.0
-					_ungated_frames += 1
+					var span := (now - last) / 1000.0
+					var credited := minf(span, WorldShell.CLOCK_DELTA_CLAMP)
+					if _day1_frozen:
+						_day2_active_seconds += span
+						_day2_credited_seconds += credited
+						_day2_ungated_frames += 1
+					else:
+						_active_seconds += span
+						_credited_seconds += credited
+						_ungated_frames += 1
 		last = now
 
 func _mark(label: String) -> void:
 	var snapshot := _world._session.snapshot()
 	_log(
 		(
-			"%s wall=%s elapsed=%.2fs active=%.2fs clock=%s acc=%.4f "
+			"%s wall=%s elapsed=%.2fs active=%.2fs day2_active=%.2fs "
+			+ "clock=%s acc=%.4f "
 			+ "window_focus=%s clock_focused=%s gated=%s"
 		)
 		% [
@@ -84,6 +105,7 @@ func _mark(label: String) -> void:
 			Time.get_datetime_string_from_system(),
 			(Time.get_ticks_msec() - _t0) / 1000.0,
 			_active_seconds,
+			_day2_active_seconds,
 			GameRules.format_time(int(snapshot["time_minutes"])),
 			_world._clock_elapsed_seconds,
 			str(root.has_focus()),
@@ -175,6 +197,8 @@ func _run() -> void:
 		_finish("tour=hpa-775-day")
 		return
 	_t0 = Time.get_ticks_msec()
+	_start_clock_minutes = int(_world._session.snapshot()["time_minutes"])
+	_start_acc = _world._clock_elapsed_seconds
 	_mark("day-start")
 	var cells := WorldContract.farm_cells()
 	for index in FARM_CELLS:
@@ -212,14 +236,22 @@ func _run() -> void:
 		return
 	_mark("bed-side")
 	await _interact()
-	await _frames(10)
 	var sleep_panel := _world.hud.get_node_or_null("HudRoot/SleepPanel") as Control
+	var sleep_deadline := Time.get_ticks_msec() + 15000
+	while (
+		(sleep_panel == null or not sleep_panel.visible)
+		and Time.get_ticks_msec() < sleep_deadline
+	):
+		await _frames(1)
+		sleep_panel = _world.hud.get_node_or_null("HudRoot/SleepPanel") as Control
+	_day1_frozen = true
 	if sleep_panel == null or not sleep_panel.visible:
 		_failures.append("bed: sleep confirmation never opened")
 		_finish("tour=hpa-775-day")
 		return
 	await _shot("day-sleep-confirm")
 	_bed_clock_minutes = int(_world._session.snapshot()["time_minutes"])
+	_bed_acc = _world._clock_elapsed_seconds
 	_mark("sleep-confirm")
 	await _key(KEY_ENTER)
 	var summary := _world.hud.get_node_or_null("HudRoot/MorningSummaryPanel") as Control
@@ -251,26 +283,59 @@ func _run() -> void:
 			"bed: saved day %s, expected %d"
 			% [str(reread.get("state", {}).get("day", "?")), SEEDED_DAY + 1]
 		)
-	var spent := _bed_clock_minutes - GameRules.DAY_START_MINUTES
-	var passive := spent - FARM_CELLS * 70 - 2 * GameRules.TRAVEL_MINUTES
+	var pre_observed := _start_clock_minutes - GameRules.DAY_START_MINUTES
+	var observed_ticks := (
+		_bed_clock_minutes
+		- _start_clock_minutes
+		- FARM_CELLS * 70
+		- 2 * GameRules.TRAVEL_MINUTES
+	)
+	var credited_needed := (
+		observed_ticks * GameRules.REAL_SECONDS_PER_GAME_MINUTE
+		+ _bed_acc
+		- _start_acc
+	)
 	_log(
 		(
-			"day-result start=06:00 bed_clock=%s action_minutes=%d "
-			+ "travel_minutes=%d passive_minutes=%d active_seconds=%.2f "
-			+ "rate=%.4f passive_seconds_check=%.2f ungated_frames=%d "
-			+ "clock_focused_frames=%d window_focus_seen=%s"
+			"day-result observed_start=%s start_acc=%.4f bed_clock=%s "
+			+ "bed_acc=%.4f action_minutes=%d travel_minutes=%d "
+			+ "passive_ticks=%d pre_observed_ticks=%d active_wall=%.2fs "
+			+ "clamp_credited=%.2fs credited_needed=%.2fs rate=%.4f "
+			+ "ungated_frames=%d clock_focused_frames=%d window_focus_seen=%s"
 		)
 		% [
+			GameRules.format_time(_start_clock_minutes),
+			_start_acc,
 			GameRules.format_time(_bed_clock_minutes),
+			_bed_acc,
 			FARM_CELLS * 70,
 			2 * GameRules.TRAVEL_MINUTES,
-			passive,
+			observed_ticks,
+			pre_observed,
 			_active_seconds,
+			_credited_seconds,
+			credited_needed,
 			GameRules.REAL_SECONDS_PER_GAME_MINUTE,
-			passive * GameRules.REAL_SECONDS_PER_GAME_MINUTE,
 			_ungated_frames,
 			_clock_focused_frames,
 			str(_window_focus_seen),
+		]
+	)
+	var day2_clock := int(snapshot["time_minutes"])
+	_log(
+		(
+			"day2-result clock=%s acc=%.4f passive_ticks=%d "
+			+ "active_wall=%.2fs clamp_credited=%.2fs "
+			+ "ungated_frames=%d clock_focused_frames=%d"
+		)
+		% [
+			GameRules.format_time(day2_clock),
+			_world._clock_elapsed_seconds,
+			day2_clock - GameRules.DAY_START_MINUTES,
+			_day2_active_seconds,
+			_day2_credited_seconds,
+			_day2_ungated_frames,
+			_day2_clock_focused_frames,
 		]
 	)
 	if _clock_focused_frames == 0 or not _window_focus_seen:
