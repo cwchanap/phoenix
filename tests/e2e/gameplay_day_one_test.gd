@@ -517,6 +517,31 @@ func _walk_for_name(node: Dictionary, node_name: String) -> String:
 	return ""
 
 
+func _phys_tap(keycode: int) -> Array:
+	return [
+		{"type": "key", "keycode": keycode, "pressed": true, "physical": true},
+		{"type": "key", "keycode": keycode, "pressed": false, "physical": true},
+	]
+
+
+func _tap(keycode: int) -> Array:
+	return [
+		{"type": "key", "keycode": keycode, "pressed": true},
+		{"type": "key", "keycode": keycode, "pressed": false},
+	]
+
+
+func _send_specs(game, specs: Array) -> void:
+	var res = await game.send_command("input_sequence", {"specs": specs})
+	assert_bool(res.ok).is_true()
+	var results: Array = (
+		res.value.get("results", []) if res.value is Dictionary else []
+	)
+	assert_int(results.size()).is_equal(specs.size())
+	for entry in results:
+		assert_bool(bool(entry.get("ok", false))).is_true()
+
+
 func _run_travel_beat(
 	game, target: Vector2i, facing: int, dest_map: String, arrival: Vector2i
 ) -> void:
@@ -530,6 +555,84 @@ func _run_travel_beat(
 	var stand_pos: Vector2 = await game.get_property(
 		PLAYER, "global_position"
 	)
+
+	# Ungated control: every probe binding must reach its real action while
+	# the gate is open, or a mid-beat rejection proves nothing. Gameplay
+	# bindings use physical keycodes, so their key events are physical;
+	# ui_cancel is the built-in binding and only matches a non-physical
+	# Escape — a physical Esc never fires it.
+	var bag_path := HUD + "/BagPanel"
+	var pause_path := HUD + "/PausePanel"
+	var control_seed: String = await game.get_property(seed_name_path, "text")
+	var dismissed_list: Variant = await game.get_property(
+		HUD + "/OnboardingOverlay", "_dismissed"
+	)
+	var dismissed_control: int = (
+		dismissed_list.size() if dismissed_list is Array else 0
+	)
+	var tutorial_open: bool = (
+		await game.get_property(tutorial_path, "visible") == true
+	)
+	var dismiss_btn := await _find_node_path(
+		game, HUD + "/OnboardingOverlay", "Dismiss"
+	)
+	await _send_specs(game, _phys_tap(KEY_I))
+	await game.wait_seconds(0.5)
+	assert_bool(await game.get_property(bag_path, "visible")).is_true()
+	await _send_specs(game, _phys_tap(KEY_I))
+	await game.wait_seconds(0.5)
+	assert_bool(await game.get_property(bag_path, "visible")).is_false()
+	await _send_specs(game, _tap(KEY_ESCAPE))
+	await game.wait_seconds(0.5)
+	assert_bool(await game.get_property(pause_path, "visible")).is_true()
+	await _send_specs(game, _tap(KEY_ESCAPE))
+	await game.wait_seconds(0.5)
+	assert_bool(await game.get_property(pause_path, "visible")).is_false()
+	await _send_specs(
+		game,
+		[
+			{
+				"type": "key",
+				"keycode": KEY_SPACE,
+				"pressed": true,
+				"physical": true
+			}
+		]
+	)
+	await game.wait_seconds(0.5)
+	assert_bool(await game.get_property(WORLD, "_action_hold_active")).is_true()
+	await _send_specs(
+		game,
+		[
+			{
+				"type": "key",
+				"keycode": KEY_SPACE,
+				"pressed": false,
+				"physical": true
+			}
+		]
+	)
+	await game.wait_seconds(0.5)
+	assert_bool(await game.get_property(WORLD, "_action_hold_active")).is_false()
+	if tutorial_open and dismiss_btn != "":
+		await _send_specs(game, [{"type": "click", "path": dismiss_btn}])
+		await game.wait_seconds(0.5)
+		var dismissed_now: Variant = await game.get_property(
+			HUD + "/OnboardingOverlay", "_dismissed"
+		)
+		assert_int(
+			dismissed_now.size() if dismissed_now is Array else -1
+		).is_equal(dismissed_control + 1)
+	await _send_specs(game, _phys_tap(KEY_2))
+	await game.wait_seconds(0.5)
+	var after_two := str(await game.get_property(seed_name_path, "text"))
+	assert_str(after_two).is_not_equal(control_seed)
+	await _send_specs(game, [{"type": "click", "path": CHROME + "/SeedCard"}])
+	await game.wait_seconds(0.5)
+	assert_str(
+		await game.get_property(seed_name_path, "text")
+	).is_not_equal(after_two)
+
 	var tutorial_visible: bool = (
 		await game.get_property(tutorial_path, "visible") == true
 	)
@@ -563,12 +666,18 @@ func _run_travel_beat(
 	# input_sequence in one dispatch tick: queued events flush in order on
 	# the next input phase, so the physical E tap starts the beat and closes
 	# the gate synchronously, and every probe queued behind it lands while
-	# gated — move_right stays held across the whole beat for real movement
-	# rejection, not a same-frame tap.
+	# gated — move_right stays held through the swap for real movement
+	# rejection, then releases in-child while still gated.
 	var observe_result = await game.send_command(
 		"observe",
 		{
 			"while": {"path": overlay_path, "property": "visible", "value": true},
+			# The held move_right is released in-child the frame the
+			# destination map lands — still gated, so serial RPC latency can
+			# never hold the input past gate-open and let the player walk.
+			"release_on": {
+				"sample": "dest", "value": true, "actions": ["move_right"]
+			},
 			"arm_frames": 300,
 			"max_frames": 1200,
 			"samples": [
@@ -589,67 +698,32 @@ func _run_travel_beat(
 	assert_bool(observe_result.ok).is_true()
 	var probe_specs: Array = [
 		{"type": "action", "action_name": "move_right", "pressed": true},
-		{"type": "key", "keycode": KEY_E, "pressed": true, "physical": true},
-		{"type": "key", "keycode": KEY_E, "pressed": false, "physical": true},
-		{"type": "key", "keycode": KEY_E, "pressed": true},
-		{"type": "key", "keycode": KEY_E, "pressed": false},
-		{"type": "key", "keycode": KEY_ESCAPE, "pressed": true},
-		{"type": "key", "keycode": KEY_ESCAPE, "pressed": false},
-		{"type": "key", "keycode": KEY_SPACE, "pressed": true},
-		{"type": "key", "keycode": KEY_SPACE, "pressed": false},
-		{"type": "key", "keycode": KEY_2, "pressed": true},
-		{"type": "key", "keycode": KEY_2, "pressed": false},
-		{"type": "key", "keycode": KEY_I, "pressed": true},
-		{"type": "key", "keycode": KEY_I, "pressed": false},
-		{"type": "click", "path": CHROME + "/SeedCard"},
 	]
+	probe_specs.append_array(_phys_tap(KEY_E))
+	probe_specs.append_array(_phys_tap(KEY_E))
+	probe_specs.append_array(_tap(KEY_ESCAPE))
+	probe_specs.append_array(_phys_tap(KEY_SPACE))
+	probe_specs.append_array(_phys_tap(KEY_2))
+	probe_specs.append_array(_phys_tap(KEY_I))
+	probe_specs.append({"type": "click", "path": CHROME + "/SeedCard"})
 	if tutorial_visible and dismiss_path != "":
 		probe_specs.append({"type": "click", "path": dismiss_path})
-	var seq_result = await game.send_command(
-		"input_sequence", {"specs": probe_specs}
-	)
-	assert_bool(seq_result.ok).is_true()
-	var spec_results: Array = seq_result.value.get("results", [])
-	assert_int(spec_results.size()).is_equal(probe_specs.size())
-	for entry in spec_results:
-		assert_bool(bool(entry.get("ok", false))).is_true()
+	await _send_specs(game, probe_specs)
 
 	# The observer is already recording; poll its durable state until the
-	# beat releases it. The moment it reports active, the held move_right is
-	# released via a second input_sequence: the serial channel's latency can
-	# no longer hold the input past gate-open and let the player walk.
+	# beat releases it. The held-input release was scheduled in-child, so
+	# this poll's latency cannot affect it.
 	var observed: Dictionary = {}
-	var released_move := false
 	var observe_deadline := Time.get_ticks_msec() + 30000
 	while Time.get_ticks_msec() < observe_deadline:
 		await game.wait_seconds(0.4)
 		var poll = await game.send_command("observe_result")
-		if not poll.ok:
-			continue
-		if bool(poll.value.get("active", false)) and not released_move:
-			var rel = await game.send_command(
-				"input_sequence",
-				{
-					"specs": [
-						{
-							"type": "action",
-							"action_name": "move_right",
-							"pressed": false
-						}
-					]
-				}
-			)
-			assert_bool(rel.ok).is_true()
-			assert_bool(
-				bool(Array(rel.value.get("results", [{}]))[0].get("ok", false))
-			).is_true()
-			released_move = true
-		if bool(poll.value.get("done", false)):
+		if poll.ok and bool(poll.value.get("done", false)):
 			observed = poll.value
 			break
 	assert_bool(observed.get("done", false)).is_true()
 	assert_bool(observed.get("active", false)).is_true()
-	assert_bool(released_move).is_true()
+	assert_bool(bool(observed.get("released", false))).is_true()
 	await game.input_action("move_right", false)
 	var frames_data: Array = observed.get("data", [])
 	assert_int(frames_data.size()).is_greater_equal(3)

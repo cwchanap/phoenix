@@ -5144,7 +5144,12 @@ func test_travel_overlay_gates_input_clock_esc_and_mouse_until_the_beat_finishes
     var last_pos: Vector2 = world.player.global_position
     var had_town := false
     var frames := 0
-    while overlay.visible and frames < 240:
+    var beat_deadline := Time.get_ticks_msec() + 8000
+    while (
+        overlay.visible
+        and frames < 5000
+        and Time.get_ticks_msec() < beat_deadline
+    ):
         await get_tree().process_frame
         if not overlay.visible:
             break
@@ -5185,6 +5190,9 @@ func test_travel_overlay_gates_input_clock_esc_and_mouse_until_the_beat_finishes
     Input.action_release("move_right")
     Input.action_release("move_left")
     if overlay.visible:
+        # Record the failure BEFORE the cleanup finish so the assertions
+        # below can never pass on a force-finished beat.
+        assert_true(false, "the live beat must complete without finish_travel()")
         hud.finish_travel()
     assert_gt(frames, 0, "the real tween was sampled mid-beat")
     assert_eq(gate_gaps, 0, "input gate held on every observed frame")
