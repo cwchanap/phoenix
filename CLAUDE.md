@@ -331,11 +331,14 @@ and late interactions end to end on the pre-seeding build.
   `has_focus()` flag seeding landed (`221e653`). Its locked-session console
   could not produce a real OS focus transition (`Window.has_focus()` never
   true), so under the current code that session could not tick at all: the
-  run exercised the pre-seeding always-true flag, and the focus-seeded
-  path is covered only by the deterministic GUT notification dispatch
-  (`test_gameplay_shell.gd`); the modeled 0.15 s/min rate stays an
-  estimate — a human-run defocus check on an unlocked desktop and human
-  subjective pace evidence remain open.
+  run exercised the pre-seeding always-true flag. The focus-seeded path
+  is now covered by the deterministic GUT notification dispatch
+  (`test_gameplay_shell.gd`) and by a focused native startup whose
+  ticking was observed across `hpa_775_day_tour.gd` milestones
+  (`window_focus`/`clock_focused`) — but a real OS defocus/refocus
+  transition has still never been observed. The modeled 0.15 s/min rate
+  stays an estimate: a human-run defocus check on an unlocked desktop
+  and human subjective pace evidence remain open.
 - HPA-598 owns serialization; HPA-594 defines no save schema.
 - HPA-599 owns balance/polish/export.
 - HPA-685 extracted the authored farm into `scenes/world/farm_map.tscn`
