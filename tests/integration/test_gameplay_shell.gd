@@ -4343,7 +4343,13 @@ func test_passive_clock_ticks_pauses_and_keeps_late_day_interactive() -> void:
     assert_almost_eq(world._clock_elapsed_seconds, 0.05, 0.001)
     assert_eq(time_label.text, "21:01")
     session._day = 1
+    session._time_minutes = GameRules.ACTION_CUTOFF_MINUTES
     world._refresh_from_session()
+    assert_eq(
+        int(session.snapshot()["time_minutes"]),
+        GameRules.ACTION_CUTOFF_MINUTES,
+    )
+    assert_eq(time_label.text, "22:00")
 
     await _drive_home(world)
     _set_target(world, WorldContract.SHIPPING_CELL)
