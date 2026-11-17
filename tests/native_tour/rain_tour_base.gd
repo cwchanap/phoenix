@@ -94,14 +94,15 @@ func _title_continue() -> void:
 		_failures.append("title: Continue never became available")
 		_finish()
 		return
-	_log("title continue available; selecting Continue")
-	await _key(KEY_S)  # move_down selects Continue
-	await _frames(10)
-	_log("title selection=%s" % str(title.selected_action()))
+	_log("title continue available; selection=%s" % str(title.selected_action()))
 	if str(title.selected_action()) != "continue":
-		_failures.append("title: Continue not selected")
-		_finish()
-		return
+		await _key(KEY_S)  # move_down selects Continue
+		await _frames(10)
+		_log("title selection=%s" % str(title.selected_action()))
+		if str(title.selected_action()) != "continue":
+			_failures.append("title: Continue not selected")
+			_finish()
+			return
 	await _key(KEY_ENTER)
 
 func _wait_world() -> void:

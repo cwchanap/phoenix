@@ -331,6 +331,120 @@ func test_continue_with_completed_finale_shows_result_screen() -> void:
         assert_eq(result_state["featured"][key], String(villager["name"]) == expected["villager"])
     assert_eq(result_state["save_status"], "")
 
+func _seed_unfinished_day(repository: SaveRepository, day: int) -> void:
+    var session := GameSession.new(func() -> float: return 0.9)
+    var seeded := session.state()
+    seeded["day"] = day
+    seeded["weather"] = &"sunny"
+    seeded["weather_history"] = []
+    for _index in day:
+        seeded["weather_history"].append(&"sunny")
+    seeded["intro_acknowledged"] = true
+    assert_eq(SessionStateValidator.state_error(seeded), "")
+    assert_true(session.restore_state(seeded))
+    assert_eq(repository.save(session.state()), OK)
+
+func test_unfinished_day_five_save_defaults_to_continue_and_enter_resumes() -> void:
+    var repository := SaveRepository.new(TEST_PATH)
+    _seed_unfinished_day(repository, 5)
+    var existing_before: Dictionary = repository.load()["state"]
+
+    var app := _spawn_app(repository)
+    if app == null:
+        return
+    var title := app.get_node("TitleScreen") as TitleScreen
+    var continue_button := title.get_node("Menu/Continue") as Button
+    var new_gradient := title.get_node("Menu/NewGame/Gradient") as Control
+    var continue_gradient := title.get_node("Menu/Continue/Gradient") as Control
+    var new_keycap := title.get_node("Menu/NewGame/Keycap") as Control
+    var continue_keycap := title.get_node("Menu/Continue/Keycap") as Control
+    assert_false(continue_button.disabled)
+    assert_eq(title.selected_action(), &"continue")
+    assert_false(new_gradient.visible)
+    assert_true(continue_gradient.visible)
+    assert_false(new_keycap.visible)
+    assert_true(continue_keycap.visible)
+
+    _push_action(title, &"ui_accept")
+    await get_tree().process_frame
+
+    var world := _stop_world_clock(app)
+    assert_eq(world._session.state()["day"], 5)
+    var still_saved := repository.load()
+    assert_eq(still_saved["status"], &"loaded")
+    assert_eq(still_saved["state"], existing_before)
+
+func test_unfinished_save_explicit_new_game_still_launches_day_one() -> void:
+    var repository := SaveRepository.new(TEST_PATH)
+    _seed_unfinished_day(repository, 5)
+    var existing_before: Dictionary = repository.load()["state"]
+
+    var app := _spawn_app(repository)
+    if app == null:
+        return
+    var title := app.get_node("TitleScreen") as TitleScreen
+    assert_eq(title.selected_action(), &"continue")
+
+    _push_action(title, &"move_down")
+    assert_eq(title.selected_action(), &"new_game")
+    _push_action(title, &"ui_accept")
+    await get_tree().process_frame
+
+    var world := _stop_world_clock(app)
+    assert_eq(world._session.state()["day"], 1)
+    var still_saved := repository.load()
+    assert_eq(still_saved["status"], &"loaded")
+    assert_eq(still_saved["state"], existing_before)
+
+func test_completed_save_defaults_to_new_game_and_enter_starts_day_one() -> void:
+    var repository := SaveRepository.new(TEST_PATH)
+    _seed_completed_save(repository)
+
+    var app := _spawn_app(repository)
+    if app == null:
+        return
+    var title := app.get_node("TitleScreen") as TitleScreen
+    var continue_button := title.get_node("Menu/Continue") as Button
+    assert_false(continue_button.disabled)
+    assert_eq(title.selected_action(), &"new_game")
+
+    _push_action(title, &"ui_accept")
+    await get_tree().process_frame
+
+    assert_false((app.get_node("ResultScreen") as ResultScreen).visible)
+    var world := _stop_world_clock(app)
+    assert_eq(world._session.state()["day"], 1)
+
+func test_completed_save_return_to_title_does_not_reenter_result() -> void:
+    var repository := SaveRepository.new(TEST_PATH)
+    _seed_completed_save(repository)
+
+    var app := _spawn_app(repository)
+    if app == null:
+        return
+    var title := app.get_node("TitleScreen") as TitleScreen
+    var result := app.get_node("ResultScreen") as ResultScreen
+    assert_eq(title.selected_action(), &"new_game")
+
+    _push_action(title, &"move_up")
+    assert_eq(title.selected_action(), &"continue")
+    _push_action(title, &"ui_accept")
+    await get_tree().process_frame
+    assert_true(result.visible)
+    assert_null(app.get_node_or_null("World"))
+
+    _push_action(result, &"ui_cancel")
+    await get_tree().process_frame
+    assert_false(result.visible)
+    assert_true(title.visible)
+    assert_eq(title.selected_action(), &"new_game")
+
+    _push_action(title, &"ui_accept")
+    await get_tree().process_frame
+    assert_false(result.visible)
+    var world := _stop_world_clock(app)
+    assert_eq(world._session.state()["day"], 1)
+
 func _seed_completed_save(repository: SaveRepository) -> void:
     var session := GameSession.new(func() -> float: return 0.9)
     var seeded := session.state()
@@ -498,11 +612,6 @@ func test_title_enter_keycap_marks_only_the_selected_action() -> void:
     assert_not_null(continue_keycap)
     if new_keycap == null or continue_keycap == null:
         return
-    assert_eq(title.selected_action(), &"new_game")
-    assert_true(new_keycap.visible)
-    assert_false(continue_keycap.visible)
-
-    _push_action(title, &"move_down")
     assert_eq(title.selected_action(), &"continue")
     assert_false(new_keycap.visible)
     assert_true(continue_keycap.visible)
@@ -511,6 +620,11 @@ func test_title_enter_keycap_marks_only_the_selected_action() -> void:
     assert_eq(title.selected_action(), &"new_game")
     assert_true(new_keycap.visible)
     assert_false(continue_keycap.visible)
+
+    _push_action(title, &"move_down")
+    assert_eq(title.selected_action(), &"continue")
+    assert_false(new_keycap.visible)
+    assert_true(continue_keycap.visible)
 
 func test_title_keyboard_skips_disabled_continue_and_enter_starts_new_game() -> void:
     var repository := SaveRepository.new(TEST_PATH)
@@ -579,6 +693,7 @@ func test_schema_3_save_is_unavailable_and_new_game_still_launches() -> void:
         return
     var title := app.get_node("TitleScreen") as TitleScreen
     assert_true((title.get_node("Menu/Continue") as Button).disabled)
+    assert_eq(title.selected_action(), &"new_game")
     assert_eq(title.status_text(), "Save unavailable; start a New Game.")
     title.continue_requested.emit()
     await get_tree().process_frame
@@ -607,6 +722,7 @@ func test_save_missing_ownership_disables_continue_and_refuses_launch() -> void:
     var title := app.get_node("TitleScreen") as TitleScreen
     var continue_button := title.get_node("Menu/Continue") as Button
     assert_true(continue_button.disabled)
+    assert_eq(title.selected_action(), &"new_game")
     assert_eq(title.status_text(), "Save is incompatible; start a New Game.")
 
     # Bypass the disabled Button and prove AppRoot itself refuses the launch.
@@ -642,6 +758,7 @@ func test_missing_save_disables_continue_and_refuses_launch() -> void:
     var title := app.get_node("TitleScreen") as TitleScreen
     var continue_button := title.get_node("Menu/Continue") as Button
     assert_true(continue_button.disabled)
+    assert_eq(title.selected_action(), &"new_game")
 
     title.continue_requested.emit()
     await get_tree().process_frame
@@ -662,6 +779,7 @@ func test_malformed_file_disables_continue_and_refuses_launch() -> void:
     var title := app.get_node("TitleScreen") as TitleScreen
     var continue_button := title.get_node("Menu/Continue") as Button
     assert_true(continue_button.disabled)
+    assert_eq(title.selected_action(), &"new_game")
     assert_ne(title.status_text(), "")
 
     title.continue_requested.emit()

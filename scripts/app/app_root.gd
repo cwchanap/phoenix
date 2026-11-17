@@ -42,7 +42,9 @@ func _load_title_state() -> void:
             var error := SessionStateValidator.state_error(result["state"])
             if error == "":
                 _continue_state = result["state"].duplicate(true)
-                _title_screen.set_continue_state(true)
+                _title_screen.set_continue_state(
+                    true, "", not bool(_continue_state["finale_triggered"])
+                )
             else:
                 _continue_state = null
                 _title_screen.set_continue_state(false, "Save is incompatible; start a New Game.")
