@@ -314,10 +314,12 @@ func interact() -> void:
     action.call()
 
 func _attempt_travel(target: Variant) -> void:
+    var before := _session.snapshot()
     var code := _session.travel(target)
     hud.show_feedback(code)
-    if code == GameRules.CommandCode.TRAVELLED:
-        load_map(true)
+    if code != GameRules.CommandCode.TRAVELLED:
+        return
+    hud.play_travel(before, _session.snapshot(), load_map.bind(true))
 
 func _attempt_market(target: Variant) -> void:
     if int(_session.snapshot()["day"]) == GameRules.MAX_DAY:

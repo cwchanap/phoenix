@@ -65,6 +65,12 @@ func test_day14_market_cancel_then_confirm_finale() -> void:
 	await _stand_at_target(game, WorldContract.TRUCK_CELL, RIGHT)
 	await _tap_key(game, KEY_E)
 	assert_bool(await game.wait_for_node(WORLD + "/TownMap", 5.0)).is_true()
+	var deadline_msec := Time.get_ticks_msec() + 10000
+	while bool(await game.call_method(GAME_HUD, "has_blocking_modal")):
+		if Time.get_ticks_msec() >= deadline_msec:
+			break
+		await game.wait_seconds(0.1)
+	assert_bool(await game.call_method(GAME_HUD, "has_blocking_modal")).is_false()
 
 	await _stand_at_target(game, TownContract.MARKET_CELL, DOWN)
 	await _tap_key(game, KEY_E)
