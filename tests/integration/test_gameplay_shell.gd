@@ -5683,10 +5683,11 @@ func test_close_modals_preserves_opening() -> void:
 #     -> Array of {"cell": Vector2i, "footprint": Rect2} in contract order.
 #   - WorldShell._resolve_interactable() -> {"cell", "label", "action"} or {}.
 #   - The same resolver answers _process() E hints, interact() and the five
-#     modal-submit handlers, preferring the nearest region within a strict
-#     14px near-contact reach whose inward dot is positive, refusing when a
-#     region is within reach but none is faced, and falling back to the exact
-#     raw target only when no region is within reach.
+#     modal-submit handlers, preferring the nearest region within an
+#     inclusive 14px (`<= 14`) near-contact reach whose inward dot is
+#     positive, refusing when a region is within reach but none is faced,
+#     and falling back to the exact raw target only when no region is
+#     within reach.
 #
 # Review round 1 (finding 5): no two regions on either map ever sit within
 # 2x reach of each other (closest pair shop–Sato / market–Hana at 30.05px >
@@ -5837,15 +5838,16 @@ func _contact_stop(world: WorldShell, map_id: GameRules.MapId, footprint: Rect2,
         await _push_until_stopped(world, -normal)
         var stop: Vector2 = world.player.global_position
         var stop_contact := _closest_contact_point(footprint, stop)
-        if stop.distance_to(stop_contact) >= CONTACT_REACH_PX:
+        if stop.distance_to(stop_contact) > CONTACT_REACH_PX:
             return {"ok": false}
         return {"ok": true, "stop": stop}
     return {"ok": false}
 
-## Spec replica of Decision 1: nearest region within strict reach whose
-## inward dot is positive (contract order breaks ties); empty (null) when a
-## region is within reach but none is faced; exact raw-target match is the
-## compatibility fallback only when no region is within reach.
+## Spec replica of Decision 1: nearest region within inclusive reach
+## (distance <= 14) whose inward dot is positive (contract order breaks
+## ties); empty (null) when a region is within reach but none is faced;
+## exact raw-target match is the compatibility fallback only when no region
+## is within reach.
 func _expected_resolution(
     world: WorldShell,
     position: Vector2,
@@ -5858,7 +5860,7 @@ func _expected_resolution(
     for region in regions:
         var contact := _closest_contact_point(region["footprint"], position)
         var distance := position.distance_to(contact)
-        if distance >= CONTACT_REACH_PX:
+        if distance > CONTACT_REACH_PX:
             continue
         any_within_reach = true
         if _screen_direction(facing).dot(contact - position) > 0.0 and distance < best_distance:
