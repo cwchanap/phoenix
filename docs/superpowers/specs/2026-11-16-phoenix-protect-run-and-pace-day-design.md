@@ -1,6 +1,6 @@
 # HPA-775 — Protect the run and pace the day: design specification
 
-**Status:** Proposed; planning only (no runtime changes or verification claimed)  
+**Status:** Implemented on PR #42 (title default, market confirmation, travel overlay, 0.15 s/min clock); automated suites and native tours green at head. Evidence limits are recorded in the implementation plan.  
 **Issue:** https://linear.app/cwchanap/issue/HPA-775/protect-the-run-and-pace-the-day  
 **Repository/base:** cwchanap/phoenix, main at c5eb32553d40d882a7bf156880096093e62ff1dd (16 Nov 2026 inspection)  
 **Delivery:** One ticket, one PR. Continue implementation on this same draft PR after plan review.
