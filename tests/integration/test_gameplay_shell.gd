@@ -5752,7 +5752,17 @@ func _collider_footprints(map_id: GameRules.MapId) -> Array:
     ] + TownContract.VILLAGER_FOOTPRINTS + WorldContract.perimeter_footprints(TownContract.MAP_SIZE)
 
 func _probe_collides(map_id: GameRules.MapId, position: Vector2) -> bool:
-    var probe := WorldMath.centered_player_footprint_polygon(WorldMath.world_to_grid(position))
+    var logical_center := WorldMath.world_to_grid(position)
+    var probe := WorldMath.centered_player_footprint_polygon(logical_center)
+    # The perimeter bands are finite, so a footprint that clears them is not
+    # automatically free: it may stand outside the playable map entirely.
+    var map_size: Vector2i = (
+        WorldContract.MAP_SIZE if map_id == GameRules.MapId.FARM else TownContract.MAP_SIZE
+    )
+    var half := Vector2.ONE * WorldContract.PLAYER_HALF_EXTENT
+    var logical_footprint := Rect2(logical_center - half, half * 2.0)
+    if not Rect2(Vector2.ZERO, Vector2(map_size)).encloses(logical_footprint):
+        return true
     for footprint in _collider_footprints(map_id):
         if not Geometry2D.intersect_polygons(probe, WorldMath.footprint_to_polygon(footprint)).is_empty():
             return true
@@ -6044,7 +6054,9 @@ func _run_contact_table(world: WorldShell, map_id: GameRules.MapId, minimum_face
                 var candidate := WorldMath.grid_to_world(stop_logical + offset)
                 if _probe_collides(map_id, candidate):
                     continue
-                if candidate.distance_to(_closest_contact_point(footprint, candidate)) < CONTACT_REACH_PX:
+                # <= keeps an exactly-reachable candidate out of the backoff:
+                # the mandated inclusive <=14px policy would still resolve it.
+                if candidate.distance_to(_closest_contact_point(footprint, candidate)) <= CONTACT_REACH_PX:
                     continue
                 backoff_position = candidate
                 break
