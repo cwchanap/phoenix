@@ -35,6 +35,18 @@ func _target_market(world: WorldShell) -> void:
     world.player.facing = WorldMath.Facing.DOWN
     assert_eq(world.player.current_target_cell(), TownContract.MARKET_CELL)
 
+func _finish_travel(hud: GameHud) -> void:
+    var overlay := hud.get_node("HudRoot/TravelOverlay") as TravelOverlay
+    var steps := 0
+    while (
+        overlay.visible
+        and overlay._tween != null
+        and overlay._tween.is_valid()
+        and steps < 16
+    ):
+        overlay._tween.custom_step(0.5)
+        steps += 1
+
 func _drive_to_town(world: WorldShell) -> void:
     var offset: Vector2i = WorldMath.TARGET_OFFSETS[WorldMath.Facing.RIGHT]
     world.player.global_position = WorldMath.grid_to_world(
@@ -43,7 +55,7 @@ func _drive_to_town(world: WorldShell) -> void:
     world.player.facing = WorldMath.Facing.RIGHT
     assert_eq(world.player.current_target_cell(), WorldContract.TRUCK_CELL)
     world.interact()
-    world.hud.finish_travel()
+    _finish_travel(world.hud)
     assert_not_null(world.get_node_or_null("TownMap"))
 
 func test_market_interact_keeps_world_audible_until_cue_finishes() -> void:
@@ -66,13 +78,15 @@ func test_market_interact_keeps_world_audible_until_cue_finishes() -> void:
 
     var market_panel := world.hud.get_node("HudRoot/MarketConfirmPanel") as Control
     assert_true(market_panel.visible, "market E should open the confirmation card")
-    var confirm := InputEventAction.new()
-    confirm.action = &"ui_accept"
+    var confirm := InputEventKey.new()
+    confirm.keycode = KEY_ENTER
+    confirm.physical_keycode = KEY_ENTER
     confirm.pressed = true
     get_viewport().push_input(confirm)
     await get_tree().process_frame
-    var release := InputEventAction.new()
-    release.action = &"ui_accept"
+    var release := InputEventKey.new()
+    release.keycode = KEY_ENTER
+    release.physical_keycode = KEY_ENTER
     release.pressed = false
     get_viewport().push_input(release)
 

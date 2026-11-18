@@ -870,17 +870,29 @@ func _place_target(
     player.velocity = Vector2.ZERO
     await get_tree().physics_frame
 
+func _finish_travel(hud: GameHud) -> void:
+    var overlay := _travel_overlay(hud) as TravelOverlay
+    var steps := 0
+    while (
+        overlay.visible
+        and overlay._tween != null
+        and overlay._tween.is_valid()
+        and steps < 16
+    ):
+        overlay._tween.custom_step(0.5)
+        steps += 1
+
 func _drive_to_town(world: WorldShell) -> void:
     await _place_target(world, WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT)
     world.interact()
-    world.hud.finish_travel()
+    _finish_travel(world.hud)
     assert_eq(world._session.snapshot()["location"], GameRules.MapId.TOWN)
     assert_not_null(world.get_node_or_null("TownMap"))
 
 func _drive_home(world: WorldShell) -> void:
     await _place_target(world, TownContract.TRUCK_CELL, WorldMath.Facing.LEFT)
     world.interact()
-    world.hud.finish_travel()
+    _finish_travel(world.hud)
     assert_eq(world._session.snapshot()["location"], GameRules.MapId.FARM)
     assert_not_null(world.get_node_or_null("FarmMap"))
 
@@ -1271,7 +1283,7 @@ func test_inventory_modal_keys_are_exclusive_same_key_closes_and_gate_input() ->
     var hud := _hud(world)
     if hud == null:
         return
-    assert_eq(hud._primary_modals.size(), 11)
+    assert_eq(hud._primary_modals.size(), 12)
     for entry in [
         {"action": &"toggle_bag", "panel": "BagPanel"},
         {"action": &"toggle_almanac", "panel": "AlmanacPanel"},
@@ -1846,7 +1858,7 @@ func test_primary_modal_registry_keeps_surfaces_exclusive() -> void:
     var hud := _hud(world)
     if hud == null:
         return
-    assert_eq(hud._primary_modals.size(), 11)
+    assert_eq(hud._primary_modals.size(), 12)
     for entry in [
         {"name": "ShopPanel", "open": Callable(hud, "open_shop"), "close": Callable(hud, "close_shop")},
         {"name": "ShippingPanel", "open": Callable(hud, "open_shipping"), "close": Callable(hud, "close_shipping")},
@@ -4299,7 +4311,7 @@ func test_passive_clock_ticks_pauses_and_keeps_late_day_interactive() -> void:
         int(session.snapshot()["time_minutes"]),
         GameRules.ACTION_CUTOFF_MINUTES,
     )
-    hud.finish_travel()
+    _finish_travel(hud)
     assert_eq(session.snapshot()["location"], GameRules.MapId.TOWN)
     assert_not_null(world.get_node_or_null("TownMap"))
     assert_true(world._world_input_enabled)
@@ -4739,7 +4751,7 @@ func test_truck_round_trip_swaps_maps_preserving_player_session_and_hud() -> voi
     )
 
     world.interact()
-    world.hud.finish_travel()
+    _finish_travel(world.hud)
 
     assert_eq(session.snapshot()["location"], GameRules.MapId.TOWN)
     assert_eq(
@@ -4842,7 +4854,7 @@ func test_truck_round_trip_swaps_maps_preserving_player_session_and_hud() -> voi
     )
 
     world.interact()
-    world.hud.finish_travel()
+    _finish_travel(world.hud)
 
     assert_eq(session.snapshot()["location"], GameRules.MapId.FARM)
     assert_eq(
@@ -4903,7 +4915,7 @@ func test_farm_shop_and_bed_dispatch_survive_truck_round_trip() -> void:
 
     await _place_target(world, WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT)
     world.interact()
-    world.hud.finish_travel()
+    _finish_travel(world.hud)
     assert_not_null(world.get_node_or_null("TownMap"))
 
     await _place_target(world, TownContract.SHOP_CELL, WorldMath.Facing.UP)
@@ -4929,7 +4941,7 @@ func test_farm_shop_and_bed_dispatch_survive_truck_round_trip() -> void:
 
     await _place_target(world, TownContract.TRUCK_CELL, WorldMath.Facing.LEFT)
     world.interact()
-    world.hud.finish_travel()
+    _finish_travel(world.hud)
     assert_not_null(world.get_node_or_null("FarmMap"))
 
     await _place_target(world, WorldContract.BED_CELL, WorldMath.Facing.UP)
@@ -4957,11 +4969,11 @@ func test_farm_market_dispatch_survives_truck_round_trip_on_day14() -> void:
 
     await _place_target(world, WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT)
     world.interact()
-    world.hud.finish_travel()
+    _finish_travel(world.hud)
     assert_not_null(world.get_node_or_null("TownMap"))
     await _place_target(world, TownContract.TRUCK_CELL, WorldMath.Facing.LEFT)
     world.interact()
-    world.hud.finish_travel()
+    _finish_travel(world.hud)
     assert_not_null(world.get_node_or_null("FarmMap"))
     assert_eq(int(session.snapshot()["day"]), GameRules.MAX_DAY)
 
@@ -5040,21 +5052,7 @@ func test_travel_refusal_shows_no_overlay_swap_or_clock_change() -> void:
     assert_eq(session.snapshot(), before)
     assert_eq(hud.toast_text(), "Nothing to interact with.")
 
-func test_finish_travel_is_a_noop_when_no_beat_is_active() -> void:
-    var world := _world()
-    var hud := world.hud
-    var session := world._session
-    var overlay := _travel_overlay(hud)
-    var before := session.snapshot()
-
-    hud.finish_travel()
-
-    assert_false(overlay.visible)
-    assert_not_null(world.get_node_or_null("FarmMap"))
-    assert_null(world.get_node_or_null("TownMap"))
-    assert_eq(session.snapshot(), before)
-
-func test_finish_travel_fires_one_swap_one_signal_and_lands_on_the_destination_map() -> void:
+func test_travel_beat_fires_one_swap_one_signal_and_lands_on_the_destination_map() -> void:
     var world := _world()
     var hud := world.hud
     var session := world._session
@@ -5063,22 +5061,25 @@ func test_finish_travel_fires_one_swap_one_signal_and_lands_on_the_destination_m
     var covers: Array[float] = []
     var finishes: Array[bool] = []
     overlay.finished.connect(func() -> void: finishes.append(true))
-    var before := session.snapshot()
-    assert_eq(
-        session.travel(WorldContract.TRUCK_CELL),
-        GameRules.CommandCode.TRAVELLED,
-    )
-    var swap := func() -> void:
+    var preview := session.preview_travel(WorldContract.TRUCK_CELL)
+    assert_eq(preview["code"], GameRules.CommandCode.TRAVELLED)
+    var swap := func(target: Vector2i) -> void:
         swaps.append(true)
         covers.append(_overlay_cover(overlay))
+        assert_eq(session.travel(target), GameRules.CommandCode.TRAVELLED)
         world.load_map(true)
 
-    hud.play_travel(before, session.snapshot(), swap)
+    hud.play_travel(
+        preview["destination"],
+        preview["departure_minutes"],
+        preview["arrival_minutes"],
+        swap.bind(WorldContract.TRUCK_CELL),
+    )
     assert_true(overlay.is_active())
     assert_true(hud.has_blocking_modal())
 
-    hud.finish_travel()
-    hud.finish_travel()
+    _finish_travel(hud)
+    _finish_travel(hud)
 
     assert_eq(swaps.size(), 1, "the swap callback fired exactly once")
     assert_eq(finishes.size(), 1, "the completion signal emitted exactly once")
@@ -5094,13 +5095,15 @@ func test_finish_travel_fires_one_swap_one_signal_and_lands_on_the_destination_m
     assert_null(world.get_node_or_null("FarmMap"))
     assert_not_null(world.get_node_or_null("TownMap"))
 
-    var home_before := session.snapshot()
-    assert_eq(
-        session.travel(TownContract.TRUCK_CELL),
-        GameRules.CommandCode.TRAVELLED,
+    var home_preview := session.preview_travel(TownContract.TRUCK_CELL)
+    assert_eq(home_preview["code"], GameRules.CommandCode.TRAVELLED)
+    hud.play_travel(
+        home_preview["destination"],
+        home_preview["departure_minutes"],
+        home_preview["arrival_minutes"],
+        swap.bind(TownContract.TRUCK_CELL),
     )
-    hud.play_travel(home_before, session.snapshot(), swap)
-    hud.finish_travel()
+    _finish_travel(hud)
     assert_eq(swaps.size(), 2, "the return swap callback fired once more")
     assert_eq(finishes.size(), 2, "the completion signal emitted again")
     assert_almost_eq(
@@ -5111,6 +5114,148 @@ func test_finish_travel_fires_one_swap_one_signal_and_lands_on_the_destination_m
     )
     assert_null(world.get_node_or_null("TownMap"))
     assert_not_null(world.get_node_or_null("FarmMap"))
+
+func test_second_travel_beat_flushes_pending_swap_before_starting_next_beat() -> void:
+    var world := _world()
+    var hud := world.hud
+    var session := world._session
+    var overlay := _travel_overlay(hud)
+    var swap_order: Array[String] = []
+
+    var outbound := session.preview_travel(WorldContract.TRUCK_CELL)
+    hud.play_travel(
+        outbound["destination"],
+        outbound["departure_minutes"],
+        outbound["arrival_minutes"],
+        func() -> void:
+            swap_order.append("outbound")
+            assert_eq(
+                session.travel(WorldContract.TRUCK_CELL),
+                GameRules.CommandCode.TRAVELLED,
+            )
+            world.load_map(true),
+    )
+    assert_eq(swap_order, [], "outbound swap waits for mid-beat")
+    assert_eq(session.snapshot()["location"], GameRules.MapId.FARM)
+
+    var return_dep := int(outbound["arrival_minutes"])
+    var return_arr := mini(
+        return_dep + GameRules.TRAVEL_MINUTES, GameRules.ACTION_CUTOFF_MINUTES
+    )
+    hud.play_travel(
+        GameRules.MapId.FARM,
+        return_dep,
+        return_arr,
+        func() -> void:
+            swap_order.append("return")
+            assert_eq(
+                session.travel(TownContract.TRUCK_CELL),
+                GameRules.CommandCode.TRAVELLED,
+            )
+            world.load_map(true),
+    )
+    assert_eq(
+        swap_order,
+        ["outbound"],
+        "starting a second drive flushes the first pending swap immediately",
+    )
+    assert_eq(session.snapshot()["location"], GameRules.MapId.TOWN)
+    assert_not_null(world.get_node_or_null("TownMap"))
+    assert_true(overlay.visible, "the second beat remains active")
+
+    _finish_travel(hud)
+    assert_eq(swap_order, ["outbound", "return"])
+    assert_eq(session.snapshot()["location"], GameRules.MapId.FARM)
+    assert_not_null(world.get_node_or_null("FarmMap"))
+    assert_false(overlay.visible)
+
+func test_travel_overlay_hides_chrome_and_tutorial_and_blocks_other_modals() -> void:
+    var world := _world()
+    var hud := world.hud
+    var overlay := _travel_overlay(hud)
+    var chrome := _chrome(hud)
+    var tutorial := hud.get_node("HudRoot/OnboardingOverlay/TutorialCard") as Control
+    assert_true(chrome.visible)
+    assert_true(tutorial.visible)
+
+    await _place_target(world, WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT)
+    world.interact()
+
+    assert_true(overlay.visible)
+    assert_false(chrome.visible, "HUD chrome hides during a drive")
+    assert_false(tutorial.visible, "tutorial card hides during a drive")
+    hud.open_pause()
+    hud.open_bag()
+    hud.open_almanac()
+    hud.open_calendar()
+    hud.open_shop()
+    hud.open_sleep_confirmation()
+    for name in [
+        "PausePanel",
+        "BagPanel",
+        "AlmanacPanel",
+        "CalendarPanel",
+        "ShopPanel",
+        "SleepPanel",
+    ]:
+        assert_false(_panel(hud, name).visible, "%s cannot open during travel" % name)
+    assert_true(overlay.visible)
+
+    _finish_travel(hud)
+    assert_false(overlay.visible)
+    assert_true(chrome.visible, "HUD chrome restores after the drive")
+
+    await _place_target(world, TownContract.TRUCK_CELL, WorldMath.Facing.LEFT)
+    world.interact()
+    assert_true(overlay.visible)
+    assert_false(chrome.visible, "HUD chrome hides during the return drive")
+    assert_false(tutorial.visible, "tutorial card stays hidden during the return drive")
+    _finish_travel(hud)
+    assert_false(overlay.visible)
+    assert_true(chrome.visible, "HUD chrome restores on the farm")
+    assert_true(tutorial.visible, "tutorial card restores on the farm")
+
+func test_market_confirm_panel_ignores_space_and_confirms_on_enter_and_kp_enter() -> void:
+    var world := _world()
+    var hud := world.hud
+    var panel := _panel(hud, "MarketConfirmPanel") as MarketConfirmPanel
+    var confirms := [0]
+    panel.market_confirmed.connect(func() -> void: confirms[0] += 1)
+
+    hud.open_market_confirmation()
+    assert_true(panel.visible)
+
+    for keycode: Key in [KEY_SPACE, KEY_KP_ENTER]:
+        var press := InputEventKey.new()
+        press.keycode = keycode
+        press.physical_keycode = keycode
+        press.pressed = true
+        get_viewport().push_input(press)
+        var release := InputEventKey.new()
+        release.keycode = keycode
+        release.physical_keycode = keycode
+        release.pressed = false
+        get_viewport().push_input(release)
+        await get_tree().process_frame
+        if keycode == KEY_SPACE:
+            assert_eq(confirms[0], 0, "Space must not confirm the Harvest Market")
+            assert_true(panel.visible)
+        else:
+            assert_eq(confirms[0], 1, "Keypad Enter confirms the Harvest Market")
+
+    var enter_press := InputEventKey.new()
+    enter_press.keycode = KEY_ENTER
+    enter_press.physical_keycode = KEY_ENTER
+    enter_press.pressed = true
+    get_viewport().push_input(enter_press)
+    var enter_release := InputEventKey.new()
+    enter_release.keycode = KEY_ENTER
+    enter_release.physical_keycode = KEY_ENTER
+    enter_release.pressed = false
+    get_viewport().push_input(enter_release)
+    await get_tree().process_frame
+    assert_eq(confirms[0], 2, "Enter confirms the Harvest Market")
+    hud.close_market_confirmation()
 
 func _push_probe_keys(world: WorldShell) -> void:
     for code: Key in [KEY_E, KEY_SPACE, KEY_2, KEY_I]:
@@ -5146,8 +5291,8 @@ func test_travel_overlay_gates_input_clock_esc_and_mouse_until_the_beat_finishes
     if overlay == null:
         return
     assert_false(overlay.visible, "overlay starts hidden")
-    assert_eq(hud._primary_modals.size(), 11, "overlay stays outside primary modals")
-    assert_false(hud._primary_modals.has(overlay))
+    assert_eq(hud._primary_modals.size(), 12, "overlay is registered in primary modals")
+    assert_true(hud._primary_modals.has(overlay))
     var hud_root := hud.get_node("HudRoot")
     assert_eq(
         hud_root.get_child(hud_root.get_child_count() - 2),
@@ -5159,16 +5304,23 @@ func test_travel_overlay_gates_input_clock_esc_and_mouse_until_the_beat_finishes
     var farm_map := world.get_node("FarmMap")
     await _place_target(world, WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT)
     var before_minutes: int = session.snapshot()["time_minutes"]
+    var snapshot_before_swap := session.snapshot()
     world.interact()
 
-    assert_eq(session.snapshot()["location"], GameRules.MapId.TOWN)
+    assert_eq(
+        session.snapshot()["location"],
+        GameRules.MapId.FARM,
+        "session stays on FARM while FarmMap is still shown during fade-in",
+    )
     assert_eq(
         int(session.snapshot()["time_minutes"]),
-        before_minutes + GameRules.TRAVEL_MINUTES,
+        before_minutes,
+        "session time matches the visible departure clock during fade-in",
     )
     assert_true(overlay.visible, "travel overlay activates synchronously")
     assert_true(hud.has_blocking_modal(), "the beat blocks like a modal")
     assert_false(world._world_input_enabled, "world input locks without a frame gap")
+    assert_false(_chrome(hud).visible, "HUD chrome hides during the drive")
     assert_same(world.get_child(0), farm_map, "the map swap defers to mid-beat")
     assert_null(world.get_node_or_null("TownMap"))
     assert_eq(overlay.mouse_filter, Control.MOUSE_FILTER_STOP)
@@ -5178,11 +5330,10 @@ func test_travel_overlay_gates_input_clock_esc_and_mouse_until_the_beat_finishes
         "the active overlay covers the whole canvas",
     )
 
-    var snapshot_during := session.snapshot()
     world.interact()
     world.use_target_action()
     world.cycle_seed()
-    assert_eq(session.snapshot(), snapshot_during)
+    assert_eq(session.snapshot(), snapshot_before_swap)
 
     hud.close_modals()
     assert_true(overlay.visible, "load_map's modal teardown cannot hide the beat")
@@ -5215,7 +5366,7 @@ func test_travel_overlay_gates_input_clock_esc_and_mouse_until_the_beat_finishes
 
     var gate_gaps := 0
     var elapsed_ticks := 0
-    var minute_ticks := 0
+    var minute_violations := 0
     var modal_opens := 0
     var pos_changes := 0
     var illegal_moves := 0
@@ -5239,15 +5390,17 @@ func test_travel_overlay_gates_input_clock_esc_and_mouse_until_the_beat_finishes
             gate_gaps += 1
         if world._clock_elapsed_seconds != 0.0:
             elapsed_ticks += 1
-        if (
-            int(session.snapshot()["time_minutes"])
-            != int(snapshot_during["time_minutes"])
-        ):
-            minute_ticks += 1
-        for panel in hud._primary_modals:
-            if panel.visible:
-                modal_opens += 1
         var has_town := world.get_node_or_null("TownMap") != null
+        var expected_minutes := (
+            before_minutes + GameRules.TRAVEL_MINUTES
+            if has_town
+            else before_minutes
+        )
+        if int(session.snapshot()["time_minutes"]) != expected_minutes:
+            minute_violations += 1
+        for panel in hud._primary_modals:
+            if panel != overlay and panel.visible:
+                modal_opens += 1
         var flipped := has_town != had_town
         if flipped:
             swap_flips += 1
@@ -5272,8 +5425,8 @@ func test_travel_overlay_gates_input_clock_esc_and_mouse_until_the_beat_finishes
     Input.action_release("move_right")
     Input.action_release("move_left")
     if overlay.visible:
-        assert_true(false, "the live beat must complete without finish_travel()")
-        hud.finish_travel()
+        assert_true(false, "the live beat must complete without _finish_travel()")
+        _finish_travel(hud)
     assert_gt(frames, 0, "the real tween was sampled mid-beat")
     assert_eq(gate_gaps, 0, "input gate held on every observed frame")
     assert_eq(
@@ -5281,8 +5434,8 @@ func test_travel_overlay_gates_input_clock_esc_and_mouse_until_the_beat_finishes
         0,
         "the passive clock accrued nothing on any observed frame",
     )
-    assert_eq(minute_ticks, 0, "game minutes stayed frozen all beat")
-    assert_eq(modal_opens, 0, "no modal opened during the beat")
+    assert_eq(minute_violations, 0, "only the mid-beat swap changed game minutes")
+    assert_eq(modal_opens, 0, "no other modal opened during the beat")
     assert_eq(swap_flips, 1, "the map swapped exactly once")
     assert_gt(
         swap_cover,
@@ -5296,12 +5449,17 @@ func test_travel_overlay_gates_input_clock_esc_and_mouse_until_the_beat_finishes
     assert_eq(dismiss_presses[0], 0, "the tutorial Dismiss never saw a mid-beat click")
     assert_eq(session.selected_seed(), seed_before)
     assert_eq(hud._onboarding_overlay._dismissed.size(), dismissed_before)
-    assert_eq(session.snapshot(), snapshot_during, "probes left the session untouched")
+    assert_eq(session.snapshot()["location"], GameRules.MapId.TOWN)
+    assert_eq(
+        int(session.snapshot()["time_minutes"]),
+        before_minutes + GameRules.TRAVEL_MINUTES,
+    )
     assert_false(_panel(hud, "PausePanel").visible, "Esc cannot open Pause mid-beat")
 
     assert_false(overlay.visible)
     assert_false(hud.has_blocking_modal())
     assert_true(world._world_input_enabled)
+    assert_true(_chrome(hud).visible, "HUD chrome restores after the beat")
     var town_maps := world.get_children().filter(
         func(child: Node) -> bool: return child.name == "TownMap"
     )
@@ -5350,14 +5508,14 @@ func test_travel_overlay_card_shows_direction_and_exact_source_arrival_times() -
         assert_eq(atlas.region, Rect2(0, 0, 96, 96))
         assert_eq(atlas.atlas.resource_path, "res://assets/sprites/kei-truck.png")
     assert_eq(truck.texture_filter, CanvasItem.TEXTURE_FILTER_NEAREST)
-    hud.finish_travel()
+    _finish_travel(hud)
 
     await _place_target(world, TownContract.TRUCK_CELL, WorldMath.Facing.LEFT)
     world.interact()
     assert_eq(title.text, "Driving home")
     assert_eq(departure.text, "12:35")
     assert_eq(arrival.text, "13:05")
-    hud.finish_travel()
+    _finish_travel(hud)
     assert_not_null(world.get_node_or_null("FarmMap"))
 
 func test_travel_overlay_clamps_a_late_trip_at_the_cutoff() -> void:
@@ -5373,15 +5531,24 @@ func test_travel_overlay_clamps_a_late_trip_at_the_cutoff() -> void:
 
     await _place_target(world, WorldContract.TRUCK_CELL, WorldMath.Facing.RIGHT)
     world.interact()
-    assert_eq(int(session.snapshot()["time_minutes"]), GameRules.ACTION_CUTOFF_MINUTES)
+    assert_eq(int(session.snapshot()["time_minutes"]), 21 * 60 + 45)
     var departure := overlay.get_node("Center/Column/TimePill/Row/Departure") as Label
     var arrival := overlay.get_node("Center/Column/TimePill/Row/Arrival") as Label
     var duration := overlay.get_node("Center/Column/Duration") as Label
     assert_eq(departure.text, "21:45")
     assert_eq(arrival.text, "22:00")
-    assert_eq(duration.text, "+30 min")
-    hud.finish_travel()
+    assert_eq(duration.text, "+15 min")
+    _finish_travel(hud)
+    assert_eq(int(session.snapshot()["time_minutes"]), GameRules.ACTION_CUTOFF_MINUTES)
     assert_not_null(world.get_node_or_null("TownMap"))
+
+    await _place_target(world, TownContract.TRUCK_CELL, WorldMath.Facing.LEFT)
+    world.interact()
+    assert_eq(departure.text, "22:00")
+    assert_eq(arrival.text, "22:00")
+    assert_eq(duration.text, "+0 min")
+    _finish_travel(hud)
+    assert_not_null(world.get_node_or_null("FarmMap"))
 
 func test_load_map_closes_open_modals() -> void:
     var world := _world()

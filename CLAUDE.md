@@ -69,9 +69,13 @@ There is no JavaScript or Tauri runtime in the current checkout.
   `player.enter_map()` at the house spawn or the arrived-by-truck
   `TRUCK_ARRIVAL`. The swap is presentation-only — `GameSession`, the
   `Camera2D`, `GameHud`, and its signal connections survive untouched.
-  A successful E at the active truck is `GameSession.travel()` plus
-  `load_map(true)`; farm-only `FarmView`/effects/ambience calls are
-  gated behind an active `FarmMap` cast.
+  A successful E at the active truck previews the trip with
+  `GameSession.preview_travel()`, opens `TravelOverlay` via
+  `GameHud.play_travel()` (a registered blocking modal), and defers both
+  `GameSession.travel()` and `load_map(true)` to the mid-beat opaque-scrim
+  swap so session, map, and clock agree throughout; farm-only
+  `FarmView`/effects/ambience calls are gated behind an active `FarmMap`
+  cast.
 - `scripts/game/game_rules.gd` is the closed rules/content source: crop
   economy, action time/stamina budgets, day/pacing/stamina/weather constants
   including `DRY_NIGHTS_TO_WITHER`, payout math, and the `CommandCode` enum
@@ -155,9 +159,9 @@ There is no JavaScript or Tauri runtime in the current checkout.
   app-header band, footer row, and one content mount; panels configure
   header content and accessories, add footer controls, and build body
   rows in the mount.
-  Shop, shipping, dialogue, title, result, and the intro overlay are native
-  without the frame. `GameHud` remains the modal owner — no navigation
-  framework or second session holder.
+  Shop, shipping, dialogue, `MarketConfirmPanel`, `TravelOverlay`, title,
+  result, and the intro overlay are native without the frame. `GameHud`
+  remains the modal owner — no navigation framework or second session holder.
 - DialoguePanel owns transient line/focus/gift-choice presentation only.
 - OnboardingOverlay is code-built under `GameHud` (like DialoguePanel) and
   forwards opening/tutorial visibility through the existing

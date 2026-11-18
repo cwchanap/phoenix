@@ -137,11 +137,17 @@ func _fire_beat_probes() -> void:
 	if dismiss != null and dismiss.is_visible_in_tree():
 		_push_click(dismiss.get_global_rect().get_center())
 
-func _observe_beat(overlay: Control, watch: Dictionary) -> void:
+func _observe_beat(
+	overlay: Control,
+	watch: Dictionary,
+	minutes_before: int,
+	expected_minutes: int,
+	start_on_farm: bool,
+) -> void:
 	var elapsed0 := -1.0
-	var minutes0 := -1
+	var minutes_last := minutes_before
 	var last_pos: Vector2 = _world.player.global_position
-	var last_on_farm := _world.farm_view != null
+	var last_on_farm := start_on_farm
 	var armed := 0
 	while not overlay.visible and armed < 300:
 		await _frames(1)
@@ -159,25 +165,26 @@ func _observe_beat(overlay: Control, watch: Dictionary) -> void:
 			elapsed0 = _world._clock_elapsed_seconds
 		elif _world._clock_elapsed_seconds != elapsed0:
 			watch["elapsed_violations"] = int(watch["elapsed_violations"]) + 1
+		var on_farm := _world.farm_view != null
+		var flipped := on_farm != last_on_farm
+		if flipped:
+			watch["swap_flips"] = int(watch["swap_flips"]) + 1
+			watch["swap_cover"] = _overlay_cover(overlay)
+			last_on_farm = on_farm
 		var minutes := int(_world._session.snapshot()["time_minutes"])
-		if minutes0 < 0:
-			minutes0 = minutes
-		elif minutes != minutes0:
+		var expected_now := expected_minutes if on_farm != start_on_farm else minutes_before
+		if minutes != expected_now:
 			watch["minutes_violations"] = int(watch["minutes_violations"]) + 1
+		minutes_last = minutes
 		var pos: Vector2 = _world.player.global_position
 		watch["last_pos"] = pos
 		if pos != last_pos:
 			watch["position_changes"] = int(watch["position_changes"]) + 1
 			last_pos = pos
-		var on_farm := _world.farm_view != null
-		if on_farm != last_on_farm:
-			watch["swap_flips"] = int(watch["swap_flips"]) + 1
-			watch["swap_cover"] = _overlay_cover(overlay)
-			last_on_farm = on_farm
 		for panel in _world.hud._primary_modals:
-			if panel.visible:
+			if panel != overlay and panel.visible:
 				watch["modal_opens"] = int(watch["modal_opens"]) + 1
-	watch["beat_minutes"] = minutes0
+	watch["beat_minutes"] = minutes_last
 	watch["done"] = true
 
 func _stand_at(stand: Vector2, action: String, facing: WorldMath.Facing) -> void:
@@ -233,8 +240,12 @@ func _run_beat(
 		dismiss.pressed.connect(
 			func() -> void: watch["dismiss_presses"] = int(watch["dismiss_presses"]) + 1
 		)
+	var expected_minutes := mini(
+		minutes_before + GameRules.TRAVEL_MINUTES,
+		GameRules.ACTION_CUTOFF_MINUTES
+	)
 	_world._clock_elapsed_seconds = 0.0
-	_observe_beat(overlay, watch)
+	_observe_beat(overlay, watch, minutes_before, expected_minutes, expect_town)
 	var beat_start := Time.get_ticks_msec()
 	_push_key_event(KEY_E, true)
 	await _frames(1)
@@ -326,10 +337,6 @@ func _run_beat(
 		or not _world._world_input_enabled
 	):
 		_failures.append("travel: gate did not release after the beat")
-	var expected_minutes := mini(
-		minutes_before + GameRules.TRAVEL_MINUTES,
-		GameRules.ACTION_CUTOFF_MINUTES
-	)
 	if int(watch["beat_minutes"]) != expected_minutes:
 		_failures.append(
 			"travel: drive did not spend the expected cutoff-clamped travel minutes"

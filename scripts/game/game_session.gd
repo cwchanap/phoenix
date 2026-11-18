@@ -164,6 +164,9 @@ func restore_state(candidate: Dictionary) -> bool:
     _location = GameRules.MapId.FARM
     return true
 
+func day() -> int:
+    return _day
+
 func selected_seed() -> GameRules.CropKind:
     return _selected_seed
 
@@ -702,17 +705,28 @@ func acknowledge_intro() -> GameRules.CommandCode:
     _intro_acknowledged = true
     return GameRules.CommandCode.INTRO_ACKNOWLEDGED
 
+func preview_travel(target_cell: Variant) -> Dictionary:
+    var failure := _travel_failure(target_cell)
+    if failure != -1:
+        return {"code": failure}
+    return {
+        "code": GameRules.CommandCode.TRAVELLED,
+        "destination": (
+            GameRules.MapId.TOWN
+            if _location == GameRules.MapId.FARM
+            else GameRules.MapId.FARM
+        ),
+        "departure_minutes": _time_minutes,
+        "arrival_minutes": mini(
+            _time_minutes + GameRules.TRAVEL_MINUTES,
+            GameRules.ACTION_CUTOFF_MINUTES,
+        ),
+    }
+
 func travel(target_cell: Variant) -> GameRules.CommandCode:
-    var active_failure := _active_day_failure()
-    if active_failure != -1:
-        return active_failure
-    var truck_cell := (
-        WorldContract.TRUCK_CELL
-        if _location == GameRules.MapId.FARM
-        else TownContract.TRUCK_CELL
-    )
-    if not (target_cell is Vector2i) or target_cell != truck_cell:
-        return GameRules.CommandCode.NOTHING_TO_INTERACT
+    var failure := _travel_failure(target_cell)
+    if failure != -1:
+        return failure
     _location = (
         GameRules.MapId.TOWN
         if _location == GameRules.MapId.FARM
@@ -723,6 +737,19 @@ func travel(target_cell: Variant) -> GameRules.CommandCode:
         GameRules.ACTION_CUTOFF_MINUTES,
     )
     return _commit(GameRules.CommandCode.TRAVELLED)
+
+func _travel_failure(target_cell: Variant) -> int:
+    var active_failure := _active_day_failure()
+    if active_failure != -1:
+        return active_failure
+    var truck_cell := (
+        WorldContract.TRUCK_CELL
+        if _location == GameRules.MapId.FARM
+        else TownContract.TRUCK_CELL
+    )
+    if not (target_cell is Vector2i) or target_cell != truck_cell:
+        return GameRules.CommandCode.NOTHING_TO_INTERACT
+    return -1
 
 func _active_day_failure() -> int:
     if _finale_triggered:

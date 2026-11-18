@@ -314,15 +314,22 @@ func interact() -> void:
     action.call()
 
 func _attempt_travel(target: Variant) -> void:
-    var before := _session.snapshot()
-    var code := _session.travel(target)
+    var preview := _session.preview_travel(target)
+    var code: GameRules.CommandCode = preview["code"]
     hud.show_feedback(code)
     if code != GameRules.CommandCode.TRAVELLED:
         return
-    hud.play_travel(before, _session.snapshot(), load_map.bind(true))
+    hud.play_travel(
+        preview["destination"],
+        preview["departure_minutes"],
+        preview["arrival_minutes"],
+        func() -> void:
+            if _session.travel(target) == GameRules.CommandCode.TRAVELLED:
+                load_map(true),
+    )
 
 func _attempt_market(target: Variant) -> void:
-    if int(_session.snapshot()["day"]) == GameRules.MAX_DAY:
+    if _session.day() == GameRules.MAX_DAY:
         hud.open_market_confirmation()
         return
     _finish_finale(_session.trigger_harvest_finale(target))

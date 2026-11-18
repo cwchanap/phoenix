@@ -8,10 +8,9 @@ const CLOCK_ICON := preload("res://assets/ui/icons/clock.png")
 const SCRIM_COLOR := Color(0.04, 0.03, 0.08, 0.8)
 const FADE_SECONDS := 0.25
 const HOLD_SECONDS := 1.0
-const FINISH_STEP_SECONDS := 0.5
-const FINISH_MAX_STEPS := 16
 
 var _tween: Tween
+var _pending_swap: Callable = Callable()
 var _scrim: ColorRect
 var _title: Label
 var _departure: Label
@@ -26,37 +25,41 @@ func _ready() -> void:
 func is_active() -> bool:
 	return visible
 
-func play(before: Dictionary, after: Dictionary, swap: Callable) -> void:
-	var to_town := int(after["location"]) == GameRules.MapId.TOWN
-	_title.text = tr("Driving to town") if to_town else tr("Driving home")
-	_departure.text = GameRules.format_time(int(before["time_minutes"]))
-	_arrival.text = GameRules.format_time(int(after["time_minutes"]))
-	_duration.text = tr("+%d min") % GameRules.TRAVEL_MINUTES
+func play(
+	destination: GameRules.MapId,
+	departure_minutes: int,
+	arrival_minutes: int,
+	swap: Callable,
+) -> void:
 	if _tween != null and _tween.is_valid():
 		_tween.kill()
+		_tween = null
+	_run_pending_swap()
+	var to_town := destination == GameRules.MapId.TOWN
+	_title.text = tr("Driving to town") if to_town else tr("Driving home")
+	_departure.text = GameRules.format_time(departure_minutes)
+	_arrival.text = GameRules.format_time(arrival_minutes)
+	_duration.text = tr("+%d min") % maxi(0, arrival_minutes - departure_minutes)
+	_pending_swap = swap
 	visible = true
 	modulate.a = 0.0
 	_scrim.color = SCRIM_COLOR
 	_tween = create_tween()
 	_tween.tween_property(self, "modulate:a", 1.0, FADE_SECONDS)
 	_tween.parallel().tween_property(_scrim, "color:a", 1.0, FADE_SECONDS)
-	_tween.tween_callback(swap)
+	_tween.tween_callback(_run_pending_swap)
 	_tween.tween_property(_scrim, "color:a", SCRIM_COLOR.a, HOLD_SECONDS)
 	_tween.tween_property(self, "modulate:a", 0.0, FADE_SECONDS)
 	_tween.tween_callback(_on_beat_finished)
 
-func finish() -> void:
-	var steps := 0
-	while (
-		is_active()
-		and _tween != null
-		and _tween.is_valid()
-		and steps < FINISH_MAX_STEPS
-	):
-		_tween.custom_step(FINISH_STEP_SECONDS)
-		steps += 1
+func _run_pending_swap() -> void:
+	var swap := _pending_swap
+	_pending_swap = Callable()
+	if swap.is_valid():
+		swap.call()
 
 func _on_beat_finished() -> void:
+	_tween = null
 	visible = false
 	finished.emit()
 

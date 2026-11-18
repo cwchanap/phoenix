@@ -44,6 +44,18 @@ func _fail(message: String) -> void:
     push_error(message)
     quit(1)
 
+func _finish_travel(hud: GameHud) -> void:
+    var overlay := hud.get_node("HudRoot/TravelOverlay") as TravelOverlay
+    var steps := 0
+    while (
+        overlay.visible
+        and overlay._tween != null
+        and overlay._tween.is_valid()
+        and steps < 16
+    ):
+        overlay._tween.custom_step(0.5)
+        steps += 1
+
 func _expect(condition: bool, message: String) -> bool:
     if condition:
         return true
@@ -1039,13 +1051,18 @@ func _run() -> void:
         return
     world.interact()
     if not _expect(
-        world._session.snapshot()["location"] == GameRules.MapId.TOWN,
-        "farm truck E interaction drives to town",
+        world._session.snapshot()["location"] == GameRules.MapId.FARM,
+        "farm session keeps FARM until mid-beat swap",
     ):
         return
     if not _expect(world.hud.toast_text() == "", "farm truck travel raises no toast"):
         return
-    world.hud.finish_travel()
+    _finish_travel(world.hud)
+    if not _expect(
+        world._session.snapshot()["location"] == GameRules.MapId.TOWN,
+        "farm truck E interaction drives to town",
+    ):
+        return
 
     var town_names := ["TownMap", "RainLayer", "TargetHighlight", "GameHud"]
     if not _expect_names(world, town_names, "World after travel"):
@@ -1358,13 +1375,18 @@ func _run() -> void:
         return
     world.interact()
     if not _expect(
-        world._session.snapshot()["location"] == GameRules.MapId.FARM,
-        "town truck E interaction drives home",
+        world._session.snapshot()["location"] == GameRules.MapId.TOWN,
+        "town session keeps TOWN until mid-beat swap",
     ):
         return
     if not _expect(world.hud.toast_text() == "", "town truck travel raises no toast"):
         return
-    world.hud.finish_travel()
+    _finish_travel(world.hud)
+    if not _expect(
+        world._session.snapshot()["location"] == GameRules.MapId.FARM,
+        "town truck E interaction drives home",
+    ):
+        return
 
     var return_names := ["FarmMap", "RainLayer", "TargetHighlight", "GameHud"]
     if not _expect_names(world, return_names, "World after driving home"):
