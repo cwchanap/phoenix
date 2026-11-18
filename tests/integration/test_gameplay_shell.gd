@@ -5688,6 +5688,15 @@ func test_close_modals_preserves_opening() -> void:
 #     region is within reach but none is faced, and falling back to the exact
 #     raw target only when no region is within reach.
 #
+# Review round 1 (finding 5): no two regions on either map ever sit within
+# 2x reach of each other (closest pair shop–Sato / market–Hana at 30.05px >
+# the 28px budget), so no legal pose can make two regions simultaneously
+# eligible — competing-candidate and equal-distance fixtures are physically
+# impossible and nearest selection can never bind. The
+# test_regions_stay_out_of_each_others_near_contact_reach guard pins that
+# invariant so any future region moved closer forces those fixtures to be
+# written.
+#
 # The pure-math halves of these rules live in tests/gdunit/test_world_math.gd.
 
 const CONTACT_REACH_PX := 14.0
@@ -5879,6 +5888,67 @@ func _assert_no_resolution_of(world: WorldShell, canonical: Vector2i) -> Variant
         assert_ne(got, canonical, "wrong-facing/backoff probe must not select the tested region")
     return got
 
+## Backoff probe candidates: full-cell steps straight back along the face's
+## outward direction first, then the nearest side/diagonal cells, so a
+## blocked adjacent cell (neighbour props) never silently skips the
+## required unobstructed empty-cell backoff.
+func _backoff_offsets(outward: Vector2) -> Array:
+    var offsets: Array = []
+    for distance in [1, 2, 3]:
+        offsets.append(outward * float(distance))
+    for step in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
+        if step != outward:
+            offsets.append(step)
+    for step in [Vector2(1, 1), Vector2(1, -1), Vector2(-1, 1), Vector2(-1, -1)]:
+        offsets.append(step)
+    return offsets
+
+## First probe facing whose raw grid target misses the tested region, so the
+## compatibility raw fallback can never legally select it from the backoff.
+func _backoff_facing(world: WorldShell, position: Vector2, row: Dictionary, canonical: Vector2i) -> WorldMath.Facing:
+    for facing: WorldMath.Facing in row["positive"] + row["negative"]:
+        var raw: Variant = WorldMath.target_cell(
+            WorldMath.world_to_grid(position), facing, world._map.map_size()
+        )
+        if raw == null or raw != canonical:
+            return facing
+    return row["positive"][0]
+
+## Constant-derived region footprints — the table Task 2's interact_regions()
+## must return — used as review-round-1 evidence while that API is absent.
+func _evidence_region_footprints(map_id: GameRules.MapId) -> Array:
+    if map_id == GameRules.MapId.FARM:
+        return [
+            WorldContract.HOUSE_FOOTPRINT.intersection(
+                Rect2(WorldContract.BED_CELL, Vector2.ONE)
+            ),
+            WorldContract.SHIPPING_FOOTPRINT,
+            WorldContract.TRUCK_FOOTPRINT,
+        ]
+    return [
+        TownContract.TRUCK_FOOTPRINT,
+        TownContract.SHOP_FOOTPRINT,
+        TownContract.MARKET_FOOTPRINT,
+    ] + Array(TownContract.VILLAGER_FOOTPRINTS)
+
+## Minimum distance between two projected footprint polygons, vertex to edge
+## in both directions (exact for convex polygons).
+func _polygon_separation(a_footprint: Rect2, b_footprint: Rect2) -> float:
+    var a := WorldMath.footprint_to_polygon(a_footprint)
+    var b := WorldMath.footprint_to_polygon(b_footprint)
+    var best := INF
+    for pair in [[a, b], [b, a]]:
+        var from: PackedVector2Array = pair[0]
+        var to: PackedVector2Array = pair[1]
+        for index in from.size():
+            var vertex: Vector2 = from[index]
+            for edge in to.size():
+                var candidate := Geometry2D.get_closest_point_to_segment(
+                    vertex, to[edge], to[(edge + 1) % to.size()]
+                )
+                best = minf(best, vertex.distance_to(candidate))
+    return best
+
 func _run_contact_table(world: WorldShell, map_id: GameRules.MapId, minimum_faces: int) -> void:
     var regions := _regions(map_id)
     var hud := world.hud
@@ -5963,21 +6033,35 @@ func _run_contact_table(world: WorldShell, map_id: GameRules.MapId, minimum_face
                     assert_eq(world._session.snapshot(), before, "refused E must not mutate the session")
                     assert_eq(hud.toast_text(), "Nothing to interact with.")
                     world._process(0.0)
-            # Empty-cell backoff along the face's logical outward direction.
+            # Empty-cell backoff: straight back along the face's logical
+            # outward direction first, then the nearest alternative empty
+            # cells, so a blocked neighbour cell (Hana/market props) never
+            # silently skips the required backoff probe.
             var backoff_steps := {"N": Vector2(0, -1), "E": Vector2(1, 0), "S": Vector2(0, 1), "W": Vector2(-1, 0)}
-            var backoff_logical: Vector2 = WorldMath.world_to_grid(stop) + backoff_steps[row["side"]]
-            var backoff_position := WorldMath.grid_to_world(backoff_logical)
-            if _probe_collides(map_id, backoff_position):
-                skipped_faces += 1
+            var stop_logical: Vector2 = WorldMath.world_to_grid(stop)
+            var backoff_position := Vector2.INF
+            for offset: Vector2 in _backoff_offsets(backoff_steps[row["side"]]):
+                var candidate := WorldMath.grid_to_world(stop_logical + offset)
+                if _probe_collides(map_id, candidate):
+                    continue
+                if candidate.distance_to(_closest_contact_point(footprint, candidate)) < CONTACT_REACH_PX:
+                    continue
+                backoff_position = candidate
+                break
+            assert_ne(
+                backoff_position, Vector2.INF,
+                "%s %s backoff must find an unobstructed empty cell out of the region's reach" % [canonical, row["side"]],
+            )
+            if backoff_position == Vector2.INF:
                 continue
-            var backoff_facing: WorldMath.Facing = row["positive"][0]
+            var backoff_facing: WorldMath.Facing = _backoff_facing(world, backoff_position, row, canonical)
             world.player.global_position = backoff_position
             world.player.facing = backoff_facing
             world.player.velocity = Vector2.ZERO
             world.player._update_target()
             world._process(0.0)
             var backoff_expected: Variant = _expected_resolution(world, backoff_position, backoff_facing, regions)
-            var backoff_got: Variant = _resolver_cell(world)
+            var backoff_got: Variant = _assert_no_resolution_of(world, canonical)
             if backoff_got == _RESOLVER_MISSING:
                 missing_resolver_probes += 1
             else:
@@ -6035,6 +6119,28 @@ func test_town_contact_table_covers_every_reachable_face() -> void:
     await _drive_to_town(world)
     await _run_contact_table(world, GameRules.MapId.TOWN, 24)
 
+func test_regions_stay_out_of_each_others_near_contact_reach() -> void:
+    # Review-round-1 evidence for the nearest-candidate/tie request: no two
+    # regions on either map ever sit within 2x reach of each other, so two
+    # simultaneously eligible regions (nearest-wins or equal-distance tie
+    # selection) are physically impossible and "nearest" cannot be
+    # distinguished from "first eligible" by any legal pose. The closest
+    # authored pair (shop–Sato, market–Hana) measures 30.05px against the
+    # 28px budget. This guard fails if a future region moves closer, which
+    # is the moment competing-candidate and equal-distance fixtures must be
+    # added.
+    for map_id: GameRules.MapId in [GameRules.MapId.FARM, GameRules.MapId.TOWN]:
+        var footprints := _evidence_region_footprints(map_id)
+        for i in footprints.size():
+            for j in range(i + 1, footprints.size()):
+                var separation := _polygon_separation(footprints[i], footprints[j])
+                assert_gt(
+                    separation, 2.0 * CONTACT_REACH_PX,
+                    "%s regions %d and %d sit %.2fpx apart — two regions can share near-contact reach; add competing-candidate and equal-distance fixtures" % [
+                        map_id, i, j, separation,
+                    ],
+                )
+
 func test_shop_east_contact_facing_down_never_resolves_sato_san() -> void:
     # The pinned anti-through-wall case: pressed against the Seed Shop's east
     # face (~5px), facing DOWN, the raw grid target is Sato-san's cell across
@@ -6071,14 +6177,20 @@ func test_shop_east_contact_facing_down_never_resolves_sato_san() -> void:
     if got != _RESOLVER_MISSING:
         assert_null(got, "no valid inward-facing region exists at this pose, so the resolver is empty")
     if world.has_method("_resolve_interactable"):
-        # Nearest-candidate determinism: turning UP faces the shop's east
-        # face, and the shop is the only region within reach.
+        # Single-region reach: turning UP faces the shop's east face, and the
+        # shop is the only region within reach (Sato-san's distance
+        # precondition above).
         world.player.facing = WorldMath.Facing.UP
         world.player._update_target()
         world._process(0.0)
         var up_cell: Variant = _resolver_cell(world)
         if up_cell != _RESOLVER_MISSING:
             assert_eq(up_cell, TownContract.SHOP_CELL)
+        # Restore the pinned DOWN pose before the refusal assertions: a
+        # compliant resolver would legally open the shop from the UP pose.
+        world.player.facing = WorldMath.Facing.DOWN
+        world.player._update_target()
+        world._process(0.0)
 
     var before := world._session.snapshot()
     world.interact()
@@ -6122,10 +6234,11 @@ func test_market_hana_neighbors_turn_away_or_back_off_legally() -> void:
         assert_ne(away, TownContract.VILLAGER_CELLS[2])
         assert_null(away, "turning away from Hana with nothing else in reach refuses")
 
-    # Pressed against the market's west face (the Hana side), facing DOWN has
-    # the market cell as its raw target — but the market is within reach and
-    # DOWN is not an inward facing for its west face, so the resolver must
-    # refuse outright instead of raw-falling back.
+    # Pressed against the market's west face (the Hana side), the market is
+    # within reach, so the resolver must answer only through near-contact:
+    # a calculated negative facing for this face refuses outright instead of
+    # raw-falling back, while the calculated positive facings (RIGHT/DOWN)
+    # legally resolve the market — the gap probe below pins one of those.
     var market_west: Dictionary = _face_rows(TownContract.MARKET_FOOTPRINT)[3]
     var market_stop_info := await _contact_stop(
         world, GameRules.MapId.TOWN, TownContract.MARKET_FOOTPRINT, market_west
@@ -6134,23 +6247,31 @@ func test_market_hana_neighbors_turn_away_or_back_off_legally() -> void:
     if not market_stop_info["ok"]:
         return
     var market_stop: Vector2 = market_stop_info["stop"]
-    world.player.facing = WorldMath.Facing.DOWN
-    world.player.velocity = Vector2.ZERO
-    world.player._update_target()
-    world._process(0.0)
     assert_lt(
         market_stop.distance_to(_closest_contact_point(TownContract.MARKET_FOOTPRINT, market_stop)),
         CONTACT_REACH_PX,
         "precondition: player is in near-contact reach of the market",
     )
-    var market_down: Variant = _resolver_cell(world)
-    if market_down != _RESOLVER_MISSING:
-        assert_null(market_down, "market within reach but faced away refuses instead of raw-falling back")
+    # Full-refusal precondition: no other region (Hana) is within reach.
+    assert_gt(
+        market_stop.distance_to(_closest_contact_point(TownContract.VILLAGER_FOOTPRINTS[2], market_stop)),
+        CONTACT_REACH_PX,
+        "precondition: Hana is beyond near-contact reach at the market's west face",
+    )
+    var away_facing: WorldMath.Facing = market_west["negative"][0]
+    world.player.facing = away_facing
+    world.player.velocity = Vector2.ZERO
+    world.player._update_target()
+    world._process(0.0)
+    var market_away: Variant = _resolver_cell(world)
+    if market_away != _RESOLVER_MISSING:
+        assert_null(market_away, "market within reach but faced away refuses instead of raw-falling back")
     var before := world._session.snapshot()
     world.interact()
     assert_eq(world._session.snapshot(), before, "the wrong-facing market E must not mutate the session")
     assert_false(_panel(hud, "MarketConfirmPanel").visible)
     assert_false(_panel(hud, "DialoguePanel").visible)
+    assert_eq(hud.toast_text(), "Nothing to interact with.")
     world._process(0.0)
 
     # One probe column over at the empty gap cell, facing DOWN legally
@@ -6215,7 +6336,9 @@ func test_process_transitions_e_hint_farming_idle_without_stale_highlight() -> v
     var hud := world.hud
     var highlight := world.player.target_highlight
     # E hint at the bin's west face (RIGHT faces the bin inward; the raw
-    # target is the empty path cell beside it).
+    # target is the empty path cell beside it). The physics push only carries
+    # the player to the contact; every state change below is synchronous, so
+    # _process alone must re-render the hint — no _update_target() repaint.
     var bin_rows := _face_rows(WorldContract.SHIPPING_FOOTPRINT)
     var stop_info := await _contact_stop(world, GameRules.MapId.FARM, WorldContract.SHIPPING_FOOTPRINT, bin_rows[3])
     assert_true(stop_info["ok"], "the bin's west face must be physically reachable")
@@ -6223,16 +6346,15 @@ func test_process_transitions_e_hint_farming_idle_without_stale_highlight() -> v
         return
     world.player.facing = WorldMath.Facing.RIGHT
     world.player.velocity = Vector2.ZERO
-    world.player._update_target()
     world._process(0.0)
     assert_eq(hud.prompt_text(), "[E] Shipping")
     assert_true(highlight.visible)
     assert_eq(highlight.points, WorldMath.cell_diamond(WorldContract.SHIPPING_CELL))
     assert_eq(highlight.default_color, PlayerController.TARGET_NEUTRAL)
 
-    # E hint -> farming: turning UP raw-targets the farm tile behind the bin.
+    # E hint -> farming: turning UP raw-targets the farm tile behind the bin;
+    # _process itself must repaint the raw diamond over the E diamond.
     world.player.facing = WorldMath.Facing.UP
-    world.player._update_target()
     world._process(0.0)
     var raw: Variant = world.player.current_target_cell()
     assert_true(raw != null and WorldContract.FARM_PATCH.has_point(raw), "farming turn must raw-target a farm tile")
@@ -6253,22 +6375,26 @@ func test_process_recovers_highlight_from_null_raw_target_to_physical_e_hint() -
     var hud := world.hud
     var highlight := world.player.target_highlight
     await _drive_to_town(world)
+    # Reach the shop's south face physically first; the pose transition under
+    # test is then purely synchronous — no intervening physics frame or
+    # _update_target() repaint — so _process alone must restore the hint.
+    var shop_rows := _face_rows(TownContract.SHOP_FOOTPRINT)
+    var stop_info := await _contact_stop(world, GameRules.MapId.TOWN, TownContract.SHOP_FOOTPRINT, shop_rows[2])
+    assert_true(stop_info["ok"], "the shop's south face must be physically reachable")
+    if not stop_info["ok"]:
+        return
+    var stop: Vector2 = stop_info["stop"]
     # Town top-left corner facing UP: the raw target is null and the diamond
     # is hidden.
     _set_pose_and_process(world, WorldMath.grid_to_world(Vector2(0.5, 1.5)), WorldMath.Facing.UP)
     assert_null(world.player.current_target_cell())
     assert_false(highlight.visible)
     assert_eq(hud.prompt_text(), "")
-    # A valid physical E hint restores the diamond even though the raw target
-    # of the new pose misses the shop.
-    var shop_rows := _face_rows(TownContract.SHOP_FOOTPRINT)
-    var stop_info := await _contact_stop(world, GameRules.MapId.TOWN, TownContract.SHOP_FOOTPRINT, shop_rows[2])
-    assert_true(stop_info["ok"], "the shop's south face must be physically reachable")
-    if not stop_info["ok"]:
-        return
+    # A valid physical E hint at the frozen contact pose must un-hide the
+    # diamond even though the raw target of the new pose misses the shop.
+    world.player.global_position = stop
     world.player.facing = WorldMath.Facing.UP
     world.player.velocity = Vector2.ZERO
-    world.player._update_target()
     world._process(0.0)
     assert_ne(world.player.current_target_cell(), TownContract.SHOP_CELL, "the raw target misses the shop")
     assert_eq(hud.prompt_text(), "[E] Seed Shop")
@@ -6354,7 +6480,12 @@ func test_bin_contact_panel_submit_deposits_into_the_canonical_bin() -> void:
     hud.close_modals()
 
 func test_bed_door_contact_panel_submit_sleeps_through_canonical_bed_cell() -> void:
-    var world := _world()
+    # The isolated repository fixture pins the save half of the effect: the
+    # contact-pose sleep must advance the day AND persist the morning.
+    var repository := SaveRepository.new(OVERNIGHT_SAVE_PATH)
+    var world := _configured_world(null, repository)
+    if world == null:
+        return
     var hud := world.hud
     var session := world._session
     # The bed's door slice faces the yard: standing at the door and facing UP
@@ -6381,9 +6512,23 @@ func test_bed_door_contact_panel_submit_sleeps_through_canonical_bed_cell() -> v
     hud.sleep_requested.emit()
     assert_eq(int(session.snapshot()["day"]), 2, "the contact-pose submit must sleep through the bed cell")
     assert_true(_panel(hud, "MorningSummaryPanel").visible)
+    # Original day/time/save effects: the new morning starts fresh and is
+    # written through the repository.
+    var loaded := repository.load()
+    assert_eq(loaded["status"], &"loaded", "the contact sleep must persist the morning")
+    if loaded["status"] == &"loaded":
+        var saved_state: Dictionary = loaded["state"]
+        assert_eq(SessionStateValidator.state_error(saved_state), "")
+        assert_eq(int(saved_state["day"]), 2)
+        assert_eq(int(saved_state["time_minutes"]), GameRules.DAY_START_MINUTES)
 
 func test_day14_market_contact_confirm_still_completes_the_finale() -> void:
-    var world := _world()
+    # The isolated repository fixture pins the save half of the finale: the
+    # terminal state must be persisted and the save error surfaced as OK.
+    var repository := SaveRepository.new(OVERNIGHT_SAVE_PATH)
+    var world := _configured_world(null, repository)
+    if world == null:
+        return
     var session := world._session
     var hud := world.hud
     var state := session.state()
@@ -6424,6 +6569,16 @@ func test_day14_market_contact_confirm_still_completes_the_finale() -> void:
             break
         await get_tree().process_frame
     assert_eq(finale_emits.size(), 1)
+    # The finale save must succeed and persist the terminal day-14 state.
+    if finale_emits.size() == 1:
+        assert_eq(finale_emits[0], OK, "the finale save must succeed through the repository")
+        var loaded := repository.load()
+        assert_eq(loaded["status"], &"loaded", "the finale must persist its terminal state")
+        if loaded["status"] == &"loaded":
+            var saved_state: Dictionary = loaded["state"]
+            assert_eq(SessionStateValidator.state_error(saved_state), "")
+            assert_true(bool(saved_state["finale_triggered"]))
+            assert_eq(int(saved_state["day"]), GameRules.MAX_DAY)
 
 func test_farm_truck_contact_e_drives_to_town() -> void:
     var world := _world()
@@ -6437,7 +6592,13 @@ func test_farm_truck_contact_e_drives_to_town() -> void:
     world.player._update_target()
     world._process(0.0)
     assert_eq(world.hud.prompt_text(), "[E] Drive to town")
+    var minutes_before: int = world._session.snapshot()["time_minutes"]
     world.interact()
     assert_true(_travel_overlay(world.hud).visible, "E at the truck contact opens the travel overlay")
     _finish_travel(world.hud)
     assert_eq(world._session.snapshot()["location"], GameRules.MapId.TOWN)
+    assert_eq(
+        int(world._session.snapshot()["time_minutes"]),
+        minutes_before + GameRules.TRAVEL_MINUTES,
+        "the contact travel must charge the original 30-minute drive",
+    )
