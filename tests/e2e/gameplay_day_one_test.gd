@@ -847,6 +847,16 @@ func test_observe_rejects_malformed_specs_and_keeps_the_armed_observer() -> void
 		{"while": {"path": WORLD, "property": "visible"}, "release_on": ["move_right"]},
 		{"while": {"path": WORLD, "property": "visible"}, "release_on": {"sample": "x"}},
 		{"while": {"path": WORLD, "property": "visible"}, "arm_frames": "lots"},
+		{
+			"while": {"path": WORLD, "property": "visible"},
+			"samples":
+			[{"name": "x", "path": WORLD, "method": 42, "property": "visible"}]
+		},
+		{
+			"while": {"path": WORLD, "property": "visible"},
+			"samples":
+			[{"name": "x", "path": WORLD, "method": "m", "property": "p"}]
+		},
 	]:
 		var res = await game.send_command("observe", bad)
 		assert_bool(res.ok).is_false()

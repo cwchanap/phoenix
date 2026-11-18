@@ -271,6 +271,10 @@ func _run() -> void:
 	while _world.hud.has_blocking_modal() and waited < 15.0:
 		await _frames(10)
 		waited += 0.3
+	if _world.hud.has_blocking_modal():
+		_failures.append("bed: morning summary never dismissed")
+		_finish("tour=hpa-775-day")
+		return
 	_mark("day-2-ready")
 	var snapshot := _world._session.snapshot()
 	if int(snapshot["day"]) != SEEDED_DAY + 1:
