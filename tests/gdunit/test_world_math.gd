@@ -184,7 +184,7 @@ func test_faces_contact_requires_strict_positive_dot_half_plane() -> void:
 	assert_bool(_world_math_script.call("faces_contact", WorldMath.Facing.DOWN, probe, contact)).is_false()
 	assert_bool(_world_math_script.call("faces_contact", WorldMath.Facing.LEFT, probe, contact)).is_false()
 
-func test_interact_reach_pixel_constant_is_pinned_and_strict() -> void:
+func test_interact_reach_pixel_constant_is_pinned_and_inclusive() -> void:
 	var reach: Variant = _require_constant(_world_contract_script, "INTERACT_REACH_PIXELS")
 	if reach == null:
 		return
@@ -193,6 +193,7 @@ func test_interact_reach_pixel_constant_is_pinned_and_strict() -> void:
 		return
 	assert_bool(_world_math_script.call("is_within_interact_reach", 0.0)).is_true()
 	assert_bool(_world_math_script.call("is_within_interact_reach", 13.9999)).is_true()
-	# The boundary itself is outside: near-contact reach is a strict gap.
-	assert_bool(_world_math_script.call("is_within_interact_reach", 14.0)).is_false()
+	# The boundary itself is inside: near-contact reach is the inclusive
+	# <= 14 gap pinned by the plan's Decision 1.
+	assert_bool(_world_math_script.call("is_within_interact_reach", 14.0)).is_true()
 	assert_bool(_world_math_script.call("is_within_interact_reach", 14.001)).is_false()
