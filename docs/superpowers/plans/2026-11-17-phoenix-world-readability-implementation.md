@@ -16,82 +16,80 @@
 - GUT regression helpers `tests/integration/test_gameplay_shell.gd:_place_target()` and e2e `_stand_at_target()` currently teleport to an exact-cell stand location. Keep those existing checks and **add reachable, collision-stop proximity scenarios**, rather than loosening interaction reach to satisfy teleports. `tests/e2e/gameplay_day_one_test.gd` already drives input on the running game through godot-e2e.
 - Localization uses `assets/i18n/strings.csv` columns `keys,zh_TW,ja`; the English text *is* the key.
 
-## Task 1 — Red-first interaction/visual regression cases
+## Task 1 — Red-first focused contact and gameplay regressions
 
-**Files:** `tests/integration/test_gameplay_shell.gd`, `tests/unit/test_world_math.gd` (or an existing focused pure-math suite), `tests/gdunit/test_world_math.gd`, `tests/e2e/gameplay_day_one_test.gd` or one focused `tests/e2e/world_readability_test.gd`.
+**Files:** `tests/integration/test_gameplay_shell.gd`, `tests/gdunit/test_world_math.gd` (one pure-math suite, **not** nonexistent `tests/unit/test_world_math.gd`), and existing `tests/headless/world_math_smoke.gd` only when an existing invariant needs updating.
 
-1. Add pure tests for near-contact selection: contact on each facing side, a wrong-facing pose, a two-tile gap, nearest candidate/tie determinism, map boundary, and the exact-cell path. Construct the poses from current world-projection and contract footprints; avoid extra literal cell maps.
-2. Add GUT integration tests on *both* active maps for bed, shipping, both trucks, shop, market and each villager. For every physically accessible side, place/move the player at the reachable side of the prop, aim toward it, and assert resolver returns the **canonical contract cell**. A collision-stopped player with raw `current_target_cell()` missing the prop must still get the E prompt. Wrong-facing and two-tile-away samples must have no interactable.
-3. Assert after `_process()` that a displayed E hint and neutral/gold diamond point to the same resolved cell; a real `interact()` invokes that interaction. Assert that facing away removes the hint/override and that Space still works on the raw farm cell. Preserve existing target-tint and hold-to-work tests.
-4. Add regressions that open an interaction modal via a **proximity fallback** then submit the real HUD command: shop seed purchase, shop upgrade, shipping deposit, sleep, Day-14 market confirmation. Verify the command gets the contract cell, succeeds once, and retains original authoritative state/time/money/save behavior; a refusal must not mutate.
-5. Add real-input e2e on **one supported platform**, using the existing app and GdUnit4 e2e integration (agent invokes through MCP): at least farm bed/bin/truck, town shop and a villager, plus one wrong-facing E attempt. Existing full-day e2e is still required. Do not add a browser or second test runtime.
+1. In **one** GdUnit pure-math test suite, test `WorldMath` closest projected-polygon contact, `dot > 0` half-plane direction and the strict near-contact gap boundary. Use `WorldMath.footprint_to_polygon()` and `Geometry2D.get_closest_point_to_segment()` in implementation; no custom polygon-distance algorithm or cone parameter.
+2. Add a **table-driven GUT integration suite** for `WorldContract.interact_regions()` and `TownContract.interact_regions()`. Derive sample contact positions and approach directions from each collision footprint's **projected four sides**, rejecting faces actually blocked by the map/perimeter/other props. For **every physically reachable side**, cover its **two** positive-dot screen facings, both negative-dot facings, a full empty-cell-gap refusal and nearest-candidate/tie determinism. Include house-door slice for Bed (not the other house walls), farm truck/bin, and town truck/shop/market/all villagers. Drive a collision-stop pose, not just remote teleports.
+3. Keep existing exact-target teleport-fixture tests (e.g. `_place_target()`) intact; those are an explicit compatibility path and can be farther than the physical 14px reach. Add a case where raw target misses the prop but valid physical contact opens it on the first E. Ensure `WorldShell` resolves back to the **canonical contract cell**, not a nearby farm/town grid cell.
+4. For E hint cases, assert `_process()` shows the E label, gold diamond and anchored cell that `interact()` actually opens. Add the **shipping-bin overlap** test: touching the bin with LEFT facing while raw target is `(9,14)` gives a Space farm hint/green-red raw diamond, but E opens Shipping; pressing Space still works that farm tile. Assert wrong-facing E refuses without state mutation.
+5. From physical fallback contacts, open the real shop/upgrade, shipping, sleep and Day-14 market-confirmation panels and **submit** their existing actions. Check canonical-cell ownership through one successful domain command each, original money/time/day/save effects, and no mutations on refusals. Keep the Day-14 market confirmation and travel gate regression coverage.
 
-**Red checkpoint:** New adjacency / modal-submit cases fail against current `main`; preexisting exact-cell/farming cases remain passing.
+**RED checkpoint:** New contact and panel-submit GUT tests reproduce the UAT bug on old behavior. Do **not** add slow Godot e2e before the core resolver is green. Keep all existing exact-cell and Space/hold tests.
 
-## Task 2 — Implement one E resolver and keep downstream commands in sync
+## Task 2 — Contract-defined interaction regions and one E resolver
 
-**Files:** `scripts/world/world_math.gd`, `scripts/world/world_shell.gd`, `scripts/player/player_controller.gd`, `assets/i18n/strings.csv`, tests above.
+**Files:** `scripts/world/world_contract.gd`, `scripts/world/town_contract.gd`, `scripts/world/world_math.gd`, `scripts/world/world_shell.gd`, `assets/i18n/strings.csv`; GUT/GdUnit tests above. **No `PlayerController` modifications needed.**
 
-1. Add only the pure geometry needed in `WorldMath`: projected ground-point to projected footprint polygon/edge distance and a facing-toward-contact test, using existing `WorldContract.TILE_SIZE` / projection. The proposed reach is a **one-cell near-contact** tolerance, with final threshold derived from the red tests and current collision footprints; no raycasting or physics/area registry.
-2. In `WorldShell`, enumerate the known farm or town interaction cells/footprints from contracts and run a **single** `_resolve_interactable()`. First preserve valid existing exact-cell matching; then use bounded proximity + facing and choose the nearest qualified candidate. The resolver returns a small dictionary (`cell`, `label`, `action`) or empty. Do not duplicate actionable logic in `_process()`, `interact()`, and modal handlers.
-3. Use the resolver for E prompt, `_prompt_anchor()`, E action, and all five HUD modal-submit commands. Do **not** recompute/guess target based on a modal's selected row. The player is stationary while the modal gate holds, so re-resolving the same facing/pose is sufficient. Continue passing that canonical target to unchanged `GameSession` guard/commands. Keep Day-14 `MarketConfirmPanel` and travel overlay behavior.
-4. Add a tiny, transient interaction highlight override in `PlayerController` (or world-shell-set override of the existing `TargetHighlight`) that survives the next physics redraw and is cleared when no E candidate, when blocked by a modal or after `load_map()`. Space farming preview and its green/red tint still use the original raw cell and take priority for the farming UI.
-5. Change only the E prompt label `Bed` to `Go to bed`; add `Go to bed,去睡覺,寝る` to the CSV (adjust wording if neighboring UI has a more consistent translation), run localization assertions.
+1. Add `WorldContract.interact_regions()` and `TownContract.interact_regions()` mapping canonical contract cells to already-defined **collision footprint** rects; derive `WorldContract.BED_CELL`'s reachable door region as `HOUSE_FOOTPRINT.intersection(Rect2(BED_CELL, Vector2.ONE))` (currently `Rect2(12, 7, 1, 0.25)`). Pair town villager cells with existing `VILLAGER_FOOTPRINTS`. Do not duplicate these constants in `WorldShell`.
+2. Add a tiny `WorldMath.closest_contact(world_ground_position, collision_rect)` helper implemented using existing `footprint_to_polygon` and `Geometry2D.get_closest_point_to_segment` for its four projected edges. The fallback's initial reach is **14 projected/world px**, not 32; require `facing_direction.dot(contact_direction) > 0` with **no angle cone** and no zero-distance special path. Tune only to satisfy both valid into-edge facings at real collision stops while rejecting one empty cell gap.
+3. `WorldShell._resolve_interactable()` tries the exact `player.current_target_cell()` through existing `_interactable(cell)` first, then contract region candidates by nearest valid physical contact, with stable ordering for ties; it returns `{cell, label, action}` or empty. Use `WorldShell._interactable()` for the existing action routing instead of duplicating its switch or adding a registry.
+4. Route `_process()` E hints, `_prompt_anchor(resolved.cell)`, `interact()` and **all five** modal submit handlers through this same resolver. Re-resolve the frozen pose on submit (input gate already freezes the Player); **do not** hardcode `TownContract.SHOP_CELL` etc. into session calls. Session guard, cost and save behavior remain authoritative.
+5. For an E hint, in `WorldShell._process()` set the existing `player.target_highlight.points = WorldMath.cell_diamond(resolved.cell)` **after** Player's physics target paint; the world-shell frame pass is last before draw. No highlight override field or explicit map/modal reset. When a farming hint has priority, show its original Space raw-target diamond; E still independently uses `_resolve_interactable()` at the bin boundary. Keep an initial highlight from `enter_map()` before any physics tick.
+6. Replace `Bed,床,ベッド` at existing `assets/i18n/strings.csv` row ~327 with **one** `Go to bed,去睡覺,寝る` entry. The E hint in `_interactable()` uses the new English key. Verify all three languages; do not append a duplicate key.
 
-**Green checkpoint:** The original one-tile Space and hold/seed flows are unchanged; E prompt and execution target are identical; all proximity E and panel-submit regressions pass. No changes to `GameSession`, `GameRules`, persistence or economy.
+**GREEN checkpoint:** Same session/gameplay rules, modal submissions succeed from a real contact, no E false positives, Space/hold remain tile-exact, and no extra PlayerController state.
 
-## Task 3 — One shared foreground-opacity mechanism for farm and town
+## Task 3 — Shared per-sprite foreground fade, no cached nodes
 
-**Files:** `scenes/world/farm_map.tscn`, `scenes/world/town_map.tscn`, `scripts/world/world_shell.gd`, `tests/integration/test_gameplay_shell.gd`; optional focused GdUnit presentation regression.
+**Files:** `scenes/world/farm_map.tscn`, `scenes/world/town_map.tscn`, `scripts/world/world_shell.gd`, `tests/integration/test_gameplay_shell.gd`.
 
-1. Opt the existing scenery roots into one `player_occluder` group **in the committed Godot scenes**. Include farm house, shipping bin, fence segments and truck; town station/shop/cafe/market and truck; other tall props that demonstrably hide the player. Keep ground/soil, crop roots and villagers out. No new source art or per-prop alpha table.
-2. Use one shell helper to compare each active-map opted-in prop's drawn `Sprite2D` world bounds against the player's drawn sprite bounds; fade only when the prop truly renders in front by Y-sort and the bounds overlap. On equal Y, account for Player being index 0. Update a single shared alpha value toward an approximate 0.45–0.50 occluded goal, and return to 1.0 when clear. Prefer a bounded `move_toward` update over creating multiple tweens.
-3. Apply opacity to the opt-in prop visuals, not the collision, player or session. Use the same logic after `load_map()`; no references to freed map nodes should persist. A new map begins fully opaque. Prevent per-frame alpha restart and Y-tie flicker.
-4. Add GUT integration tests that place a character behind a farm house/bin/fence/truck and town building, observe fade, move clear, observe restoration; assert that a non-overlapping or behind-player prop stays opaque. Assert Y-tie deterministic behavior and map-swap reset.
+1. Opt relevant static Y-sorted `Entities` roots into one `player_occluder` Godot group: farm house/bin/fences/truck and genuinely tall props; town buildings/truck and occluding scenery. Keep crops, villagers, harvest FX/pops and player out, so this fade does not interfere with existing alpha effects.
+2. In one `WorldShell` presentation helper, `get_tree().get_nodes_in_group("player_occluder")` **per frame**, restricted to active map roots. Compute transformed `Sprite2D.get_rect()` bounds versus the player's drawn sprite bounds. Fade only if bounds overlap and `prop.global_position.y >= player.global_position.y` (Player is index 0 for exact Y ties).
+3. Use one constant `FADE_ALPHA` around 0.45–0.50, but let **each prop's own** `Sprite2D.self_modulate.a` track opacity via `move_toward` toward FADE_ALPHA or 1.0. No shared mutable alpha, new shader, per-prop tuning table, tween registry, stored node references or map-replacement cleanup.
+4. Test farm house/bin/fence/truck and town building fade/restoration from reachable poses, non-overlapping prop unchanged, stable tie and opacity 1 on new map after travel. Include a case proving a crop/harvest effect is never faded.
 
-**Green checkpoint:** The character is readable behind the listed scenery in both maps with no outline shader, collision change, opacity leak or flicker.
+**GREEN checkpoint:** Only covering foreground props fade in both maps, with no flicker or leaked state across map replacement.
 
-## Task 4 — Extend the farm backdrop using the existing terrain
+## Task 4 — Shared map backdrop painter and farm edge
 
-**Files:** `scripts/world/world_math.gd`, `scripts/world/world_contract.gd`, `scripts/world/town_contract.gd`, `scripts/world/farm_map.gd`, `scenes/world/farm_map.tscn`; `scripts/world/town_map.gd` only if needed for the shared helper; GUT/contract tests.
+**Files:** `scripts/world/world_math.gd`, `scripts/world/game_map.gd`, `scripts/world/world_contract.gd`, `scripts/world/town_contract.gd`, `scripts/world/town_map.gd`, `scripts/world/farm_map.gd`, `scenes/world/farm_map.tscn`, `tests/headless/world_shell_smoke.gd`, GUT tests.
 
-1. Move the pure camera-corners-to-overdraw-cells code presently in `TownContract.backdrop_cells()` into one `WorldMath` helper taking camera bounds; keep `TownContract.backdrop_cells()` as the thin caller so town rendering remains identical. Tests pin camera-corner coverage in both maps.
-2. Add farm `Backdrop` as the **first** `TileMapLayer`, configured with the current `terrain_tileset.tres` and same tile origin as `Ground`. `FarmMap._ready()` fills only cells outside `Rect2i(Vector2i.ZERO, WorldContract.MAP_SIZE)`, using camera coverage plus the existing one-cell margin; keep authored playable ground untouched.
-3. Fill with existing grass tile; continue the existing east road from the farm's last road cells to off-map camera coverage. Derive the exit alignment from `WorldContract.TRUCK_CELL` / authored path, never a parallel hardcoded map. Keep shared terrain atlas IDs in the existing world/terrain contract. No new sprite/texture resources.
-4. Add tests comparing `WorldContract.MAP_SIZE`, camera limits, static collision polygon count and farm path cells before/after; verify backdrop fills every off-map camera-visible cell and does not paint on playable cells. Smoke both map scene loads and a truck round-trip.
-5. Capture real native **1920×1080** east-truck and south-west river frames. Visually compare to the ticket's **B2** before/after mockup: continuous grass instead of grey, and road continuation at the eastern exit. This check belongs to the agent's MCP-operated visual test, with screenshots attached/referenced in the PR.
+1. Factor the pure camera-corners → overdraw cells calculation from `TownContract.backdrop_cells()` into `WorldMath.backdrop_cells(camera_bounds, map_size)` returning **only the off-map cells**. Preserve existing one-cell coverage margin and current town appearance. Remove `TownContract.backdrop_cells()` **rather than adding a redundant thin wrapper**; update its existing `world_shell_smoke.gd` caller at ~1100.
+2. Add `GameMap._fill_backdrop(layer: TileMapLayer, is_road: Callable)` next to `_fill_collision()` and `_fill_perimeters()`. Both maps call this helper rather than duplicate the TileMapLayer painting loop. Move existing `TownContract.BACKDROP_GRASS_TILE` and `BACKDROP_ROAD_TILE` to common `WorldContract` and update the town reference.
+3. Insert FarmMap `Backdrop` as the first `TileMapLayer`, with the existing `terrain_tileset.tres` and Ground's projected origin; call `_fill_backdrop` from `FarmMap._ready()`. Outside `WorldContract.MAP_SIZE`, fill grass and continue the authored east road with `cell.y == WorldContract.TRUCK_CELL.y and cell.x >= WorldContract.MAP_SIZE.x` (authored Paths road row is y=9). Town keeps `TownContract.is_backdrop_road`.
+4. Headless/GUT verifies all off-map camera cells filled, none inside playable map, shared tile atlas correct, camera and collision unchanged, town visual/road predicate unchanged, and both maps surviving a truck round-trip. Add assertions for the east edge and south-west river corner, then perform native B2 screenshot comparison in Task 5.
 
-**Green checkpoint:** No exposed grey at any reachable farm camera edge; town remains unchanged; no movement/collision or authored terrain regression.
+**GREEN checkpoint:** The farm has no grey camera-corner triangles; both maps share a tiny backdrop painter while their authored playable surfaces remain intact.
 
-## Task 5 — Full e2e and documentation closeout (same PR)
+## Task 5 — Representative e2e, named native tour, CI and evidence (same PR)
 
-**Files:** Tests, optionally `README.md` and `CLAUDE.md` only for changed interaction controls/visual behavior; this plan/spec checklists.
+**Files:** `tests/e2e/world_readability_test.gd` or focused additions to `gameplay_day_one_test.gd`; **new** `tests/native_tour/hpa_743_tour.gd` extending the already-shipped `tests/native_tour/rain_tour_base.gd`; docs/README/CLAUDE.md only as needed.
 
-1. Run headless editor import and targeted GUT while iterating:
+1. **After Task 2 is green**, add focused real-input Godot e2e smoke on **one supported desktop platform**: farm bed/bin/truck, town shop and at least one villager, plus a wrong-facing E refusal. The GUT derived-pose table is exhaustive across **every reachable face × both valid facings**; e2e intentionally samples **five** interactables plus refusal. Do not pretend the e2e sample itself covers every side. Preserve the existing full-day e2e and travel overlay waits.
+2. Add `tests/native_tour/hpa_743_tour.gd`, reuse `rain_tour_base.gd`'s native app bootstrap, `PHOENIX_SAVE_PATH` / `PHOENIX_SETTINGS_PATH` isolation, key input and window-handling helpers. At named contract-derived farm/town contact poses, check E prompt/gold diamond, wrong-facing no-prompt, faded/restored house/bin/fence/truck and town props, the farm truck/east edge and south-west river. Write **1920×1080 PNGs** with `root.get_texture().get_image().save_png()` into `TOUR_OUT`, following `rain_tour.gd` and `hpa_775_day_tour.gd`; no new browser, rendering or test runtime.
+3. Agent runs the repo's existing GdUnit4 and native-tour commands through an **available MCP-connected command/desktop execution environment**, and visually opens its saved PNGs for B2 vs actual east edge plus before/after non-mockup views. **There is no repo-specific Godot MCP.** If the execution/capture connection is absent, report that as evidence not verified and leave this criterion unchecked; GitHub CI alone is not the claimed MCP visual check. No human sign-off step.
+4. Iterate with Godot import, focused GUT and headless smoke:
    ```sh
    godot --headless --path . --editor --quit
    godot --headless --path . -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit,res://tests/integration -gexit
    godot --headless --path . --script res://tests/headless/world_shell_smoke.gd
    ```
-2. After committing coherent code to this branch, run the committed-tree verifier (it archives **HEAD**, so running it before the code commit does **not** test current working changes):
-   ```sh
-   ./tools/verify-clean.sh
-   GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/gdunit -c
-   GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/e2e -c
-   ```
-3. Through the agent's MCP-operated Godot/e2e/native desktop testing route on **one supported desktop platform**, drive the actual game with E/Space, walk along relevant walls and props, travel between maps, and capture **1920×1080** screenshots of: correct farm/town E prompt+diamond, no-prompt wrong-facing case, player hidden/faded/restored behind farm and town props, B2 east-truck camera edge and south-west river corner. Check captured UI visually against **Linear HPA-743 B2** wherever a mockup is provided; otherwise compare before/after screenshots and ensure player/props/prompt legibility. This is an **agent-performed visual verification**, not a human acceptance step or a screenshot-golden diff.
-4. Record commands and results, screenshots and evidence limitations in the PR. CI must be green for the unit and godot-e2e GitHub workflows. Mark acceptance criteria complete in this document **only after verified**. Keep the PR draft until implementation evidence is complete; do not create a second implementation PR.
+5. **After committing implementation** to this branch, run `./tools/verify-clean.sh` (it archives **committed HEAD**), `GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/gdunit -c` and `GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/e2e -c`; require GitHub unit and e2e CI green. Attach command results and images to PR #46. Mark acceptance as done only with captured evidence. Keep all HPA-743 work in **this one PR**.
 
-## Acceptance checklist (all via automated/agent verification; initially unchecked)
+**GREEN checkpoint:** A documented real desktop e2e path, visual comparison with attached Linear B2, committed-head verifier and CI results, all linked to PR #46 without human acceptance.
 
-- [ ] Real E works on the first try from **every physically reachable side** of farm bed, bin and truck, town shop, market, truck and all three villagers; facing away or two tiles away does not activate.
-- [ ] The displayed E prompt, gold highlight and dispatched contract cell always agree. Space/hold farming still uses raw tile-exact targets and existing green/red feedback.
-- [ ] Shop purchase + upgrade, shipping deposit, sleep and Day-14 market confirmation work from proximity after opening their panels; authoritative session guards and saved effects remain unchanged.
-- [ ] Occluding farm house, bin, fences, truck and town buildings fade smoothly only when in front/overlapping; restore to opacity 1 when clear; map swaps and Y ties do not flicker.
-- [ ] Farm camera extremes—including truck/east and river/south-west—show continuous existing grass and correctly continued east road; no visible grey, no enlarged playable region, collision or camera limit changes.
-- [ ] Agent visually reviews MCP/native 1920×1080 captures against **HPA-743 B2** and before/after screenshots for unmapped views, and records the evidence in this PR.
-- [ ] `./tools/verify-clean.sh` passes on committed HEAD; GUT, GdUnit4 and godot-e2e suites pass, including one complete MCP-operated end-to-end path on one desktop platform; GitHub CI green.
-- [ ] All new player-facing strings have English source key plus `zh_TW` and `ja` translations; no new art, SFX, save migration, physics framework, or additional runtime.
+## Acceptance checklist (automated and agent verification; all unchecked until implementation)
+
+- [ ] Collision-derived **GUT table** covers **every physically reachable face × both positive-dot screen facings** for bed, bin, farm/town truck, shop, market and three villagers; both wrong facings and an empty-cell gap refuse. Existing exact-cell fixtures still work.
+- [ ] A real near-contact E opens each object on its canonical cell, and a visible **E-labeled** prompt, gold diamond and E command agree. When Space preview and bin E overlap, Space is tile-exact and E opens the bin; both regression tests pass.
+- [ ] All five modal-submit callbacks (shop, upgrade, deposit, sleep, market) re-resolve canonical cells from the frozen pose; existing session guards, time, money, save and travel are unchanged; `Bed` translation row is **replaced**, not duplicated.
+- [ ] Both maps fade only occluding opt-in sprites using their own `self_modulate.a`, restore to full opacity when clear, and preserve Y-tie order, crops/FX and map-swap resets.
+- [ ] GameMap shared backdrop painter fills farm camera corner triangles with grass/continued east road, paints no playable cells, and preserves town appearance, collisions and camera limits.
+- [ ] Focused **Godot e2e smoke** through the actual game covers bed, bin, farm truck, town shop, one villager and wrong-facing E on **one** desktop platform; existing full-day e2e remains green.
+- [ ] Agent drives `tests/native_tour/hpa_743_tour.gd` through MCP-connected execution, saves 1920×1080 captures to `TOUR_OUT` and visually checks east truck against **Linear B2** plus screenshot comparisons of town/farm prompts, fade/restoration and south-west edge; evidence linked in PR. If MCP execution is unavailable, mark **not verified**, not passing.
+- [ ] Committed `./tools/verify-clean.sh`, GUT, GdUnit4, godot-e2e and GitHub CI pass. No human acceptance, new art/SFX, save schema change, or speculative framework.
 
 ## Out of scope
 
