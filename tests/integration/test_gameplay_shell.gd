@@ -5675,3 +5675,769 @@ func test_close_modals_preserves_opening() -> void:
     world.hud.close_modals()
     assert_true(opening.visible)
     assert_true(world.hud.has_blocking_modal())
+
+# === HPA-743 red-first: physical contact E resolver, hints and panel submits ===
+#
+# The seam these tests pin (implemented by the Task 2 commit):
+#   - WorldContract.interact_regions() / TownContract.interact_regions()
+#     -> Array of {"cell": Vector2i, "footprint": Rect2} in contract order.
+#   - WorldShell._resolve_interactable() -> {"cell", "label", "action"} or {}.
+#   - The same resolver answers _process() E hints, interact() and the five
+#     modal-submit handlers, preferring the nearest region within a strict
+#     14px near-contact reach whose inward dot is positive, refusing when a
+#     region is within reach but none is faced, and falling back to the exact
+#     raw target only when no region is within reach.
+#
+# The pure-math halves of these rules live in tests/gdunit/test_world_math.gd.
+
+const CONTACT_REACH_PX := 14.0
+const _RESOLVER_MISSING := "&resolver_missing"
+const _ALL_FACINGS := [
+    WorldMath.Facing.UP,
+    WorldMath.Facing.RIGHT,
+    WorldMath.Facing.DOWN,
+    WorldMath.Facing.LEFT,
+]
+
+func _screen_direction(facing: WorldMath.Facing) -> Vector2:
+    match facing:
+        WorldMath.Facing.UP:
+            return Vector2(0, -1)
+        WorldMath.Facing.RIGHT:
+            return Vector2(1, 0)
+        WorldMath.Facing.DOWN:
+            return Vector2(0, 1)
+    return Vector2(-1, 0)
+
+## Contract-owned region table for the active map. Missing API is a clean,
+## explicit failure instead of a parse error: the behavior tests below still
+## run and demonstrate today's bugs.
+func _regions(map_id: GameRules.MapId) -> Array:
+    var script: GDScript = load(
+        "res://scripts/world/world_contract.gd"
+        if map_id == GameRules.MapId.FARM
+        else "res://scripts/world/town_contract.gd"
+    )
+    if not script.has_method("interact_regions"):
+        fail_test("interact_regions() missing on %s — HPA-743 red-first seam (Task 2)" % script.resource_path)
+        return []
+    return script.call("interact_regions")
+
+func _collider_footprints(map_id: GameRules.MapId) -> Array:
+    if map_id == GameRules.MapId.FARM:
+        return [
+            WorldContract.HOUSE_FOOTPRINT,
+            WorldContract.FOREST_FOOTPRINT,
+            WorldContract.RIVER_WEST_FOOTPRINT,
+            WorldContract.RIVER_SOUTH_FOOTPRINT,
+            WorldContract.WORKBENCH_FOOTPRINT,
+            WorldContract.SHIPPING_FOOTPRINT,
+            WorldContract.TRUCK_FOOTPRINT,
+        ] + WorldContract.perimeter_footprints(WorldContract.MAP_SIZE)
+    return [
+        TownContract.STATION_FOOTPRINT,
+        TownContract.SHOP_FOOTPRINT,
+        TownContract.CAFE_FOOTPRINT,
+        TownContract.MARKET_FOOTPRINT,
+        TownContract.TRUCK_FOOTPRINT,
+    ] + TownContract.VILLAGER_FOOTPRINTS + WorldContract.perimeter_footprints(TownContract.MAP_SIZE)
+
+func _probe_collides(map_id: GameRules.MapId, position: Vector2) -> bool:
+    var probe := WorldMath.centered_player_footprint_polygon(WorldMath.world_to_grid(position))
+    for footprint in _collider_footprints(map_id):
+        if not Geometry2D.intersect_polygons(probe, WorldMath.footprint_to_polygon(footprint)).is_empty():
+            return true
+    return false
+
+## Reference nearest point on a footprint's projected boundary, edge by edge,
+## exactly the way the pure WorldMath helper must be implemented.
+func _closest_contact_point(footprint: Rect2, position: Vector2) -> Vector2:
+    var polygon := WorldMath.footprint_to_polygon(footprint)
+    var best := Vector2.ZERO
+    var best_distance := INF
+    for index in polygon.size():
+        var candidate := Geometry2D.get_closest_point_to_segment(
+            position, polygon[index], polygon[(index + 1) % polygon.size()]
+        )
+        var distance := position.distance_to(candidate)
+        if distance < best_distance:
+            best_distance = distance
+            best = candidate
+    return best
+
+## One row per projected footprint edge (logical side N/E/S/W) with the
+## outward screen normal and the positive/negative-dot facings for it.
+func _face_rows(footprint: Rect2) -> Array:
+    var polygon := WorldMath.footprint_to_polygon(footprint)
+    var sides := ["N", "E", "S", "W"]
+    var rows := []
+    for index in 4:
+        var edge_start: Vector2 = polygon[index]
+        var edge_end: Vector2 = polygon[(index + 1) % 4]
+        var edge_direction := (edge_end - edge_start).normalized()
+        var normal := Vector2(edge_direction.y, -edge_direction.x)
+        if normal.dot(WorldMath.grid_to_world(footprint.get_center()) - (edge_start + edge_end) * 0.5) > 0.0:
+            normal = -normal
+        var positive: Array = []
+        var negative: Array = []
+        for facing in _ALL_FACINGS:
+            if _screen_direction(facing).dot(-normal) > 0.0:
+                positive.append(facing)
+            else:
+                negative.append(facing)
+        rows.append({
+            "side": sides[index],
+            "midpoint": (edge_start + edge_end) * 0.5,
+            "normal": normal,
+            "positive": positive,
+            "negative": negative,
+        })
+    return rows
+
+## Drives a real physics push into the face until the player collision-stops.
+func _push_until_stopped(world: WorldShell, direction: Vector2, frames := 12) -> void:
+    var player := world.player
+    var push := direction.normalized() * 480.0
+    for _frame in frames:
+        await get_tree().physics_frame
+        player.velocity = push
+        player.move_and_slide()
+    player.velocity = Vector2.ZERO
+
+## Finds a free probe start on the face's outward ray, pushes into the face,
+## and validates that the real collision stop is in near-contact reach.
+func _contact_stop(world: WorldShell, map_id: GameRules.MapId, footprint: Rect2, row: Dictionary) -> Dictionary:
+    var midpoint: Vector2 = row["midpoint"]
+    var normal: Vector2 = row["normal"]
+    for start_distance: float in [12.0, 16.0, 20.0, 26.0, 32.0, 40.0, 48.0]:
+        var start := midpoint + normal * start_distance
+        if _probe_collides(map_id, start):
+            continue
+        world.player.global_position = start
+        world.player.velocity = Vector2.ZERO
+        await _push_until_stopped(world, -normal)
+        var stop: Vector2 = world.player.global_position
+        var stop_contact := _closest_contact_point(footprint, stop)
+        if stop.distance_to(stop_contact) >= CONTACT_REACH_PX:
+            return {"ok": false}
+        return {"ok": true, "stop": stop}
+    return {"ok": false}
+
+## Spec replica of Decision 1: nearest region within strict reach whose
+## inward dot is positive (contract order breaks ties); empty (null) when a
+## region is within reach but none is faced; exact raw-target match is the
+## compatibility fallback only when no region is within reach.
+func _expected_resolution(
+    world: WorldShell,
+    position: Vector2,
+    facing: WorldMath.Facing,
+    regions: Array,
+) -> Variant:
+    var best: Variant = null
+    var best_distance := INF
+    var any_within_reach := false
+    for region in regions:
+        var contact := _closest_contact_point(region["footprint"], position)
+        var distance := position.distance_to(contact)
+        if distance >= CONTACT_REACH_PX:
+            continue
+        any_within_reach = true
+        if _screen_direction(facing).dot(contact - position) > 0.0 and distance < best_distance:
+            best = region["cell"]
+            best_distance = distance
+    if best != null:
+        return best
+    if any_within_reach:
+        return null
+    var raw: Variant = WorldMath.target_cell(
+        WorldMath.world_to_grid(position), facing, world._map.map_size()
+    )
+    if raw != null and not world._interactable(raw).is_empty():
+        return raw
+    return null
+
+func _resolver_cell(world: WorldShell) -> Variant:
+    if not world.has_method("_resolve_interactable"):
+        return _RESOLVER_MISSING
+    var resolved: Dictionary = world.call("_resolve_interactable")
+    return null if resolved.is_empty() else resolved["cell"]
+
+## Synchronous pose change at an arbitrary world position: paint the raw
+## diamond, then run the shell's process pass so the E-hint state is
+## observable immediately (the await-free seam alongside _set_target()).
+func _set_pose_and_process(world: WorldShell, position: Vector2, facing: WorldMath.Facing) -> void:
+    var player := world.player
+    player.global_position = position
+    player.facing = facing
+    player.velocity = Vector2.ZERO
+    player._update_target()
+    world._process(0.0)
+
+func _assert_no_resolution_of(world: WorldShell, canonical: Vector2i) -> Variant:
+    var got: Variant = _resolver_cell(world)
+    if got != _RESOLVER_MISSING:
+        assert_ne(got, canonical, "wrong-facing/backoff probe must not select the tested region")
+    return got
+
+func _run_contact_table(world: WorldShell, map_id: GameRules.MapId, minimum_faces: int) -> void:
+    var regions := _regions(map_id)
+    var hud := world.hud
+    var covered_faces := 0
+    var skipped_faces := 0
+    var missing_resolver_probes := 0
+    for region in regions:
+        var canonical: Vector2i = region["cell"]
+        var footprint: Rect2 = region["footprint"]
+        var region_faces := 0
+        var region_stop: Variant = null
+        var region_facing: Variant = null
+        for row in _face_rows(footprint):
+            var stop_info := await _contact_stop(world, map_id, footprint, row)
+            if not stop_info["ok"]:
+                skipped_faces += 1
+                continue
+            var stop: Vector2 = stop_info["stop"]
+            region_faces += 1
+            if region_stop == null:
+                region_stop = stop
+                region_facing = row["positive"][0]
+            for facing in row["positive"]:
+                world.player.facing = facing
+                world.player.velocity = Vector2.ZERO
+                world.player._update_target()
+                world._process(0.0)
+                var expected: Variant = _expected_resolution(world, stop, facing, regions)
+                assert_eq(
+                    expected, canonical,
+                    "%s %s contact must expect the canonical cell" % [canonical, row["side"]],
+                )
+                var got: Variant = _resolver_cell(world)
+                if got == _RESOLVER_MISSING:
+                    missing_resolver_probes += 1
+                else:
+                    assert_eq(got, expected, "%s %s resolver disagrees with the spec oracle" % [canonical, row["side"]])
+                var raw: Variant = world.player.current_target_cell()
+                var raw_is_farmable: bool = (
+                    raw != null
+                    and world._session.preview_target_action(raw)["action"] != null
+                )
+                if raw_is_farmable:
+                    # Space keeps visible priority; no concurrent [E] hint.
+                    assert_true(
+                        hud.prompt_text().begins_with("[Space]"),
+                        "%s %s must show the Space hint over the raw farm tile" % [canonical, row["side"]],
+                    )
+                else:
+                    var label: String = world._interactable(canonical).get("label", "")
+                    assert_eq(
+                        hud.prompt_text(), "[E] %s" % label,
+                        "%s %s E hint label must agree with interact()" % [canonical, row["side"]],
+                    )
+                    var highlight := world.player.target_highlight
+                    assert_true(highlight.visible, "%s %s E hint diamond must be visible" % [canonical, row["side"]])
+                    assert_eq(highlight.points, WorldMath.cell_diamond(canonical))
+                    assert_eq(highlight.default_color, PlayerController.TARGET_NEUTRAL)
+                    var centre: Vector2 = world.get_viewport().get_canvas_transform() * WorldMath.grid_to_world(
+                        Vector2(canonical) + Vector2(0.5, 0.5)
+                    )
+                    var prompt := _chrome(hud).get_node("Prompt") as Control
+                    assert_eq(
+                        prompt.position, centre - Vector2(0, HudChrome.PROMPT_LIFT),
+                        "%s %s prompt must anchor the canonical cell" % [canonical, row["side"]],
+                    )
+            for facing in row["negative"]:
+                world.player.facing = facing
+                world.player.velocity = Vector2.ZERO
+                world.player._update_target()
+                world._process(0.0)
+                var expected: Variant = _expected_resolution(world, stop, facing, regions)
+                var got: Variant = _assert_no_resolution_of(world, canonical)
+                if got == _RESOLVER_MISSING:
+                    missing_resolver_probes += 1
+                else:
+                    assert_eq(got, expected, "%s %s negative facing disagrees with the spec oracle" % [canonical, row["side"]])
+                if expected == null:
+                    # Full-refusal pose: nothing within reach is faced.
+                    var before := world._session.snapshot()
+                    world.interact()
+                    assert_eq(world._session.snapshot(), before, "refused E must not mutate the session")
+                    assert_eq(hud.toast_text(), "Nothing to interact with.")
+                    world._process(0.0)
+            # Empty-cell backoff along the face's logical outward direction.
+            var backoff_steps := {"N": Vector2(0, -1), "E": Vector2(1, 0), "S": Vector2(0, 1), "W": Vector2(-1, 0)}
+            var backoff_logical: Vector2 = WorldMath.world_to_grid(stop) + backoff_steps[row["side"]]
+            var backoff_position := WorldMath.grid_to_world(backoff_logical)
+            if _probe_collides(map_id, backoff_position):
+                skipped_faces += 1
+                continue
+            var backoff_facing: WorldMath.Facing = row["positive"][0]
+            world.player.global_position = backoff_position
+            world.player.facing = backoff_facing
+            world.player.velocity = Vector2.ZERO
+            world.player._update_target()
+            world._process(0.0)
+            var backoff_expected: Variant = _expected_resolution(world, backoff_position, backoff_facing, regions)
+            var backoff_got: Variant = _resolver_cell(world)
+            if backoff_got == _RESOLVER_MISSING:
+                missing_resolver_probes += 1
+            else:
+                assert_eq(
+                    backoff_got, backoff_expected,
+                    "%s %s backoff disagrees with the spec oracle" % [canonical, row["side"]],
+                )
+        assert_gt(
+            region_faces, 0,
+            "region %s has no physically reachable face — table is vacuous" % canonical,
+        )
+        covered_faces += region_faces
+        # E hint agreement end to end: the anchored cell interact() opens.
+        if canonical in [WorldContract.TRUCK_CELL, TownContract.TRUCK_CELL]:
+            continue  # travel runs in the dedicated contact travel tests
+        world.player.global_position = region_stop
+        world.player.facing = region_facing
+        world.player.velocity = Vector2.ZERO
+        world.player._update_target()
+        world._process(0.0)
+        world.interact()
+        var villager_index := TownContract.villager_at(canonical)
+        if villager_index >= 0:
+            assert_true(_panel(hud, "DialoguePanel").visible, "villager contact E must open dialogue")
+        else:
+            match canonical:
+                WorldContract.BED_CELL:
+                    assert_true(_panel(hud, "SleepPanel").visible, "bed contact E must open sleep")
+                WorldContract.SHIPPING_CELL:
+                    assert_true(_panel(hud, "ShippingPanel").visible, "bin contact E must open shipping")
+                TownContract.SHOP_CELL:
+                    assert_true(_panel(hud, "ShopPanel").visible, "shop contact E must open the shop")
+                TownContract.MARKET_CELL:
+                    assert_true(hud.toast_text().contains("opens on Day 14"), "market contact E routes by day")
+                    assert_false(_panel(hud, "MarketConfirmPanel").visible)
+        hud.close_modals()
+        assert_false(hud.has_blocking_modal())
+        world._process(0.0)
+    assert_gte(covered_faces, minimum_faces, "contact table must cover every reachable face")
+    assert_eq(
+        missing_resolver_probes, 0,
+        "%d probes could not run: WorldShell._resolve_interactable() is missing (Task 2)" % missing_resolver_probes,
+    )
+
+func test_farm_contact_table_covers_every_reachable_face() -> void:
+    var world := _world()
+    if world == null:
+        return
+    await _run_contact_table(world, GameRules.MapId.FARM, 9)
+
+func test_town_contact_table_covers_every_reachable_face() -> void:
+    var world := _world()
+    if world == null:
+        return
+    await _drive_to_town(world)
+    await _run_contact_table(world, GameRules.MapId.TOWN, 24)
+
+func test_shop_east_contact_facing_down_never_resolves_sato_san() -> void:
+    # The pinned anti-through-wall case: pressed against the Seed Shop's east
+    # face (~5px), facing DOWN, the raw grid target is Sato-san's cell across
+    # the path — but Sato-san sits roughly 26px away, outside near-contact
+    # reach, and DOWN is not an inward facing for the shop's east face, so E
+    # must refuse instead of talking through the wall.
+    var world := _world()
+    var hud := world.hud
+    await _drive_to_town(world)
+    var start := WorldMath.grid_to_world(Vector2(8.5, 3.5))
+    assert_false(_probe_collides(GameRules.MapId.TOWN, start), "probe start must be a free standing spot")
+    world.player.global_position = start
+    await _push_until_stopped(world, Vector2(-0.447, -0.894))
+    var stop: Vector2 = world.player.global_position
+    world.player.facing = WorldMath.Facing.DOWN
+    world.player.velocity = Vector2.ZERO
+    world.player._update_target()
+    world._process(0.0)
+
+    var shop_contact := _closest_contact_point(TownContract.SHOP_FOOTPRINT, stop)
+    var shop_distance := stop.distance_to(shop_contact)
+    assert_lt(shop_distance, CONTACT_REACH_PX, "precondition: player is in near-contact reach of the shop")
+    var sato_contact := _closest_contact_point(TownContract.VILLAGER_FOOTPRINTS[0], stop)
+    assert_gt(
+        stop.distance_to(sato_contact), CONTACT_REACH_PX,
+        "precondition: Sato-san is beyond near-contact reach",
+    )
+    assert_eq(
+        world.player.current_target_cell(), TownContract.VILLAGER_CELLS[0],
+        "precondition: the raw grid target is Sato-san's cell",
+    )
+
+    var got: Variant = _resolver_cell(world)
+    if got != _RESOLVER_MISSING:
+        assert_null(got, "no valid inward-facing region exists at this pose, so the resolver is empty")
+    if world.has_method("_resolve_interactable"):
+        # Nearest-candidate determinism: turning UP faces the shop's east
+        # face, and the shop is the only region within reach.
+        world.player.facing = WorldMath.Facing.UP
+        world.player._update_target()
+        world._process(0.0)
+        var up_cell: Variant = _resolver_cell(world)
+        if up_cell != _RESOLVER_MISSING:
+            assert_eq(up_cell, TownContract.SHOP_CELL)
+
+    var before := world._session.snapshot()
+    world.interact()
+    assert_eq(world._session.snapshot(), before, "the through-wall E must not mutate the session")
+    assert_false(_panel(hud, "DialoguePanel").visible, "the through-wall E must not open Sato-san")
+    assert_eq(hud.toast_text(), "Nothing to interact with.")
+
+func test_market_hana_neighbors_turn_away_or_back_off_legally() -> void:
+    # Market/Hana neighbor collision: the gap between the market's west face
+    # and Hana is a single probe column, so a wrong-facing probe near one prop
+    # either refuses outright or legally answers with the neighbor.
+    var world := _world()
+    var hud := world.hud
+    await _drive_to_town(world)
+
+    # Pressed against Hana's east face, facing LEFT opens Hana herself.
+    var hana_footprint: Rect2 = TownContract.VILLAGER_FOOTPRINTS[2]
+    var hana_east: Dictionary = _face_rows(hana_footprint)[1]
+    var hana_stop_info := await _contact_stop(world, GameRules.MapId.TOWN, hana_footprint, hana_east)
+    assert_true(hana_stop_info["ok"], "Hana's east face must be physically reachable")
+    if not hana_stop_info["ok"]:
+        return
+    var hana_stop: Vector2 = hana_stop_info["stop"]
+    world.player.facing = WorldMath.Facing.LEFT
+    world.player.velocity = Vector2.ZERO
+    world.player._update_target()
+    world._process(0.0)
+    var got: Variant = _resolver_cell(world)
+    if got != _RESOLVER_MISSING:
+        assert_eq(got, TownContract.VILLAGER_CELLS[2], "Hana's east face resolves Hana with LEFT")
+    world.interact()
+    assert_true(_panel(hud, "DialoguePanel").visible, "E at Hana's east face opens Hana")
+    hud.close_modals()
+    # Turning away (DOWN) leaves nothing within reach: full refusal even
+    # though the raw cell hits the empty path.
+    world.player.facing = WorldMath.Facing.DOWN
+    world.player._update_target()
+    world._process(0.0)
+    var away: Variant = _resolver_cell(world)
+    if away != _RESOLVER_MISSING:
+        assert_ne(away, TownContract.VILLAGER_CELLS[2])
+        assert_null(away, "turning away from Hana with nothing else in reach refuses")
+
+    # Pressed against the market's west face (the Hana side), facing DOWN has
+    # the market cell as its raw target — but the market is within reach and
+    # DOWN is not an inward facing for its west face, so the resolver must
+    # refuse outright instead of raw-falling back.
+    var market_west: Dictionary = _face_rows(TownContract.MARKET_FOOTPRINT)[3]
+    var market_stop_info := await _contact_stop(
+        world, GameRules.MapId.TOWN, TownContract.MARKET_FOOTPRINT, market_west
+    )
+    assert_true(market_stop_info["ok"], "the market's west face must be physically reachable")
+    if not market_stop_info["ok"]:
+        return
+    var market_stop: Vector2 = market_stop_info["stop"]
+    world.player.facing = WorldMath.Facing.DOWN
+    world.player.velocity = Vector2.ZERO
+    world.player._update_target()
+    world._process(0.0)
+    assert_lt(
+        market_stop.distance_to(_closest_contact_point(TownContract.MARKET_FOOTPRINT, market_stop)),
+        CONTACT_REACH_PX,
+        "precondition: player is in near-contact reach of the market",
+    )
+    var market_down: Variant = _resolver_cell(world)
+    if market_down != _RESOLVER_MISSING:
+        assert_null(market_down, "market within reach but faced away refuses instead of raw-falling back")
+    var before := world._session.snapshot()
+    world.interact()
+    assert_eq(world._session.snapshot(), before, "the wrong-facing market E must not mutate the session")
+    assert_false(_panel(hud, "MarketConfirmPanel").visible)
+    assert_false(_panel(hud, "DialoguePanel").visible)
+    world._process(0.0)
+
+    # One probe column over at the empty gap cell, facing DOWN legally
+    # answers with the market: the west face is within near-contact reach and
+    # DOWN faces it inward, while Hana stays out of reach.
+    var gap := WorldMath.grid_to_world(Vector2(12.5, 6.5))
+    assert_false(_probe_collides(GameRules.MapId.TOWN, gap))
+    world.player.global_position = gap
+    world.player.facing = WorldMath.Facing.DOWN
+    world.player.velocity = Vector2.ZERO
+    world.player._update_target()
+    world._process(0.0)
+    var gap_got: Variant = _resolver_cell(world)
+    if gap_got != _RESOLVER_MISSING:
+        assert_eq(gap_got, TownContract.MARKET_CELL, "the gap probe legally resolves the market")
+
+func test_bin_contact_e_opens_shipping_while_space_keeps_the_raw_farm_tile() -> void:
+    var world := _world()
+    var hud := world.hud
+    var start := WorldMath.grid_to_world(Vector2(9.5, 12.5))
+    assert_false(_probe_collides(GameRules.MapId.FARM, start))
+    world.player.global_position = start
+    await _push_until_stopped(world, Vector2(0, 1))
+    var stop: Vector2 = world.player.global_position
+    world.player.facing = WorldMath.Facing.LEFT
+    world.player.velocity = Vector2.ZERO
+    world.player._update_target()
+    world._process(0.0)
+
+    var contact := _closest_contact_point(WorldContract.SHIPPING_FOOTPRINT, stop)
+    assert_lt(stop.distance_to(contact), CONTACT_REACH_PX, "precondition: touching the bin")
+    var raw: Variant = world.player.current_target_cell()
+    assert_true(raw != null, "precondition: the raw target exists")
+    if raw != null:
+        assert_true(
+            WorldContract.FARM_PATCH.has_point(raw),
+            "precondition: the raw target is a farm tile (the Space side of the overlap)",
+        )
+        assert_ne(raw, WorldContract.SHIPPING_CELL)
+
+    # Space keeps visible priority: green farming diamond on the raw tile.
+    assert_true(hud.prompt_text().begins_with("[Space]"))
+    assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_VALID)
+    if raw != null:
+        assert_eq(world.player.target_highlight.points, WorldMath.cell_diamond(raw))
+    # E still dispatches the independent resolver to Shipping.
+    var got: Variant = _resolver_cell(world)
+    if got != _RESOLVER_MISSING:
+        assert_eq(got, WorldContract.SHIPPING_CELL)
+    world.interact()
+    assert_true(_panel(hud, "ShippingPanel").visible, "E at the bin contact opens Shipping on the first press")
+    hud.close_modals()
+    assert_false(hud.has_blocking_modal())
+    # Space still works the raw farm tile.
+    if raw != null:
+        world.use_target_action()
+        var index: int = WorldContract.farm_cells().find(raw)
+        assert_true(bool(world._session.snapshot()["farm"][index]["tilled"]), "Space tilled the raw farm tile")
+
+func test_process_transitions_e_hint_farming_idle_without_stale_highlight() -> void:
+    var world := _world()
+    var hud := world.hud
+    var highlight := world.player.target_highlight
+    # E hint at the bin's west face (RIGHT faces the bin inward; the raw
+    # target is the empty path cell beside it).
+    var bin_rows := _face_rows(WorldContract.SHIPPING_FOOTPRINT)
+    var stop_info := await _contact_stop(world, GameRules.MapId.FARM, WorldContract.SHIPPING_FOOTPRINT, bin_rows[3])
+    assert_true(stop_info["ok"], "the bin's west face must be physically reachable")
+    if not stop_info["ok"]:
+        return
+    world.player.facing = WorldMath.Facing.RIGHT
+    world.player.velocity = Vector2.ZERO
+    world.player._update_target()
+    world._process(0.0)
+    assert_eq(hud.prompt_text(), "[E] Shipping")
+    assert_true(highlight.visible)
+    assert_eq(highlight.points, WorldMath.cell_diamond(WorldContract.SHIPPING_CELL))
+    assert_eq(highlight.default_color, PlayerController.TARGET_NEUTRAL)
+
+    # E hint -> farming: turning UP raw-targets the farm tile behind the bin.
+    world.player.facing = WorldMath.Facing.UP
+    world.player._update_target()
+    world._process(0.0)
+    var raw: Variant = world.player.current_target_cell()
+    assert_true(raw != null and WorldContract.FARM_PATCH.has_point(raw), "farming turn must raw-target a farm tile")
+    assert_true(hud.prompt_text().begins_with("[Space]"))
+    assert_eq(highlight.default_color, PlayerController.TARGET_VALID)
+    assert_eq(highlight.points, WorldMath.cell_diamond(raw), "the raw diamond replaces the E diamond")
+
+    # farming -> idle from a clear empty spot: neutral diamond on the raw
+    # target, prompt hidden, no stale E diamond anywhere.
+    _set_target(world, Vector2i(13, 11), WorldMath.Facing.DOWN)
+    world._process(0.0)
+    assert_eq(hud.prompt_text(), "")
+    assert_eq(highlight.default_color, PlayerController.TARGET_NEUTRAL)
+    assert_eq(highlight.points, WorldMath.cell_diamond(world.player.current_target_cell()))
+
+func test_process_recovers_highlight_from_null_raw_target_to_physical_e_hint() -> void:
+    var world := _world()
+    var hud := world.hud
+    var highlight := world.player.target_highlight
+    await _drive_to_town(world)
+    # Town top-left corner facing UP: the raw target is null and the diamond
+    # is hidden.
+    _set_pose_and_process(world, WorldMath.grid_to_world(Vector2(0.5, 1.5)), WorldMath.Facing.UP)
+    assert_null(world.player.current_target_cell())
+    assert_false(highlight.visible)
+    assert_eq(hud.prompt_text(), "")
+    # A valid physical E hint restores the diamond even though the raw target
+    # of the new pose misses the shop.
+    var shop_rows := _face_rows(TownContract.SHOP_FOOTPRINT)
+    var stop_info := await _contact_stop(world, GameRules.MapId.TOWN, TownContract.SHOP_FOOTPRINT, shop_rows[2])
+    assert_true(stop_info["ok"], "the shop's south face must be physically reachable")
+    if not stop_info["ok"]:
+        return
+    world.player.facing = WorldMath.Facing.UP
+    world.player.velocity = Vector2.ZERO
+    world.player._update_target()
+    world._process(0.0)
+    assert_ne(world.player.current_target_cell(), TownContract.SHOP_CELL, "the raw target misses the shop")
+    assert_eq(hud.prompt_text(), "[E] Seed Shop")
+    assert_true(highlight.visible, "the E hint must un-hide the diamond after a null raw target")
+    assert_eq(highlight.points, WorldMath.cell_diamond(TownContract.SHOP_CELL))
+    assert_eq(highlight.default_color, PlayerController.TARGET_NEUTRAL)
+    var centre: Vector2 = world.get_viewport().get_canvas_transform() * WorldMath.grid_to_world(
+        Vector2(TownContract.SHOP_CELL) + Vector2(0.5, 0.5)
+    )
+    var prompt := _chrome(hud).get_node("Prompt") as Control
+    assert_eq(prompt.position, centre - Vector2(0, HudChrome.PROMPT_LIFT))
+
+func test_shop_contact_panel_submit_re_resolves_canonical_shop_cell() -> void:
+    var world := _world()
+    var hud := world.hud
+    var session := world._session
+    await _drive_to_town(world)
+    var state := session.state()
+    state["money"] = 250
+    assert_true(session.restore_state(state))
+    world._refresh_from_session()
+    var shop_rows := _face_rows(TownContract.SHOP_FOOTPRINT)
+    var stop_info := await _contact_stop(world, GameRules.MapId.TOWN, TownContract.SHOP_FOOTPRINT, shop_rows[2])
+    assert_true(stop_info["ok"], "the shop's south face must be physically reachable")
+    if not stop_info["ok"]:
+        return
+    world.player.facing = WorldMath.Facing.UP
+    world.player.velocity = Vector2.ZERO
+    world.player._update_target()
+    world._process(0.0)
+    # E opens the real shop from the physical contact.
+    world.interact()
+    assert_true(_panel(hud, "ShopPanel").visible, "E at the shop contact opens the shop on the first press")
+    hud.close_modals()
+    # The panel submit re-resolves at the frozen contact pose and dispatches
+    # through the canonical shop cell.
+    var money_before: int = session.snapshot()["money"]
+    var turnips_before := int(session.snapshot()["seeds"].get(&"turnip", 0))
+    hud.open_shop()
+    hud.buy_requested.emit(GameRules.CropKind.TURNIP, 1)
+    assert_eq(
+        int(session.snapshot()["money"]),
+        money_before - GameRules.seed_price(GameRules.CropKind.TURNIP),
+        "the contact-pose submit must buy through the canonical shop cell",
+    )
+    assert_eq(int(session.snapshot()["seeds"].get(&"turnip", 0)), turnips_before + 1)
+    hud.upgrade_requested.emit()
+    assert_true(
+        bool(session.snapshot()["watering_can_upgraded"]),
+        "the contact-pose submit must upgrade through the canonical shop cell",
+    )
+    assert_eq(int(session.snapshot()["money"]), money_before - GameRules.seed_price(GameRules.CropKind.TURNIP) - 200)
+    hud.close_modals()
+    assert_false(hud.has_blocking_modal())
+
+func test_bin_contact_panel_submit_deposits_into_the_canonical_bin() -> void:
+    var world := _world()
+    var hud := world.hud
+    var session := world._session
+    var cell: Vector2i = WorldContract.farm_cells()[0]
+    _grow_mature_turnip(world, cell)
+    assert_eq(session.harvest(cell), GameRules.CommandCode.CROP_HARVESTED)
+    var bin_rows := _face_rows(WorldContract.SHIPPING_FOOTPRINT)
+    var stop_info := await _contact_stop(world, GameRules.MapId.FARM, WorldContract.SHIPPING_FOOTPRINT, bin_rows[3])
+    assert_true(stop_info["ok"], "the bin's west face must be physically reachable")
+    if not stop_info["ok"]:
+        return
+    world.player.facing = WorldMath.Facing.DOWN
+    world.player.velocity = Vector2.ZERO
+    world.player._update_target()
+    world._process(0.0)
+    # E opens the real shipping panel from the physical contact.
+    world.interact()
+    assert_true(_panel(hud, "ShippingPanel").visible, "E at the bin contact opens shipping on the first press")
+    hud.close_modals()
+    # The deposit submit re-resolves at the frozen contact pose: the raw
+    # target here is a farm tile, not the bin, so only the resolver can own it.
+    hud.open_shipping()
+    hud.deposit_requested.emit(GameRules.CropKind.TURNIP, 1)
+    var snapshot := session.snapshot()
+    assert_eq(int(snapshot["harvested"].get(&"turnip", 0)), 0, "the turnip left the inventory")
+    assert_eq(int(snapshot["pending_shipment"].get(&"turnip", 0)), 1, "the turnip landed in the canonical bin")
+    hud.close_modals()
+
+func test_bed_door_contact_panel_submit_sleeps_through_canonical_bed_cell() -> void:
+    var world := _world()
+    var hud := world.hud
+    var session := world._session
+    # The bed's door slice faces the yard: standing at the door and facing UP
+    # is the physical contact the raw grid can never express.
+    var bed_rows := _face_rows(
+        WorldContract.HOUSE_FOOTPRINT.intersection(Rect2(WorldContract.BED_CELL, Vector2.ONE))
+    )
+    var stop_info := await _contact_stop(
+        world, GameRules.MapId.FARM,
+        WorldContract.HOUSE_FOOTPRINT.intersection(Rect2(WorldContract.BED_CELL, Vector2.ONE)),
+        bed_rows[2],
+    )
+    assert_true(stop_info["ok"], "the house door slice's yard face must be physically reachable")
+    if not stop_info["ok"]:
+        return
+    world.player.facing = WorldMath.Facing.UP
+    world.player.velocity = Vector2.ZERO
+    world.player._update_target()
+    world._process(0.0)
+    world.interact()
+    assert_true(_panel(hud, "SleepPanel").visible, "E at the house door opens sleep on the first press")
+    hud.close_modals()
+    hud.open_sleep_confirmation()
+    hud.sleep_requested.emit()
+    assert_eq(int(session.snapshot()["day"]), 2, "the contact-pose submit must sleep through the bed cell")
+    assert_true(_panel(hud, "MorningSummaryPanel").visible)
+
+func test_day14_market_contact_confirm_still_completes_the_finale() -> void:
+    var world := _world()
+    var session := world._session
+    var hud := world.hud
+    var state := session.state()
+    state["day"] = GameRules.MAX_DAY
+    var weather_history: Array = []
+    for _day in GameRules.MAX_DAY:
+        weather_history.append(&"sunny")
+    state["weather_history"] = weather_history
+    assert_true(session.restore_state(state))
+    world._refresh_from_session()
+    await _drive_to_town(world)
+    var market_rows := _face_rows(TownContract.MARKET_FOOTPRINT)
+    var stop_info := await _contact_stop(world, GameRules.MapId.TOWN, TownContract.MARKET_FOOTPRINT, market_rows[2])
+    assert_true(stop_info["ok"], "the market's south face must be physically reachable")
+    if not stop_info["ok"]:
+        return
+    world.player.facing = WorldMath.Facing.UP
+    world.player.velocity = Vector2.ZERO
+    world.player._update_target()
+    world._process(0.0)
+    var finale_emits: Array = []
+    world.finale_completed.connect(
+        func(_final_state: Dictionary, save_error: int) -> void:
+            finale_emits.append(save_error)
+    )
+    world.interact()
+    assert_true(_panel(hud, "MarketConfirmPanel").visible, "E at the Day-14 market contact opens the confirmation")
+    assert_false(bool(session.snapshot()["finale_triggered"]))
+    hud.market_confirmed.emit()
+    assert_true(
+        bool(session.snapshot()["finale_triggered"]),
+        "the contact-pose confirm must dispatch through the canonical market cell",
+    )
+    assert_true(world._finale_in_progress)
+    assert_false(world._world_input_enabled)
+    for _frame in 120:
+        if finale_emits.size() == 1:
+            break
+        await get_tree().process_frame
+    assert_eq(finale_emits.size(), 1)
+
+func test_farm_truck_contact_e_drives_to_town() -> void:
+    var world := _world()
+    var truck_rows := _face_rows(WorldContract.TRUCK_FOOTPRINT)
+    var stop_info := await _contact_stop(world, GameRules.MapId.FARM, WorldContract.TRUCK_FOOTPRINT, truck_rows[3])
+    assert_true(stop_info["ok"], "the truck's west face must be physically reachable")
+    if not stop_info["ok"]:
+        return
+    world.player.facing = WorldMath.Facing.RIGHT
+    world.player.velocity = Vector2.ZERO
+    world.player._update_target()
+    world._process(0.0)
+    assert_eq(world.hud.prompt_text(), "[E] Drive to town")
+    world.interact()
+    assert_true(_travel_overlay(world.hud).visible, "E at the truck contact opens the travel overlay")
+    _finish_travel(world.hud)
+    assert_eq(world._session.snapshot()["location"], GameRules.MapId.TOWN)
