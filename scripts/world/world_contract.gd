@@ -31,6 +31,24 @@ const FARM_PATCH := Rect2i(4, 10, 6, 5)
 
 const PERIMETER_BAND_WIDTH := 1.0
 
+# HPA-743: the E resolver's physical near-contact reach, in projected world
+# pixels, measured from the player's ground centre to the closest contact
+# point on a region's collision footprint (inclusive).
+const INTERACT_REACH_PIXELS := 14.0
+
+## Canonical E-interact regions in contract order: each maps an interactable
+## cell to its already-defined collision footprint. The bed region is the
+## reachable door slice of the house footprint at the bed cell.
+static func interact_regions() -> Array:
+    return [
+        {
+            "cell": BED_CELL,
+            "footprint": HOUSE_FOOTPRINT.intersection(Rect2(BED_CELL, Vector2.ONE)),
+        },
+        {"cell": SHIPPING_CELL, "footprint": SHIPPING_FOOTPRINT},
+        {"cell": TRUCK_CELL, "footprint": TRUCK_FOOTPRINT},
+    ]
+
 static func perimeter_footprints(map_size: Vector2i) -> Array[Rect2]:
     var size := Vector2(map_size)
     return [

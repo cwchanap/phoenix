@@ -115,6 +115,11 @@ func load_map(arrived_by_truck: bool = false) -> void:
     _refresh_from_session(snapshot)
 
 func _process(delta: float) -> void:
+    # Every frame starts from the true raw diamond: _update_target() repaints
+    # the highlight from the live pose even without a physics tick (fixtures
+    # drive _process directly), so no stale E-hint diamond survives into
+    # farming, blocked, idle or early-return frames.
+    player._update_target()
     if clock_running and _clock_window_focused:
         _advance_passive_clock(minf(delta, CLOCK_DELTA_CLAMP))
     var target: Variant = player.current_target_cell()
@@ -154,12 +159,16 @@ func _process(delta: float) -> void:
         return
 
     player.set_target_tint(PlayerController.TargetTint.NEUTRAL)
-    # Continue into the existing shop/bed/shipping/market/empty prompt chain.
-    var label := _interact_label(target)
-    if label == "":
+    # The E hint owns the diamond: the raw target may be null/hidden, so the
+    # resolved canonical cell's diamond is painted and un-hidden here.
+    var resolved := _resolve_interactable()
+    if resolved.is_empty():
         hud.hide_prompt()
     else:
-        hud.show_interact_prompt(_prompt_anchor(target), label)
+        var cell: Vector2i = resolved["cell"]
+        hud.show_interact_prompt(_prompt_anchor(cell), resolved["label"])
+        player.target_highlight.points = WorldMath.cell_diamond(cell)
+        player.target_highlight.visible = true
 
 func _interactable(target: Variant) -> Dictionary:
     if target == null:
@@ -167,7 +176,7 @@ func _interactable(target: Variant) -> Dictionary:
     if _map is FarmMap:
         match target:
             WorldContract.BED_CELL:
-                return {"label": "Bed", "action": hud.open_sleep_confirmation}
+                return {"label": "Go to bed", "action": hud.open_sleep_confirmation}
             WorldContract.SHIPPING_CELL:
                 return {"label": "Shipping", "action": hud.open_shipping}
             WorldContract.TRUCK_CELL:
@@ -198,8 +207,57 @@ func _interactable(target: Variant) -> Dictionary:
                 }
     return {}
 
-func _interact_label(target: Variant) -> String:
-    return _interactable(target).get("label", "")
+## HPA-743 one E resolver: physical contact regions first — the nearest
+## canonical cell whose projected footprint contact sits within the inclusive
+## reach and is positively faced (contract order breaks ties). When a region
+## is within reach but none is faced, refuse instead of raw-falling back; the
+## exact raw target cell remains the fixture/legacy input path only when no
+## region is nearby.
+func _resolve_interactable() -> Dictionary:
+    var position := player.global_position
+    # The facing's screen direction, sign-equivalent without normalization:
+    # the facing's grid diagonal projected through the isometric transform.
+    var facing_direction := WorldMath.grid_delta_to_world(
+        WorldMath.TARGET_OFFSETS[player.facing]
+    )
+    var best_cell: Variant = null
+    var best_distance := INF
+    var any_within_reach := false
+    for region in _interact_regions():
+        var contact := WorldMath.closest_contact(position, region["footprint"])
+        var distance := position.distance_to(contact)
+        if distance > WorldContract.INTERACT_REACH_PIXELS:
+            continue
+        any_within_reach = true
+        if facing_direction.dot(contact - position) > 0.0 and distance < best_distance:
+            best_cell = region["cell"]
+            best_distance = distance
+    if best_cell != null:
+        return _resolved_interactable(best_cell)
+    if any_within_reach:
+        return {}
+    return _resolved_interactable(player.current_target_cell())
+
+## `_interactable(cell)` plus the canonical cell it resolved, so hints,
+## prompts and submit handlers share one dictionary ({cell, label, action}).
+func _resolved_interactable(cell: Variant) -> Dictionary:
+    var info := _interactable(cell)
+    if info.is_empty():
+        return {}
+    info["cell"] = cell
+    return info
+
+func _interact_regions() -> Array:
+    if _map is FarmMap:
+        return WorldContract.interact_regions()
+    return TownContract.interact_regions()
+
+## The submit handlers re-resolve at the frozen (input-gated) pose: the
+## canonical contact cell, or null when nothing is faced — the session
+## guards stay authoritative and refuse null.
+func _resolved_target_cell() -> Variant:
+    var resolved := _resolve_interactable()
+    return null if resolved.is_empty() else resolved["cell"]
 
 ## The target cell's centre in HUD (screen) coordinates.
 func _prompt_anchor(cell: Vector2i) -> Vector2:
@@ -305,8 +363,7 @@ func _notification(what: int) -> void:
 func interact() -> void:
     if not _world_input_enabled:
         return
-    var target: Variant = player.current_target_cell()
-    var info := _interactable(target)
+    var info := _resolve_interactable()
     if info.is_empty():
         hud.show_feedback(GameRules.CommandCode.NOTHING_TO_INTERACT)
         return
@@ -361,16 +418,13 @@ func _on_select_seed_requested(kind: int) -> void:
     _finish_command(_session.select_seed(kind))
 
 func _on_buy_requested(kind: int, quantity: int) -> void:
-    var target: Variant = player.current_target_cell()
-    _finish_command(_session.buy_seeds(kind, quantity, target))
+    _finish_command(_session.buy_seeds(kind, quantity, _resolved_target_cell()))
 
 func _on_upgrade_requested() -> void:
-    var target: Variant = player.current_target_cell()
-    _finish_command(_session.buy_watering_can_upgrade(target))
+    _finish_command(_session.buy_watering_can_upgrade(_resolved_target_cell()))
 
 func _on_deposit_requested(kind: int, quantity: int) -> void:
-    var target: Variant = player.current_target_cell()
-    _finish_command(_session.deposit_crop(kind, quantity, target))
+    _finish_command(_session.deposit_crop(kind, quantity, _resolved_target_cell()))
 
 func _on_sleep_requested() -> void:
     # The finale transition is terminal. _finish_finale closes the sleep
@@ -380,8 +434,7 @@ func _on_sleep_requested() -> void:
     # restart FINALE_SFX, cutting the original cue. Guard it explicitly.
     if _finale_in_progress:
         return
-    var target: Variant = player.current_target_cell()
-    var code := _session.sleep(target)
+    var code := _session.sleep(_resolved_target_cell())
     if code == GameRules.CommandCode.FINALE_TRIGGERED:
         _finish_finale(code)
         return
@@ -401,7 +454,7 @@ func _on_sleep_requested() -> void:
 func _on_market_confirmed() -> void:
     if _finale_in_progress:
         return
-    _finish_finale(_session.trigger_harvest_finale(player.current_target_cell()))
+    _finish_finale(_session.trigger_harvest_finale(_resolved_target_cell()))
 
 func _finish_finale(code: GameRules.CommandCode) -> void:
     if code != GameRules.CommandCode.FINALE_TRIGGERED:
