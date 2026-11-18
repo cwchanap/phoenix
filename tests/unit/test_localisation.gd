@@ -171,8 +171,9 @@ func test_travel_overlay_card_strings_translate_for_each_locale() -> void:
     var overlay := TravelOverlay.new()
     add_child_autoqfree(overlay)
     overlay.play(
-        {"location": GameRules.MapId.FARM, "time_minutes": 12 * 60 + 5},
-        {"location": GameRules.MapId.TOWN, "time_minutes": 12 * 60 + 35},
+        GameRules.MapId.TOWN,
+        12 * 60 + 5,
+        12 * 60 + 35,
         func() -> void: pass,
     )
     var card_strings := {
@@ -199,15 +200,15 @@ func test_travel_overlay_card_strings_translate_for_each_locale() -> void:
             )
     TranslationServer.set_locale("en")
     overlay.play(
-        {"location": GameRules.MapId.TOWN, "time_minutes": 100},
-        {"location": GameRules.MapId.FARM, "time_minutes": 130},
+        GameRules.MapId.FARM,
+        100,
+        130,
         func() -> void: pass,
     )
     assert_eq(
         (overlay.get_node("Center/Column/Title") as Label).text,
         "Driving home",
     )
-    overlay.finish()
 
 func test_default_language_follows_os_locale() -> void:
     assert_eq(UiSettings.default_language("ja_JP"), "ja")

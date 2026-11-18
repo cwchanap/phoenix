@@ -110,6 +110,7 @@ func _ready() -> void:
         _market_panel,
         _dialogue_panel,
         _morning_summary_panel,
+        _travel_overlay,
         _settings_panel,
         _pause_panel,
     ]
@@ -210,19 +211,22 @@ func render(snapshot: Dictionary) -> void:
     _sleep_panel.present(snapshot)
 
 func has_blocking_modal() -> bool:
-    if _onboarding_overlay.is_opening_visible() or _travel_overlay.is_active():
+    if _onboarding_overlay.is_opening_visible():
         return true
     for panel in _primary_modals:
         if panel.visible:
             return true
     return false
 
-func play_travel(before: Dictionary, after: Dictionary, swap: Callable) -> void:
-    _travel_overlay.play(before, after, swap)
-    modal_state_changed.emit()
-
-func finish_travel() -> void:
-    _travel_overlay.finish()
+func play_travel(
+    destination: GameRules.MapId,
+    departure_minutes: int,
+    arrival_minutes: int,
+    swap: Callable,
+) -> void:
+    if not _open_modal(_travel_overlay):
+        return
+    _travel_overlay.play(destination, departure_minutes, arrival_minutes, swap)
 
 func set_finale_in_progress(value: bool) -> void:
     # While the finale cue plays, no close path may replace FINALE_SFX with
@@ -342,11 +346,15 @@ func close_pause() -> void:
 
 ## Tears down every open user modal in one transaction on map replacement.
 ## A swap is not a user close, so no CONFIRM_SFX plays; the session-driven
-## morning summary and opening overlay are preserved if currently active.
+## morning summary, travel overlay, and opening overlay are preserved if active.
 func close_modals() -> void:
     var any_closed := false
     for panel in _primary_modals:
-        if panel == _morning_summary_panel or not panel.visible:
+        if (
+            panel == _morning_summary_panel
+            or panel == _travel_overlay
+            or not panel.visible
+        ):
             continue
         _hide_modal_panel(panel)
         any_closed = true
@@ -657,9 +665,7 @@ func _build_modals() -> void:
     _settings_panel.visible = false
     _travel_overlay = TRAVEL_OVERLAY_SCENE.instantiate() as TravelOverlay
     _root.add_child(_travel_overlay)
-    _travel_overlay.finished.connect(func() -> void:
-        modal_state_changed.emit()
-    )
+    _travel_overlay.finished.connect(_finish_modal_transition)
 
 func _on_settings_changed(_error: int) -> void:
     apply_settings()
@@ -702,7 +708,10 @@ func _reconcile_modal_presentation() -> void:
     _set_hud_chrome_visible(true)
 
 func _open_modal(panel: Control) -> bool:
-    if _morning_summary_panel.visible and panel != _morning_summary_panel:
+    if (
+        (_morning_summary_panel.visible and panel != _morning_summary_panel)
+        or (_travel_overlay.visible and panel != _travel_overlay)
+    ):
         return false
     if not _onboarding_overlay.is_opening_visible():
         (_onboarding_overlay.get_node("TutorialCard") as Control).visible = false
@@ -731,7 +740,8 @@ func _hide_modal_panel(panel: Control) -> void:
         panel.visible = false
 
 func _finish_modal_transition() -> void:
-    _onboarding_overlay.render(_last_snapshot)
+    if not _last_snapshot.is_empty():
+        _onboarding_overlay.render(_last_snapshot)
     _reconcile_modal_presentation()
     modal_state_changed.emit()
 
@@ -762,13 +772,6 @@ func _unhandled_input(event: InputEvent) -> void:
         return
     if not event.is_action_pressed("ui_cancel"):
         return
-    if (
-        _morning_summary_panel.visible
-        or _onboarding_overlay.is_opening_visible()
-        or _travel_overlay.is_active()
-    ):
-        get_viewport().set_input_as_handled()
-        return
     for entry in _esc_close_order:
         var panel := entry["control"] as Control
         if not panel.visible:
@@ -776,6 +779,6 @@ func _unhandled_input(event: InputEvent) -> void:
         (entry["close"] as Callable).call()
         get_viewport().set_input_as_handled()
         return
-    if not _pause_panel.visible:
+    if not has_blocking_modal() and not _pause_panel.visible:
         open_pause()
     get_viewport().set_input_as_handled()

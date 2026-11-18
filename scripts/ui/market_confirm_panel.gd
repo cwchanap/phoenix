@@ -21,7 +21,17 @@ func present(snapshot: Dictionary) -> void:
 func _input(event: InputEvent) -> void:
 	if not visible or not event.is_pressed() or event.is_echo():
 		return
-	if event.is_action_pressed("ui_accept"):
+	var key := event as InputEventKey
+	if (
+		key == null
+		or key.ctrl_pressed
+		or key.alt_pressed
+		or key.shift_pressed
+		or key.meta_pressed
+	):
+		return
+	var code := key.keycode if key.keycode != KEY_NONE else key.physical_keycode
+	if code == KEY_ENTER or code == KEY_KP_ENTER:
 		get_viewport().set_input_as_handled()
 		market_confirmed.emit()
 
