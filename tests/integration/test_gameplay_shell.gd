@@ -2415,7 +2415,7 @@ func test_farm_preview_uses_green_red_reason_and_non_farm_gold() -> void:
     await _place_target(world, WorldContract.BED_CELL, WorldMath.Facing.UP)
     world._process(0.0)
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_NEUTRAL)
-    assert_eq(hud.prompt_text(), "[E] Bed")
+    assert_eq(hud.prompt_text(), "[E] Go to bed")
 
 func _grow_mature_turnip(world: WorldShell, cell: Vector2i) -> void:
     var session := world._session
@@ -4018,7 +4018,7 @@ func test_hold_locked_action_shows_mismatched_farm_tile_as_neutral() -> void:
     _set_target(world, WorldContract.BED_CELL, WorldMath.Facing.UP)
     world._process(0.0)
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_NEUTRAL)
-    assert_eq(hud.prompt_text(), "[E] Bed")
+    assert_eq(hud.prompt_text(), "[E] Go to bed")
     _push_use_action(world, false)
 
 func test_hold_action_lock_requires_fresh_gestures_for_each_farm_stage() -> void:
@@ -4974,7 +4974,7 @@ func test_farm_shop_and_bed_dispatch_survive_truck_round_trip() -> void:
 
     await _place_target(world, WorldContract.BED_CELL, WorldMath.Facing.UP)
     world._process(0.0)
-    assert_eq(hud.prompt_text(), "[E] Bed")
+    assert_eq(hud.prompt_text(), "[E] Go to bed")
     var sleep_panel := _panel(hud, "SleepPanel")
     world.interact()
     assert_true(sleep_panel.visible)
@@ -5701,7 +5701,6 @@ func test_close_modals_preserves_opening() -> void:
 # The pure-math halves of these rules live in tests/gdunit/test_world_math.gd.
 
 const CONTACT_REACH_PX := 14.0
-const _RESOLVER_MISSING := "&resolver_missing"
 const _ALL_FACINGS := [
     WorldMath.Facing.UP,
     WorldMath.Facing.RIGHT,
@@ -5878,9 +5877,7 @@ func _expected_resolution(
     return null
 
 func _resolver_cell(world: WorldShell) -> Variant:
-    if not world.has_method("_resolve_interactable"):
-        return _RESOLVER_MISSING
-    var resolved: Dictionary = world.call("_resolve_interactable")
+    var resolved: Dictionary = world._resolve_interactable()
     return null if resolved.is_empty() else resolved["cell"]
 
 ## Synchronous pose change at an arbitrary world position: paint the raw
@@ -5896,8 +5893,7 @@ func _set_pose_and_process(world: WorldShell, position: Vector2, facing: WorldMa
 
 func _assert_no_resolution_of(world: WorldShell, canonical: Vector2i) -> Variant:
     var got: Variant = _resolver_cell(world)
-    if got != _RESOLVER_MISSING:
-        assert_ne(got, canonical, "wrong-facing/backoff probe must not select the tested region")
+    assert_ne(got, canonical, "wrong-facing/backoff probe must not select the tested region")
     return got
 
 ## Backoff probe candidates: full-cell steps straight back along the face's
@@ -5966,7 +5962,6 @@ func _run_contact_table(world: WorldShell, map_id: GameRules.MapId, minimum_face
     var hud := world.hud
     var covered_faces := 0
     var skipped_faces := 0
-    var missing_resolver_probes := 0
     for region in regions:
         var canonical: Vector2i = region["cell"]
         var footprint: Rect2 = region["footprint"]
@@ -5994,10 +5989,7 @@ func _run_contact_table(world: WorldShell, map_id: GameRules.MapId, minimum_face
                     "%s %s contact must expect the canonical cell" % [canonical, row["side"]],
                 )
                 var got: Variant = _resolver_cell(world)
-                if got == _RESOLVER_MISSING:
-                    missing_resolver_probes += 1
-                else:
-                    assert_eq(got, expected, "%s %s resolver disagrees with the spec oracle" % [canonical, row["side"]])
+                assert_eq(got, expected, "%s %s resolver disagrees with the spec oracle" % [canonical, row["side"]])
                 var raw: Variant = world.player.current_target_cell()
                 var raw_is_farmable: bool = (
                     raw != null
@@ -6034,10 +6026,7 @@ func _run_contact_table(world: WorldShell, map_id: GameRules.MapId, minimum_face
                 world._process(0.0)
                 var expected: Variant = _expected_resolution(world, stop, facing, regions)
                 var got: Variant = _assert_no_resolution_of(world, canonical)
-                if got == _RESOLVER_MISSING:
-                    missing_resolver_probes += 1
-                else:
-                    assert_eq(got, expected, "%s %s negative facing disagrees with the spec oracle" % [canonical, row["side"]])
+                assert_eq(got, expected, "%s %s negative facing disagrees with the spec oracle" % [canonical, row["side"]])
                 if expected == null:
                     # Full-refusal pose: nothing within reach is faced.
                     var before := world._session.snapshot()
@@ -6076,13 +6065,10 @@ func _run_contact_table(world: WorldShell, map_id: GameRules.MapId, minimum_face
             world._process(0.0)
             var backoff_expected: Variant = _expected_resolution(world, backoff_position, backoff_facing, regions)
             var backoff_got: Variant = _assert_no_resolution_of(world, canonical)
-            if backoff_got == _RESOLVER_MISSING:
-                missing_resolver_probes += 1
-            else:
-                assert_eq(
-                    backoff_got, backoff_expected,
-                    "%s %s backoff disagrees with the spec oracle" % [canonical, row["side"]],
-                )
+            assert_eq(
+                backoff_got, backoff_expected,
+                "%s %s backoff disagrees with the spec oracle" % [canonical, row["side"]],
+            )
         assert_gt(
             region_faces, 0,
             "region %s has no physically reachable face — table is vacuous" % canonical,
@@ -6115,10 +6101,6 @@ func _run_contact_table(world: WorldShell, map_id: GameRules.MapId, minimum_face
         assert_false(hud.has_blocking_modal())
         world._process(0.0)
     assert_gte(covered_faces, minimum_faces, "contact table must cover every reachable face")
-    assert_eq(
-        missing_resolver_probes, 0,
-        "%d probes could not run: WorldShell._resolve_interactable() is missing (Task 2)" % missing_resolver_probes,
-    )
 
 func test_farm_contact_table_covers_every_reachable_face() -> void:
     var world := _world()
@@ -6188,23 +6170,19 @@ func test_shop_east_contact_facing_down_never_resolves_sato_san() -> void:
     )
 
     var got: Variant = _resolver_cell(world)
-    if got != _RESOLVER_MISSING:
-        assert_null(got, "no valid inward-facing region exists at this pose, so the resolver is empty")
-    if world.has_method("_resolve_interactable"):
-        # Single-region reach: turning UP faces the shop's east face, and the
-        # shop is the only region within reach (Sato-san's distance
-        # precondition above).
-        world.player.facing = WorldMath.Facing.UP
-        world.player._update_target()
-        world._process(0.0)
-        var up_cell: Variant = _resolver_cell(world)
-        if up_cell != _RESOLVER_MISSING:
-            assert_eq(up_cell, TownContract.SHOP_CELL)
-        # Restore the pinned DOWN pose before the refusal assertions: a
-        # compliant resolver would legally open the shop from the UP pose.
-        world.player.facing = WorldMath.Facing.DOWN
-        world.player._update_target()
-        world._process(0.0)
+    assert_null(got, "no valid inward-facing region exists at this pose, so the resolver is empty")
+    # Single-region reach: turning UP faces the shop's east face, and the
+    # shop is the only region within reach (Sato-san's distance
+    # precondition above).
+    world.player.facing = WorldMath.Facing.UP
+    world.player._update_target()
+    world._process(0.0)
+    assert_eq(_resolver_cell(world), TownContract.SHOP_CELL)
+    # Restore the pinned DOWN pose before the refusal assertions: a
+    # compliant resolver would legally open the shop from the UP pose.
+    world.player.facing = WorldMath.Facing.DOWN
+    world.player._update_target()
+    world._process(0.0)
 
     var before := world._session.snapshot()
     world.interact()
@@ -6233,8 +6211,7 @@ func test_market_hana_neighbors_turn_away_or_back_off_legally() -> void:
     world.player._update_target()
     world._process(0.0)
     var got: Variant = _resolver_cell(world)
-    if got != _RESOLVER_MISSING:
-        assert_eq(got, TownContract.VILLAGER_CELLS[2], "Hana's east face resolves Hana with LEFT")
+    assert_eq(got, TownContract.VILLAGER_CELLS[2], "Hana's east face resolves Hana with LEFT")
     world.interact()
     assert_true(_panel(hud, "DialoguePanel").visible, "E at Hana's east face opens Hana")
     hud.close_modals()
@@ -6244,9 +6221,8 @@ func test_market_hana_neighbors_turn_away_or_back_off_legally() -> void:
     world.player._update_target()
     world._process(0.0)
     var away: Variant = _resolver_cell(world)
-    if away != _RESOLVER_MISSING:
-        assert_ne(away, TownContract.VILLAGER_CELLS[2])
-        assert_null(away, "turning away from Hana with nothing else in reach refuses")
+    assert_ne(away, TownContract.VILLAGER_CELLS[2])
+    assert_null(away, "turning away from Hana with nothing else in reach refuses")
 
     # Pressed against the market's west face (the Hana side), the market is
     # within reach, so the resolver must answer only through near-contact:
@@ -6278,8 +6254,7 @@ func test_market_hana_neighbors_turn_away_or_back_off_legally() -> void:
     world.player._update_target()
     world._process(0.0)
     var market_away: Variant = _resolver_cell(world)
-    if market_away != _RESOLVER_MISSING:
-        assert_null(market_away, "market within reach but faced away refuses instead of raw-falling back")
+    assert_null(market_away, "market within reach but faced away refuses instead of raw-falling back")
     var before := world._session.snapshot()
     world.interact()
     assert_eq(world._session.snapshot(), before, "the wrong-facing market E must not mutate the session")
@@ -6299,13 +6274,17 @@ func test_market_hana_neighbors_turn_away_or_back_off_legally() -> void:
     world.player._update_target()
     world._process(0.0)
     var gap_got: Variant = _resolver_cell(world)
-    if gap_got != _RESOLVER_MISSING:
-        assert_eq(gap_got, TownContract.MARKET_CELL, "the gap probe legally resolves the market")
+    assert_eq(gap_got, TownContract.MARKET_CELL, "the gap probe legally resolves the market")
 
 func test_bin_contact_e_opens_shipping_while_space_keeps_the_raw_farm_tile() -> void:
     var world := _world()
     var hud := world.hud
-    var start := WorldMath.grid_to_world(Vector2(9.5, 12.5))
+    # 9.6, not 9.5: a straight-down push from the bin N vertex's exact screen
+    # x stops with the contact vector pure screen-down, so horizontal facings
+    # dot exactly 0 and the resolver correctly refuses; the 0.1-cell east
+    # offset lands the real collision stop on the NE edge, where LEFT
+    # genuinely faces the contact while the raw target stays the farm tile.
+    var start := WorldMath.grid_to_world(Vector2(9.6, 12.5))
     assert_false(_probe_collides(GameRules.MapId.FARM, start))
     world.player.global_position = start
     await _push_until_stopped(world, Vector2(0, 1))
@@ -6324,7 +6303,10 @@ func test_bin_contact_e_opens_shipping_while_space_keeps_the_raw_farm_tile() -> 
             WorldContract.FARM_PATCH.has_point(raw),
             "precondition: the raw target is a farm tile (the Space side of the overlap)",
         )
-        assert_ne(raw, WorldContract.SHIPPING_CELL)
+        assert_eq(
+            raw, Vector2i(9, 14),
+            "precondition: the overlap's raw target is the exact farm tile beside the bin",
+        )
 
     # Space keeps visible priority: green farming diamond on the raw tile.
     assert_true(hud.prompt_text().begins_with("[Space]"))
@@ -6332,9 +6314,7 @@ func test_bin_contact_e_opens_shipping_while_space_keeps_the_raw_farm_tile() -> 
     if raw != null:
         assert_eq(world.player.target_highlight.points, WorldMath.cell_diamond(raw))
     # E still dispatches the independent resolver to Shipping.
-    var got: Variant = _resolver_cell(world)
-    if got != _RESOLVER_MISSING:
-        assert_eq(got, WorldContract.SHIPPING_CELL)
+    assert_eq(_resolver_cell(world), WorldContract.SHIPPING_CELL)
     world.interact()
     assert_true(_panel(hud, "ShippingPanel").visible, "E at the bin contact opens Shipping on the first press")
     hud.close_modals()
@@ -6425,11 +6405,15 @@ func test_shop_contact_panel_submit_re_resolves_canonical_shop_cell() -> void:
     var world := _world()
     var hud := world.hud
     var session := world._session
-    await _drive_to_town(world)
+    # Restore the richer wallet BEFORE driving: location is deliberately
+    # transient, so restore_state() resets the session to the farm while the
+    # shell still stands in town, and the authoritative buy guard would
+    # refuse every submit.
     var state := session.state()
     state["money"] = 250
     assert_true(session.restore_state(state))
     world._refresh_from_session()
+    await _drive_to_town(world)
     var shop_rows := _face_rows(TownContract.SHOP_FOOTPRINT)
     var stop_info := await _contact_stop(world, GameRules.MapId.TOWN, TownContract.SHOP_FOOTPRINT, shop_rows[2])
     assert_true(stop_info["ok"], "the shop's south face must be physically reachable")

@@ -68,6 +68,23 @@ static func footprint_to_polygon(footprint: Rect2) -> PackedVector2Array:
         grid_to_world(Vector2(top_left.x, bottom_right.y)),
     ])
 
+## HPA-743: nearest point on a collision footprint's projected boundary to a
+## world ground position, evaluated edge by edge with the exact segment
+## closest point.
+static func closest_contact(world_ground_position: Vector2, collision_rect: Rect2) -> Vector2:
+    var polygon := footprint_to_polygon(collision_rect)
+    var best := world_ground_position
+    var best_distance := INF
+    for index in polygon.size():
+        var candidate := Geometry2D.get_closest_point_to_segment(
+            world_ground_position, polygon[index], polygon[(index + 1) % polygon.size()]
+        )
+        var distance := world_ground_position.distance_to(candidate)
+        if distance < best_distance:
+            best_distance = distance
+            best = candidate
+    return best
+
 static func footprint_ground_anchor(footprint: Rect2) -> Vector2:
     return Vector2(
         grid_to_world(footprint.position + footprint.size * 0.5).x,

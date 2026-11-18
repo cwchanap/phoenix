@@ -30,6 +30,21 @@ const CAMERA_BOUNDS := Rect2(384.0, -96.0, 896.0, 544.0)
 const BACKDROP_GRASS_TILE := Vector2i.ZERO
 const BACKDROP_ROAD_TILE := Vector2i(3, 0)
 
+## HPA-743 canonical E-interact regions in contract order (this order breaks
+## distance ties): truck, shop, market, then the three villagers — each maps
+## an interactable cell to its already-defined collision footprint.
+static func interact_regions() -> Array:
+    var regions: Array = [
+        {"cell": TRUCK_CELL, "footprint": TRUCK_FOOTPRINT},
+        {"cell": SHOP_CELL, "footprint": SHOP_FOOTPRINT},
+        {"cell": MARKET_CELL, "footprint": MARKET_FOOTPRINT},
+    ]
+    for index in VILLAGER_CELLS.size():
+        regions.append(
+            {"cell": VILLAGER_CELLS[index], "footprint": VILLAGER_FOOTPRINTS[index]}
+        )
+    return regions
+
 static func villager_cell(id: VillagerRules.VillagerId) -> Vector2i:
     return VILLAGER_CELLS[id]
 

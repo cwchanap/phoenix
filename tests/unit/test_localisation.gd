@@ -103,17 +103,19 @@ func test_translations_load_for_each_locale() -> void:
 func test_truck_prompt_strings_translate_in_both_locales() -> void:
     for locale in TRANSLATED_LOCALES:
         TranslationServer.set_locale(locale)
-        for text in ["Drive to town", "Drive home", "Seed Shop", "Talk, shop, bin, bed, truck"]:
+        for text in ["Drive to town", "Drive home", "Seed Shop", "Go to bed", "Talk, shop, bin, bed, truck"]:
             assert_ne(tr(text), text, "%s has no %s translation" % [text, locale])
     TranslationServer.set_locale("zh_TW")
     assert_eq(tr("Drive to town"), "開車去鎮上")
     assert_eq(tr("Drive home"), "開車回家")
     assert_eq(tr("Seed Shop"), "種子行")
+    assert_eq(tr("Go to bed"), "去睡覺")
     assert_eq(tr("Talk, shop, bin, bed, truck"), "對話、商店、出貨箱、床、貨車")
     TranslationServer.set_locale("ja")
     assert_eq(tr("Drive to town"), "町までドライブ")
     assert_eq(tr("Drive home"), "家までドライブ")
     assert_eq(tr("Seed Shop"), "種屋")
+    assert_eq(tr("Go to bed"), "寝る")
     assert_eq(tr("Talk, shop, bin, bed, truck"), "話す・店・出荷箱・ベッド・トラック")
 
 func test_market_confirmation_card_strings_translate_for_each_locale() -> void:
