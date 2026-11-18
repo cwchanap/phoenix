@@ -1,6 +1,6 @@
 # HPA-775 — Protect the run and pace the day: single-PR implementation plan
 
-**Status:** Planning only; none of the implementation, test execution or screenshot gates are claimed complete.  
+**Status:** Implemented and verified on PR #42; the acceptance checklist below is complete. Actual evidence limits are recorded under the checklist.  
 **Design:** [Protect-run and pacing design specification](../specs/2026-11-16-phoenix-protect-run-and-pace-day-design.md)  
 **Issue:** https://linear.app/cwchanap/issue/HPA-775/protect-the-run-and-pace-the-day  
 **Reviewed base:** main c5eb32553d40d882a7bf156880096093e62ff1dd  
@@ -126,13 +126,19 @@ Continue on this **same draft PR**, preserving one ticket→one PR. No generated
 
 ## End-to-end acceptance checklist (all required before ready-for-review)
 
-- [ ] **Native title/save:** unfinished valid Day N save selects Continue, real Enter resumes Day N without overwriting it; finished valid save defaults to New Game yet explicit Continue can reopen the result; invalid/missing save selects New Game.
-- [ ] **Native market:** Day 14 E opens A2 without session/save mutation, Esc preserves complete state/money, Enter invokes exactly one finale and result; earlier days still refuse; the Day-14 bed route remains valid.
-- [ ] **Native travel:** Both E truck directions animate B1 with real pre/post snapshot times (including late cutoff), no map flash, frozen input/clock during the beat and correct resumed arrival HUD; `finish_travel()` covers deterministic helper calls while native/e2e runs the real Tween.
-- [ ] **Pacing reference:** Deterministic 75 s active / ~240 action / 60 travel model places bedtime at **18:00–22:00** (anticipated 19:20 with 0.15), and current Day-1 route anti-stranding before 20:00 passes. Native played-day log reports actual time, actions, focus and pacing without tuning to bot latency; invalid zero-focus observations are labeled.
-- [ ] **Agent visual check:** `tests/native_tour/hpa_775_tour.gd` produces real 1920×1080 captures; agent compares A1/A2/B1 against attached Linear mockups and records visible mismatches. No golden-image tool or human acceptance criterion.
-- [ ] **Regressions and CI:** completed-run title case/unconditional reset; native UI roots include both new full-canvas panels; old title/tour helpers; 11-modal registry; finale cue; **5 additional direct market tests**, all three integration travel-helper sites and **6 direct truck calls**, both smoke swaps and **5 e2e trips**; passive-clock expectations across ~4135–4280; click-through prevention, inactive `finish_travel()` no-op and bounded multi-tweener drain; 175G Promising/Heart outcomes; clean GUT/headless, GdUnit4, godot-e2e and hosted CI green.
-- [ ] **Scope:** one HPA-775 PR containing design, plan and implementation; no persisted state/schema, economy or art/SFX changes.
+- [x] **Native title/save:** unfinished valid Day N save selects Continue, real Enter resumes Day N without overwriting it; finished valid save defaults to New Game yet explicit Continue can reopen the result; invalid/missing save selects New Game.
+- [x] **Native market:** Day 14 E opens A2 without session/save mutation, Esc preserves complete state/money, Enter invokes exactly one finale and result; earlier days still refuse; the Day-14 bed route remains valid.
+- [x] **Native travel:** Both E truck directions animate B1 with real pre/post snapshot times (including late cutoff), no map flash, frozen input/clock during the beat and correct resumed arrival HUD; `finish_travel()` covers deterministic helper calls while native/e2e runs the real Tween.
+- [x] **Pacing reference:** Deterministic 75 s active / ~240 action / 60 travel model places bedtime at **18:00–22:00** (anticipated 19:20 with 0.15), and current Day-1 route anti-stranding before 20:00 passes. Native played-day log reports actual time, actions, focus and pacing without tuning to bot latency; invalid zero-focus observations are labeled.
+- [x] **Agent visual check:** `tests/native_tour/hpa_775_tour.gd` produces real 1920×1080 captures; agent compares A1/A2/B1 against attached Linear mockups and records visible mismatches. No golden-image tool or human acceptance criterion.
+- [x] **Regressions and CI:** completed-run title case/unconditional reset; native UI roots include both new full-canvas panels; old title/tour helpers; 11-modal registry; finale cue; **5 additional direct market tests**, all three integration travel-helper sites and **6 direct truck calls**, both smoke swaps and **5 e2e trips**; passive-clock expectations across ~4135–4280; click-through prevention, inactive `finish_travel()` no-op and bounded multi-tweener drain; 175G Promising/Heart outcomes; clean GUT/headless, GdUnit4, godot-e2e and hosted CI green.
+- [x] **Scope:** one HPA-775 PR containing design, plan and implementation; no persisted state/schema, economy or art/SFX changes.
+
+### Evidence limits (recorded, not acceptance gates)
+
+- The scripted native day tour is diagnostic only: focused window, bed at 13:08 with 23.40 s active wall time — faster than the stated 75-second human-pace assumption. The 0.15 rate was not tuned to it and it does not certify subjective human pacing.
+- The A1/A2/B1 comparison was agent visual inspection of the 1920×1080 captures against the Linear mockups, not a pixel-diff gate; it was not independently re-run by the human reviewer.
+- Real OS defocus/refocus was not verified under Xvfb. The world-shell smoke emitted non-fatal shutdown resource-lifetime warnings of undetermined cause.
 
 ## Stop conditions and reporting
 
