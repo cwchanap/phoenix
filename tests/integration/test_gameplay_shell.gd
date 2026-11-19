@@ -6274,6 +6274,20 @@ func test_market_hana_neighbors_turn_away_or_back_off_legally() -> void:
     world.player._update_target()
     world._process(0.0)
     var gap_got: Variant = _resolver_cell(world)
+    # The raw target of this pose is MARKET_CELL itself, so the assertion only
+    # pins near-contact resolution when the market is provably within reach
+    # and faced — otherwise the raw-cell fallback would pass it too.
+    var gap_contact := _closest_contact_point(TownContract.MARKET_FOOTPRINT, gap)
+    assert_lt(
+        gap.distance_to(gap_contact),
+        CONTACT_REACH_PX,
+        "precondition: the market is in near-contact reach at the gap pose",
+    )
+    assert_gt(
+        _screen_direction(WorldMath.Facing.DOWN).dot(gap_contact - gap),
+        0.0,
+        "precondition: DOWN faces the market contact at the gap pose",
+    )
     assert_eq(gap_got, TownContract.MARKET_CELL, "the gap probe legally resolves the market")
 
 func test_bin_contact_e_opens_shipping_while_space_keeps_the_raw_farm_tile() -> void:
@@ -6461,35 +6475,39 @@ func test_process_recovers_highlight_from_null_raw_target_to_physical_e_hint() -
     var world := _world()
     var hud := world.hud
     var highlight := world.player.target_highlight
-    await _drive_to_town(world)
-    # Reach the shop's south face physically first; the pose transition under
-    # test is then purely synchronous — no intervening physics frame or
-    # _update_target() repaint — so _process alone must restore the hint.
-    var shop_rows := _face_rows(TownContract.SHOP_FOOTPRINT)
-    var stop_info := await _contact_stop(world, GameRules.MapId.TOWN, TownContract.SHOP_FOOTPRINT, shop_rows[2])
-    assert_true(stop_info["ok"], "the shop's south face must be physically reachable")
-    if not stop_info["ok"]:
-        return
-    var stop: Vector2 = stop_info["stop"]
-    # Town top-left corner facing UP: the raw target is null and the diamond
-    # is hidden.
-    _set_pose_and_process(world, WorldMath.grid_to_world(Vector2(0.5, 1.5)), WorldMath.Facing.UP)
+    # Farm north-west corner facing UP: the raw target is null and the
+    # diamond is hidden.
+    _set_pose_and_process(world, WorldMath.grid_to_world(Vector2(0.5, 0.5)), WorldMath.Facing.UP)
     assert_null(world.player.current_target_cell())
     assert_false(highlight.visible)
     assert_eq(hud.prompt_text(), "")
-    # A valid physical E hint at the frozen contact pose must un-hide the
-    # diamond even though the raw target of the new pose misses the shop.
+    # East-edge truck contact facing DOWN: the raw candidate lands off-map at
+    # (24, 9) so it stays null, while the truck sits ~12 px away and faced.
+    # _process() alone must un-hide the diamond through the E-hint branch —
+    # _update_target() cannot, because there is no raw cell to paint.
+    var stop := WorldMath.grid_to_world(Vector2(23.125, 8.75))
     world.player.global_position = stop
-    world.player.facing = WorldMath.Facing.UP
+    world.player.facing = WorldMath.Facing.DOWN
     world.player.velocity = Vector2.ZERO
     world._process(0.0)
-    assert_ne(world.player.current_target_cell(), TownContract.SHOP_CELL, "the raw target misses the shop")
-    assert_eq(hud.prompt_text(), "[E] Seed Shop")
+    var truck_contact := _closest_contact_point(WorldContract.TRUCK_FOOTPRINT, stop)
+    assert_lt(
+        stop.distance_to(truck_contact),
+        CONTACT_REACH_PX,
+        "precondition: the truck is in near-contact reach at the edge pose",
+    )
+    assert_gt(
+        _screen_direction(WorldMath.Facing.DOWN).dot(truck_contact - stop),
+        0.0,
+        "precondition: DOWN faces the truck contact at the edge pose",
+    )
+    assert_null(world.player.current_target_cell(), "the raw target is null off the east map edge")
+    assert_eq(hud.prompt_text(), "[E] Drive to town")
     assert_true(highlight.visible, "the E hint must un-hide the diamond after a null raw target")
-    assert_eq(highlight.points, WorldMath.cell_diamond(TownContract.SHOP_CELL))
+    assert_eq(highlight.points, WorldMath.cell_diamond(WorldContract.TRUCK_CELL))
     assert_eq(highlight.default_color, PlayerController.TARGET_NEUTRAL)
     var centre: Vector2 = world.get_viewport().get_canvas_transform() * WorldMath.grid_to_world(
-        Vector2(TownContract.SHOP_CELL) + Vector2(0.5, 0.5)
+        Vector2(WorldContract.TRUCK_CELL) + Vector2(0.5, 0.5)
     )
     var prompt := _chrome(hud).get_node("Prompt") as Control
     assert_eq(prompt.position, centre - Vector2(0, HudChrome.PROMPT_LIFT))
@@ -7186,14 +7204,40 @@ func test_backdrop_survives_a_truck_round_trip_with_town_predicate_unchanged() -
         "town Backdrop paints exactly the off-map camera cells",
     )
     var map_rect := Rect2i(Vector2i.ZERO, TownContract.MAP_SIZE)
+    # The authored layout is pinned literally, not through
+    # TownContract.is_backdrop_road — the same predicate the painter calls:
+    # road row y == 9 continues both ways, plus a west-only row-10 stub for
+    # x <= 4 (off-map, that means the west edge only).
     for cell in expected:
         assert_false(map_rect.has_point(cell), "town %s stays outside the playable map" % cell)
         assert_true(used.has(cell), "town Backdrop missing cell %s" % cell)
         var tile := (
             WorldContract.BACKDROP_ROAD_TILE
-            if TownContract.is_backdrop_road(cell)
+            if cell.y == 9 or (cell.y == 10 and cell.x <= 4)
             else WorldContract.BACKDROP_GRASS_TILE
         )
         assert_eq(backdrop.get_cell_atlas_coords(cell), tile, "town Backdrop %s tile" % cell)
+    # Representative pins on both sides of the row-10 cutoff.
+    assert_true(expected.has(Vector2i(-1, 10)), "town west row-10 road stub cell exists")
+    assert_eq(
+        backdrop.get_cell_atlas_coords(Vector2i(-1, 9)),
+        WorldContract.BACKDROP_ROAD_TILE,
+        "the authored road continues west on row 9",
+    )
+    assert_eq(
+        backdrop.get_cell_atlas_coords(Vector2i(16, 9)),
+        WorldContract.BACKDROP_ROAD_TILE,
+        "the authored road continues east on row 9",
+    )
+    assert_eq(
+        backdrop.get_cell_atlas_coords(Vector2i(-1, 10)),
+        WorldContract.BACKDROP_ROAD_TILE,
+        "the authored road stub continues west on row 10",
+    )
+    assert_eq(
+        backdrop.get_cell_atlas_coords(Vector2i(16, 10)),
+        WorldContract.BACKDROP_GRASS_TILE,
+        "east of the row-10 cutoff stays grass",
+    )
     await _drive_home(world)
     _assert_farm_backdrop(world, "returned farm")

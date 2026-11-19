@@ -121,7 +121,7 @@ func _wait_world() -> void:
 func _session_weather() -> String:
 	return str(_world._session.snapshot()["weather"])
 
-func _wait_map_location(farm_expected: bool) -> void:
+func _wait_map_location(farm_expected: bool) -> bool:
 	var waited := 0.0
 	var on_farm := true
 	while waited < 30.0:
@@ -130,12 +130,13 @@ func _wait_map_location(farm_expected: bool) -> void:
 			var live_rain := _live_rain_layer()
 			var layer_id := live_rain.get_instance_id() if live_rain != null else 0
 			_log("map swapped; farm=%s rain_layer_id=%d" % [str(on_farm), layer_id])
-			return
+			return true
 		await _frames(1)
 		waited += 1.0 / 60.0
 	_log("swap-poll timeout: on_farm=" + str(on_farm)
 		+ " blocking=" + str(_world.hud.has_blocking_modal()))
 	_failures.append("map swap to %s timed out" % ("farm" if farm_expected else "town"))
+	return false
 
 func _walk_to_grid(grid_target: Vector2, on_mid_step: Callable = Callable()) -> void:
 	var world_target := WorldMath.grid_to_world(grid_target)

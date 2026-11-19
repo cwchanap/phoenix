@@ -107,6 +107,13 @@ func _close_top_modal(game) -> void:
 	assert_bool(await game.input_action("ui_cancel", false)).is_true()
 
 
+func _restore_env(name: String, was_set: bool, original: String) -> void:
+	if was_set:
+		OS.set_environment(name, original)
+	else:
+		OS.unset_environment(name)
+
+
 func _start_new_game() -> Variant:
 	var options := E2ELaunchOptions.new()
 	options.scene_path = "res://scenes/app/app.tscn"
@@ -119,11 +126,17 @@ func _start_new_game() -> Variant:
 	settings.set_value("ui", "fullscreen", false)
 	settings.set_value("ui", "language", "en")
 	assert_int(settings.save(settings_path)).is_equal(OK)
+	# The runner may already carry these overrides: record them so the
+	# post-launch teardown restores the original value instead of unsetting.
+	var save_path_set := OS.has_environment("PHOENIX_SAVE_PATH")
+	var save_path_before := OS.get_environment("PHOENIX_SAVE_PATH")
+	var settings_path_set := OS.has_environment("PHOENIX_SETTINGS_PATH")
+	var settings_path_before := OS.get_environment("PHOENIX_SETTINGS_PATH")
 	OS.set_environment("PHOENIX_SAVE_PATH", _save_path)
 	OS.set_environment("PHOENIX_SETTINGS_PATH", settings_path)
 	var game := await launch_game(options)
-	OS.unset_environment("PHOENIX_SAVE_PATH")
-	OS.unset_environment("PHOENIX_SETTINGS_PATH")
+	_restore_env("PHOENIX_SAVE_PATH", save_path_set, save_path_before)
+	_restore_env("PHOENIX_SETTINGS_PATH", settings_path_set, settings_path_before)
 	if game == null or is_failure():
 		return null
 	assert_bool(
