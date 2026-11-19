@@ -7076,3 +7076,124 @@ func test_crops_and_harvest_fx_are_never_occluders() -> void:
         pop.modulate.a, 1.0, 0.001,
         "the pop's own tween still owns the root alpha",
     )
+
+
+## ---- HPA-743 task 4: shared map backdrop painter and farm edge ----
+
+const BACKDROP_TEXTURE_PATH := "res://assets/sprites/starting-farm-terrain.png"
+
+func _farm_backdrop_tile(cell: Vector2i) -> Vector2i:
+    return (
+        WorldContract.BACKDROP_ROAD_TILE
+        if cell.y == WorldContract.TRUCK_CELL.y and cell.x >= WorldContract.MAP_SIZE.x
+        else WorldContract.BACKDROP_GRASS_TILE
+    )
+
+func _assert_farm_backdrop(world: WorldShell, label: String) -> void:
+    var farm := world._map as FarmMap
+    assert_not_null(farm, "%s: FarmMap is the active map" % label)
+    if farm == null:
+        return
+    assert_eq(farm.camera_bounds(), WorldContract.CAMERA_BOUNDS, "%s: camera bounds unchanged" % label)
+    var river_south := farm.get_node("StaticCollision/RiverSouthCollision") as CollisionPolygon2D
+    assert_eq(
+        river_south.polygon,
+        WorldMath.footprint_to_polygon(WorldContract.RIVER_SOUTH_FOOTPRINT),
+        "%s: river collision unchanged" % label,
+    )
+    var backdrop := farm.get_node("Backdrop") as TileMapLayer
+    assert_not_null(backdrop, "%s: FarmMap Backdrop must exist" % label)
+    if backdrop == null:
+        return
+    assert_eq(
+        backdrop.position, Vector2(736.0, 0.0),
+        "%s: Backdrop uses Ground's projected origin" % label,
+    )
+    var ground := farm.get_node("Ground") as TileMapLayer
+    assert_true(
+        backdrop.tile_set == ground.tile_set,
+        "%s: Backdrop shares the terrain tileset" % label,
+    )
+    var source := backdrop.tile_set.get_source(0) as TileSetAtlasSource
+    assert_eq(
+        source.texture.resource_path, BACKDROP_TEXTURE_PATH,
+        "%s: Backdrop uses the shared tile atlas" % label,
+    )
+    var expected := WorldMath.backdrop_cells(WorldContract.CAMERA_BOUNDS, WorldContract.MAP_SIZE)
+    assert_gt(expected.size(), 0, "%s: camera overdraw has cells" % label)
+    var used := backdrop.get_used_cells()
+    assert_eq(
+        used.size(), expected.size(),
+        "%s: Backdrop paints exactly the off-map camera cells" % label,
+    )
+    var map_rect := Rect2i(Vector2i.ZERO, WorldContract.MAP_SIZE)
+    for cell in expected:
+        assert_false(map_rect.has_point(cell), "%s: %s stays outside the playable map" % [label, cell])
+        assert_true(used.has(cell), "%s: Backdrop missing cell %s" % [label, cell])
+        assert_eq(
+            backdrop.get_cell_atlas_coords(cell), _farm_backdrop_tile(cell),
+            "%s: Backdrop %s tile" % [label, cell],
+        )
+    assert_true(
+        expected.has(Vector2i(24, 9)),
+        "%s: east road continuation cell exists" % label,
+    )
+    assert_eq(
+        backdrop.get_cell_atlas_coords(Vector2i(24, 9)), WorldContract.BACKDROP_ROAD_TILE,
+        "%s: the authored east road continues off-map" % label,
+    )
+    assert_eq(
+        backdrop.get_cell_atlas_coords(Vector2i(-1, 19)), WorldContract.BACKDROP_GRASS_TILE,
+        "%s: the south-west river corner stays grass" % label,
+    )
+
+func test_farm_backdrop_fills_off_map_camera_cells_and_east_road_edge() -> void:
+    var world := _world()
+    if world == null:
+        return
+    _assert_farm_backdrop(world, "farm")
+
+func test_backdrop_survives_a_truck_round_trip_with_town_predicate_unchanged() -> void:
+    var world := _world()
+    if world == null:
+        return
+    _assert_farm_backdrop(world, "departing farm")
+    await _drive_to_town(world)
+    var town := world._map as TownMap
+    assert_not_null(town, "TownMap is the active map after driving to town")
+    if town == null:
+        return
+    assert_eq(town.camera_bounds(), TownContract.CAMERA_BOUNDS, "town camera bounds unchanged")
+    var market := town.get_node("StaticCollision/MarketCollision") as CollisionPolygon2D
+    assert_eq(
+        market.polygon, WorldMath.footprint_to_polygon(TownContract.MARKET_FOOTPRINT),
+        "town market collision unchanged",
+    )
+    var backdrop := town.get_node("Backdrop") as TileMapLayer
+    assert_not_null(backdrop, "TownMap Backdrop must exist")
+    if backdrop == null:
+        return
+    var source := backdrop.tile_set.get_source(0) as TileSetAtlasSource
+    assert_eq(
+        source.texture.resource_path, BACKDROP_TEXTURE_PATH,
+        "town Backdrop keeps the shared tile atlas",
+    )
+    var expected := WorldMath.backdrop_cells(TownContract.CAMERA_BOUNDS, TownContract.MAP_SIZE)
+    assert_gt(expected.size(), 0, "town camera overdraw has cells")
+    var used := backdrop.get_used_cells()
+    assert_eq(
+        used.size(), expected.size(),
+        "town Backdrop paints exactly the off-map camera cells",
+    )
+    var map_rect := Rect2i(Vector2i.ZERO, TownContract.MAP_SIZE)
+    for cell in expected:
+        assert_false(map_rect.has_point(cell), "town %s stays outside the playable map" % cell)
+        assert_true(used.has(cell), "town Backdrop missing cell %s" % cell)
+        var tile := (
+            WorldContract.BACKDROP_ROAD_TILE
+            if TownContract.is_backdrop_road(cell)
+            else WorldContract.BACKDROP_GRASS_TILE
+        )
+        assert_eq(backdrop.get_cell_atlas_coords(cell), tile, "town Backdrop %s tile" % cell)
+    await _drive_home(world)
+    _assert_farm_backdrop(world, "returned farm")

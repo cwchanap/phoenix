@@ -10,6 +10,15 @@ const MAP_SIZE := WorldContract.MAP_SIZE
 @onready var effects: FarmActionEffects = $FarmActionEffects as FarmActionEffects
 
 func _ready() -> void:
+    _fill_backdrop(
+        $Backdrop as TileMapLayer,
+        func(cell: Vector2i) -> bool:
+            return (
+                cell.y == WorldContract.TRUCK_CELL.y
+                and cell.x >= WorldContract.MAP_SIZE.x
+            )
+    )
+
     var static_collision := $StaticCollision as StaticBody2D
     _fill_collision(static_collision, "HouseCollision", WorldContract.HOUSE_FOOTPRINT)
     _fill_collision(static_collision, "ForestCollision", WorldContract.FOREST_FOOTPRINT)

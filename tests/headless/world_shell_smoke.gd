@@ -258,6 +258,7 @@ func _run() -> void:
     if not _expect(farm_map != null, "World must contain a FarmMap"):
         return
     var map_names := [
+        "Backdrop",
         "Ground",
         "Water",
         "Paths",
@@ -295,6 +296,64 @@ func _run() -> void:
     if not _expect(source.texture_region_size == Vector2i(64, 32), "ground atlas tile size"):
         return
     if not _expect(source.get_tiles_count() == 8, "ground atlas tile count"):
+        return
+
+    var farm_backdrop := farm_map.get_node("Backdrop") as TileMapLayer
+    if not _expect(farm_backdrop != null, "FarmMap Backdrop must exist"):
+        return
+    if not _expect(
+        farm_backdrop.position == Vector2(736.0, 0.0), "farm Backdrop alignment transform"
+    ):
+        return
+    if not _expect(
+        farm_backdrop.tile_set == ground.tile_set,
+        "FarmMap Backdrop must share the terrain TileSet",
+    ):
+        return
+    var farm_backdrop_used := farm_backdrop.get_used_cells()
+    var expected_farm_backdrop := WorldMath.backdrop_cells(
+        WorldContract.CAMERA_BOUNDS, WorldContract.MAP_SIZE
+    )
+    if not _expect(
+        farm_backdrop_used.size() == expected_farm_backdrop.size(),
+        "farm Backdrop must paint exactly the camera overdraw cells",
+    ):
+        return
+    var farm_map_rect := Rect2i(Vector2i.ZERO, WorldContract.MAP_SIZE)
+    for farm_backdrop_cell in expected_farm_backdrop:
+        if not _expect(
+            not farm_map_rect.has_point(farm_backdrop_cell),
+            "farm Backdrop %s must stay outside the playable map" % farm_backdrop_cell,
+        ):
+            return
+        if not _expect(
+            farm_backdrop_used.has(farm_backdrop_cell),
+            "farm Backdrop missing cell %s" % farm_backdrop_cell,
+        ):
+            return
+        var expected_farm_tile := (
+            PATH_TILE
+            if farm_backdrop_cell.y == WorldContract.TRUCK_CELL.y
+                and farm_backdrop_cell.x >= WorldContract.MAP_SIZE.x
+            else DEFAULT_TILE
+        )
+        if not _expect_vec2i(
+            farm_backdrop.get_cell_atlas_coords(farm_backdrop_cell),
+            expected_farm_tile,
+            "farm Backdrop %s tile" % farm_backdrop_cell,
+        ):
+            return
+    if not _expect_vec2i(
+        farm_backdrop.get_cell_atlas_coords(Vector2i(24, 9)),
+        PATH_TILE,
+        "farm Backdrop east road continuation",
+    ):
+        return
+    if not _expect_vec2i(
+        farm_backdrop.get_cell_atlas_coords(Vector2i(-1, 19)),
+        DEFAULT_TILE,
+        "farm Backdrop south-west river corner stays grass",
+    ):
         return
 
     var used_cells := ground.get_used_cells()
@@ -1095,27 +1154,31 @@ func _run() -> void:
     ):
         return
     var backdrop_used := backdrop.get_used_cells()
+    var backdrop_cells := WorldMath.backdrop_cells(
+        TownContract.CAMERA_BOUNDS, TownContract.MAP_SIZE
+    )
     var map_rect := Rect2i(Vector2i.ZERO, TownContract.MAP_SIZE)
-    var outside := 0
-    for cell in TownContract.backdrop_cells():
-        if map_rect.has_point(cell):
-            continue
-        outside += 1
-        if not _expect(backdrop_used.has(cell), "town Backdrop missing cell %s" % cell):
+    for backdrop_cell in backdrop_cells:
+        if not _expect(
+            not map_rect.has_point(backdrop_cell),
+            "town Backdrop %s must stay outside the map" % backdrop_cell,
+        ):
+            return
+        if not _expect(backdrop_used.has(backdrop_cell), "town Backdrop missing cell %s" % backdrop_cell):
             return
         var expected_tile := (
-            TownContract.BACKDROP_ROAD_TILE
-            if TownContract.is_backdrop_road(cell)
-            else TownContract.BACKDROP_GRASS_TILE
+            WorldContract.BACKDROP_ROAD_TILE
+            if TownContract.is_backdrop_road(backdrop_cell)
+            else WorldContract.BACKDROP_GRASS_TILE
         )
         if not _expect_vec2i(
-            backdrop.get_cell_atlas_coords(cell),
+            backdrop.get_cell_atlas_coords(backdrop_cell),
             expected_tile,
-            "town Backdrop %s tile" % cell,
+            "town Backdrop %s tile" % backdrop_cell,
         ):
             return
     if not _expect(
-        backdrop_used.size() == outside,
+        backdrop_used.size() == backdrop_cells.size(),
         "town Backdrop must paint only the camera coverage outside the map",
     ):
         return

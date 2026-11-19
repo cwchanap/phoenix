@@ -27,8 +27,6 @@ const VILLAGER_COLLISION_NAMES: Array[String] = [
     "VillagerResidentCollision",
 ]
 const CAMERA_BOUNDS := Rect2(384.0, -96.0, 896.0, 544.0)
-const BACKDROP_GRASS_TILE := Vector2i.ZERO
-const BACKDROP_ROAD_TILE := Vector2i(3, 0)
 
 ## HPA-743 canonical E-interact regions in contract order (this order breaks
 ## distance ties): truck, shop, market, then the three villagers — each maps
@@ -52,30 +50,6 @@ static func villager_at(cell: Variant) -> int:
     if not (cell is Vector2i):
         return -1
     return VILLAGER_CELLS.find(cell)
-
-static func backdrop_cells() -> Array[Vector2i]:
-    var cells: Array[Vector2i] = []
-    var half := WorldContract.TILE_SIZE * 0.5
-    var min_cell := Vector2(INF, INF)
-    var max_cell := Vector2(-INF, -INF)
-    for offset in [Vector2.ZERO, Vector2.RIGHT, Vector2.ONE, Vector2.DOWN]:
-        var corner := WorldMath.world_to_grid(
-            CAMERA_BOUNDS.position + offset * CAMERA_BOUNDS.size
-        )
-        min_cell.x = minf(min_cell.x, corner.x)
-        min_cell.y = minf(min_cell.y, corner.y)
-        max_cell.x = maxf(max_cell.x, corner.x)
-        max_cell.y = maxf(max_cell.y, corner.y)
-    for x in range(floori(min_cell.x) - 1, ceili(max_cell.x) + 1):
-        for y in range(floori(min_cell.y) - 1, ceili(max_cell.y) + 1):
-            var cell := Vector2i(x, y)
-            var tile := Rect2(
-                WorldMath.grid_to_world(Vector2(cell) + Vector2(0.5, 0.5)) - half,
-                WorldContract.TILE_SIZE,
-            )
-            if tile.intersects(CAMERA_BOUNDS):
-                cells.append(cell)
-    return cells
 
 static func is_backdrop_road(cell: Vector2i) -> bool:
     return cell.y == 9 or (cell.y == 10 and cell.x <= 4)
