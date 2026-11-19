@@ -5718,9 +5718,8 @@ func _screen_direction(facing: WorldMath.Facing) -> Vector2:
             return Vector2(0, 1)
     return Vector2(-1, 0)
 
-## Contract-owned region table for the active map. Missing API is a clean,
-## explicit failure instead of a parse error: the behavior tests below still
-## run and demonstrate today's bugs.
+## Contract-owned region table for the active map. The guard below fails
+## explicitly if the API ever disappears, instead of erroring at parse time.
 func _regions(map_id: GameRules.MapId) -> Array:
     var script: GDScript = load(
         "res://scripts/world/world_contract.gd"
@@ -5922,8 +5921,9 @@ func _backoff_facing(world: WorldShell, position: Vector2, row: Dictionary, cano
             return facing
     return row["positive"][0]
 
-## Constant-derived region footprints — the table Task 2's interact_regions()
-## must return — used as review-round-1 evidence while that API is absent.
+## Constant-derived region footprints — kept independent of the shipped
+## interact_regions() so the separation guard below measures the contract
+## constants directly (review-round-1 evidence).
 func _evidence_region_footprints(map_id: GameRules.MapId) -> Array:
     if map_id == GameRules.MapId.FARM:
         return [
@@ -6361,8 +6361,8 @@ func test_bin_vertex_perpendicular_contact_refuses_despite_touching() -> void:
     assert_false(_panel(hud, "ShippingPanel").visible)
     assert_eq(hud.toast_text(), "Nothing to interact with.")
 
-## The bed door slice region, or an empty rect when the contract API is
-## missing (clean explicit precondition failure instead of a parse error).
+## The bed door slice region; an empty rect trips the callers' explicit
+## non-empty precondition assert instead of erroring.
 func _bed_door_slice() -> Rect2:
     for region in WorldContract.interact_regions():
         if region["cell"] == WorldContract.BED_CELL:

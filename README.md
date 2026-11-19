@@ -52,7 +52,7 @@ no post-game or free play.
 | WASD | Move; facing selects the adjacent target cell |
 | `2` | Cycle the selected seed (Turnip → Potato → Pumpkin → Turnip) |
 | Space | Automatically till, plant, water, or harvest the faced farm cell |
-| E | Interact with the targeted bed, shipping, truck, shop, market, or villager cell |
+| E | Interact from near contact with the faced bed, shipping, truck, shop, market, or villager |
 | Esc | Close the open modal |
 | `I` / `B` / `C` | Open or close Bag / Almanac / Calendar when the world is available |
 | `M` | Select the maximum quantity in Seed Shop or Shipping |
@@ -77,11 +77,15 @@ Any new or changed player-facing string must land in the CSV with both
 translations in the same commit; `tests/unit/test_localisation.gd` fails on a
 missing translation, a placeholder mismatch, or an untranslated rules string.
 
-The target diamond is hidden when the faced cell is outside the map. Facing
-the farm bed cell `(12,7)`, shipping cell `(10,13)`, or truck cell `(22,9)`,
-or the town shop cell `(7,4)`, market cell `(13,7)`, truck cell `(2,9)`, or
-a villager, from an adjacent tile shows a contextual interaction hint (for
-example `[E] Seed Shop` or `[E] Drive to town`).
+The target diamond is hidden when the faced cell is outside the map.
+Standing in near contact with the farm bed cell `(12,7)`, shipping cell
+`(10,13)`, or truck cell `(22,9)`, or the town shop cell `(7,4)`, market
+cell `(13,7)`, truck cell `(2,9)`, or a villager, and facing it shows a
+contextual interaction hint (for example `[E] Seed Shop` or
+`[E] Drive to town`). When an interactable is within reach but not faced,
+E refuses with "Nothing to interact with." instead of falling back to a
+distant cell; the exact faced cell still answers only when nothing is
+nearby.
 
 - Green farm target = its next action can run.
 - Red farm target = its next action is blocked; the hint explains why.
@@ -214,10 +218,12 @@ accessories through `app_header_accessory()`, add footer controls through
 | Farm camera bounds | `Rect2(128, -96, 1408, 800)` |
 | Town camera bounds | `Rect2(384, -96, 896, 544)` |
 
-Each ground is an authored `TileMapLayer`; the town also carries a
-`Backdrop` layer reusing the farm terrain atlas so the paved square sits
-in a grass field and its road rows continue out of the map as a dirt
-track. Scenery and player roots use
+Each ground is an authored `TileMapLayer`; both maps also carry a
+`Backdrop` layer reusing the farm terrain atlas, painted once by the shared
+`GameMap._fill_backdrop()` helper: the town's paved square sits in a grass
+field with its road rows continuing out of the map as a dirt track, and the
+farm fills grass outside the playable rect with the east road continuing on
+row 9, so camera corners never show grey void. Scenery and player roots use
 bottom-center ground-contact positions. Collision polygons are projected from
 the logical house, forest/river/workbench, shipping, town station,
 shop, cafe, market, villager, truck, and perimeter
