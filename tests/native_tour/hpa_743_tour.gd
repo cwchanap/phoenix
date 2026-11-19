@@ -6,13 +6,19 @@ extends "res://tests/native_tour/rain_tour_base.gd"
 ## fence, shipping bin, farm truck, town shop, town station), the farm
 ## truck's east edge (Linear B2 comparison) and the south-west river corner.
 ## Interaction behavior is pinned by the GUT/e2e suites; walking is transport
-## only, so poses are teleported directly (the integration fade/contact
-## tables prove each pose physically reachable) and real key input drives
-## every E press and modal. Evidence-only one-off like rain_tour.gd: not run
-## in CI, no saves written.
+## only, so poses are teleported directly (the integration tables pin each
+## pose's overlap/contact behavior — not walk-in reachability or collider
+## standoff) and real key input drives every E press and modal. Evidence-only
+## one-off like rain_tour.gd: not run in CI, no saves written.
 ##
 ## Env: TOUR_OUT=<png dir>; PHOENIX_SAVE_PATH / PHOENIX_SETTINGS_PATH must
 ## point into an isolated dir (rain_tour_base refuses the defaults).
+## Supported capture environment: a desktop whose usable area holds the
+## full windowed 1920x1080 (UiSettings.WINDOW_SIZE) and an isolated
+## settings file left windowed (fullscreen unset/false) — apply_window()
+## otherwise shrinks the window and every capture would be the wrong size.
+## Each capture verifies its own 1920x1080 dimensions and the boot check
+## fails fast when the environment cannot provide that size.
 ## Rerun: godot --path . --script res://tests/native_tour/hpa_743_tour.gd
 
 const SEEDED_DAY := 1
@@ -93,6 +99,13 @@ func _run() -> void:
 	# still allows ~1 game-minute per frame at llvmpipe's 6-10 fps). Travel
 	# commands add their own TRAVEL_MINUTES independent of this flag.
 	_world.clock_running = false
+
+	var window_size := DisplayServer.window_get_size()
+	_expect(
+		window_size == UiSettings.WINDOW_SIZE,
+		"capture environment must hold the full %s windowed (got %s; screen too small or isolated settings set fullscreen=true)"
+			% [str(UiSettings.WINDOW_SIZE), str(window_size)],
+	)
 
 	await _phase_farm()
 	await _phase_travel_to_town()
@@ -355,6 +368,11 @@ func _shot(shot_name: String) -> void:
 	var error := image.save_png(path)
 	if error != OK:
 		_failures.append("capture %s not saved: save_png err=%d path=%s" % [shot_name, error, path])
+	var size := Vector2i(image.get_width(), image.get_height())
+	_expect(
+		size == UiSettings.WINDOW_SIZE,
+		"capture %s is %s, binding size is %s" % [shot_name, str(size), str(UiSettings.WINDOW_SIZE)],
+	)
 	_log("shot %s -> %s (%dx%d) err=%d" % [
 		shot_name, path, image.get_width(), image.get_height(), error,
 	])
