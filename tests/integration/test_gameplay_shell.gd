@@ -6820,8 +6820,29 @@ func test_house_fades_on_reachable_north_lawn_and_restores_south_of_root() -> vo
         (world._map.get_node("Entities/House/Shadow") as Sprite2D).self_modulate.a,
         1.0, 0.001, "the sibling Shadow never fades",
     )
-    # South of the drawn root the player sorts in front and the house restores.
+    # A real southern-face contact still fades: the house root uses the
+    # southern-tip footprint_ground_anchor(), so even front-contact poses
+    # sort the house in front (the brief's front-anchor caveat, pinned).
+    var house_rows := _face_rows(WorldContract.HOUSE_FOOTPRINT)
+    var front_stop := await _contact_stop(
+        world, GameRules.MapId.FARM, WorldContract.HOUSE_FOOTPRINT, house_rows[2]
+    )
+    assert_true(front_stop["ok"], "the house's south face must be physically reachable")
+    if not front_stop["ok"]:
+        return
+    _assert_pose_overlaps(world, "House")
+    world._process(1.0)
+    assert_almost_eq(
+        house_sprite.self_modulate.a, 0.45, 0.001,
+        "front contact on a southern-tip anchor still fades",
+    )
+    # Physically south of the tip anchor the player sorts in front and the
+    # house restores.
     _set_pose(world, Vector2(976.0, 360.0))
+    assert_gt(
+        world.player.global_position.y,
+        (house_sprite.get_parent() as Node2D).global_position.y,
+    )
     world._process(1.0)
     assert_almost_eq(house_sprite.self_modulate.a, 1.0, 0.001)
 
@@ -6830,35 +6851,104 @@ func test_shipping_bin_fades_on_minus_contacts_and_stays_opaque_on_plus_contacts
     if world == null:
         return
     var bin := _occluder_sprite(world, "Shipping")
-    # Cell-centre anchor: the -x contact is an exact Y tie and must fade.
-    _set_pose(world, Vector2(632.0, 384.0))
+    var bin_rows := _face_rows(WorldContract.SHIPPING_FOOTPRINT)
+    # Real near-contact stops on the -x (NW) and -y (NE) faces sit above the
+    # cell-centre anchor: overlap holds and the bin fades.
+    for row_index: int in [3, 0]:
+        var behind := await _contact_stop(
+            world, GameRules.MapId.FARM, WorldContract.SHIPPING_FOOTPRINT, bin_rows[row_index]
+        )
+        assert_true(behind["ok"], "bin face %d must be physically reachable" % row_index)
+        if not behind["ok"]:
+            return
+        _assert_pose_overlaps(world, "Shipping")
+        world._process(1.0)
+        assert_almost_eq(
+            bin.self_modulate.a, 0.45, 0.001,
+            "the bin fades at its face-%d contact" % row_index,
+        )
+    # The +x (SE) and +y (SW) face contacts put the player in front of the
+    # cell-centre anchor: overlap still holds, yet the bin stays opaque.
+    for row_index: int in [1, 2]:
+        var front := await _contact_stop(
+            world, GameRules.MapId.FARM, WorldContract.SHIPPING_FOOTPRINT, bin_rows[row_index]
+        )
+        assert_true(front["ok"], "bin face %d must be physically reachable" % row_index)
+        if not front["ok"]:
+            return
+        _assert_pose_overlaps(world, "Shipping")
+        world._process(1.0)
+        assert_almost_eq(
+            bin.self_modulate.a, 1.0, 0.001,
+            "the bin stays opaque in front of its cell-centre anchor (face %d)" % row_index,
+        )
+
+func test_shipping_bin_exact_y_tie_contact_fades() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var bin := _occluder_sprite(world, "Shipping")
+    # The exact tie pose is where a straight east push collision-stops:
+    # the player's east vertex against the footprint diamond's west vertex.
+    # move_and_slide cannot produce it (a vertex-to-vertex contact at an
+    # exact tie has an ambiguous slide normal), so the contact stop is
+    # placed directly and pinned by reach + tie assertions.
+    var w_vertex: Vector2 = WorldMath.footprint_to_polygon(WorldContract.SHIPPING_FOOTPRINT)[3]
+    var stop := w_vertex - Vector2(
+        WorldContract.PLAYER_HALF_EXTENT * WorldContract.TILE_SIZE.x, 0.0
+    )
+    world.player.global_position = stop
+    world.player.velocity = Vector2.ZERO
+    assert_lte(
+        stop.distance_to(_closest_contact_point(WorldContract.SHIPPING_FOOTPRINT, stop)),
+        CONTACT_REACH_PX, "precondition: the tie pose is in near-contact reach",
+    )
+    assert_almost_eq(
+        stop.y, (bin.get_parent() as Node2D).global_position.y, 0.001,
+        "precondition: exact Y tie with the cell-centre bin anchor",
+    )
     _assert_pose_overlaps(world, "Shipping")
     world._process(1.0)
-    assert_almost_eq(bin.self_modulate.a, 0.45, 0.001)
-    _set_pose(world, Vector2(672.0, 344.0))
-    world._process(1.0)
-    assert_almost_eq(bin.self_modulate.a, 0.45, 0.001)
-    _set_pose(world, Vector2(712.0, 424.0))
-    world._process(1.0)
-    assert_almost_eq(bin.self_modulate.a, 1.0, 0.001)
-    _set_pose(world, Vector2(672.0, 424.0))
-    world._process(1.0)
-    assert_almost_eq(bin.self_modulate.a, 1.0, 0.001)
+    assert_almost_eq(bin.self_modulate.a, 0.45, 0.001, "an exact Y tie fades the bin")
 
-func test_fence_and_truck_fade_from_reachable_behind_poses() -> void:
+func test_fence_and_truck_fade_from_reachable_poses_and_restore_in_front() -> void:
     var world := _world()
     if world == null:
         return
     var fence := _occluder_sprite(world, "FarmFence_2")
+    var fence_root := fence.get_parent() as Node2D
     _set_pose(world, Vector2(448.0, 320.0))
     _assert_pose_overlaps(world, "FarmFence_2")
     world._process(1.0)
     assert_almost_eq(fence.self_modulate.a, 0.45, 0.001)
+    # South of the fence root the player sorts in front and it restores.
+    _set_pose(world, Vector2(448.0, 388.0))
+    assert_gt(world.player.global_position.y, fence_root.global_position.y)
+    world._process(1.0)
+    assert_almost_eq(fence.self_modulate.a, 1.0, 0.001, "the fence restores in front of its root")
     var truck := _occluder_sprite(world, "Truck")
-    _set_pose(world, Vector2(1168.0, 480.0))
+    var truck_root := truck.get_parent() as Node2D
+    # A real north-face near-contact stop behind the truck fades it.
+    var truck_rows := _face_rows(WorldContract.TRUCK_FOOTPRINT)
+    var stop_info := await _contact_stop(
+        world, GameRules.MapId.FARM, WorldContract.TRUCK_FOOTPRINT, truck_rows[0]
+    )
+    assert_true(stop_info["ok"], "the truck's north face must be physically reachable")
+    if not stop_info["ok"]:
+        return
     _assert_pose_overlaps(world, "Truck")
     world._process(1.0)
     assert_almost_eq(truck.self_modulate.a, 0.45, 0.001)
+    # The truck root is a southern-tip anchor: a pose south of the tip sorts
+    # the player in front and restores the truck (a front contact alone
+    # would not — front-face stops still sit above the tip and fade).
+    _set_pose(world, Vector2(1152.0, 544.0))
+    assert_gt(world.player.global_position.y, truck_root.global_position.y)
+    world._process(1.0)
+    assert_almost_eq(
+        truck.self_modulate.a, 1.0, 0.001,
+        "the truck restores south of its southern-tip anchor",
+    )
 
 func test_house_fade_advances_while_blocked_input_gate_early_returns() -> void:
     var world := _locked_world()
@@ -6900,6 +6990,12 @@ func test_town_buildings_fade_and_travel_round_trip_restores_opacity_one() -> vo
     _assert_pose_overlaps(world, "SeedShop")
     world._process(1.0)
     assert_almost_eq(shop.self_modulate.a, 0.45, 0.001)
+    # In-place restoration: south of the shop's southern-tip anchor the
+    # player sorts in front and the sprite restores without any map swap.
+    _set_pose(world, Vector2(864.0, 216.0))
+    assert_gt(world.player.global_position.y, (shop.get_parent() as Node2D).global_position.y)
+    world._process(1.0)
+    assert_almost_eq(shop.self_modulate.a, 1.0, 0.001, "the town sprite restores in place")
     var station := _occluder_sprite(world, "Station")
     _set_pose(world, Vector2(704.0, 80.0))
     world._process(1.0)
@@ -6948,4 +7044,35 @@ func test_crops_and_harvest_fx_are_never_occluders() -> void:
     assert_false(
         world._map.get_node("FarmActionEffects").is_in_group("player_occluder"),
         "harvest FX stay out of the occluder group",
+    )
+    # A real HarvestPop under Entities: same cell as the player (exact Y tie,
+    # overlapping bounds — a grouped occluder would fade here), so exclusion
+    # plus an untouched own alpha prove a fade pass can never reach FX.
+    world._map.get_node("FarmActionEffects").play_success(
+        GameRules.CommandCode.CROP_HARVESTED,
+        {"crop": GameRules.CropKind.TURNIP},
+        cell, WorldMath.Facing.DOWN, world.player.global_position,
+    )
+    var pop := world.farm_view.get_node_or_null(
+        "HarvestPop_%d_%d" % [cell.x, cell.y]
+    ) as Node2D
+    assert_not_null(pop, "play_success must spawn a real HarvestPop under Entities")
+    if pop == null:
+        return
+    assert_false(pop.is_in_group("player_occluder"), "harvest pops stay out of the group")
+    var pop_sprite := pop.get_node("Sprite2D") as Sprite2D
+    assert_true(
+        _test_sprite_bounds(pop_sprite).intersects(
+            _test_sprite_bounds(world.player.player_sprite)
+        ),
+        "precondition: the pop overlaps the player at the shared cell",
+    )
+    world._process(1.0)
+    assert_almost_eq(
+        pop_sprite.self_modulate.a, 1.0, 0.001,
+        "a positive-delta fade pass never touches the pop sprite's own alpha",
+    )
+    assert_almost_eq(
+        pop.modulate.a, 1.0, 0.001,
+        "the pop's own tween still owns the root alpha",
     )
