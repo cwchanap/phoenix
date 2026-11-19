@@ -188,7 +188,7 @@ func _update_occluder_fade(delta: float) -> void:
         var prop := node as Node2D
         if prop == null or not _map.is_ancestor_of(prop):
             continue
-        var sprite := prop.get_node("Sprite2D") as Sprite2D
+        var sprite := prop.get_node_or_null("Sprite2D") as Sprite2D
         if sprite == null:
             continue
         var fades := (

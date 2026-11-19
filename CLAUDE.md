@@ -6,8 +6,9 @@ Phoenix is a Godot 4.7.1 project using the standard non-.NET editor and
 statically typed GDScript. Open the repository in Godot and run
 `scenes/app/app.tscn`; WASD moves, `2` cycles the selected seed, Space
 automatically tills, plants, waters, or harvests the faced farm cell, and E
-interacts with the bed, shipping bin, farm/town trucks, town Seed Shop,
-Harvest Market, or faced villager.
+interacts — physical near-contact first, exact raw cell only as the
+fixture/legacy fallback — with the bed, shipping bin, farm/town trucks, town
+Seed Shop, Harvest Market, or faced villager.
 There is no JavaScript or Tauri runtime in the current checkout.
 
 - I/B/C open and close Bag, Almanac, and Calendar while the world is available;
@@ -40,12 +41,15 @@ There is no JavaScript or Tauri runtime in the current checkout.
   farm `StaticCollision` bodies, and the `Entities` Y-sort root. `FarmMap`
   derives its collision geometry from `WorldContract` and `WorldMath` at
   `_ready()`, and defines its `SPAWN` and `CAMERA_BOUNDS` from
-  `WorldContract`. The parked kei truck stands by the east road sign at
-  `TRUCK_CELL`/`TRUCK_ARRIVAL`.
+  `WorldContract`. Its first `Backdrop` `TileMapLayer` is painted by the
+  shared `GameMap._fill_backdrop()` (grass outside `MAP_SIZE`, the authored
+  east road continued on row 9) so camera corners show no grey. The parked
+  kei truck stands by the east road sign at `TRUCK_CELL`/`TRUCK_ARRIVAL`.
 - `scenes/world/town_map.tscn` and `scripts/world/town_map.gd` (`TownMap`)
   own the authored 16x12 town: a `Backdrop` `TileMapLayer` that reuses the
-  farm terrain atlas to paint the `TownContract.backdrop_cells()` camera
-  coverage outside the playable rect (grass field, with the road rows
+  farm terrain atlas to paint the `WorldMath.backdrop_cells()` camera
+  coverage outside the playable rect through the shared
+  `GameMap._fill_backdrop()` painter (grass field, with the road rows
   continuing as a dirt track), the paved/road `Ground` `TileMapLayer`, the
   `TownContract`-derived `StaticCollision` bodies (station, seed shop,
   cafe, market, truck, the three villager footprints, and the four
@@ -76,6 +80,21 @@ There is no JavaScript or Tauri runtime in the current checkout.
   swap so session, map, and clock agree throughout; farm-only
   `FarmView`/effects/ambience calls are gated behind an active `FarmMap`
   cast.
+- HPA-743 E resolution is contact-first: `WorldContract.interact_regions()`
+  and `TownContract.interact_regions()` pair each canonical interactable
+  cell with its collision footprint (the bed region is the reachable
+  house-door slice), and `WorldShell._resolve_interactable()` is the single
+  resolver for E hints, `interact()`, and all five modal submit handlers. It
+  picks the nearest footprint contact within the inclusive
+  `WorldContract.INTERACT_REACH_PIXELS` (14 px) with a strictly positive
+  screen facing dot (contract order breaks ties), refuses when an in-reach
+  region is unfaced, and only falls back to the exact raw target cell when
+  no region is nearby — Space/hold farming stays tile-exact. Static props
+  opted into the `player_occluder` group fade their own
+  `Sprite2D.self_modulate.a` toward `FADE_ALPHA` (0.45) through
+  `WorldShell._update_occluder_fade()` at the top of `_process` before every
+  early return, restoring to 1.0 when clear; shadows, crops, villagers and
+  FX stay out, and no stored references survive map swaps.
 - `scripts/game/game_rules.gd` is the closed rules/content source: crop
   economy, action time/stamina budgets, day/pacing/stamina/weather constants
   including `DRY_NIGHTS_TO_WITHER`, payout math, and the `CommandCode` enum
@@ -315,6 +334,11 @@ town too; the river ripples stay farm-only in `HomesteadAmbience`, and town
 weather still reads through the HUD rainy tint plus the existing rain/river
 audio and music — river audio without river visuals in town is an accepted
 pre-existing limitation, not parity.
+HPA-743 made E contact-first (footprint-derived interact regions with a
+14 px reach, refusal instead of raw fallback when an in-reach region is
+unfaced), fades occluding props per sprite while the player walks behind
+them, and shares one backdrop painter across both maps so the farm camera
+shows grass and the continued east road instead of grey void.
 HPA-597 is done: the blocking introduction with contextual dismissible help,
 the Day 14 harvest market, and the terminal result flow all shipped.
 HPA-263 makes the day clock a real constraint: it ticks passively during

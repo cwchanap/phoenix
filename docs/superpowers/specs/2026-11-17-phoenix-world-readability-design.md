@@ -1,6 +1,6 @@
 # HPA-743 — Make the world easy to use and read: design specification
 
-**Status:** Proposed, docs-only draft; implementation and verification will be added to this same PR.  
+**Status:** Implemented on this PR branch with the automated lanes green locally (GUT 593/593, GdUnit4 16/16, godot-e2e 12/12 cases, committed-head `tools/verify-clean.sh`); the **B2 image comparison**, **MCP-connected execution provenance**, and **GitHub CI** remain unverified/pending — the implementation plan's acceptance checklist marks exactly what is and is not checked.  
 **Issue:** https://linear.app/cwchanap/issue/HPA-743/make-the-world-easy-to-use-and-read  
 **Repository/base inspected:** `cwchanap/phoenix`, `main` at `39a25b2be357a121fe5d715ed347028cacdb347d` (17 Nov 2026 Vancouver).  
 **Delivery:** One Linear ticket = one PR, including this design, implementation and evidence.
