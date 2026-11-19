@@ -26,3 +26,12 @@ func _fill_perimeters(
 	var perimeter_rects := WorldContract.perimeter_footprints(size)
 	for index in perimeter_rects.size():
 		_fill_collision(static_collision, perimeter_names[index], perimeter_rects[index])
+
+func _fill_backdrop(layer: TileMapLayer, is_road: Callable) -> void:
+	for cell in WorldMath.backdrop_cells(camera_bounds(), map_size()):
+		var tile := (
+			WorldContract.BACKDROP_ROAD_TILE
+			if is_road.call(cell)
+			else WorldContract.BACKDROP_GRASS_TILE
+		)
+		layer.set_cell(cell, 0, tile)

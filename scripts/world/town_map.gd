@@ -6,17 +6,7 @@ const CAMERA_BOUNDS := TownContract.CAMERA_BOUNDS
 const MAP_SIZE := TownContract.MAP_SIZE
 
 func _ready() -> void:
-    var backdrop := $Backdrop as TileMapLayer
-    var map_rect := Rect2i(Vector2i.ZERO, MAP_SIZE)
-    for cell in TownContract.backdrop_cells():
-        if map_rect.has_point(cell):
-            continue
-        var tile := (
-            TownContract.BACKDROP_ROAD_TILE
-            if TownContract.is_backdrop_road(cell)
-            else TownContract.BACKDROP_GRASS_TILE
-        )
-        backdrop.set_cell(cell, 0, tile)
+    _fill_backdrop($Backdrop as TileMapLayer, TownContract.is_backdrop_road)
 
     var static_collision := $StaticCollision as StaticBody2D
     _fill_collision(static_collision, "StationCollision", TownContract.STATION_FOOTPRINT)

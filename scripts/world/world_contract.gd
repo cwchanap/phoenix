@@ -27,6 +27,11 @@ const CAMERA_ZOOM := 3.0
 const CAMERA_TOP_PADDING := 96.0
 const CAMERA_BOUNDS := Rect2(128.0, -96.0, 1408.0, 800.0)
 
+# HPA-743 shared backdrop painter tiles on the terrain atlas: plain grass and
+# the dirt road used to continue authored roads into the camera overdraw.
+const BACKDROP_GRASS_TILE := Vector2i.ZERO
+const BACKDROP_ROAD_TILE := Vector2i(3, 0)
+
 const FARM_PATCH := Rect2i(4, 10, 6, 5)
 
 const PERIMETER_BAND_WIDTH := 1.0

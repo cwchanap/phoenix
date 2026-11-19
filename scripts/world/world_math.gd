@@ -104,6 +104,32 @@ static func map_camera_bounds(map_size: Vector2i) -> Rect2:
         bottom - top + WorldContract.CAMERA_TOP_PADDING,
     )
 
+## HPA-743: camera-corner overdraw cells for a map's backdrop painter — every
+## tile whose 64x32 diamond intersects the camera bounds but lies outside the
+## playable map rect, keeping the one-cell coverage margin.
+static func backdrop_cells(camera_bounds: Rect2, map_size: Vector2i) -> Array[Vector2i]:
+    var cells: Array[Vector2i] = []
+    var half := WorldContract.TILE_SIZE * 0.5
+    var min_cell := Vector2(INF, INF)
+    var max_cell := Vector2(-INF, -INF)
+    for offset in [Vector2.ZERO, Vector2.RIGHT, Vector2.ONE, Vector2.DOWN]:
+        var corner := world_to_grid(camera_bounds.position + offset * camera_bounds.size)
+        min_cell.x = minf(min_cell.x, corner.x)
+        min_cell.y = minf(min_cell.y, corner.y)
+        max_cell.x = maxf(max_cell.x, corner.x)
+        max_cell.y = maxf(max_cell.y, corner.y)
+    var map_rect := Rect2i(Vector2i.ZERO, map_size)
+    for x in range(floori(min_cell.x) - 1, ceili(max_cell.x) + 1):
+        for y in range(floori(min_cell.y) - 1, ceili(max_cell.y) + 1):
+            var cell := Vector2i(x, y)
+            var tile := Rect2(
+                grid_to_world(Vector2(cell) + Vector2(0.5, 0.5)) - half,
+                WorldContract.TILE_SIZE,
+            )
+            if tile.intersects(camera_bounds) and not map_rect.has_point(cell):
+                cells.append(cell)
+    return cells
+
 static func centered_player_footprint_polygon(center: Vector2) -> PackedVector2Array:
     var half_extent := Vector2(
         WorldContract.PLAYER_HALF_EXTENT,
