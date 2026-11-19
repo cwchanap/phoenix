@@ -23,7 +23,8 @@ extends "res://tests/native_tour/rain_tour_base.gd"
 ## Rerun: godot --path . --script res://tests/native_tour/hpa_743_tour.gd
 
 const SEEDED_DAY := 1
-const SETTLE_FRAMES := 45  # fade and camera-smoothing convergence
+const SETTLE_FRAMES := 45  # camera-smoothing convergence
+const OCCLUDER_WAIT_MSEC := 4000  # wall-clock deadline for the alpha polls
 const TOUR_LABEL := "hpa743"
 
 # Integration-table fade/restore poses (tests/integration/test_gameplay_shell.gd,
@@ -144,12 +145,11 @@ func _run() -> void:
 	if not await _phase_travel_home():
 		_finish("tour=hpa-743")
 		return
-	await _frames(SETTLE_FRAMES)
+	var house_alpha := await _wait_occluder_alpha("House", 1.0)
 	await _shot("40-return-farm-restored")
 	_expect(
-		_occluder_alpha("House") == 1.0,
-		"map swap must restore farm occluders (house alpha %s)"
-			% str(_occluder_alpha("House")),
+		house_alpha == 1.0,
+		"map swap must restore farm occluders (house alpha %s)" % str(house_alpha),
 	)
 	_finish("tour=hpa-743")
 
@@ -379,8 +379,27 @@ func _occluder_alpha(prop_name: String) -> float:
 	return sprite.self_modulate.a
 
 
-func _check_faded(shot_name: String, prop_name: String) -> void:
+## Bounded wait for the fade to converge: _update_occluder_fade moves alpha by
+## `delta` per frame, so a fixed frame count under-waits at high refresh rates
+## and over-waits on slow renderers. Poll the sprite itself until the alpha
+## arrives — move_toward clamps to the exact target, the tightest form of
+## each check's tolerance — or the wall-clock deadline expires; the caller's
+## check then reports whatever alpha remains.
+func _wait_occluder_alpha(prop_name: String, expected: float) -> float:
+	var deadline_msec := Time.get_ticks_msec() + OCCLUDER_WAIT_MSEC
 	var alpha := _occluder_alpha(prop_name)
+	while (
+		alpha != expected
+		and alpha >= 0.0
+		and Time.get_ticks_msec() < deadline_msec
+	):
+		await process_frame
+		alpha = _occluder_alpha(prop_name)
+	return alpha
+
+
+func _check_faded(shot_name: String, prop_name: String) -> void:
+	var alpha := await _wait_occluder_alpha(prop_name, WorldShell.FADE_ALPHA)
 	_expect(
 		absf(alpha - WorldShell.FADE_ALPHA) < 0.01,
 		"%s: %s must fade to %s (alpha %s)" % [shot_name, prop_name, WorldShell.FADE_ALPHA, str(alpha)],
@@ -389,7 +408,7 @@ func _check_faded(shot_name: String, prop_name: String) -> void:
 
 
 func _check_restored(shot_name: String, prop_name: String) -> void:
-	var alpha := _occluder_alpha(prop_name)
+	var alpha := await _wait_occluder_alpha(prop_name, 1.0)
 	_expect(
 		absf(alpha - 1.0) < 0.01,
 		"%s: %s must restore to opaque (alpha %s)" % [shot_name, prop_name, str(alpha)],
