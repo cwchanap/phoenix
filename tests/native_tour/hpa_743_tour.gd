@@ -9,14 +9,15 @@ extends "res://tests/native_tour/rain_tour_base.gd"
 ## only, so poses are teleported directly (the integration tables pin each
 ## pose's overlap/contact behavior — not walk-in reachability or collider
 ## standoff) and real key input drives every E press and modal. Evidence-only
-## one-off like rain_tour.gd: not run in CI, no saves written.
+## one-off like rain_tour.gd: not run in CI. The tour writes a seeded Day-1
+## save to PHOENIX_SAVE_PATH and a windowed+English settings fixture to
+## PHOENIX_SETTINGS_PATH (prompt text is asserted in English), so the
+## operator must supply isolated paths for both.
 ##
 ## Env: TOUR_OUT=<png dir>; PHOENIX_SAVE_PATH / PHOENIX_SETTINGS_PATH must
 ## point into an isolated dir (rain_tour_base refuses the defaults).
 ## Supported capture environment: a desktop whose usable area holds the
-## full windowed 1920x1080 (UiSettings.WINDOW_SIZE) and an isolated
-## settings file left windowed (fullscreen unset/false) — apply_window()
-## otherwise shrinks the window and every capture would be the wrong size.
+## full windowed 1920x1080 (UiSettings.WINDOW_SIZE).
 ## Each capture verifies its own 1920x1080 dimensions and the boot check
 ## fails fast when the environment cannot provide that size.
 ## Rerun: godot --path . --script res://tests/native_tour/hpa_743_tour.gd
@@ -46,12 +47,36 @@ func _initialize() -> void:
 		_failures.append("TOUR_OUT is empty; captures cannot be written")
 	elif DirAccess.make_dir_recursive_absolute(_out_dir) != OK:
 		_failures.append("output dir unusable: %s (make_dir failed)" % _out_dir)
-	if not _failures.is_empty() or not _seed_save():
+	# Both env paths are validated before either fixture write: a launch that
+	# is going to be rejected must leave an existing PHOENIX_SAVE_PATH file
+	# untouched.
+	if (
+		not _failures.is_empty()
+		or not _require_isolated_paths()
+		or not _write_settings_fixture()
+		or not _seed_save()
+	):
 		_finish("tour=hpa-743")
 		return
 	if not _boot_app():
 		return
 	_run.call_deferred()
+
+
+## Tour-owned settings: windowed and English, so the capture size and the
+## asserted prompt text are deterministic whatever the desktop locale is.
+func _write_settings_fixture() -> bool:
+	var settings_path := OS.get_environment("PHOENIX_SETTINGS_PATH")
+	var settings := ConfigFile.new()
+	settings.set_value("ui", "fullscreen", false)
+	settings.set_value("ui", "language", "en")
+	var error := settings.save(settings_path)
+	if error != OK:
+		_failures.append(
+			"settings fixture not written: err=%d path=%s" % [error, settings_path]
+		)
+		return false
+	return true
 
 
 func _seed_save() -> bool:
@@ -101,16 +126,24 @@ func _run() -> void:
 	_world.clock_running = false
 
 	var window_size := DisplayServer.window_get_size()
+	var size_ok := window_size == UiSettings.WINDOW_SIZE
 	_expect(
-		window_size == UiSettings.WINDOW_SIZE,
-		"capture environment must hold the full %s windowed (got %s; screen too small or isolated settings set fullscreen=true)"
+		size_ok,
+		"capture environment must hold the full %s windowed (got %s; usable screen area too small)"
 			% [str(UiSettings.WINDOW_SIZE), str(window_size)],
 	)
+	if not size_ok:
+		_finish("tour=hpa-743")
+		return
 
 	await _phase_farm()
-	await _phase_travel_to_town()
+	if not await _phase_travel_to_town():
+		_finish("tour=hpa-743")
+		return
 	await _phase_town()
-	await _phase_travel_home()
+	if not await _phase_travel_home():
+		_finish("tour=hpa-743")
+		return
 	await _frames(SETTLE_FRAMES)
 	await _shot("40-return-farm-restored")
 	_expect(
@@ -277,23 +310,27 @@ func _phase_town() -> void:
 
 # --- travel ----------------------------------------------------------------
 
-func _phase_travel_to_town() -> void:
+func _phase_travel_to_town() -> bool:
 	await _goto_contact(
 		WorldContract.TRUCK_FOOTPRINT, 3, WorldMath.Facing.RIGHT
 	)
 	await _interact()
-	await _wait_map_location(false)
+	if not await _wait_map_location(false):
+		return false
 	await _frames(SETTLE_FRAMES)
+	return true
 
 
-func _phase_travel_home() -> void:
+func _phase_travel_home() -> bool:
 	await _goto_contact(
 		TownContract.TRUCK_FOOTPRINT, 1, WorldMath.Facing.LEFT
 	)
 	await _check_prompt("36-town-truck-contact", "Drive home")
 	await _interact()
-	await _wait_map_location(true)
+	if not await _wait_map_location(true):
+		return false
 	await _frames(SETTLE_FRAMES)
+	return true
 
 
 # --- checks & captures -----------------------------------------------------
@@ -364,15 +401,19 @@ func _shot(shot_name: String) -> void:
 	await process_frame
 	await process_frame
 	var image: Image = root.get_texture().get_image()
+	var size := Vector2i(image.get_width(), image.get_height())
+	# Check dimensions before saving: a wrong-size capture must not overwrite
+	# a valid PNG from an earlier run.
+	if size != UiSettings.WINDOW_SIZE:
+		_failures.append(
+			"capture %s is %s, binding size is %s; not saved"
+				% [shot_name, str(size), str(UiSettings.WINDOW_SIZE)]
+		)
+		return
 	var path := "%s/%s-%s.png" % [_out_dir, TOUR_LABEL, shot_name]
 	var error := image.save_png(path)
 	if error != OK:
 		_failures.append("capture %s not saved: save_png err=%d path=%s" % [shot_name, error, path])
-	var size := Vector2i(image.get_width(), image.get_height())
-	_expect(
-		size == UiSettings.WINDOW_SIZE,
-		"capture %s is %s, binding size is %s" % [shot_name, str(size), str(UiSettings.WINDOW_SIZE)],
-	)
 	_log("shot %s -> %s (%dx%d) err=%d" % [
 		shot_name, path, image.get_width(), image.get_height(), error,
 	])

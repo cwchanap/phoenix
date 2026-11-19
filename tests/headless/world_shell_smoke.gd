@@ -1166,9 +1166,12 @@ func _run() -> void:
             return
         if not _expect(backdrop_used.has(backdrop_cell), "town Backdrop missing cell %s" % backdrop_cell):
             return
+        # Pinned literally rather than via TownContract.is_backdrop_road —
+        # the same predicate the painter calls — so a predicate regression
+        # cannot pass this check.
         var expected_tile := (
             WorldContract.BACKDROP_ROAD_TILE
-            if TownContract.is_backdrop_road(backdrop_cell)
+            if backdrop_cell.y == 9 or (backdrop_cell.y == 10 and backdrop_cell.x <= 4)
             else WorldContract.BACKDROP_GRASS_TILE
         )
         if not _expect_vec2i(
