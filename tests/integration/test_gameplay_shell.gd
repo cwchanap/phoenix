@@ -6693,3 +6693,259 @@ func test_farm_truck_contact_e_drives_to_town() -> void:
         minutes_before + GameRules.TRAVEL_MINUTES,
         "the contact travel must charge the original 30-minute drive",
     )
+
+
+## ---- HPA-743 shared per-sprite foreground fade (player_occluder group) ----
+
+const FARM_OCCLUDER_NAMES := [
+    "House",
+    "TreeForest",
+    "TreeBank",
+    "TreeNorth",
+    "TreeNorth2",
+    "TreeNorth3",
+    "TreeNorth4",
+    "TreeNorth5",
+    "TreeNorth6",
+    "TreeNorth7",
+    "FarmFence_1",
+    "FarmFence_2",
+    "FarmFence_3",
+    "Shipping",
+    "Truck",
+]
+const FARM_NON_OCCLUDER_NAMES := [
+    "RockYard",
+    "RockMeadow",
+    "RockNorth1",
+    "RockNorth2",
+    "Workbench",
+    "VillageSign",
+]
+const TOWN_OCCLUDER_NAMES := ["Station", "SeedShop", "Cafe", "Market", "Truck"]
+const TOWN_NON_OCCLUDER_NAMES := [
+    "VillagerShopkeeper",
+    "VillagerFarmer",
+    "VillagerResident",
+]
+
+func _occluder_sprite(world: WorldShell, prop_name: String) -> Sprite2D:
+    return world._map.get_node("Entities/%s/Sprite2D" % prop_name) as Sprite2D
+
+func _set_pose(world: WorldShell, position: Vector2, facing := WorldMath.Facing.DOWN) -> void:
+    world.player.global_position = position
+    world.player.facing = facing
+
+func _test_sprite_bounds(sprite: Sprite2D) -> Rect2:
+    var rect := sprite.get_rect()
+    var transform := sprite.get_global_transform()
+    var bounds := Rect2(transform * rect.position, Vector2.ZERO)
+    bounds = bounds.expand(transform * (rect.position + Vector2(rect.size.x, 0.0)))
+    bounds = bounds.expand(transform * (rect.position + rect.size))
+    bounds = bounds.expand(transform * (rect.position + Vector2(0.0, rect.size.y)))
+    return bounds
+
+func _assert_pose_overlaps(world: WorldShell, prop_name: String) -> void:
+    var prop_sprite := _occluder_sprite(world, prop_name)
+    assert_true(
+        _test_sprite_bounds(prop_sprite).intersects(
+            _test_sprite_bounds(world.player.player_sprite)
+        ),
+        "%s drawn bounds overlap the player sprite at this pose" % prop_name,
+    )
+
+func test_foreground_occluders_opt_into_player_occluder_group_and_fx_stay_out() -> void:
+    var world := _world()
+    if world == null:
+        return
+    assert_false(world.player.is_in_group("player_occluder"), "the player stays out")
+    for prop_name in FARM_OCCLUDER_NAMES:
+        var root := world._map.get_node("Entities/%s" % prop_name) as Node2D
+        assert_not_null(root, prop_name)
+        if root == null:
+            continue
+        assert_true(root.is_in_group("player_occluder"), "%s opts in" % prop_name)
+    for prop_name in FARM_NON_OCCLUDER_NAMES:
+        var low := world._map.get_node("Entities/%s" % prop_name) as Node2D
+        assert_not_null(low, prop_name)
+        if low == null:
+            continue
+        assert_false(low.is_in_group("player_occluder"), "%s stays out" % prop_name)
+    assert_false(
+        (world._map.get_node("Entities/FarmCrop_7_12") as Node).is_in_group("player_occluder"),
+        "crops stay out",
+    )
+    assert_false(
+        world._map.get_node("FarmActionEffects").is_in_group("player_occluder"),
+        "harvest FX stay out",
+    )
+    await _drive_to_town(world)
+    for prop_name in TOWN_OCCLUDER_NAMES:
+        var town_root := world._map.get_node("Entities/%s" % prop_name) as Node2D
+        assert_not_null(town_root, prop_name)
+        if town_root == null:
+            continue
+        assert_true(town_root.is_in_group("player_occluder"), "%s opts in" % prop_name)
+    for prop_name in TOWN_NON_OCCLUDER_NAMES:
+        var villager := world._map.get_node("Entities/%s" % prop_name) as Node2D
+        assert_not_null(villager, prop_name)
+        if villager == null:
+            continue
+        assert_false(villager.is_in_group("player_occluder"), "%s stays out" % prop_name)
+    await _drive_home(world)
+
+func test_house_fades_on_reachable_north_lawn_and_restores_south_of_root() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var house_sprite := _occluder_sprite(world, "House")
+    # Reachable lawn pose north of the house footprint diamond, inside the
+    # drawn house rectangle, player root strictly above the house root.
+    _set_pose(world, Vector2(1017.6, 259.2))
+    _assert_pose_overlaps(world, "House")
+    assert_lt(
+        world.player.global_position.y,
+        (house_sprite.get_parent() as Node2D).global_position.y,
+    )
+    world._process(0.2)
+    assert_almost_eq(
+        house_sprite.self_modulate.a, 0.8, 0.001,
+        "move_toward must advance opacity gradually",
+    )
+    world._process(1.0)
+    assert_almost_eq(house_sprite.self_modulate.a, 0.45, 0.001)
+    # A distant grouped occluder stays fully opaque at the same pose.
+    assert_almost_eq(_occluder_sprite(world, "TreeForest").self_modulate.a, 1.0, 0.001)
+    assert_almost_eq(
+        (world._map.get_node("Entities/House/Shadow") as Sprite2D).self_modulate.a,
+        1.0, 0.001, "the sibling Shadow never fades",
+    )
+    # South of the drawn root the player sorts in front and the house restores.
+    _set_pose(world, Vector2(976.0, 360.0))
+    world._process(1.0)
+    assert_almost_eq(house_sprite.self_modulate.a, 1.0, 0.001)
+
+func test_shipping_bin_fades_on_minus_contacts_and_stays_opaque_on_plus_contacts() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var bin := _occluder_sprite(world, "Shipping")
+    # Cell-centre anchor: the -x contact is an exact Y tie and must fade.
+    _set_pose(world, Vector2(632.0, 384.0))
+    _assert_pose_overlaps(world, "Shipping")
+    world._process(1.0)
+    assert_almost_eq(bin.self_modulate.a, 0.45, 0.001)
+    _set_pose(world, Vector2(672.0, 344.0))
+    world._process(1.0)
+    assert_almost_eq(bin.self_modulate.a, 0.45, 0.001)
+    _set_pose(world, Vector2(712.0, 424.0))
+    world._process(1.0)
+    assert_almost_eq(bin.self_modulate.a, 1.0, 0.001)
+    _set_pose(world, Vector2(672.0, 424.0))
+    world._process(1.0)
+    assert_almost_eq(bin.self_modulate.a, 1.0, 0.001)
+
+func test_fence_and_truck_fade_from_reachable_behind_poses() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var fence := _occluder_sprite(world, "FarmFence_2")
+    _set_pose(world, Vector2(448.0, 320.0))
+    _assert_pose_overlaps(world, "FarmFence_2")
+    world._process(1.0)
+    assert_almost_eq(fence.self_modulate.a, 0.45, 0.001)
+    var truck := _occluder_sprite(world, "Truck")
+    _set_pose(world, Vector2(1168.0, 480.0))
+    _assert_pose_overlaps(world, "Truck")
+    world._process(1.0)
+    assert_almost_eq(truck.self_modulate.a, 0.45, 0.001)
+
+func test_house_fade_advances_while_blocked_input_gate_early_returns() -> void:
+    var world := _locked_world()
+    if world == null:
+        return
+    var house_sprite := _occluder_sprite(world, "House")
+    assert_false(world._world_input_enabled, "the intro overlay blocks world input")
+    _set_pose(world, Vector2(1017.6, 259.2))
+    world._process(1.0)
+    assert_almost_eq(house_sprite.self_modulate.a, 0.45, 0.001)
+
+func test_bin_fade_advances_on_farming_preview_frames() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var bin := _occluder_sprite(world, "Shipping")
+    # Facing UP from the bin's west contact targets the farm patch, so the
+    # frame ends at the farming-prompt early return, after the fade pass.
+    _set_pose(world, Vector2(632.0, 384.0), WorldMath.Facing.UP)
+    assert_eq(
+        world._session.preview_target_action(world.player.current_target_cell())["code"],
+        GameRules.CommandCode.SOIL_TILLED,
+        "the pose must sit on a farming-preview frame",
+    )
+    world._process(1.0)
+    assert_almost_eq(bin.self_modulate.a, 0.45, 0.001)
+
+func test_town_buildings_fade_and_travel_round_trip_restores_opacity_one() -> void:
+    var world := _world()
+    if world == null:
+        return
+    _set_pose(world, Vector2(1017.6, 259.2))
+    world._process(1.0)
+    await _drive_to_town(world)
+    var shop := _occluder_sprite(world, "SeedShop")
+    assert_almost_eq(shop.self_modulate.a, 1.0, 0.001, "the new map must start opaque")
+    # Reachable strip north of the shop footprint, inside its drawn rectangle.
+    _set_pose(world, Vector2(840.0, 160.0))
+    _assert_pose_overlaps(world, "SeedShop")
+    world._process(1.0)
+    assert_almost_eq(shop.self_modulate.a, 0.45, 0.001)
+    var station := _occluder_sprite(world, "Station")
+    _set_pose(world, Vector2(704.0, 80.0))
+    world._process(1.0)
+    assert_almost_eq(station.self_modulate.a, 0.45, 0.001)
+    await _drive_home(world)
+    var restored := _occluder_sprite(world, "House")
+    assert_almost_eq(
+        restored.self_modulate.a, 1.0, 0.001,
+        "no fade state leaks across map replacement",
+    )
+
+func test_crops_and_harvest_fx_are_never_occluders() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var session := world._session
+    var farm_view := world.farm_view
+    var cell := WorldContract.farm_cells()[0]
+    var crop := farm_view.get_node("FarmCrop_%d_%d/Sprite2D" % [cell.x, cell.y]) as Sprite2D
+    var state := session.state()
+    var weather_history: Array = state["weather_history"]
+    weather_history[weather_history.size() - 1] = &"sunny"
+    state["weather_history"] = weather_history
+    state["weather"] = &"sunny"
+    var farm: Array = state["farm"]
+    farm[0]["tilled"] = true
+    farm[0]["crop"] = {
+        "kind": &"turnip",
+        "growth": 0,
+        "dry_nights": 1,
+        "watered_today": false,
+    }
+    state["farm"] = farm
+    assert_true(session.restore_state(state))
+    farm_view.refresh(session.snapshot())
+    assert_eq(crop.self_modulate, FarmView.DRY_CROP_TINT)
+    assert_false(
+        (crop.get_parent() as Node).is_in_group("player_occluder"),
+        "crops stay out of the occluder group",
+    )
+    # The player stands on the crop cell; the dry tint must survive the fade pass.
+    world.player.global_position = _cell_center(cell)
+    world.player.facing = WorldMath.Facing.DOWN
+    world._process(1.0)
+    assert_eq(crop.self_modulate, FarmView.DRY_CROP_TINT)
+    assert_false(
+        world._map.get_node("FarmActionEffects").is_in_group("player_occluder"),
+        "harvest FX stay out of the occluder group",
+    )

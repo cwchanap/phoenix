@@ -50,7 +50,7 @@ tile_set = ExtResource("2_townset")
 y_sort_enabled = true
 z_index = 20
 
-[node name="Station" type="Node2D" parent="Entities"]
+[node name="Station" type="Node2D" parent="Entities" groups=["player_occluder"]]
 position = Vector2(704, 132.8)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/Station"]
@@ -62,7 +62,7 @@ offset = Vector2(0, -48)
 hframes = 2
 vframes = 2
 
-[node name="SeedShop" type="Node2D" parent="Entities"]
+[node name="SeedShop" type="Node2D" parent="Entities" groups=["player_occluder"]]
 position = Vector2(896, 196.8)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/SeedShop"]
@@ -75,7 +75,7 @@ hframes = 2
 vframes = 2
 frame = 1
 
-[node name="Cafe" type="Node2D" parent="Entities"]
+[node name="Cafe" type="Node2D" parent="Entities" groups=["player_occluder"]]
 position = Vector2(1024, 260.8)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/Cafe"]
@@ -88,7 +88,7 @@ hframes = 2
 vframes = 2
 frame = 2
 
-[node name="Market" type="Node2D" parent="Entities"]
+[node name="Market" type="Node2D" parent="Entities" groups=["player_occluder"]]
 position = Vector2(992, 340.8)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/Market"]
@@ -101,7 +101,7 @@ hframes = 2
 vframes = 2
 frame = 3
 
-[node name="Truck" type="Node2D" parent="Entities"]
+[node name="Truck" type="Node2D" parent="Entities" groups=["player_occluder"]]
 position = Vector2(544, 208)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/Truck"]

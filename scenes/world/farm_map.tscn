@@ -74,7 +74,7 @@ script = ExtResource("7_farm_view")
 y_sort_enabled = true
 z_index = 20
 
-[node name="House" type="Node2D" parent="Entities" unique_id=634663332]
+[node name="House" type="Node2D" parent="Entities" groups=["player_occluder"] unique_id=634663332]
 position = Vector2(976, 336)
 scale = Vector2(2, 2)
 
@@ -88,7 +88,7 @@ hframes = 4
 vframes = 2
 frame = 0
 
-[node name="TreeForest" type="Node2D" parent="Entities" unique_id=1786541055]
+[node name="TreeForest" type="Node2D" parent="Entities" groups=["player_occluder"] unique_id=1786541055]
 position = Vector2(768, 112)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/TreeForest"]
@@ -101,7 +101,7 @@ hframes = 4
 vframes = 2
 frame = 2
 
-[node name="TreeBank" type="Node2D" parent="Entities"]
+[node name="TreeBank" type="Node2D" parent="Entities" groups=["player_occluder"]]
 position = Vector2(640, 144)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/TreeBank"]
@@ -114,7 +114,7 @@ hframes = 4
 vframes = 2
 frame = 2
 
-[node name="TreeNorth" type="Node2D" parent="Entities"]
+[node name="TreeNorth" type="Node2D" parent="Entities" groups=["player_occluder"]]
 position = Vector2(1248, 320)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/TreeNorth"]
@@ -153,7 +153,7 @@ hframes = 4
 vframes = 2
 frame = 3
 
-[node name="TreeNorth2" type="Node2D" parent="Entities"]
+[node name="TreeNorth2" type="Node2D" parent="Entities" groups=["player_occluder"]]
 position = Vector2(992, 128)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/TreeNorth2"]
@@ -166,7 +166,7 @@ hframes = 4
 vframes = 2
 frame = 2
 
-[node name="TreeNorth3" type="Node2D" parent="Entities"]
+[node name="TreeNorth3" type="Node2D" parent="Entities" groups=["player_occluder"]]
 position = Vector2(1024, 176)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/TreeNorth3"]
@@ -179,7 +179,7 @@ hframes = 4
 vframes = 2
 frame = 2
 
-[node name="TreeNorth4" type="Node2D" parent="Entities"]
+[node name="TreeNorth4" type="Node2D" parent="Entities" groups=["player_occluder"]]
 position = Vector2(1152, 208)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/TreeNorth4"]
@@ -205,7 +205,7 @@ hframes = 4
 vframes = 2
 frame = 3
 
-[node name="TreeNorth5" type="Node2D" parent="Entities"]
+[node name="TreeNorth5" type="Node2D" parent="Entities" groups=["player_occluder"]]
 position = Vector2(1280, 272)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/TreeNorth5"]
@@ -218,7 +218,7 @@ hframes = 4
 vframes = 2
 frame = 2
 
-[node name="TreeNorth6" type="Node2D" parent="Entities"]
+[node name="TreeNorth6" type="Node2D" parent="Entities" groups=["player_occluder"]]
 position = Vector2(1312, 320)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/TreeNorth6"]
@@ -244,7 +244,7 @@ hframes = 4
 vframes = 2
 frame = 3
 
-[node name="TreeNorth7" type="Node2D" parent="Entities"]
+[node name="TreeNorth7" type="Node2D" parent="Entities" groups=["player_occluder"]]
 position = Vector2(1440, 384)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/TreeNorth7"]
@@ -257,7 +257,7 @@ hframes = 4
 vframes = 2
 frame = 2
 
-[node name="FarmFence_1" type="Node2D" parent="Entities"]
+[node name="FarmFence_1" type="Node2D" parent="Entities" groups=["player_occluder"]]
 position = Vector2(384, 336)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/FarmFence_1"]
@@ -270,7 +270,7 @@ hframes = 4
 vframes = 2
 frame = 4
 
-[node name="FarmFence_2" type="Node2D" parent="Entities"]
+[node name="FarmFence_2" type="Node2D" parent="Entities" groups=["player_occluder"]]
 position = Vector2(448, 368)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/FarmFence_2"]
@@ -283,7 +283,7 @@ hframes = 4
 vframes = 2
 frame = 4
 
-[node name="FarmFence_3" type="Node2D" parent="Entities"]
+[node name="FarmFence_3" type="Node2D" parent="Entities" groups=["player_occluder"]]
 position = Vector2(512, 400)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/FarmFence_3"]
@@ -322,7 +322,7 @@ hframes = 4
 vframes = 2
 frame = 6
 
-[node name="Shipping" type="Node2D" parent="Entities"]
+[node name="Shipping" type="Node2D" parent="Entities" groups=["player_occluder"]]
 position = Vector2(672, 384)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/Shipping"]
@@ -334,7 +334,7 @@ offset = Vector2(0, -48)
 hframes = 4
 frame = 2
 
-[node name="Truck" type="Node2D" parent="Entities"]
+[node name="Truck" type="Node2D" parent="Entities" groups=["player_occluder"]]
 position = Vector2(1184, 528)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/Truck"]

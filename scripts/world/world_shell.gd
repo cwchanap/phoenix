@@ -15,6 +15,9 @@ const FARM_ACTION_SUCCESS_CODES := [
 const ACTION_HOLD_DWELL_SECONDS := 0.15
 # A hitched or breakpoint-stalled frame must not bank game minutes.
 const CLOCK_DELTA_CLAMP := 0.1
+# HPA-743 foreground occluders sink to this alpha while the player stands
+# behind them; each prop's own Sprite2D tracks it, nothing is shared.
+const FADE_ALPHA := 0.45
 
 var _session: GameSession
 var _initial_state: Variant = null
@@ -115,6 +118,9 @@ func load_map(arrived_by_truck: bool = false) -> void:
     _refresh_from_session(snapshot)
 
 func _process(delta: float) -> void:
+    # The fade runs before every early return so occluders track the player
+    # while a modal is open or a farming preview ends the frame early.
+    _update_occluder_fade(delta)
     # Every frame starts from the true raw diamond: _update_target() repaints
     # the highlight from the live pose even without a physics tick (fixtures
     # drive _process directly), so no stale E-hint diamond survives into
@@ -169,6 +175,41 @@ func _process(delta: float) -> void:
         hud.show_interact_prompt(_prompt_anchor(cell), resolved["label"])
         player.target_highlight.points = WorldMath.cell_diamond(cell)
         player.target_highlight.visible = true
+
+## HPA-743 shared foreground fade: props the player can walk behind sink
+## toward FADE_ALPHA while their drawn bounds overlap the player's and their
+## root sorts in front (Player is Entities child 0 for exact Y ties). The
+## group is queried per frame — no stored references survive map swaps — and
+## only each prop's own Sprite2D moves; the sibling Shadow stays untouched.
+func _update_occluder_fade(delta: float) -> void:
+    var player_bounds := _sprite_global_bounds(player.player_sprite)
+    var player_y := player.global_position.y
+    for node in get_tree().get_nodes_in_group("player_occluder"):
+        var prop := node as Node2D
+        if prop == null or not _map.is_ancestor_of(prop):
+            continue
+        var sprite := prop.get_node("Sprite2D") as Sprite2D
+        if sprite == null:
+            continue
+        var fades := (
+            prop.global_position.y >= player_y
+            and _sprite_global_bounds(sprite).intersects(player_bounds)
+        )
+        sprite.self_modulate.a = move_toward(
+            sprite.self_modulate.a,
+            FADE_ALPHA if fades else 1.0,
+            delta,
+        )
+
+## The AABB of a sprite's drawn rectangle in global canvas space.
+static func _sprite_global_bounds(sprite: Sprite2D) -> Rect2:
+    var rect := sprite.get_rect()
+    var transform := sprite.get_global_transform()
+    var bounds := Rect2(transform * rect.position, Vector2.ZERO)
+    bounds = bounds.expand(transform * (rect.position + Vector2(rect.size.x, 0.0)))
+    bounds = bounds.expand(transform * (rect.position + rect.size))
+    bounds = bounds.expand(transform * (rect.position + Vector2(0.0, rect.size.y)))
+    return bounds
 
 func _interactable(target: Variant) -> Dictionary:
     if target == null:
