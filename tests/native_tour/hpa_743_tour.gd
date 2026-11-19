@@ -382,14 +382,14 @@ func _occluder_alpha(prop_name: String) -> float:
 ## Bounded wait for the fade to converge: _update_occluder_fade moves alpha by
 ## `delta` per frame, so a fixed frame count under-waits at high refresh rates
 ## and over-waits on slow renderers. Poll the sprite itself until the alpha
-## arrives — move_toward clamps to the exact target, the tightest form of
-## each check's tolerance — or the wall-clock deadline expires; the caller's
-## check then reports whatever alpha remains.
+## arrives — approximately, since the Color channel's float32 storage never
+## equals the float64 target exactly — or the wall-clock deadline expires;
+## the caller's check then reports whatever alpha remains.
 func _wait_occluder_alpha(prop_name: String, expected: float) -> float:
 	var deadline_msec := Time.get_ticks_msec() + OCCLUDER_WAIT_MSEC
 	var alpha := _occluder_alpha(prop_name)
 	while (
-		alpha != expected
+		not is_equal_approx(alpha, expected)
 		and alpha >= 0.0
 		and Time.get_ticks_msec() < deadline_msec
 	):
