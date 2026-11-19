@@ -6325,6 +6325,99 @@ func test_bin_contact_e_opens_shipping_while_space_keeps_the_raw_farm_tile() -> 
         var index: int = WorldContract.farm_cells().find(raw)
         assert_true(bool(world._session.snapshot()["farm"][index]["tilled"]), "Space tilled the raw farm tile")
 
+func test_bin_vertex_perpendicular_contact_refuses_despite_touching() -> void:
+    var world := _world()
+    var hud := world.hud
+    # The original bin overlap pose (start 9.5, not the success fixture's
+    # 9.6): the straight-down push stops on the bin N vertex's exact screen
+    # x, so the contact vector is pure screen-down and LEFT dots to exactly
+    # 0. Strict dot > 0 must refuse it — a >= 0 comparison or a zero-distance
+    # acceptance path would resolve the bin from this touching pose.
+    var start := WorldMath.grid_to_world(Vector2(9.5, 12.5))
+    assert_false(_probe_collides(GameRules.MapId.FARM, start))
+    world.player.global_position = start
+    await _push_until_stopped(world, Vector2(0, 1))
+    world.player.facing = WorldMath.Facing.LEFT
+    world.player.velocity = Vector2.ZERO
+    world.player._update_target()
+    world._process(0.0)
+    var stop: Vector2 = world.player.global_position
+    var contact := _closest_contact_point(WorldContract.SHIPPING_FOOTPRINT, stop)
+    assert_lt(stop.distance_to(contact), CONTACT_REACH_PX, "precondition: the vertex pose is well within contact reach")
+    assert_eq(
+        WorldMath.grid_delta_to_world(WorldMath.TARGET_OFFSETS[WorldMath.Facing.LEFT]).dot(contact - stop),
+        0.0,
+        "precondition: the stop pins the perpendicular vertex pose (LEFT dot is exactly 0)",
+    )
+    var raw: Variant = world.player.current_target_cell()
+    assert_true(
+        raw != null and world._interactable(raw).is_empty(),
+        "precondition: the raw fallback cannot select the bin from the vertex pose",
+    )
+    assert_null(_resolver_cell(world), "perpendicular (dot == 0) vertex contact must refuse despite touching")
+    var before := world._session.snapshot()
+    world.interact()
+    assert_eq(world._session.snapshot(), before, "the perpendicular E must not mutate the session")
+    assert_false(_panel(hud, "ShippingPanel").visible)
+    assert_eq(hud.toast_text(), "Nothing to interact with.")
+
+## The bed door slice region, or an empty rect when the contract API is
+## missing (clean explicit precondition failure instead of a parse error).
+func _bed_door_slice() -> Rect2:
+    for region in WorldContract.interact_regions():
+        if region["cell"] == WorldContract.BED_CELL:
+            return region["footprint"]
+    return Rect2()
+
+func test_resolver_reach_boundary_is_inclusive_without_raw_masking() -> void:
+    var world := _world()
+    # Straight-down poses from the bed door slice's screen-bottom vertex keep
+    # it the unique closest contact at exactly the probed distance, so the
+    # resolver's inclusive <= 14 gap is pinned at 13.9999 / exactly 14.0 /
+    # 14.001 projected pixels — switching the comparison to exclusive (< 14)
+    # fails the exactly-14 case, a wider reach fails the 14.001 case.
+    var slice := _bed_door_slice()
+    assert_gt(slice.get_area(), 0.0, "precondition: the bed door slice region exists")
+    var south := WorldMath.footprint_to_polygon(slice)[2]
+    for distance: float in [13.9999, 14.0, 14.001]:
+        var position := south + Vector2(0, distance)
+        var contact := WorldMath.closest_contact(position, slice)
+        assert_almost_eq(contact, south, Vector2(0.0001, 0.0001), "precondition: the bottom vertex is the closest contact")
+        if distance == 14.0:
+            assert_eq(position.distance_to(south), 14.0, "precondition: the boundary distance is float-exact")
+        _set_pose_and_process(world, position, WorldMath.Facing.UP)
+        # The raw fallback's only candidate here is a plain path cell, never
+        # the bed: it cannot mask the contact result at any of the distances.
+        var raw: Variant = world.player.current_target_cell()
+        assert_true(
+            raw != null and world._interactable(raw).is_empty(),
+            "raw fallback cannot select the tested bed at distance %s" % distance,
+        )
+        if distance > 14.0:
+            assert_null(_resolver_cell(world), "just outside 14 projected px must refuse")
+        else:
+            assert_eq(_resolver_cell(world), WorldContract.BED_CELL, "inside/at the inclusive 14 px reach must resolve the bed")
+
+func test_resolver_rejects_coincident_contact_without_zero_distance_path() -> void:
+    var world := _world()
+    # Coincident player/contact position (standing exactly on the bed door
+    # slice's south vertex): contact - position is the zero vector, so no
+    # facing can dot positive and no zero-distance acceptance path may
+    # shortcut the strict facing rule.
+    var slice := _bed_door_slice()
+    assert_gt(slice.get_area(), 0.0, "precondition: the bed door slice region exists")
+    var south := WorldMath.footprint_to_polygon(slice)[2]
+    var contact := WorldMath.closest_contact(south, slice)
+    assert_almost_eq(contact, south, Vector2(0.0001, 0.0001), "precondition: the player stands on the boundary")
+    assert_eq(south.distance_to(contact), 0.0, "precondition: the contact is coincident (distance 0)")
+    _set_pose_and_process(world, south, WorldMath.Facing.DOWN)
+    var raw: Variant = world.player.current_target_cell()
+    assert_true(
+        raw != null and world._interactable(raw).is_empty(),
+        "precondition: the raw fallback cannot select the bed from the coincident pose",
+    )
+    assert_null(_resolver_cell(world), "coincident contact must refuse: the dot is 0 for every facing")
+
 func test_process_transitions_e_hint_farming_idle_without_stale_highlight() -> void:
     var world := _world()
     var hud := world.hud
