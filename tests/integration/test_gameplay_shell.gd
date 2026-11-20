@@ -7344,6 +7344,7 @@ func test_modal_submit_reuses_saved_interact_target_even_if_player_moves_or_turn
     # Day 14 market confirmation after moving/turning away while modal is open.
     var day14_state := session.state()
     day14_state["day"] = GameRules.MAX_DAY
+    day14_state["weather"] = &"sunny"
     var weather_history: Array = []
     for _day in GameRules.MAX_DAY:
         weather_history.append(&"sunny")
