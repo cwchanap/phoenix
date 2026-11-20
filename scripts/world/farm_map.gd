@@ -12,11 +12,8 @@ const MAP_SIZE := WorldContract.MAP_SIZE
 func _ready() -> void:
     _fill_backdrop(
         $Backdrop as TileMapLayer,
-        func(cell: Vector2i) -> bool:
-            return (
-                cell.y == WorldContract.TRUCK_CELL.y
-                and cell.x >= WorldContract.MAP_SIZE.x
-            )
+        _is_backdrop_road,
+        _is_backdrop_water,
     )
 
     var static_collision := $StaticCollision as StaticBody2D
@@ -40,3 +37,21 @@ func camera_bounds() -> Rect2:
 
 func map_size() -> Vector2i:
     return MAP_SIZE
+
+static func _is_backdrop_road(cell: Vector2i) -> bool:
+    return (
+        cell.y == WorldContract.BACKDROP_ROAD_ROW
+        and cell.x >= WorldContract.MAP_SIZE.x
+    )
+
+static func _is_backdrop_water(cell: Vector2i) -> bool:
+    var in_west_river := (
+        cell.x >= int(WorldContract.RIVER_WEST_FOOTPRINT.position.x)
+        and cell.x < int(WorldContract.RIVER_WEST_FOOTPRINT.end.x)
+    )
+    var in_south_river := (
+        cell.y >= WorldContract.MAP_SIZE.y
+        and cell.x >= int(WorldContract.RIVER_SOUTH_FOOTPRINT.position.x)
+        and cell.x < int(WorldContract.RIVER_SOUTH_FOOTPRINT.end.x)
+    )
+    return in_west_river or in_south_river

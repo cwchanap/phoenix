@@ -7101,11 +7101,18 @@ func test_crops_and_harvest_fx_are_never_occluders() -> void:
 const BACKDROP_TEXTURE_PATH := "res://assets/sprites/starting-farm-terrain.png"
 
 func _farm_backdrop_tile(cell: Vector2i) -> Vector2i:
-    return (
-        WorldContract.BACKDROP_ROAD_TILE
-        if cell.y == WorldContract.TRUCK_CELL.y and cell.x >= WorldContract.MAP_SIZE.x
-        else WorldContract.BACKDROP_GRASS_TILE
-    )
+    if (
+        cell.x >= int(WorldContract.RIVER_WEST_FOOTPRINT.position.x)
+        and cell.x < int(WorldContract.RIVER_WEST_FOOTPRINT.end.x)
+    ) or (
+        cell.y >= WorldContract.MAP_SIZE.y
+        and cell.x >= int(WorldContract.RIVER_SOUTH_FOOTPRINT.position.x)
+        and cell.x < int(WorldContract.RIVER_SOUTH_FOOTPRINT.end.x)
+    ):
+        return WorldContract.BACKDROP_WATER_TILE
+    if cell.y == WorldContract.BACKDROP_ROAD_ROW and cell.x >= WorldContract.MAP_SIZE.x:
+        return WorldContract.BACKDROP_ROAD_TILE
+    return WorldContract.BACKDROP_GRASS_TILE
 
 func _assert_farm_backdrop(world: WorldShell, label: String) -> void:
     var farm := world._map as FarmMap
@@ -7161,8 +7168,16 @@ func _assert_farm_backdrop(world: WorldShell, label: String) -> void:
         "%s: the authored east road continues off-map" % label,
     )
     assert_eq(
+        backdrop.get_cell_atlas_coords(Vector2i(0, -1)), WorldContract.BACKDROP_WATER_TILE,
+        "%s: the west river continues north off-map" % label,
+    )
+    assert_eq(
+        backdrop.get_cell_atlas_coords(Vector2i(5, 20)), WorldContract.BACKDROP_WATER_TILE,
+        "%s: the south river continues south off-map" % label,
+    )
+    assert_eq(
         backdrop.get_cell_atlas_coords(Vector2i(-1, 19)), WorldContract.BACKDROP_GRASS_TILE,
-        "%s: the south-west river corner stays grass" % label,
+        "%s: the south-west river bank stays grass" % label,
     )
 
 func test_farm_backdrop_fills_off_map_camera_cells_and_east_road_edge() -> void:
