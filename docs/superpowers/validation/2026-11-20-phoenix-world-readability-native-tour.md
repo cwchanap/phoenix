@@ -59,7 +59,8 @@ evidence, no external hosting required.
 ## Linear B2 comparison (east edge)
 
 Reference: HPA-743 Resources attachment `0a94ed57`, "Mockup B2: farm edge now and with backdrop"
-(board `b2`, "T5 · The farm paints a backdrop past its edge, like the town"). Its "Now" side shows
+(board `b2`, "T5 · The farm paints a backdrop past its edge, like the town"), committed alongside
+the captures as `hpa-743-linear-b2-mockup.jpg`. Its "Now" side shows
 the flat grey void past the farm truck; its "After" side fills that void with the farm's own grass
 tile while leaving collision and camera bounds unchanged.
 
