@@ -331,12 +331,21 @@ func _run() -> void:
             "farm Backdrop missing cell %s" % farm_backdrop_cell,
         ):
             return
-        var expected_farm_tile := (
-            PATH_TILE
-            if farm_backdrop_cell.y == WorldContract.TRUCK_CELL.y
-                and farm_backdrop_cell.x >= WorldContract.MAP_SIZE.x
-            else DEFAULT_TILE
-        )
+        var expected_farm_tile := DEFAULT_TILE
+        if (
+            farm_backdrop_cell.x >= int(WorldContract.RIVER_WEST_FOOTPRINT.position.x)
+            and farm_backdrop_cell.x < int(WorldContract.RIVER_WEST_FOOTPRINT.end.x)
+        ) or (
+            farm_backdrop_cell.y >= WorldContract.MAP_SIZE.y
+            and farm_backdrop_cell.x >= int(WorldContract.RIVER_SOUTH_FOOTPRINT.position.x)
+            and farm_backdrop_cell.x < int(WorldContract.RIVER_SOUTH_FOOTPRINT.end.x)
+        ):
+            expected_farm_tile = WATER_TILE
+        elif (
+            farm_backdrop_cell.y == WorldContract.BACKDROP_ROAD_ROW
+            and farm_backdrop_cell.x >= WorldContract.MAP_SIZE.x
+        ):
+            expected_farm_tile = PATH_TILE
         if not _expect_vec2i(
             farm_backdrop.get_cell_atlas_coords(farm_backdrop_cell),
             expected_farm_tile,
@@ -350,9 +359,21 @@ func _run() -> void:
     ):
         return
     if not _expect_vec2i(
+        farm_backdrop.get_cell_atlas_coords(Vector2i(0, -1)),
+        WATER_TILE,
+        "farm Backdrop west river north continuation",
+    ):
+        return
+    if not _expect_vec2i(
+        farm_backdrop.get_cell_atlas_coords(Vector2i(5, 20)),
+        WATER_TILE,
+        "farm Backdrop south river continuation",
+    ):
+        return
+    if not _expect_vec2i(
         farm_backdrop.get_cell_atlas_coords(Vector2i(-1, 19)),
         DEFAULT_TILE,
-        "farm Backdrop south-west river corner stays grass",
+        "farm Backdrop south-west river bank stays grass",
     ):
         return
 
