@@ -5887,7 +5887,7 @@ func _set_pose_and_process(world: WorldShell, position: Vector2, facing: WorldMa
     player.global_position = position
     player.facing = facing
     player.velocity = Vector2.ZERO
-    player._update_target()
+    player.refresh_target()
     world._process(0.0)
 
 func _assert_no_resolution_of(world: WorldShell, canonical: Vector2i) -> Variant:
@@ -5981,7 +5981,7 @@ func _run_contact_table(world: WorldShell, map_id: GameRules.MapId, minimum_face
             for facing in row["positive"]:
                 world.player.facing = facing
                 world.player.velocity = Vector2.ZERO
-                world.player._update_target()
+                world.player.refresh_target()
                 world._process(0.0)
                 var expected: Variant = _expected_resolution(world, stop, facing, regions)
                 assert_eq(
@@ -5990,39 +5990,27 @@ func _run_contact_table(world: WorldShell, map_id: GameRules.MapId, minimum_face
                 )
                 var got: Variant = _resolver_cell(world)
                 assert_eq(got, expected, "%s %s resolver disagrees with the spec oracle" % [canonical, row["side"]])
-                var raw: Variant = world.player.current_target_cell()
-                var raw_is_farmable: bool = (
-                    raw != null
-                    and world._session.preview_target_action(raw)["action"] != null
+                var label: String = world._interactable(canonical).get("label", "")
+                assert_eq(
+                    hud.prompt_text(), "[E] %s" % label,
+                    "%s %s E hint label must agree with interact()" % [canonical, row["side"]],
                 )
-                if raw_is_farmable:
-                    # Space keeps visible priority; no concurrent [E] hint.
-                    assert_true(
-                        hud.prompt_text().begins_with("[Space]"),
-                        "%s %s must show the Space hint over the raw farm tile" % [canonical, row["side"]],
-                    )
-                else:
-                    var label: String = world._interactable(canonical).get("label", "")
-                    assert_eq(
-                        hud.prompt_text(), "[E] %s" % label,
-                        "%s %s E hint label must agree with interact()" % [canonical, row["side"]],
-                    )
-                    var highlight := world.player.target_highlight
-                    assert_true(highlight.visible, "%s %s E hint diamond must be visible" % [canonical, row["side"]])
-                    assert_eq(highlight.points, WorldMath.cell_diamond(canonical))
-                    assert_eq(highlight.default_color, PlayerController.TARGET_NEUTRAL)
-                    var centre: Vector2 = world.get_viewport().get_canvas_transform() * WorldMath.grid_to_world(
-                        Vector2(canonical) + Vector2(0.5, 0.5)
-                    )
-                    var prompt := _chrome(hud).get_node("Prompt") as Control
-                    assert_eq(
-                        prompt.position, centre - Vector2(0, HudChrome.PROMPT_LIFT),
-                        "%s %s prompt must anchor the canonical cell" % [canonical, row["side"]],
-                    )
+                var highlight := world.player.target_highlight
+                assert_true(highlight.visible, "%s %s E hint diamond must be visible" % [canonical, row["side"]])
+                assert_eq(highlight.points, WorldMath.cell_diamond(canonical))
+                assert_eq(highlight.default_color, PlayerController.TARGET_NEUTRAL)
+                var centre: Vector2 = world.get_viewport().get_canvas_transform() * WorldMath.grid_to_world(
+                    Vector2(canonical) + Vector2(0.5, 0.5)
+                )
+                var prompt := _chrome(hud).get_node("Prompt") as Control
+                assert_eq(
+                    prompt.position, centre - Vector2(0, HudChrome.PROMPT_LIFT),
+                    "%s %s prompt must anchor the canonical cell" % [canonical, row["side"]],
+                )
             for facing in row["negative"]:
                 world.player.facing = facing
                 world.player.velocity = Vector2.ZERO
-                world.player._update_target()
+                world.player.refresh_target()
                 world._process(0.0)
                 var expected: Variant = _expected_resolution(world, stop, facing, regions)
                 var got: Variant = _assert_no_resolution_of(world, canonical)
@@ -6061,7 +6049,7 @@ func _run_contact_table(world: WorldShell, map_id: GameRules.MapId, minimum_face
             world.player.global_position = backoff_position
             world.player.facing = backoff_facing
             world.player.velocity = Vector2.ZERO
-            world.player._update_target()
+            world.player.refresh_target()
             world._process(0.0)
             var backoff_expected: Variant = _expected_resolution(world, backoff_position, backoff_facing, regions)
             var backoff_got: Variant = _assert_no_resolution_of(world, canonical)
@@ -6080,7 +6068,7 @@ func _run_contact_table(world: WorldShell, map_id: GameRules.MapId, minimum_face
         world.player.global_position = region_stop
         world.player.facing = region_facing
         world.player.velocity = Vector2.ZERO
-        world.player._update_target()
+        world.player.refresh_target()
         world._process(0.0)
         world.interact()
         var villager_index := TownContract.villager_at(canonical)
@@ -6153,7 +6141,7 @@ func test_shop_east_contact_facing_down_never_resolves_sato_san() -> void:
     var stop: Vector2 = world.player.global_position
     world.player.facing = WorldMath.Facing.DOWN
     world.player.velocity = Vector2.ZERO
-    world.player._update_target()
+    world.player.refresh_target()
     world._process(0.0)
 
     var shop_contact := _closest_contact_point(TownContract.SHOP_FOOTPRINT, stop)
@@ -6175,13 +6163,13 @@ func test_shop_east_contact_facing_down_never_resolves_sato_san() -> void:
     # shop is the only region within reach (Sato-san's distance
     # precondition above).
     world.player.facing = WorldMath.Facing.UP
-    world.player._update_target()
+    world.player.refresh_target()
     world._process(0.0)
     assert_eq(_resolver_cell(world), TownContract.SHOP_CELL)
     # Restore the pinned DOWN pose before the refusal assertions: a
     # compliant resolver would legally open the shop from the UP pose.
     world.player.facing = WorldMath.Facing.DOWN
-    world.player._update_target()
+    world.player.refresh_target()
     world._process(0.0)
 
     var before := world._session.snapshot()
@@ -6208,7 +6196,7 @@ func test_market_hana_neighbors_turn_away_or_back_off_legally() -> void:
     var hana_stop: Vector2 = hana_stop_info["stop"]
     world.player.facing = WorldMath.Facing.LEFT
     world.player.velocity = Vector2.ZERO
-    world.player._update_target()
+    world.player.refresh_target()
     world._process(0.0)
     var got: Variant = _resolver_cell(world)
     assert_eq(got, TownContract.VILLAGER_CELLS[2], "Hana's east face resolves Hana with LEFT")
@@ -6218,7 +6206,7 @@ func test_market_hana_neighbors_turn_away_or_back_off_legally() -> void:
     # Turning away (DOWN) leaves nothing within reach: full refusal even
     # though the raw cell hits the empty path.
     world.player.facing = WorldMath.Facing.DOWN
-    world.player._update_target()
+    world.player.refresh_target()
     world._process(0.0)
     var away: Variant = _resolver_cell(world)
     assert_ne(away, TownContract.VILLAGER_CELLS[2])
@@ -6251,7 +6239,7 @@ func test_market_hana_neighbors_turn_away_or_back_off_legally() -> void:
     var away_facing: WorldMath.Facing = market_west["negative"][0]
     world.player.facing = away_facing
     world.player.velocity = Vector2.ZERO
-    world.player._update_target()
+    world.player.refresh_target()
     world._process(0.0)
     var market_away: Variant = _resolver_cell(world)
     assert_null(market_away, "market within reach but faced away refuses instead of raw-falling back")
@@ -6271,7 +6259,7 @@ func test_market_hana_neighbors_turn_away_or_back_off_legally() -> void:
     world.player.global_position = gap
     world.player.facing = WorldMath.Facing.DOWN
     world.player.velocity = Vector2.ZERO
-    world.player._update_target()
+    world.player.refresh_target()
     world._process(0.0)
     var gap_got: Variant = _resolver_cell(world)
     # The raw target of this pose is MARKET_CELL itself, so the assertion only
@@ -6305,7 +6293,7 @@ func test_bin_contact_e_opens_shipping_while_space_keeps_the_raw_farm_tile() -> 
     var stop: Vector2 = world.player.global_position
     world.player.facing = WorldMath.Facing.LEFT
     world.player.velocity = Vector2.ZERO
-    world.player._update_target()
+    world.player.refresh_target()
     world._process(0.0)
 
     var contact := _closest_contact_point(WorldContract.SHIPPING_FOOTPRINT, stop)
@@ -6322,11 +6310,11 @@ func test_bin_contact_e_opens_shipping_while_space_keeps_the_raw_farm_tile() -> 
             "precondition: the overlap's raw target is the exact farm tile beside the bin",
         )
 
-    # Space keeps visible priority: green farming diamond on the raw tile.
-    assert_true(hud.prompt_text().begins_with("[Space]"))
-    assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_VALID)
-    if raw != null:
-        assert_eq(world.player.target_highlight.points, WorldMath.cell_diamond(raw))
+    # E takes prompt and highlight priority over the overlapping farm tile,
+    # while Space still acts on the raw farm tile.
+    assert_eq(hud.prompt_text(), "[E] Shipping")
+    assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_NEUTRAL)
+    assert_eq(world.player.target_highlight.points, WorldMath.cell_diamond(WorldContract.SHIPPING_CELL))
     # E still dispatches the independent resolver to Shipping.
     assert_eq(_resolver_cell(world), WorldContract.SHIPPING_CELL)
     world.interact()
@@ -6353,7 +6341,7 @@ func test_bin_vertex_perpendicular_contact_refuses_despite_touching() -> void:
     await _push_until_stopped(world, Vector2(0, 1))
     world.player.facing = WorldMath.Facing.LEFT
     world.player.velocity = Vector2.ZERO
-    world.player._update_target()
+    world.player.refresh_target()
     world._process(0.0)
     var stop: Vector2 = world.player.global_position
     var contact := _closest_contact_point(WorldContract.SHIPPING_FOOTPRINT, stop)
@@ -6532,7 +6520,7 @@ func test_shop_contact_panel_submit_re_resolves_canonical_shop_cell() -> void:
         return
     world.player.facing = WorldMath.Facing.UP
     world.player.velocity = Vector2.ZERO
-    world.player._update_target()
+    world.player.refresh_target()
     world._process(0.0)
     # E opens the real shop from the physical contact.
     world.interact()
@@ -6573,7 +6561,7 @@ func test_bin_contact_panel_submit_deposits_into_the_canonical_bin() -> void:
         return
     world.player.facing = WorldMath.Facing.DOWN
     world.player.velocity = Vector2.ZERO
-    world.player._update_target()
+    world.player.refresh_target()
     world._process(0.0)
     # E opens the real shipping panel from the physical contact.
     world.interact()
@@ -6612,7 +6600,7 @@ func test_bed_door_contact_panel_submit_sleeps_through_canonical_bed_cell() -> v
         return
     world.player.facing = WorldMath.Facing.UP
     world.player.velocity = Vector2.ZERO
-    world.player._update_target()
+    world.player.refresh_target()
     world._process(0.0)
     world.interact()
     assert_true(_panel(hud, "SleepPanel").visible, "E at the house door opens sleep on the first press")
@@ -6656,7 +6644,7 @@ func test_day14_market_contact_confirm_still_completes_the_finale() -> void:
         return
     world.player.facing = WorldMath.Facing.UP
     world.player.velocity = Vector2.ZERO
-    world.player._update_target()
+    world.player.refresh_target()
     world._process(0.0)
     var finale_emits: Array = []
     world.finale_completed.connect(
@@ -6698,7 +6686,7 @@ func test_farm_truck_contact_e_drives_to_town() -> void:
         return
     world.player.facing = WorldMath.Facing.RIGHT
     world.player.velocity = Vector2.ZERO
-    world.player._update_target()
+    world.player.refresh_target()
     world._process(0.0)
     assert_eq(world.hud.prompt_text(), "[E] Drive to town")
     var minutes_before: int = world._session.snapshot()["time_minutes"]
@@ -7256,3 +7244,133 @@ func test_backdrop_survives_a_truck_round_trip_with_town_predicate_unchanged() -
     )
     await _drive_home(world)
     _assert_farm_backdrop(world, "returned farm")
+
+func test_e_prompt_clears_mature_crop_sparkle_so_only_one_cell_is_highlighted() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := world.hud
+    var raw_cell := Vector2i(9, 14)
+    _grow_mature_turnip(world, raw_cell)
+    var start := WorldMath.grid_to_world(Vector2(9.6, 12.5))
+    assert_false(_probe_collides(GameRules.MapId.FARM, start))
+    world.player.global_position = start
+    await _push_until_stopped(world, Vector2(0, 1))
+    world.player.facing = WorldMath.Facing.LEFT
+    world.player.velocity = Vector2.ZERO
+    world.player.refresh_target()
+    world._process(0.0)
+
+    assert_eq(world.player.current_target_cell(), raw_cell)
+    assert_eq(hud.prompt_text(), "[E] Shipping")
+    assert_eq(world.player.target_highlight.points, WorldMath.cell_diamond(WorldContract.SHIPPING_CELL))
+    var sparkle := world.farm_view.get_node("FarmCrop_9_14/Sprite2D/ReadinessSparkle") as Sprite2D
+    assert_false(sparkle.visible, "E hint clears mature crop sparkle so only one cell is highlighted")
+
+    # Stepping out of bin reach restores the mature crop sparkle and Space prompt.
+    _set_target(world, raw_cell, WorldMath.Facing.LEFT)
+    world._process(0.0)
+    assert_true(hud.prompt_text().begins_with("[Space]"))
+    assert_true(sparkle.visible)
+
+func test_modal_submit_reuses_saved_interact_target_even_if_player_moves_or_turns() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := world.hud
+    var session := world._session
+    var state := session.state()
+    state["money"] = 250
+    assert_true(session.restore_state(state))
+    world._refresh_from_session()
+
+    # Shipping deposit after moving/turning away while modal is open.
+    var crop_cell: Vector2i = WorldContract.farm_cells()[0]
+    _grow_mature_turnip(world, crop_cell)
+    assert_eq(session.harvest(crop_cell), GameRules.CommandCode.CROP_HARVESTED)
+    var bin_rows := _face_rows(WorldContract.SHIPPING_FOOTPRINT)
+    var bin_stop := await _contact_stop(world, GameRules.MapId.FARM, WorldContract.SHIPPING_FOOTPRINT, bin_rows[3])
+    if not bin_stop["ok"]:
+        return
+    world.player.facing = WorldMath.Facing.DOWN
+    world.player.refresh_target()
+    world._process(0.0)
+    world.interact()
+    assert_true(_panel(hud, "ShippingPanel").visible)
+    world.player.global_position = WorldMath.grid_to_world(WorldContract.PLAYER_SPAWN)
+    world.player.facing = WorldMath.Facing.UP
+    hud.deposit_requested.emit(GameRules.CropKind.TURNIP, 1)
+    assert_eq(int(session.snapshot()["pending_shipment"].get(&"turnip", 0)), 1)
+    hud.close_modals()
+
+    # Shop buy + upgrade after moving/turning away while modal is open.
+    await _drive_to_town(world)
+    var shop_rows := _face_rows(TownContract.SHOP_FOOTPRINT)
+    var shop_stop := await _contact_stop(world, GameRules.MapId.TOWN, TownContract.SHOP_FOOTPRINT, shop_rows[2])
+    if not shop_stop["ok"]:
+        return
+    world.player.facing = WorldMath.Facing.UP
+    world.player.refresh_target()
+    world._process(0.0)
+    world.interact()
+    assert_true(_panel(hud, "ShopPanel").visible)
+    var turnips_before := int(session.snapshot()["seeds"].get(&"turnip", 0))
+    world.player.global_position = WorldMath.grid_to_world(Vector2(TownContract.TRUCK_ARRIVAL) + Vector2(0.5, 0.5))
+    world.player.facing = WorldMath.Facing.DOWN
+    hud.buy_requested.emit(GameRules.CropKind.TURNIP, 1)
+    assert_eq(int(session.snapshot()["seeds"].get(&"turnip", 0)), turnips_before + 1)
+    hud.upgrade_requested.emit()
+    assert_true(bool(session.snapshot()["watering_can_upgraded"]))
+    hud.close_modals()
+
+    # Sleep after moving/turning away while modal is open.
+    await _drive_home(world)
+    var bed_slice := _bed_door_slice()
+    var bed_rows := _face_rows(bed_slice)
+    var bed_stop := await _contact_stop(world, GameRules.MapId.FARM, bed_slice, bed_rows[2])
+    if not bed_stop["ok"]:
+        return
+    world.player.facing = WorldMath.Facing.UP
+    world.player.refresh_target()
+    world._process(0.0)
+    world.interact()
+    assert_true(_panel(hud, "SleepPanel").visible)
+    world.player.global_position = WorldMath.grid_to_world(WorldContract.PLAYER_SPAWN)
+    world.player.facing = WorldMath.Facing.DOWN
+    hud.sleep_requested.emit()
+    assert_eq(int(session.snapshot()["day"]), 2)
+    hud.morning_summary_acknowledged.emit()
+
+    # Day 14 market confirmation after moving/turning away while modal is open.
+    var day14_state := session.state()
+    day14_state["day"] = GameRules.MAX_DAY
+    var weather_history: Array = []
+    for _day in GameRules.MAX_DAY:
+        weather_history.append(&"sunny")
+    day14_state["weather_history"] = weather_history
+    assert_true(session.restore_state(day14_state))
+    world._refresh_from_session()
+    await _drive_to_town(world)
+    var market_rows := _face_rows(TownContract.MARKET_FOOTPRINT)
+    var market_stop := await _contact_stop(world, GameRules.MapId.TOWN, TownContract.MARKET_FOOTPRINT, market_rows[2])
+    if not market_stop["ok"]:
+        return
+    world.player.facing = WorldMath.Facing.UP
+    world.player.refresh_target()
+    world._process(0.0)
+    world.interact()
+    assert_true(_panel(hud, "MarketConfirmPanel").visible)
+    world.player.global_position = WorldMath.grid_to_world(Vector2(TownContract.TRUCK_ARRIVAL) + Vector2(0.5, 0.5))
+    world.player.facing = WorldMath.Facing.DOWN
+    hud.market_confirmed.emit()
+    assert_true(bool(session.snapshot()["finale_triggered"]))
+
+func test_occluder_fade_returns_early_without_error_when_no_map_is_loaded() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var saved_map := world._map
+    world._map = null
+    world._update_occluder_fade(0.5)
+    world._map = saved_map
+    assert_not_null(world._map)

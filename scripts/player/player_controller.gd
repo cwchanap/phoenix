@@ -42,7 +42,7 @@ func enter_map(spawn: Vector2, camera_bounds: Rect2, map_size: Vector2i) -> void
     camera.limit_right = int(camera_bounds.position.x + camera_bounds.size.x)
     camera.limit_bottom = int(camera_bounds.position.y + camera_bounds.size.y)
     camera.reset_smoothing()
-    _update_target()
+    refresh_target()
 
 func set_input_enabled(enabled: bool) -> void:
     _input_enabled = enabled
@@ -74,7 +74,7 @@ func set_target_tint(tint: TargetTint) -> void:
 func _physics_process(delta: float) -> void:
     if not _input_enabled:
         velocity = Vector2.ZERO
-        _update_target()
+        refresh_target()
         return
     var input_vector := Input.get_vector("move_left", "move_right", "move_up", "move_down")
     facing = WorldMath.facing_for_input(input_vector, facing)
@@ -85,7 +85,7 @@ func _physics_process(delta: float) -> void:
     else:
         _rest_seconds += delta
     _update_visuals(delta, _rest_seconds < WALK_GRACE_SECONDS)
-    _update_target()
+    refresh_target()
 
 func _update_visuals(delta: float = 0.0, moving: bool = false) -> void:
     if not moving:
@@ -96,7 +96,8 @@ func _update_visuals(delta: float = 0.0, moving: bool = false) -> void:
     _walk_seconds += delta
     player_sprite.frame = int(facing) * player_sprite.hframes + column
 
-func _update_target() -> void:
+## Recomputes and paints the raw target diamond from the current pose.
+func refresh_target() -> void:
     if target_highlight == null:
         return
 

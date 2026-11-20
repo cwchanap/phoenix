@@ -33,6 +33,8 @@ var clock_running := true
 var _clock_elapsed_seconds := 0.0
 var _clock_window_focused := true
 var _map: GameMap
+var _interact_regions: Array = []
+var _interact_target: Variant = null
 
 @onready var player: PlayerController = $Player as PlayerController
 @onready var rain_layer: RainLayer = $RainLayer as RainLayer
@@ -104,6 +106,12 @@ func load_map(arrived_by_truck: bool = false) -> void:
 
     var map := scene.instantiate() as GameMap
     _map = map
+    _interact_regions = (
+        WorldContract.interact_regions()
+        if _map is FarmMap
+        else TownContract.interact_regions()
+    )
+    _interact_target = null
     add_child(_map)
     move_child(_map, 0)
 
@@ -121,11 +129,11 @@ func _process(delta: float) -> void:
     # The fade runs before every early return so occluders track the player
     # while a modal is open or a farming preview ends the frame early.
     _update_occluder_fade(delta)
-    # Every frame starts from the true raw diamond: _update_target() repaints
+    # Every frame starts from the true raw diamond: refresh_target() repaints
     # the highlight from the live pose even without a physics tick (fixtures
     # drive _process directly), so no stale E-hint diamond survives into
     # farming, blocked, idle or early-return frames.
-    player._update_target()
+    player.refresh_target()
     if clock_running and _clock_window_focused:
         _advance_passive_clock(minf(delta, CLOCK_DELTA_CLAMP))
     var target: Variant = player.current_target_cell()
@@ -141,6 +149,26 @@ func _process(delta: float) -> void:
     var preview: Dictionary = _session.preview_target_action(target)
     if _advance_action_hold(delta, target, preview):
         return
+    # An in-reach, faced E interactable takes prompt and highlight priority
+    # over a raw farm preview (except mid-hold on a farm tile or when an
+    # active-day gate like morning summary blocks all actions), so the visible
+    # hint and E always agree and only one cell is highlighted.
+    var active_day_blocked: bool = (
+        preview["action"] == null
+        and preview["code"] != GameRules.CommandCode.NO_TARGET
+        and preview["code"] != GameRules.CommandCode.NOT_FARM_CELL
+    )
+    if not active_day_blocked and (not _action_hold_active or preview["action"] == null):
+        var resolved := _resolve_interactable()
+        if not resolved.is_empty():
+            if view != null:
+                view.set_target_cell(null)
+            player.set_target_tint(PlayerController.TargetTint.NEUTRAL)
+            var cell: Vector2i = resolved["cell"]
+            hud.show_interact_prompt(_prompt_anchor(cell), resolved["label"])
+            player.target_highlight.points = WorldMath.cell_diamond(cell)
+            player.target_highlight.visible = true
+            return
     if view != null:
         view.set_target_cell(target)
     # A held gesture is bound to one action: a farm tile resolving a
@@ -165,16 +193,7 @@ func _process(delta: float) -> void:
         return
 
     player.set_target_tint(PlayerController.TargetTint.NEUTRAL)
-    # The E hint owns the diamond: the raw target may be null/hidden, so the
-    # resolved canonical cell's diamond is painted and un-hidden here.
-    var resolved := _resolve_interactable()
-    if resolved.is_empty():
-        hud.hide_prompt()
-    else:
-        var cell: Vector2i = resolved["cell"]
-        hud.show_interact_prompt(_prompt_anchor(cell), resolved["label"])
-        player.target_highlight.points = WorldMath.cell_diamond(cell)
-        player.target_highlight.visible = true
+    hud.hide_prompt()
 
 ## HPA-743 shared foreground fade: props the player can walk behind sink
 ## toward FADE_ALPHA while their drawn bounds overlap the player's and their
@@ -182,6 +201,8 @@ func _process(delta: float) -> void:
 ## group is queried per frame — no stored references survive map swaps — and
 ## only each prop's own Sprite2D moves; the sibling Shadow stays untouched.
 func _update_occluder_fade(delta: float) -> void:
+    if _map == null:
+        return
     var player_bounds := _sprite_global_bounds(player.player_sprite)
     var player_y := player.global_position.y
     for node in get_tree().get_nodes_in_group("player_occluder"):
@@ -255,7 +276,7 @@ func _interactable(target: Variant) -> Dictionary:
 ## exact raw target cell remains the fixture/legacy input path only when no
 ## region is nearby.
 func _resolve_interactable() -> Dictionary:
-    var position := player.global_position
+    var player_position := player.global_position
     # The facing's screen direction, sign-equivalent without normalization:
     # the facing's grid diagonal projected through the isometric transform.
     var facing_direction := WorldMath.grid_delta_to_world(
@@ -264,13 +285,13 @@ func _resolve_interactable() -> Dictionary:
     var best_cell: Variant = null
     var best_distance := INF
     var any_within_reach := false
-    for region in _interact_regions():
-        var contact := WorldMath.closest_contact(position, region["footprint"])
-        var distance := position.distance_to(contact)
+    for region in _interact_regions:
+        var contact := WorldMath.closest_contact(player_position, region["footprint"])
+        var distance := player_position.distance_to(contact)
         if distance > WorldContract.INTERACT_REACH_PIXELS:
             continue
         any_within_reach = true
-        if facing_direction.dot(contact - position) > 0.0 and distance < best_distance:
+        if facing_direction.dot(contact - player_position) > 0.0 and distance < best_distance:
             best_cell = region["cell"]
             best_distance = distance
     if best_cell != null:
@@ -288,15 +309,11 @@ func _resolved_interactable(cell: Variant) -> Dictionary:
     info["cell"] = cell
     return info
 
-func _interact_regions() -> Array:
-    if _map is FarmMap:
-        return WorldContract.interact_regions()
-    return TownContract.interact_regions()
-
-## The submit handlers re-resolve at the frozen (input-gated) pose: the
-## canonical contact cell, or null when nothing is faced — the session
-## guards stay authoritative and refuse null.
-func _resolved_target_cell() -> Variant:
+## Reuse the canonical cell captured when E opened the modal; fall back to
+## live resolution when a test opens a modal directly through GameHud.
+func _submit_target_cell() -> Variant:
+    if _interact_target != null:
+        return _interact_target
     var resolved := _resolve_interactable()
     return null if resolved.is_empty() else resolved["cell"]
 
@@ -333,6 +350,8 @@ func _refresh_world_input_gate() -> void:
     _world_input_enabled = not _finale_in_progress and not hud.has_blocking_modal()
     if not _world_input_enabled:
         _cancel_action_hold()
+    if not hud.has_blocking_modal():
+        _interact_target = null
     player.set_input_enabled(_world_input_enabled)
 
 func cycle_seed() -> void:
@@ -408,8 +427,11 @@ func interact() -> void:
     if info.is_empty():
         hud.show_feedback(GameRules.CommandCode.NOTHING_TO_INTERACT)
         return
+    _interact_target = info["cell"]
     var action: Callable = info["action"]
     action.call()
+    if not hud.has_blocking_modal():
+        _interact_target = null
 
 func _attempt_travel(target: Variant) -> void:
     var preview := _session.preview_travel(target)
@@ -459,13 +481,13 @@ func _on_select_seed_requested(kind: int) -> void:
     _finish_command(_session.select_seed(kind))
 
 func _on_buy_requested(kind: int, quantity: int) -> void:
-    _finish_command(_session.buy_seeds(kind, quantity, _resolved_target_cell()))
+    _finish_command(_session.buy_seeds(kind, quantity, _submit_target_cell()))
 
 func _on_upgrade_requested() -> void:
-    _finish_command(_session.buy_watering_can_upgrade(_resolved_target_cell()))
+    _finish_command(_session.buy_watering_can_upgrade(_submit_target_cell()))
 
 func _on_deposit_requested(kind: int, quantity: int) -> void:
-    _finish_command(_session.deposit_crop(kind, quantity, _resolved_target_cell()))
+    _finish_command(_session.deposit_crop(kind, quantity, _submit_target_cell()))
 
 func _on_sleep_requested() -> void:
     # The finale transition is terminal. _finish_finale closes the sleep
@@ -475,7 +497,7 @@ func _on_sleep_requested() -> void:
     # restart FINALE_SFX, cutting the original cue. Guard it explicitly.
     if _finale_in_progress:
         return
-    var code := _session.sleep(_resolved_target_cell())
+    var code := _session.sleep(_submit_target_cell())
     if code == GameRules.CommandCode.FINALE_TRIGGERED:
         _finish_finale(code)
         return
@@ -495,7 +517,7 @@ func _on_sleep_requested() -> void:
 func _on_market_confirmed() -> void:
     if _finale_in_progress:
         return
-    _finish_finale(_session.trigger_harvest_finale(_resolved_target_cell()))
+    _finish_finale(_session.trigger_harvest_finale(_submit_target_cell()))
 
 func _finish_finale(code: GameRules.CommandCode) -> void:
     if code != GameRules.CommandCode.FINALE_TRIGGERED:
