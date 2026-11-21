@@ -79,8 +79,9 @@ What matches the mockup:
 
 Differences from the mockup:
 
-1. **Backgrounds.** The committed placeholder paintings are richer than the mockup's
-   flat vector backdrops. HPA-1138 replaces them at the same paths.
+1. **Backgrounds.** The frames use the finished HPA-1138 paintings already on `main`
+   (scenes 1 to 3) and the supplied `interior-night.png`, so they are richer than the
+   mockup's flat vector backdrops. This is expected, not a defect.
 2. **Scene 4 night grade is lighter.** The mockup applies brightness 0.55,
    saturation 0.65, a blue gradient overlay and a warm glow. The overlay applies one
    modulate (`NIGHT_GRADE`), so scene 4 reads less dark and less blue. Scene 5's
@@ -93,8 +94,7 @@ Differences from the mockup:
    The caption about the note on the low table shows on its own narration page, not over the card.
 5. **Inner-voice dock band** stays pink-to-orange; the mockup's is violet.
 6. **Narration has no bottom scrim.** The mockup darkens the lower part of scene 1.
-   The text stays legible on the current art, but a bright replacement painting may need
-   a scrim.
+   The text stays legible on the current art, with lower contrast than the mockup.
 7. **Top bar label.** zh_TW shows "序章" where the mockup shows "序章 PROLOGUE".
 
 Items 2, 3 and 5, and the inline signature in item 4, are the documented deviations in the plan and spec notes.
