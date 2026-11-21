@@ -15,12 +15,12 @@ unverified, and the local e2e lane was not clean in a single full run.
 
 ## Lane results
 
-Tested commit `9af1632`, the head after the last test change.
+Tested commit `bd0fc48`. The only later change is the e2e test trim in `ca1238e`.
 
 | Lane | Result |
 |---|---|
 | `godot --headless --editor --quit` (import) | pass |
-| GUT unit and integration | 629 of 629 pass, 42,278 asserts |
+| GUT unit and integration | 629 of 629 pass, 42,290 asserts |
 | `project_smoke`, `world_math_smoke`, `world_shell_smoke` | pass |
 | `tools/check_audio_sources.py` | pass |
 | `tools/verify-clean.sh` (archives committed HEAD, fetches GUT) | pass, 629 of 629 |
@@ -30,8 +30,11 @@ Tested commit `9af1632`, the head after the last test change.
 ### godot-e2e on this host
 
 The new test `test_new_game_enter_advances_one_page_then_escape_skips_to_day_one`
-passed in every run. `app_launch_test`, `market_confirm_test`, `ui_navigation_test`
-and `world_readability_test` passed in the full-lane runs.
+passed in every run except one at load 23, where its 0.6 s walking wait timed out. The
+walk was replaced by a wait on the shell's input gate (`ca1238e`), and the test then
+passed at load 23. `market_confirm_test`, `ui_navigation_test` and
+`world_readability_test` passed in the full-lane runs; the untouched
+`test_unfinished_save_enter_resumes_seeded_day` failed once at load 23.
 
 `gameplay_day_one_test` failed at least one test in six of six HEAD runs, and a
 different test each time. Every failure was a `wait_seconds` command that timed out:
