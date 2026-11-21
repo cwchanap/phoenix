@@ -85,6 +85,7 @@ What matches the mockup:
 - White dock with name tag, role pill and quoted text; Enter Continue hint; the
   Begin Day 1 button on the last page.
 - The paper note card in scene 5.
+- Narration pages darken their lower part with a gradient scrim (added after the first capture; see "Follow-ups after review").
 - No clipped, overlapping or illegible text in any of the 18 frames. The 58 pages in
   three locales are also checked by rect in `test_vn_surfaces.gd`.
 
@@ -104,9 +105,7 @@ Differences from the mockup:
    signature. Kenji's reply uses the dock; the mockup shows a bare line under the card.
    The caption about the note on the low table shows on its own narration page, not over the card.
 5. **Inner-voice dock band** stays pink-to-orange; the mockup's is violet.
-6. **Narration has no bottom scrim.** The mockup darkens the lower part of scene 1.
-   The text stays legible on the current art, with lower contrast than the mockup.
-7. **Top bar label.** zh_TW shows "序章" where the mockup shows "序章 PROLOGUE".
+6. **Top bar label.** zh_TW shows "序章" where the mockup shows "序章 PROLOGUE".
 
 Items 2, 3 and 5, and the inline signature in item 4, are the documented deviations in the plan and spec notes.
 
@@ -115,3 +114,23 @@ Items 2, 3 and 5, and the inline signature in item 4, are the documented deviati
 The English and Japanese copy for all 58 lines and six tags is in
 `2026-11-21-hpa-1137-prologue-translations.md`. The user reviews it; human approval is
 not an acceptance gate.
+
+## Follow-ups after review
+
+Done on the same branch after the first push:
+
+- **Narration scrim.** Narration pages now draw a bottom gradient (92% ink at the edge, clear
+  560 px up), as the mockup does for scene 1. `hpa-1137-prologue/narration-scrim.jpg` shows
+  pages 1, 38 and 56 in en, zh_TW and ja, captured the same way as the frames above. The text
+  reads clearly over the bright platform painting and the night farm. Tests pin that the scrim
+  shows on exactly the narration pages, ignores clicks and fills the bottom 560 px.
+- **Gen-san's Japanese** now follows the voice the game already gives him (plain 〜ん
+  negatives and 〜とる, as in 読まん and 見とる): 〜てる became 〜とる in three lines, and
+  やれねえぞ and 手をつけてない became やれんぞ and 手をつけとらん. The English keys and zh_TW are unchanged.
+- **Space** also advances pages because it is bound to `ui_accept`, like the other panels.
+  The behaviour is kept and README and CLAUDE.md now say so.
+- **Day 1 diary line.** `DIARY_LINES[0]` is no longer shown, but the 14-entry table is pinned
+  by tests and by the morning summary's clamp, so it stays; CLAUDE.md now says it is unused.
+
+Not changed: the scene 1 texture is still loaded when a World is built, even on Continue (one
+3.6 MB texture, no measured cost), and the remaining visual differences above are unchanged.
