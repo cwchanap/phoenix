@@ -3218,7 +3218,20 @@ func test_esc_partial_and_full_prologue_leave_the_same_day_one_snapshot() -> voi
     assert_eq(snapshots[1], snapshots[2], "Esc mid-prologue leaves the same session as a full playthrough")
     await _press_panel_action(&"ui_accept")
     assert_eq(full_world._session.snapshot(), snapshots[2], "an extra Enter after completion changes nothing")
-    assert_eq(full_world._session.snapshot()["time_minutes"], snapshots[2]["time_minutes"], "the clock does not advance")
+
+
+func test_escape_on_the_final_prologue_page_starts_day_one_without_opening_pause() -> void:
+    var world := _locked_world()
+    var hud := _hud(world)
+    var overlay := hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
+    for _press_index in overlay.page_count() - 1:
+        await _press_panel_action(&"ui_accept")
+    assert_eq(overlay.current_page()["page_number"], overlay.page_count())
+    await _press_escape()
+    assert_false(overlay.is_opening_visible())
+    assert_false(_panel(hud, "PausePanel").visible, "Esc on page 58 does not open Pause")
+    assert_true(world._world_input_enabled)
+    assert_true(world._session.state()["intro_acknowledged"])
 
 
 func test_escape_toggles_code_built_help_and_world_gate() -> void:

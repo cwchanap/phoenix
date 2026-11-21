@@ -9,7 +9,6 @@ const HEART_SHIPPED_VALUE := 300
 const OPENING_SPEAKER := "KENJI"
 const OPENING_ROLE := "Former software engineer"
 
-const NOTE_AUTHOR := "Mrs Moriyama"
 const INNER_VOICE_LABEL := "Inner voice"
 
 const PROLOGUE_SCENES: Array[Dictionary] = [

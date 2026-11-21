@@ -384,9 +384,13 @@ func _scene_start_page(scene_index: int) -> int:
 func _page_of(scene_index: int, line_index: int) -> int:
 	return _scene_start_page(scene_index) + line_index
 
+## Presses Enter up to the page; bounded so a stuck overlay fails instead of hanging.
 func _go_to_page(overlay: OnboardingOverlay, page_number: int) -> void:
-	while int(overlay.current_page()["page_number"]) < page_number:
+	for _press_index in overlay.page_count():
+		if int(overlay.current_page()["page_number"]) >= page_number:
+			return
 		await _press(&"ui_accept")
+	assert_gte(int(overlay.current_page()["page_number"]), page_number, "Enter reaches page %d" % page_number)
 
 func _acknowledged_snapshot() -> Dictionary:
 	var snapshot := GameSession.new().snapshot()
@@ -441,6 +445,9 @@ func test_prologue_bars_tag_dots_and_skip_frame_the_first_page() -> void:
 		return
 	assert_eq(dots.get_child_count(), 6, "one progress dot per scene")
 	assert_eq(_active_dot_indices(dots), [0], "scene one is the only elongated dot")
+	var header := opening.find_child("Header", true, false) as Control
+	var portrait := opening.find_child("Portrait", true, false) as Control
+	assert_gt(header.get_index(), portrait.get_index(), "the tag and dots draw above the portrait art")
 
 func test_narration_page_has_no_dock_or_portrait_and_keeps_continue() -> void:
 	var overlay := _intro()
@@ -473,7 +480,7 @@ func test_dialogue_shows_the_speaker_role_and_a_full_strength_portrait() -> void
 	assert_eq(portrait.texture.resource_path, "res://assets/ui/portraits/hana.png")
 	assert_eq(portrait.modulate, Color.WHITE, "the speaking villager is at full strength")
 	assert_true((opening.find_child("Dock", true, false) as Control).visible)
-	assert_eq(_dock_body(overlay).text, ContentRules.PROLOGUE_SCENES[1]["lines"][0]["text"])
+	assert_eq(_dock_body(overlay).text, "“%s”" % ContentRules.PROLOGUE_SCENES[1]["lines"][0]["text"], "spoken lines are quoted")
 
 func test_kenji_speaking_dims_the_scene_portrait_as_the_listener() -> void:
 	var overlay := _intro()
@@ -503,7 +510,8 @@ func test_inner_voice_uses_the_kenji_tag_and_inner_voice_pill_without_a_portrait
 	var role := opening.find_child("Role", true, false) as Label
 	assert_eq(role.text, ContentRules.INNER_VOICE_LABEL)
 	assert_eq(role.get_theme_color("font_color"), OnboardingOverlay.INNER_VOICE_INK)
-	assert_eq(_dock_body(overlay).get_theme_color("font_color"), OnboardingOverlay.INNER_VOICE_INK)
+	assert_eq(_dock_body(overlay).get_theme_color("font_color"), OnboardingOverlay.INNER_VOICE_BODY)
+	assert_eq(_dock_body(overlay).get_theme_font_size("font_size"), 34, "inner voice runs at the mockup's 34px")
 	assert_false((opening.find_child("Portrait", true, false) as Control).visible, "Kenji alone has no portrait")
 
 func test_truck_appears_only_in_the_country_road_scene() -> void:
@@ -686,6 +694,76 @@ func test_render_without_acknowledgement_keeps_the_current_page() -> void:
 	overlay.render(GameSession.new().snapshot())
 	assert_eq(overlay.current_page()["page_number"], 10)
 	assert_true(overlay.is_opening_visible())
+
+## The first page whose line Gen-san speaks, or -1 when the table has none.
+func _first_page_spoken_by(villager: int) -> int:
+	var page := 0
+	for scene in ContentRules.PROLOGUE_SCENES:
+		for line in scene["lines"]:
+			page += 1
+			if int(line["kind"]) == ContentRules.LineKind.DIALOGUE and int(line.get("villager", -1)) == villager:
+				return page
+	return -1
+
+func test_each_of_the_six_scenes_paints_its_own_background() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	var background := overlay.get_node("IntroBackground") as TextureRect
+	for scene_index in ContentRules.PROLOGUE_SCENES.size():
+		await _go_to_page(overlay, _scene_start_page(scene_index))
+		assert_eq(background.texture.resource_path, ContentRules.PROLOGUE_SCENES[scene_index]["background"], "background of scene %d" % (scene_index + 1))
+
+func test_active_progress_dot_marks_the_scene_on_its_first_and_last_page() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	var dots := _opening(overlay).find_child("ProgressDots", true, false) as HBoxContainer
+	for scene_index in ContentRules.PROLOGUE_SCENES.size():
+		var last_line: int = (ContentRules.PROLOGUE_SCENES[scene_index]["lines"] as Array).size() - 1
+		await _go_to_page(overlay, _scene_start_page(scene_index))
+		assert_eq(_active_dot_indices(dots), [scene_index], "first page of scene %d" % (scene_index + 1))
+		await _go_to_page(overlay, _page_of(scene_index, last_line))
+		assert_eq(_active_dot_indices(dots), [scene_index], "last page of scene %d" % (scene_index + 1))
+
+## Documents the click-anywhere rule: the dock text is a passive target that advances one page.
+func test_clicking_the_dialogue_dock_advances_one_page() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	await _go_to_page(overlay, _page_of(1, 0))
+	await _click(_dock_body(overlay))
+	assert_eq(overlay.current_page()["page_number"], _page_of(1, 0) + 1, "a click on the dock advances one page")
+
+## Documents the click-anywhere rule: the portrait is a passive target that advances one page.
+func test_clicking_the_portrait_advances_one_page() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	await _go_to_page(overlay, _page_of(1, 0))
+	await _click(_opening(overlay).find_child("Portrait", true, false) as Control)
+	assert_eq(overlay.current_page()["page_number"], _page_of(1, 0) + 1, "a click on the portrait advances one page")
+
+func test_gen_san_speaking_shows_his_name_role_and_full_strength_portrait() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	var farmer := VillagerRules.VillagerId.FARMER
+	var page := _first_page_spoken_by(farmer)
+	assert_gt(page, 0, "the table has a Gen-san line")
+	await _go_to_page(overlay, page)
+	var opening := _opening(overlay)
+	assert_eq(overlay.current_page()["kind"], ContentRules.LineKind.DIALOGUE)
+	assert_eq((opening.find_child("NameTag", true, false) as SlantTag).get_node("Text").text, VillagerRules.display_name(farmer))
+	assert_eq((opening.find_child("Role", true, false) as Label).text, VillagerRules.role_label(farmer))
+	var portrait := opening.find_child("Portrait", true, false) as TextureRect
+	assert_eq(portrait.texture.resource_path, "res://assets/ui/portraits/gen.png")
+	assert_eq(portrait.modulate, Color.WHITE, "the speaking Gen-san is at full strength")
 
 func test_prologue_and_skip_captions_auto_translate_in_each_locale() -> void:
 	var overlay := _intro()
