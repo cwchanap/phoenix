@@ -84,8 +84,6 @@ func _rules_strings() -> Array[String]:
     result.append(ContentRules.NOTE_AUTHOR)
     result.append(ContentRules.INNER_VOICE_LABEL)
     for opening_text in [
-        ContentRules.OPENING_INTRO,
-        ContentRules.OPENING_GUIDE,
         ContentRules.OPENING_SPEAKER,
         ContentRules.OPENING_ROLE,
     ]:

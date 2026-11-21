@@ -21,6 +21,12 @@ func _init(text_value: String = "", fill: Array[Color] = [UiStyle.ACCENT_2], ink
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(caption)
 
+## Retitles and recolours this tag in place, so pages update one tag instead of rebuilding it.
+func set_tag(text_value: String, fill: Array[Color]) -> void:
+	(get_node("Text") as Label).text = text_value
+	_colors = fill.duplicate()
+	queue_redraw()
+
 func _draw() -> void:
 	var lean := size.y * LEAN
 	var points := PackedVector2Array([

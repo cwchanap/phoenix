@@ -229,10 +229,8 @@ Saved.,已存檔。,セーブした。
 SAVED,已存檔,セーブ済み
 SAVE ERROR,存檔錯誤,セーブエラー
 No crops shipped.,沒有出貨任何作物。,出荷した作物はない。
-"I won the lottery, left my software job in Tokyo, and bought a field that looks like it hasn't seen a hoe in years.",我中了樂透，辭掉東京的軟體工作，買下一塊看起來好幾年沒動過鋤頭的地。,宝くじが当たって、東京のソフトウェアの仕事を辞めて、何年も鍬が入っていないような畑を買った。
 KENJI,健司,ケンジ
 Former software engineer,前軟體工程師,元ソフトウェアエンジニア
-The harvest market opens on Day 14. I have two weeks to grow something—and maybe get to know the people in town.,豐收市集在第 14 天開張。我有兩週時間種出點東西——也順便認識鎮上的人。,収穫市は14日目に開く。何か育てるのに二週間——町の人と知り合うのもありだ。
 No stand-up. No sprint. Just an enormous field and me.,沒有站會。沒有衝刺週。只有一大片田和我。,朝会もない。スプリントもない。あるのは広い畑と俺だけ。
 The weeds don't use issue trackers. They still find every edge case.,雜草不用問題追蹤系統。它們照樣找得到每個邊角。,雑草はチケット管理なんて使わない。それでも端から端まで見つけてくる。
 The land was easy to buy. Figuring out how to care for it is another matter.,買地很容易。要怎麼照顧它，又是另一回事。,土地を買うのは簡単だった。どう手入れするかは、また別の話だ。
@@ -415,3 +413,5 @@ No alarm clock. Birds woke me up.,沒有鬧鐘。是鳥把我叫醒的。,目覚
 "Gen-san said the harvest market is two weeks away. To be exact, 13 days. Turn the soil, plant, water, and see what this field can grow.",阿源伯說，離豐收市集還有兩個禮拜。精確地說，是十三天。翻土、播種、澆水，看看這塊田能長出什麼。,源さんは、収穫市まであと二週間だと言っていた。正確には、あと13日。土を耕して、種をまいて、水をやって、この畑に何が育つのか確かめてみよう。
 Mrs Moriyama,森山太太,森山の奥さん
 Inner voice,心聲,心の声
+Prologue,序章,プロローグ
+Skip intro,跳過開場,イントロをスキップ

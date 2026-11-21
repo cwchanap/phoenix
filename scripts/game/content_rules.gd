@@ -6,14 +6,6 @@ enum LineKind { NARRATION, DIALOGUE, INNER_VOICE, NOTE }
 const PROMISING_SHIPPED_VALUE := 150
 const HEART_SHIPPED_VALUE := 300
 
-const OPENING_INTRO := (
-    "I won the lottery, left my software job in Tokyo, and bought a "
-    + "field that looks like it hasn't seen a hoe in years."
-)
-const OPENING_GUIDE := (
-    "The harvest market opens on Day 14. I have two weeks to grow "
-    + "something—and maybe get to know the people in town."
-)
 const OPENING_SPEAKER := "KENJI"
 const OPENING_ROLE := "Former software engineer"
 
