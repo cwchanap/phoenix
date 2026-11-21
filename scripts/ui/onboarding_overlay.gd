@@ -17,6 +17,9 @@ const NOTE_TILT_DEGREES := -1.8
 const SCENE_TAG_POSITION := Vector2(120, 128)
 const NARRATION_TOP := 760.0
 const BAR_HEIGHT := 90.0
+# Darkens the lower part of narration pages so the white text reads over any painting.
+const SCRIM_INK := Color("0b0714")
+const SCRIM_HEIGHT := 560.0
 const BAR_INSET := 120
 # One grade shared by both night scenes; it darkens the painting only.
 const NIGHT_GRADE := Color(0.5, 0.5, 0.66)
@@ -31,6 +34,7 @@ const DOT_ACTIVE_WIDTH := 34.0
 var _dismissed: Array[StringName] = []
 var _intro_background: TextureRect
 var _opening_panel: Control
+var _scrim: TextureRect
 var _scene_tag: SlantTag
 var _progress_dots: HBoxContainer
 var _truck: TextureRect
@@ -77,6 +81,9 @@ func _build_opening() -> void:
     _opening_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
     _opening_panel.gui_input.connect(_on_opening_gui_input)
     add_child(_opening_panel)
+
+    _scrim = _build_scrim()
+    _opening_panel.add_child(_scrim)
 
     var top_bar := ColorRect.new()
     top_bar.name = "LetterboxTop"
@@ -362,12 +369,38 @@ func _show_page() -> void:
     _render_dots()
     _render_portrait(int(scene["portrait"]), kind, speaker)
     _narration.visible = kind == ContentRules.LineKind.NARRATION
+    _scrim.visible = _narration.visible
     _narration.text = String(line["text"])
     _render_note()
     _render_dock(line, kind, speaker)
     var last := _is_last_page()
     _continue.visible = not last
     _accept.visible = last
+
+## A bottom-up gradient (92% ink at the edge, clear at the top) drawn only behind narration.
+func _build_scrim() -> TextureRect:
+    var gradient := Gradient.new()
+    gradient.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
+    gradient.colors = PackedColorArray([Color(SCRIM_INK, 0.0), Color(SCRIM_INK, 0.65), Color(SCRIM_INK, 0.92)])
+    var texture := GradientTexture2D.new()
+    texture.gradient = gradient
+    texture.fill_from = Vector2.ZERO
+    texture.fill_to = Vector2(0.0, 1.0)
+    texture.width = 4
+    texture.height = 256
+    var scrim := TextureRect.new()
+    scrim.name = "Scrim"
+    scrim.texture = texture
+    scrim.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+    scrim.stretch_mode = TextureRect.STRETCH_SCALE
+    scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    scrim.anchor_top = 1.0
+    scrim.anchor_right = 1.0
+    scrim.anchor_bottom = 1.0
+    scrim.offset_top = -SCRIM_HEIGHT
+    scrim.grow_vertical = Control.GROW_DIRECTION_BEGIN
+    scrim.visible = false
+    return scrim
 
 func _render_dots() -> void:
     for index in _progress_dots.get_child_count():

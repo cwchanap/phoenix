@@ -461,6 +461,10 @@ func test_narration_page_has_no_dock_or_portrait_and_keeps_continue() -> void:
 	assert_eq(narration.text, ContentRules.PROLOGUE_SCENES[0]["lines"][0]["text"])
 	assert_false((opening.find_child("Dock", true, false) as Control).visible, "narration has no VN dock")
 	assert_false((opening.find_child("Portrait", true, false) as Control).visible)
+	var scrim := opening.find_child("Scrim", true, false) as Control
+	assert_true(scrim.visible, "narration darkens the lower painting")
+	assert_eq(scrim.mouse_filter, Control.MOUSE_FILTER_IGNORE, "the scrim never takes clicks")
+	assert_eq(scrim.get_global_rect(), Rect2(0, 1080.0 - OnboardingOverlay.SCRIM_HEIGHT, 1920, OnboardingOverlay.SCRIM_HEIGHT), "the scrim fills the bottom 560 px")
 	assert_true((opening.find_child("Continue", true, false) as Control).is_visible_in_tree())
 	assert_false((opening.find_child("Accept", true, false) as Control).visible)
 
@@ -799,6 +803,7 @@ func test_enter_plays_all_58_pages_in_order_and_acknowledges_once_on_the_last() 
 	var dots := opening.find_child("ProgressDots", true, false) as HBoxContainer
 	var dock := opening.find_child("Dock", true, false) as Control
 	var narration := opening.find_child("Narration", true, false) as Label
+	var scrim := opening.find_child("Scrim", true, false) as Control
 	var note_card := opening.find_child("NoteCard", true, false) as Control
 	var note_label := note_card.find_child("NoteText", true, false) as Label
 	var portrait := opening.find_child("Portrait", true, false) as TextureRect
@@ -838,6 +843,7 @@ func test_enter_plays_all_58_pages_in_order_and_acknowledges_once_on_the_last() 
 			assert_eq(continue_button.visible, page_number < page_count, where + " Continue")
 			assert_eq(accept.visible, page_number == page_count, where + " Begin Day 1")
 			assert_eq(narration.visible, kind == ContentRules.LineKind.NARRATION, where + " narration")
+			assert_eq(scrim.visible, narration.visible, where + " scrim follows narration")
 			assert_eq(dock.visible, kind == ContentRules.LineKind.DIALOGUE or kind == ContentRules.LineKind.INNER_VOICE, where + " VN dock")
 			if kind == ContentRules.LineKind.NOTE:
 				note_text = line["text"]
