@@ -40,12 +40,12 @@ All 58 lines and 6 scene tags, as shipped in `ContentRules.PROLOGUE_SCENES` and 
 | 22 | Kenji | Most of it stayed in Tokyo. On purpose. | 残りは東京に置いてきました。わざとです。 | 大部分都留在東京了。故意的。 |
 | 23 | Narration | The kei truck coughs twice, then takes the dirt road into the hills at a speed the law might not approve of. | 軽トラックが二回咳き込み、山へ続く土の道を、あまり合法とは言えない速さで登っていく。 | 小貨車咳了兩聲，用不太合法的速度開上往山裡的土路。 |
 | 24 | Gen-san | That field belonged to the Moriyamas. After old Moriyama passed, his wife moved to Osaka to live with their daughter. | あの畑は森山家のものだ。森山の爺さんが亡くなったあと、奥さんは大阪の娘の家に引っ越した。 | 那塊田是森山家的。老森山走了以後，他太太搬去大阪跟女兒住。 |
-| 25 | Gen-san | Then it sat empty for ten years. I open the windows now and then, and start this truck once a month. Somebody has to. | そのあと十年、荒れっぱなしだ。家はたまに窓を開けて風を通してる。この車も月に一度はエンジンをかけてる。誰かがやらなきゃならんだろ。 | 之後荒了十年。房子我偶爾去開窗通風，這台車我每個月發動一次。總得有人做。 |
+| 25 | Gen-san | Then it sat empty for ten years. I open the windows now and then, and start this truck once a month. Somebody has to. | そのあと十年、荒れっぱなしだ。家はたまに窓を開けて風を通しとる。この車も月に一度はエンジンをかけとる。誰かがやらなきゃならんだろ。 | 之後荒了十年。房子我偶爾去開窗通風，這台車我每個月發動一次。總得有人做。 |
 | 26 | Kenji | So this truck came with the land too...? | じゃあ、この車も……？ | 所以這台車也是……？ |
 | 27 | Gen-san | Old Moriyama's. It went with the land. Mrs Moriyama says a truck left idle breaks, and a field left idle goes to ruin. | 森山の爺さんのだ。土地と一緒に売った。奥さんが言うには、車は動かさなきゃ壊れるし、畑は手を入れなきゃ荒れるんだと。 | 老森山的。跟著地一起賣給你了。森山太太說，車不開會壞，田不種也會壞。 |
 | 28 | Gen-san | Why would a Tokyo man buy a dead field? | 東京の人間が、なんでまた荒れた畑なんか買ったんだ？ | 一個東京人，怎麼會跑來買一塊荒田？ |
 | 29 | Kenji | Call it good luck. | まあ、運が良かったんでしょうね。 | 就當我運氣好吧。 |
-| 30 | Gen-san | Luck won't water your turnips. | 運じゃ、カブに水はやれねえぞ。 | 運氣可不會幫你澆蕪菁。 |
+| 30 | Gen-san | Luck won't water your turnips. | 運じゃ、カブに水はやれんぞ。 | 運氣可不會幫你澆蕪菁。 |
 | 31 | Gen-san | Ever grown anything? | 何か育てたことはあるのか？ | 你種過東西嗎？ |
 | 32 | Kenji | I kept a basil plant on my desk once. It died the week the product launched. | デスクでバジルを育てたことがあります。プロダクトをリリースした週に枯れましたけど。 | 辦公桌上養過一盆羅勒。產品上線那週死了。 |
 | 33 | Gen-san | ...Hmph. At least you're honest. | ……ふん。少なくとも正直ではあるな。 | ……哼。至少你很老實。 |
@@ -61,10 +61,10 @@ All 58 lines and 6 scene tags, as shipped in `ContentRules.PROLOGUE_SCENES` and 
 | 38 | Narration | Full dark now. The headlights find an old house and a field grown over with weeds. Somewhere out past it, a river runs. | すっかり暗くなった。ヘッドライトが、古い家と雑草に覆われた広い畑を照らし出す。その先のどこかで、川の流れる音がする。 | 天全黑了。車燈照出一棟老房子、一大片長滿雜草的田，遠處有河水的聲音。 |
 | 39 | Gen-san | We're here. | 着いたぞ。 | 到了。 |
 | 40 | Gen-san | Power's on, water's on. I aired out the futons yesterday. | 電気も水も通した。布団は昨日干しといた。 | 電通了，水也通了，棉被我昨天拿出來曬過。 |
-| 41 | Gen-san | The field's over there. Nobody's touched it in ten years. The weeds are taller than you. | 畑はあっちだ。十年、誰も手をつけてない。雑草がお前の背より高いぞ。 | 田就在那邊。十年沒人碰，雜草長得比你還高。 |
+| 41 | Gen-san | The field's over there. Nobody's touched it in ten years. The weeds are taller than you. | 畑はあっちだ。十年、誰も手をつけとらん。雑草がお前の背より高いぞ。 | 田就在那邊。十年沒人碰，雜草長得比你還高。 |
 | 42 | Gen-san | That wooden box by the field is the shipping bin. Put what you want to sell in before bed. Someone collects it by morning, and the money goes straight into your account. | 畑のそばの木箱が出荷箱だ。売りたいものは寝る前に入れとけ。朝には誰かが回収に来て、代金はそのまま口座に入る。 | 田旁邊那個木箱是出貨箱。想賣的東西睡前放進去，隔天一早就有人來收，錢會直接入帳。 |
 | 43 | Gen-san | Sato-san asked me to drop this off. 3 packs of Turnip seeds. First batch is free, next time it's full price. | これ、佐藤さんから預かってきた。カブの種が3袋だ。初回はタダ、次からは定価だとさ。 | 這個，佐藤小姐託我拿給你。三包蕪菁種子，她說第一次免費，下次照價算。 |
-| 44 | Gen-san | Everything's ready. The rest is up to you. | 準備はできてる。あとはお前次第だ。 | 都準備好了。剩下的，就看你了。 |
+| 44 | Gen-san | Everything's ready. The rest is up to you. | 準備はできとる。あとはお前次第だ。 | 都準備好了。剩下的，就看你了。 |
 | 45 | Narration | Gen-san tosses over a ring of keys. | 源さんが、鍵の束を放ってよこす。 | 阿源伯把一串鑰匙丟過來。 |
 | 46 | Kenji | Then how are you getting home? | じゃあ、帰りはどうするんですか？ | 那你要怎麼回家？ |
 | 47 | Gen-san | On foot. Good for the knees. | 歩きだ。膝にいいんだ。 | 走路。對膝蓋好。 |
