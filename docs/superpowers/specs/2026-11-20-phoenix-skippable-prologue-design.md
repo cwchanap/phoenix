@@ -1,6 +1,6 @@
 # HPA-1137 — Skippable six-scene prologue: design specification
 
-**Status:** Proposed; this draft PR is documentation only.  
+**Status:** Implemented on PR #47; evidence and open acceptance gates are tracked in the [verification record](../validation/2026-11-21-hpa-1137-prologue-verification.md).  
 **Issue:** https://linear.app/cwchanap/issue/HPA-1137/play-a-skippable-story-prologue-before-day-1  
 **Implementation plan:** [2026-11-20-phoenix-skippable-prologue-implementation.md](../plans/2026-11-20-phoenix-skippable-prologue-implementation.md)  
 **Reviewed source:** `main` at `67894bd89a7a`, plus PR #47's 21 Nov review. Refresh before implementation.  
