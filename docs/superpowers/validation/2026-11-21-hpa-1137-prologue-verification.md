@@ -15,7 +15,7 @@ unverified, and the local e2e lane was not clean in a single full run.
 
 ## Lane results
 
-Local lanes ran on `4d173e6`, except godot-e2e, which was last run locally on earlier commits (see below) because the host was too loaded to repeat it; GitHub CI covers the pushed head.
+Local lanes ran on `4d173e6`, except godot-e2e, which was last run locally on earlier commits (see below) because the host was too loaded to repeat it; GitHub CI covers the pushed head `f7a97e0`, including the prologue texture and locale changes.
 
 | Lane | Result |
 |---|---|

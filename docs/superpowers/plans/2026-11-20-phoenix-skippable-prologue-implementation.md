@@ -1,6 +1,6 @@
 # HPA-1137 — Skippable prologue: single-PR implementation plan
 
-**Status:** Implemented on PR #47; agent-run lane results and the visual check are in the [verification record](../validation/2026-11-21-hpa-1137-prologue-verification.md), and GitHub CI is green on the pushed head. Acceptance checkboxes stay open per that record: the MCP-driven e2e gate is unverified and the local godot-e2e lane was not clean in a single full run.  
+**Status:** Implemented on PR #47; agent-run lane results and the visual check are in the [verification record](../validation/2026-11-21-hpa-1137-prologue-verification.md), and GitHub CI (`unit-tests`, `e2e-tests`, `verify`) is green on the pushed head `f7a97e0`, which includes the prologue texture and locale changes. Acceptance checkboxes stay open per that record: the MCP-driven e2e gate is unverified and the local godot-e2e lane was not clean in a single full run.  
 **Design:** [Skippable prologue design specification](../specs/2026-11-20-phoenix-skippable-prologue-design.md)  
 **Issue:** https://linear.app/cwchanap/issue/HPA-1137/play-a-skippable-story-prologue-before-day-1  
 **Implementation branch / PR:** `agent/hpa-1137-skippable-prologue-plan` / **#47** — implement and verify on this same draft PR. **Single PR per issue.**  
