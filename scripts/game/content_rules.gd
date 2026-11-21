@@ -50,7 +50,7 @@ const PROLOGUE_SCENES: Array[Dictionary] = [
             },
             {
                 "kind": LineKind.INNER_VOICE,
-                "text": "After buying the land, I put the rest of the prize money in the bank and planned not to touch a cent. Only living money stays in my pocket. This season, I want to see what my own two hands can do.",
+                "text": "After buying the land, I put the rest of the prize money in the bank and planned not to touch a cent. Only a little living money stays in my pocket. This season, I want to see what my own two hands can do.",
             },
             {
                 "kind": LineKind.INNER_VOICE,
@@ -107,7 +107,7 @@ const PROLOGUE_SCENES: Array[Dictionary] = [
             {
                 "kind": LineKind.DIALOGUE,
                 "villager": VillagerRules.VillagerId.RESIDENT,
-                "text": "Past the bridge, the phone signal comes and goes. Everyone here says that's the best part.",
+                "text": "Also, past the bridge, the phone signal comes and goes. Everyone here says that's the best part.",
             },
             {
                 "kind": LineKind.INNER_VOICE,
@@ -209,7 +209,7 @@ const PROLOGUE_SCENES: Array[Dictionary] = [
             {
                 "kind": LineKind.DIALOGUE,
                 "villager": VillagerRules.VillagerId.FARMER,
-                "text": "The harvest market is on Day 14, two weeks from now. The whole town goes. Bring what you grew, or don't bother coming.",
+                "text": "The harvest market is on Day 14, two weeks from now. The whole town goes. Bring what you grew, or don't show up and embarrass yourself.",
             },
             {
                 "kind": LineKind.DIALOGUE,
@@ -289,7 +289,7 @@ const PROLOGUE_SCENES: Array[Dictionary] = [
         ],
     },
     {
-        "tag": "House · 21:30",
+        "tag": "Indoors · 21:30",
         "background": "res://assets/ui/backgrounds/interior-night.png",
         "portrait": -1,
         "night": true,
@@ -309,7 +309,7 @@ const PROLOGUE_SCENES: Array[Dictionary] = [
             },
             {
                 "kind": LineKind.NARRATION,
-                "text": "A note is weighed down on the low table. The handwriting is neat.",
+                "text": "A note lies on the low table, held down by a weight. The handwriting is very neat.",
             },
             {
                 "kind": LineKind.NOTE,

@@ -474,3 +474,11 @@ func test_prologue_copy_pins_the_fixed_gameplay_facts() -> void:
     assert_eq(GameRules.STARTING_MONEY, 150)
     assert_eq(seeds, 3)
     assert_true(texts[42].contains("%d packs of Turnip seeds" % seeds), "line 43 starter seeds")
+
+func test_prologue_dialogue_speaker_is_kenji_or_the_scene_portrait() -> void:
+    for scene in ContentRules.PROLOGUE_SCENES:
+        for line in scene["lines"]:
+            if line["kind"] != ContentRules.LineKind.DIALOGUE:
+                continue
+            var villager: int = line.get("villager", -2)
+            assert_true(villager == -1 or villager == scene["portrait"], line["text"])
