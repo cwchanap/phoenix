@@ -418,3 +418,59 @@ func test_harvest_result_carries_every_villager_level_and_line() -> void:
         assert_eq(villager["name"], VillagerRules.display_name(id))
         assert_eq(villager["level"], VillagerRules.relationship_key(level))
         assert_eq(villager["line"], VillagerRules.FINALE_LINES[id][level])
+
+func _prologue_texts() -> Array[String]:
+    var texts: Array[String] = []
+    for scene in ContentRules.PROLOGUE_SCENES:
+        for line in scene["lines"]:
+            texts.append(line["text"])
+    return texts
+
+func _is_legal_villager(id: int) -> bool:
+    return id == -1 or (id >= 0 and id < VillagerRules.VillagerId.size())
+
+func test_prologue_has_six_scenes_with_the_approved_line_counts() -> void:
+    var counts: Array[int] = []
+    for scene in ContentRules.PROLOGUE_SCENES:
+        counts.append(scene["lines"].size())
+    var expected: Array[int] = [7, 10, 20, 12, 6, 3]
+    assert_eq(counts, expected)
+    assert_eq(_prologue_texts().size(), 58)
+
+func test_prologue_scene_flags_and_backgrounds_exist() -> void:
+    var nights: Array[bool] = []
+    var trucks: Array[bool] = []
+    for scene in ContentRules.PROLOGUE_SCENES:
+        nights.append(scene["night"])
+        trucks.append(scene["truck"])
+        assert_true(ResourceLoader.exists(scene["background"]), scene["background"])
+    var expected_nights: Array[bool] = [false, false, false, true, true, false]
+    var expected_trucks: Array[bool] = [false, false, true, false, false, false]
+    assert_eq(nights, expected_nights)
+    assert_eq(trucks, expected_trucks)
+
+func test_prologue_kinds_and_villagers_are_legal() -> void:
+    for scene in ContentRules.PROLOGUE_SCENES:
+        assert_true(_is_legal_villager(scene["portrait"]), "portrait %s" % scene["portrait"])
+        for line in scene["lines"]:
+            var kind: int = line["kind"]
+            assert_true(kind >= 0 and kind < ContentRules.LineKind.size(), "kind %d" % kind)
+            if kind == ContentRules.LineKind.DIALOGUE:
+                assert_true(_is_legal_villager(line.get("villager", -2)), line["text"])
+            else:
+                assert_false(line.has("villager"), line["text"])
+
+func test_prologue_copy_pins_the_fixed_gameplay_facts() -> void:
+    var texts := _prologue_texts()
+    var seeds: int = GameRules.starting_seed_counts()[GameRules.CropKind.TURNIP]
+    assert_eq(GameRules.TRAVEL_MINUTES, 30)
+    assert_true(texts[33].contains("%d minutes" % GameRules.TRAVEL_MINUTES), "line 34 drive time")
+    assert_eq(GameRules.MAX_DAY, 14)
+    assert_true(texts[34].contains("Day %d" % GameRules.MAX_DAY), "line 35 market day")
+    assert_true(texts[57].contains("%d days" % (GameRules.MAX_DAY - 1)), "line 58 days from Day 1")
+    assert_eq(GameRules.ACTION_CUTOFF_MINUTES, 22 * 60)
+    assert_true(texts[35].contains("22:00"), "line 36 farming cutoff")
+    assert_true(texts[41].contains("morning"), "line 42 overnight shipping")
+    assert_eq(GameRules.STARTING_MONEY, 150)
+    assert_eq(seeds, 3)
+    assert_true(texts[42].contains("%d packs of Turnip seeds" % seeds), "line 43 starter seeds")

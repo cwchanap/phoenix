@@ -77,6 +77,12 @@ func _rules_strings() -> Array[String]:
     for tier in ContentRules.RESULT_TIERS:
         result.append(String(ContentRules.RESULT_TIERS[tier]["title"]))
         result.append(String(ContentRules.RESULT_TIERS[tier]["epilogue"]))
+    for scene in ContentRules.PROLOGUE_SCENES:
+        result.append(String(scene["tag"]))
+        for line in scene["lines"]:
+            result.append(String(line["text"]))
+    result.append(ContentRules.NOTE_AUTHOR)
+    result.append(ContentRules.INNER_VOICE_LABEL)
     for opening_text in [
         ContentRules.OPENING_INTRO,
         ContentRules.OPENING_GUIDE,
