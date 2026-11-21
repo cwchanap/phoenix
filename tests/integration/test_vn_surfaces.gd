@@ -886,7 +886,13 @@ func _assert_every_page_fits(locale: String) -> void:
 	var overlay := _intro()
 	if overlay != null:
 		await _settle()
+		if locale != "en":
+			assert_ne(tr("Prologue"), "Prologue", "%s translations are live" % locale)
 		for page_number in range(1, overlay.page_count() + 1):
+			assert_eq(
+				int(overlay.current_page()["page_number"]), page_number,
+				"[%s] Enter reached page %d" % [locale, page_number]
+			)
 			_assert_page_fits(overlay, "[%s page %d]" % [locale, page_number])
 			if page_number < overlay.page_count():
 				await _press(&"ui_accept")
