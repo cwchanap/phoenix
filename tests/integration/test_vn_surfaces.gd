@@ -369,13 +369,46 @@ func test_dialogue_everything_stays_inside_at_min_window_in_all_locales() -> voi
 					"%s: rel pill stays on the card" % where,
 				)
 
-func test_intro_letterboxes_and_day_tag_frame_the_floating_vn_card() -> void:
+func _opening(overlay: OnboardingOverlay) -> Control:
+	return overlay.get_node("OpeningPanel") as Control
+
+func _dock_body(overlay: OnboardingOverlay) -> Label:
+	return _opening(overlay).find_child("Content", true, false).get_node("Body") as Label
+
+func _scene_start_page(scene_index: int) -> int:
+	var page := 1
+	for index in scene_index:
+		page += (ContentRules.PROLOGUE_SCENES[index]["lines"] as Array).size()
+	return page
+
+func _page_of(scene_index: int, line_index: int) -> int:
+	return _scene_start_page(scene_index) + line_index
+
+func _go_to_page(overlay: OnboardingOverlay, page_number: int) -> void:
+	while int(overlay.current_page()["page_number"]) < page_number:
+		await _press(&"ui_accept")
+
+func _acknowledged_snapshot() -> Dictionary:
+	var snapshot := GameSession.new().snapshot()
+	snapshot["intro_acknowledged"] = true
+	return snapshot
+
+func _dismiss_intro(overlay: OnboardingOverlay) -> void:
+	overlay.render(_acknowledged_snapshot())
+
+func _active_dot_indices(dots: HBoxContainer) -> Array:
+	var active: Array = []
+	for index in dots.get_child_count():
+		if (dots.get_child(index) as Control).custom_minimum_size.x > 20.0:
+			active.append(index)
+	return active
+
+func test_prologue_bars_tag_dots_and_skip_frame_the_first_page() -> void:
 	var overlay := _intro()
 	if overlay == null:
 		return
 	await _settle()
-	assert_true(overlay.is_opening_visible())
-	var opening := overlay.get_node("OpeningPanel") as Control
+	var opening := _opening(overlay)
 	var top := opening.find_child("LetterboxTop", true, false) as ColorRect
 	var bottom := opening.find_child("LetterboxBottom", true, false) as ColorRect
 	assert_not_null(top)
@@ -384,107 +417,298 @@ func test_intro_letterboxes_and_day_tag_frame_the_floating_vn_card() -> void:
 		return
 	assert_eq(top.color, Color.BLACK, "letterbox bars are pure black")
 	assert_eq(bottom.color, Color.BLACK)
-	assert_lte(top.get_global_rect().size.y, 96.0, "top bar stays a thin 90px strip")
-	assert_lte(bottom.get_global_rect().size.y, 96.0)
+	assert_almost_eq(top.get_global_rect().size.y, 90.0, 1.0)
+	assert_almost_eq(bottom.get_global_rect().size.y, 90.0, 1.0)
 	assert_almost_eq(bottom.get_global_rect().end.y, 1080.0, 2.0)
-	var day_tag := opening.find_child("DayTag", true, false) as SlantTag
-	assert_not_null(day_tag, "the DAY 1 slant tags the upper left")
-	if day_tag != null:
-		var tag_rect := day_tag.get_global_rect()
-		assert_true(tag_rect.position.x < 300.0 and tag_rect.position.y < 300.0)
-		assert_true(day_tag.get_global_rect().position.y > top.get_global_rect().end.y)
-	var card := _vn_card(opening)
-	assert_not_null(card, "the VN box floats over the letterboxed shot")
-	if card != null:
-		var rect := card.get_global_rect()
-		assert_true(
-			rect.end.y < bottom.get_global_rect().position.y,
-			"VN box floats above the lower letterbox",
-		)
-		assert_almost_eq(rect.position.x, 120.0, 2.0)
-		assert_almost_eq(rect.end.x, 1800.0, 2.0)
+	var prologue := opening.find_child("Prologue", true, false) as Label
+	assert_not_null(prologue)
+	if prologue != null:
+		assert_eq(prologue.text, "Prologue")
+	var skip := opening.find_child("Skip", true, false) as Button
+	assert_not_null(skip)
+	if skip != null:
+		assert_true(top.is_ancestor_of(skip), "Skip is a hit target inside the top bar")
+		assert_true(top.get_global_rect().encloses(skip.get_global_rect()))
+		assert_gt(skip.get_global_rect().position.x, 1500.0, "Skip hugs the top right")
+	var tag := opening.find_child("SceneTag", true, false) as SlantTag
+	assert_not_null(tag)
+	if tag != null:
+		assert_eq((tag.get_node("Text") as Label).text, ContentRules.PROLOGUE_SCENES[0]["tag"])
+		assert_gt(tag.get_global_rect().position.y, top.get_global_rect().end.y, "tag sits below the top bar")
+	var dots := opening.find_child("ProgressDots", true, false) as HBoxContainer
+	assert_not_null(dots)
+	if dots == null:
+		return
+	assert_eq(dots.get_child_count(), 6, "one progress dot per scene")
+	assert_eq(_active_dot_indices(dots), [0], "scene one is the only elongated dot")
 
-func test_intro_vn_box_keeps_authored_name_role_and_copy() -> void:
+func test_narration_page_has_no_dock_or_portrait_and_keeps_continue() -> void:
 	var overlay := _intro()
 	if overlay == null:
 		return
 	await _settle()
-	var opening := overlay.get_node("OpeningPanel") as Control
-	var name_tag := opening.find_child("NameTag", true, false) as SlantTag
-	assert_not_null(name_tag, "the intro keeps Kenji's slant name tag")
-	if name_tag != null:
-		var text := name_tag.get_node_or_null("Text") as Label
-		if text != null:
-			assert_eq(
-				text.text, ContentRules.OPENING_SPEAKER,
-				"the tag stores the stable uppercase source key, not a pre-translation",
-			)
+	var opening := _opening(overlay)
+	assert_eq(overlay.current_page()["kind"], ContentRules.LineKind.NARRATION)
+	var narration := opening.find_child("Narration", true, false) as Label
+	assert_true(narration.visible)
+	assert_eq(narration.text, ContentRules.PROLOGUE_SCENES[0]["lines"][0]["text"])
+	assert_false((opening.find_child("Dock", true, false) as Control).visible, "narration has no VN dock")
+	assert_false((opening.find_child("Portrait", true, false) as Control).visible)
+	assert_true((opening.find_child("Continue", true, false) as Control).is_visible_in_tree())
+	assert_false((opening.find_child("Accept", true, false) as Control).visible)
+
+func test_dialogue_shows_the_speaker_role_and_a_full_strength_portrait() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	await _go_to_page(overlay, _page_of(1, 0))
+	var opening := _opening(overlay)
+	assert_eq(overlay.current_page()["kind"], ContentRules.LineKind.DIALOGUE)
+	var resident := VillagerRules.VillagerId.RESIDENT
+	assert_eq((opening.find_child("NameTag", true, false) as SlantTag).get_node("Text").text, VillagerRules.display_name(resident))
+	assert_eq((opening.find_child("Role", true, false) as Label).text, VillagerRules.role_label(resident))
+	var portrait := opening.find_child("Portrait", true, false) as TextureRect
+	assert_true(portrait.visible)
+	assert_eq(portrait.texture.resource_path, "res://assets/ui/portraits/hana.png")
+	assert_eq(portrait.modulate, Color.WHITE, "the speaking villager is at full strength")
+	assert_true((opening.find_child("Dock", true, false) as Control).visible)
+	assert_eq(_dock_body(overlay).text, ContentRules.PROLOGUE_SCENES[1]["lines"][0]["text"])
+
+func test_kenji_speaking_dims_the_scene_portrait_as_the_listener() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	await _go_to_page(overlay, _page_of(2, 1))
+	var opening := _opening(overlay)
+	assert_eq(overlay.current_page()["kind"], ContentRules.LineKind.DIALOGUE)
+	assert_eq((opening.find_child("NameTag", true, false) as SlantTag).get_node("Text").text, ContentRules.OPENING_SPEAKER)
+	assert_eq((opening.find_child("Role", true, false) as Label).text, ContentRules.OPENING_ROLE)
+	var portrait := opening.find_child("Portrait", true, false) as TextureRect
+	assert_true(portrait.visible)
+	assert_eq(portrait.texture.resource_path, "res://assets/ui/portraits/gen.png")
+	assert_eq(portrait.modulate, DialoguePanel.DIMMED, "Gen-san listens dimmed while Kenji speaks")
+
+func test_inner_voice_uses_the_kenji_tag_and_inner_voice_pill_without_a_portrait() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	await _go_to_page(overlay, _page_of(0, 1))
+	var opening := _opening(overlay)
+	assert_eq(overlay.current_page()["kind"], ContentRules.LineKind.INNER_VOICE)
+	assert_true((opening.find_child("Dock", true, false) as Control).visible)
+	assert_eq((opening.find_child("NameTag", true, false) as SlantTag).get_node("Text").text, ContentRules.OPENING_SPEAKER)
 	var role := opening.find_child("Role", true, false) as Label
-	assert_not_null(role, "the intro keeps the role pill beside the name")
-	if role != null:
-		assert_eq(role.text, ContentRules.OPENING_ROLE)
-		for locale in ["zh_TW", "ja"]:
-			TranslationServer.set_locale(locale)
-			var translated := TranslationServer.translate(ContentRules.OPENING_ROLE)
-			assert_ne(translated, ContentRules.OPENING_ROLE, "role translates in %s" % locale)
-			assert_eq(
-				role.atr(role.text),
-				translated,
-				"the role label localizes through Control auto-translation in %s" % locale,
-			)
-		TranslationServer.set_locale("en")
-	var intro := opening.find_child("Intro", true, false) as Label
-	assert_not_null(intro)
-	if intro != null:
-		assert_eq(
-			intro.text,
-			ContentRules.OPENING_INTRO,
-			"intro copy establishes the lottery/Tokyo/field premise",
-		)
-	var guide := opening.find_child("Guide", true, false) as Label
-	assert_not_null(guide)
-	if guide != null:
-		assert_eq(
-			guide.text,
-			ContentRules.OPENING_GUIDE,
-			"guide copy names the Day 14 market and the two-week window",
-		)
-	var diary := opening.find_child("DiaryLine", true, false) as Label
-	assert_not_null(diary, "the opening adds Kenji's Day 1 diary")
-	if diary != null:
-		assert_eq(diary.text, ContentRules.diary_line(1))
-		assert_ne(diary.autowrap_mode, TextServer.AUTOWRAP_OFF)
-		assert_eq(
-			diary.get_visible_line_count(), diary.get_line_count(),
-			"the Day 1 diary is fully displayed, not clipped",
-		)
+	assert_eq(role.text, ContentRules.INNER_VOICE_LABEL)
+	assert_eq(role.get_theme_color("font_color"), OnboardingOverlay.INNER_VOICE_INK)
+	assert_eq(_dock_body(overlay).get_theme_color("font_color"), OnboardingOverlay.INNER_VOICE_INK)
+	assert_false((opening.find_child("Portrait", true, false) as Control).visible, "Kenji alone has no portrait")
 
-func test_intro_accept_is_a_primary_pill_that_acknowledges() -> void:
+func test_truck_appears_only_in_the_country_road_scene() -> void:
 	var overlay := _intro()
 	if overlay == null:
 		return
 	await _settle()
-	var opening := overlay.get_node("OpeningPanel") as Control
-	var accept := opening.find_child("Accept", true, false) as Button
-	assert_not_null(accept, "Begin day 1 is a real button")
-	if accept == null:
-		return
-	var pill := accept.find_child("Pill", true, false) as PanelContainer
-	assert_not_null(pill, "accept paints the gradient primary pill")
-	watch_signals(overlay)
-	await _press_and_release_outside(accept)
-	assert_signal_not_emitted(overlay, "intro_acknowledged")
-	await _click(accept)
-	assert_signal_emitted(overlay, "intro_acknowledged")
+	var truck := _opening(overlay).find_child("Truck", true, false) as TextureRect
+	for scene_index in ContentRules.PROLOGUE_SCENES.size():
+		await _go_to_page(overlay, _scene_start_page(scene_index))
+		assert_eq(truck.visible, scene_index == 2, "truck visibility in scene %d" % (scene_index + 1))
+	var frame := truck.texture as AtlasTexture
+	assert_eq(frame.region, Rect2(0, 0, 96, 96), "the first frame of the kei truck sheet")
 
-func test_intro_keyboard_accept_still_acknowledges() -> void:
+func test_night_grade_tints_only_the_farm_and_house_paintings() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	var background := overlay.get_node("IntroBackground") as TextureRect
+	var opening := _opening(overlay)
+	for scene_index in ContentRules.PROLOGUE_SCENES.size():
+		await _go_to_page(overlay, _scene_start_page(scene_index))
+		var night := scene_index == 3 or scene_index == 4
+		assert_eq(background.modulate, OnboardingOverlay.NIGHT_GRADE if night else Color.WHITE, "grade in scene %d" % (scene_index + 1))
+		assert_eq((opening.find_child("LetterboxTop", true, false) as ColorRect).modulate, Color.WHITE)
+		assert_eq((opening.find_child("Dock", true, false) as Control).modulate, Color.WHITE)
+
+func test_note_card_stays_through_the_next_page_and_clears_at_the_scene_change() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	await _go_to_page(overlay, _page_of(4, 4) - 1)
+	var opening := _opening(overlay)
+	var card := opening.find_child("NoteCard", true, false) as PanelContainer
+	var dock := opening.find_child("Dock", true, false) as Control
+	assert_false(card.visible, "no note before its line")
+	await _press(&"ui_accept")
+	var note_text: String = ContentRules.PROLOGUE_SCENES[4]["lines"][4]["text"]
+	assert_eq(overlay.current_page()["kind"], ContentRules.LineKind.NOTE)
+	assert_true(card.visible)
+	assert_false(dock.visible, "the note page hides the dock")
+	assert_eq((card.find_child("NoteText", true, false) as Label).text, note_text)
+	assert_eq(note_text.count("Moriyama"), 1, "the signature appears once, inside the note text")
+	await _press(&"ui_accept")
+	assert_eq(overlay.current_page()["kind"], ContentRules.LineKind.INNER_VOICE)
+	assert_true(card.visible, "the note persists through the next page of its scene")
+	assert_true(dock.visible, "Kenji's reply sits in the dock below the note")
+	assert_eq(_dock_body(overlay).text, ContentRules.PROLOGUE_SCENES[4]["lines"][5]["text"])
+	await _press(&"ui_accept")
+	assert_false(card.visible, "the note clears at the scene change")
+
+func test_background_left_click_advances_exactly_one_page() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	await _click_at(Vector2(960, 300))
+	assert_eq(overlay.current_page()["page_number"], 2)
+
+func test_continue_hit_target_advances_a_dock_hidden_narration_page() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	var continue_button := _opening(overlay).find_child("Continue", true, false) as Button
+	assert_false((_opening(overlay).find_child("Dock", true, false) as Control).visible)
+	await _click(continue_button)
+	assert_eq(overlay.current_page()["page_number"], 2, "one page, not two")
+
+func test_continue_hit_target_advances_a_dock_hidden_note_page() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	await _go_to_page(overlay, _page_of(4, 4))
+	var continue_button := _opening(overlay).find_child("Continue", true, false) as Button
+	assert_eq(overlay.current_page()["kind"], ContentRules.LineKind.NOTE)
+	await _click(continue_button)
+	assert_eq(overlay.current_page()["page_number"], _page_of(4, 4) + 1)
+
+func test_skip_hit_target_acknowledges_from_a_dock_hidden_page() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	watch_signals(overlay)
+	await _click(_opening(overlay).find_child("Skip", true, false) as Button)
+	assert_signal_emit_count(overlay, "intro_acknowledged", 1)
+	assert_eq(overlay.current_page()["page_number"], 1, "Skip does not also step the page")
+
+func test_clicking_continue_or_skip_never_also_advances_through_the_background() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	watch_signals(overlay)
+	await _click(_opening(overlay).find_child("Continue", true, false) as Button)
+	assert_eq(overlay.current_page()["page_number"], 2, "Continue advances once")
+	await _click(_opening(overlay).find_child("Skip", true, false) as Button)
+	assert_signal_emit_count(overlay, "intro_acknowledged", 1)
+	assert_eq(overlay.current_page()["page_number"], 2, "Skip does not advance")
+
+func test_accept_shows_only_on_the_last_page_and_continue_hides_there() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	var opening := _opening(overlay)
+	var accept := opening.find_child("Accept", true, false) as Button
+	var continue_button := opening.find_child("Continue", true, false) as Button
+	assert_false(accept.visible)
+	assert_true(continue_button.visible)
+	await _go_to_page(overlay, overlay.page_count() - 1)
+	assert_false(accept.visible, "page 57 still continues")
+	await _press(&"ui_accept")
+	assert_eq(overlay.current_page()["page_number"], 58)
+	assert_true(accept.visible, "Begin Day 1 appears on the last page")
+	assert_false(continue_button.visible, "Continue hides on the last page")
+	assert_eq(accept.get_parent().name, "Footer", "Begin Day 1 lives in the dialogue footer")
+
+func test_clicking_accept_on_the_last_page_acknowledges_once_without_advancing() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	await _go_to_page(overlay, overlay.page_count())
+	watch_signals(overlay)
+	await _click(_opening(overlay).find_child("Accept", true, false) as Button)
+	assert_signal_emit_count(overlay, "intro_acknowledged", 1)
+	assert_eq(overlay.current_page()["page_number"], 58)
+
+func test_enter_advances_one_line_and_only_the_last_page_acknowledges() -> void:
 	var overlay := _intro()
 	if overlay == null:
 		return
 	await _settle()
 	watch_signals(overlay)
 	await _press(&"ui_accept")
-	assert_signal_emitted(overlay, "intro_acknowledged")
+	assert_eq(overlay.current_page()["page_number"], 2)
+	assert_signal_not_emitted(overlay, "intro_acknowledged")
+	await _go_to_page(overlay, overlay.page_count())
+	assert_signal_not_emitted(overlay, "intro_acknowledged", "page 58 has not been acknowledged yet")
+	await _press(&"ui_accept")
+	assert_signal_emit_count(overlay, "intro_acknowledged", 1)
+
+func test_repeated_enter_after_acknowledgement_does_not_signal_again() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	overlay.intro_acknowledged.connect(_dismiss_intro.bind(overlay))
+	watch_signals(overlay)
+	await _go_to_page(overlay, overlay.page_count())
+	await _press(&"ui_accept")
+	assert_false(overlay.is_opening_visible())
+	await _press(&"ui_accept")
+	await _press(&"ui_cancel")
+	assert_signal_emit_count(overlay, "intro_acknowledged", 1)
+
+func test_escape_acknowledges_from_the_first_middle_and_last_page() -> void:
+	for target in [1, 30, 58]:
+		var overlay := _intro()
+		if overlay == null:
+			return
+		await _settle()
+		await _go_to_page(overlay, target)
+		watch_signals(overlay)
+		await _press(&"ui_cancel")
+		assert_signal_emit_count(overlay, "intro_acknowledged", 1, "Esc from page %d" % target)
+		_dismiss_intro(overlay)
+
+func test_render_without_acknowledgement_keeps_the_current_page() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	await _go_to_page(overlay, 10)
+	overlay.render(GameSession.new().snapshot())
+	assert_eq(overlay.current_page()["page_number"], 10)
+	assert_true(overlay.is_opening_visible())
+
+func test_prologue_and_skip_captions_auto_translate_in_each_locale() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	var opening := _opening(overlay)
+	var prologue := opening.find_child("Prologue", true, false) as Label
+	var skip := opening.find_child("Skip", true, false) as Button
+	var skip_caption: Label = null
+	for label in skip.find_children("*", "Label", true, false):
+		if (label as Label).text == "Skip intro":
+			skip_caption = label
+	assert_not_null(skip_caption)
+	if skip_caption == null:
+		return
+	TranslationServer.set_locale("zh_TW")
+	assert_eq(prologue.atr(prologue.text), "序章")
+	assert_eq(skip_caption.atr(skip_caption.text), "跳過開場")
+	TranslationServer.set_locale("ja")
+	assert_eq(prologue.atr(prologue.text), "プロローグ")
+	assert_eq(skip_caption.atr(skip_caption.text), "イントロをスキップ")
+	TranslationServer.set_locale("en")
 
 func test_title_menu_rows_match_the_mockup_measurements() -> void:
 	var title := _title()

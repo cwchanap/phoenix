@@ -3194,21 +3194,31 @@ func test_escape_skips_blocking_intro_without_opening_help() -> void:
     assert_false(_panel(hud, "PausePanel").visible)
     assert_true(world._world_input_enabled)
 
-func test_esc_skip_and_enter_dismissal_leave_the_same_day_one_snapshot() -> void:
+func test_esc_partial_and_full_prologue_leave_the_same_day_one_snapshot() -> void:
     var esc_world := _locked_world()
     await _press_escape()
-    var enter_world := _locked_world()
-    await _press_panel_action(&"ui_accept")
-    var esc_snapshot := esc_world._session.snapshot()
-    var enter_snapshot := enter_world._session.snapshot()
-    for key in ["day", "time_minutes", "money", "seeds", "intro_acknowledged", "tutorial"]:
-        assert_eq(esc_snapshot[key], enter_snapshot[key], key)
-    for world: WorldShell in [esc_world, enter_world]:
+    var partial_world := _locked_world()
+    for _line in 3:
+        await _press_panel_action(&"ui_accept")
+    await _press_escape()
+    var full_world := _locked_world()
+    var full_overlay := full_world.hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
+    for _press_index in full_overlay.page_count():
+        await _press_panel_action(&"ui_accept")
+    var worlds: Array[WorldShell] = [esc_world, partial_world, full_world]
+    var snapshots: Array[Dictionary] = []
+    for world in worlds:
         var hud := _hud(world)
         var overlay := hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
         assert_false(overlay.is_opening_visible())
         assert_false(_panel(hud, "PausePanel").visible)
         assert_true(world._world_input_enabled)
+        snapshots.append(world._session.snapshot())
+    assert_eq(snapshots[0], snapshots[2], "Esc on page 1 leaves the same session as a full playthrough")
+    assert_eq(snapshots[1], snapshots[2], "Esc mid-prologue leaves the same session as a full playthrough")
+    await _press_panel_action(&"ui_accept")
+    assert_eq(full_world._session.snapshot(), snapshots[2], "an extra Enter after completion changes nothing")
+    assert_eq(full_world._session.snapshot()["time_minutes"], snapshots[2]["time_minutes"], "the clock does not advance")
 
 
 func test_escape_toggles_code_built_help_and_world_gate() -> void:
