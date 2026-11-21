@@ -938,6 +938,9 @@ func _assert_page_fits(overlay: OnboardingOverlay, tag: String) -> void:
 		for corner: Vector2 in [paper.position, Vector2(paper.end.x, paper.position.y), paper.end, Vector2(paper.position.x, paper.end.y)]:
 			var point: Vector2 = note_card.get_global_transform() * corner
 			assert_true(point.y >= 90.0 and point.y <= 990.0, "%s the note card sits between the letterbox bars" % tag)
+			if dock.is_visible_in_tree():
+				var dock_top := (opening.find_child("Card", true, false) as Control).get_global_rect().position.y
+				assert_true(point.y <= dock_top, "%s the note card stays above the dock" % tag)
 		var note_text := note_card.find_child("NoteText", true, false) as Control
 		assert_true(_inside(Rect2(note_text.position, note_text.size), paper), "%s the note text sits inside its card" % tag)
 	var top_bar := opening.find_child("LetterboxTop", true, false) as Control

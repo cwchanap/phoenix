@@ -34,18 +34,26 @@ passed in every run. `app_launch_test`, `market_confirm_test`, `ui_navigation_te
 and `world_readability_test` passed in the full-lane runs.
 
 `gameplay_day_one_test` failed at least one test in six of six HEAD runs, and a
-different test each time. Every failure was a `wait_seconds` command that timed out
-after 1.5 s, which means the game process stalled for more than a second under host
-load. Each of the seven tests passed in at least one HEAD run. The pre-change
-baseline (`f3ede08`) passed 7 of 7 in three runs at the same or higher load.
+different test each time. Every failure was a `wait_seconds` command that timed out:
+the client allows the requested wait plus 1.0 s of real time (failures logged 1.3, 1.5
+and 1.6 s for waits of 0.3, 0.5 and 0.6 s). Each of the seven tests passed in at least
+one HEAD run. The pre-change baseline (`f3ede08`) passed 7 of 7 in three runs at the
+same or higher load.
 
-I could not explain the difference. An 8 s frame probe on Day 1 showed no systematic
-cost: 9 to 12 fps on both builds, the same draw calls, 1,997 nodes against 1,968.
-HEAD has no per-frame work in the overlay, and the intro background and panel are
-hidden after the skip. A clean snapshot copy of HEAD flaked the same way, so the
-worktree location is not the cause. **GitHub CI on the pushed branch is the authority
-for this lane**, and the next step if it fails there is to look for what the prologue
-changes in `gameplay_day_one_test` timing.
+The final review found the mechanism, not a code cause. The harness's `wait_seconds`
+adds up game-side frame time. When a frame takes longer than about 133 ms, Godot's cap
+of 8 physics steps per frame also shortens the frame time it reports, so game time runs
+slower than real time (measured ratio 0.66 on HEAD at load 16, 0.39 a minute later), and
+a wait of 0.3 s or more can exceed its 1 s margin. Only tests with such waits failed;
+`test_day_one_town_trip_farming_loop_and_sleep` and `test_shop_purchase_updates_money`
+use 0.1 s waits and never failed. The new e2e test waits 0.6 s while walking, so it can
+flake the same way on a loaded host.
+
+An 8 s Day 1 frame probe found the same cost on both builds (5 to 12 fps depending on
+host load, the same draw calls, 1,997 nodes against 1,968), and the overlay does no
+per-frame work after the skip. The baseline's three clean runs are most plausibly load
+luck, and a clean snapshot copy of HEAD flaked the same way. **GitHub CI on the pushed
+branch is the authority for this lane.**
 
 ## MCP-driven acceptance: unverified
 
