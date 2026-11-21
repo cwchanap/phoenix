@@ -788,6 +788,175 @@ func test_prologue_and_skip_captions_auto_translate_in_each_locale() -> void:
 	assert_eq(skip_caption.atr(skip_caption.text), "イントロをスキップ")
 	TranslationServer.set_locale("en")
 
+func test_enter_plays_all_58_pages_in_order_and_acknowledges_once_on_the_last() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	var opening := _opening(overlay)
+	var background := overlay.get_node("IntroBackground") as TextureRect
+	var tag_text := opening.find_child("SceneTag", true, false).get_node("Text") as Label
+	var dots := opening.find_child("ProgressDots", true, false) as HBoxContainer
+	var dock := opening.find_child("Dock", true, false) as Control
+	var narration := opening.find_child("Narration", true, false) as Label
+	var note_card := opening.find_child("NoteCard", true, false) as Control
+	var note_label := note_card.find_child("NoteText", true, false) as Label
+	var portrait := opening.find_child("Portrait", true, false) as TextureRect
+	var truck := opening.find_child("Truck", true, false) as TextureRect
+	var continue_button := opening.find_child("Continue", true, false) as Control
+	var accept := opening.find_child("Accept", true, false) as Control
+	var name_tag := opening.find_child("NameTag", true, false) as SlantTag
+	var role := opening.find_child("Role", true, false) as Label
+	watch_signals(overlay)
+	var lengths: Array = []
+	for scene in ContentRules.PROLOGUE_SCENES:
+		lengths.append((scene["lines"] as Array).size())
+	assert_eq(lengths, [7, 10, 20, 12, 6, 3], "authored lines per scene")
+	var page_count := overlay.page_count()
+	var page_number := 0
+	var shown_tag := ""
+	var tag_changes: Array = []
+	for scene_index in ContentRules.PROLOGUE_SCENES.size():
+		var scene: Dictionary = ContentRules.PROLOGUE_SCENES[scene_index]
+		var lines: Array = scene["lines"]
+		var note_text := ""
+		for line_index in lines.size():
+			page_number += 1
+			var line: Dictionary = lines[line_index]
+			var kind := int(line["kind"])
+			var speaker := int(line.get("villager", -1))
+			var where := "page %d" % page_number
+			assert_eq(overlay.current_page(), {"scene": scene_index, "line": line_index, "kind": kind, "text": line["text"], "page_number": page_number}, where)
+			if tag_text.text != shown_tag:
+				shown_tag = tag_text.text
+				tag_changes.append(page_number)
+			assert_eq(tag_text.text, scene["tag"], where + " scene tag")
+			assert_eq(background.texture.resource_path, scene["background"], where + " background")
+			assert_eq(background.modulate, OnboardingOverlay.NIGHT_GRADE if bool(scene["night"]) else Color.WHITE, where + " night grade")
+			assert_eq(truck.visible, bool(scene["truck"]), where + " truck")
+			assert_eq(_active_dot_indices(dots), [scene_index], where + " progress dot")
+			assert_eq(continue_button.visible, page_number < page_count, where + " Continue")
+			assert_eq(accept.visible, page_number == page_count, where + " Begin Day 1")
+			assert_eq(narration.visible, kind == ContentRules.LineKind.NARRATION, where + " narration")
+			assert_eq(dock.visible, kind == ContentRules.LineKind.DIALOGUE or kind == ContentRules.LineKind.INNER_VOICE, where + " VN dock")
+			if kind == ContentRules.LineKind.NOTE:
+				note_text = line["text"]
+			assert_eq(note_card.visible, note_text != "", where + " note stays up until its scene changes")
+			if note_text != "":
+				assert_eq(note_label.text, note_text, where + " note text")
+			var villager := speaker if speaker >= 0 else int(scene["portrait"])
+			var shows_portrait := villager >= 0 and kind != ContentRules.LineKind.NARRATION and kind != ContentRules.LineKind.NOTE
+			assert_eq(portrait.visible, shows_portrait, where + " portrait")
+			if shows_portrait:
+				assert_eq(portrait.texture.resource_path, "res://assets/ui/portraits/%s.png" % VillagerRules.PORTRAIT_NAMES[villager], where + " portrait art")
+				assert_eq(portrait.modulate, Color.WHITE if speaker >= 0 else DialoguePanel.DIMMED, where + " speaker or listener")
+			if kind == ContentRules.LineKind.NARRATION:
+				assert_eq(narration.text, line["text"], where + " narration text")
+			elif kind == ContentRules.LineKind.DIALOGUE:
+				var expected_name := VillagerRules.display_name(speaker) if speaker >= 0 else ContentRules.OPENING_SPEAKER
+				var expected_role := VillagerRules.role_label(speaker) if speaker >= 0 else ContentRules.OPENING_ROLE
+				assert_eq(name_tag.get_node("Text").text, expected_name, where + " speaker name")
+				assert_eq(role.text, expected_role, where + " speaker role")
+				assert_eq(_dock_body(overlay).text, "“%s”" % line["text"], where + " quoted line")
+			elif kind == ContentRules.LineKind.INNER_VOICE:
+				assert_eq(name_tag.get_node("Text").text, ContentRules.OPENING_SPEAKER, where + " inner voice speaker")
+				assert_eq(role.text, ContentRules.INNER_VOICE_LABEL, where + " inner voice pill")
+				assert_eq(_dock_body(overlay).text, line["text"], where + " inner voice line")
+			if page_number < page_count:
+				await _press(&"ui_accept")
+				assert_signal_not_emitted(overlay, "intro_acknowledged", where + " Enter only advances")
+	assert_eq(tag_changes, [1, 8, 18, 38, 50, 56], "the scene tag changes only at the six scene starts")
+	assert_eq(page_number, page_count)
+	await _press(&"ui_accept")
+	assert_signal_emit_count(overlay, "intro_acknowledged", 1, "the 58th Enter acknowledges exactly once")
+
+func test_all_58_pages_fit_the_1080p_frame_in_english() -> void:
+	await _assert_every_page_fits("en")
+
+func test_all_58_pages_fit_the_1080p_frame_in_traditional_chinese() -> void:
+	await _assert_every_page_fits("zh_TW")
+
+func test_all_58_pages_fit_the_1080p_frame_in_japanese() -> void:
+	await _assert_every_page_fits("ja")
+
+## Walks every page with real Enter presses in one locale, checking the layout after each render.
+func _assert_every_page_fits(locale: String) -> void:
+	var original := TranslationServer.get_locale()
+	TranslationServer.set_locale(locale)
+	var overlay := _intro()
+	if overlay != null:
+		await _settle()
+		for page_number in range(1, overlay.page_count() + 1):
+			_assert_page_fits(overlay, "[%s page %d]" % [locale, page_number])
+			if page_number < overlay.page_count():
+				await _press(&"ui_accept")
+				await _settle()
+	TranslationServer.set_locale(original)
+
+## Layout checks on one rendered page: the frame, the dock above the tag, the bars, and label fit.
+func _assert_page_fits(overlay: OnboardingOverlay, tag: String) -> void:
+	var opening := _opening(overlay)
+	var frame := Rect2(Vector2.ZERO, Vector2(1920, 1080))
+	assert_eq(opening.get_global_rect(), frame, "%s the overlay fills the frame" % tag)
+	for node in opening.find_children("*", "Control", true, false):
+		var control := node as Control
+		if not control.is_visible_in_tree():
+			continue
+		assert_true(_inside(control.get_global_rect(), frame), "%s %s stays inside the frame" % [tag, control.name])
+		if control is Label:
+			var label := control as Label
+			if label.text != "":
+				assert_eq(label.get_visible_line_count(), label.get_line_count(), "%s %s shows every line of its text" % [tag, label.name])
+				assert_true(label.size.y + 0.5 >= label.get_minimum_size().y, "%s %s is tall enough for its text" % [tag, label.name])
+		if control is Label or control is Button:
+			assert_true(_inside(control.get_global_rect(), control.get_parent_control().get_global_rect()), "%s %s stays inside its container" % [tag, control.name])
+	var header := opening.find_child("Header", true, false) as Control
+	var header_bottom := header.get_global_rect().end.y
+	var dock := opening.find_child("Dock", true, false) as Control
+	if dock.is_visible_in_tree():
+		var card := opening.find_child("Card", true, false) as Control
+		var name_row := opening.find_child("NameRow", true, false) as Control
+		assert_gt(card.get_global_rect().position.y, header_bottom, "%s the dock top sits below the tag and dots" % tag)
+		assert_gt(name_row.get_global_rect().position.y, header_bottom, "%s the name tag sits below the tag and dots" % tag)
+		assert_true(_inside(_dock_body(overlay).get_global_rect(), card.get_global_rect()), "%s the dock text sits inside the dock" % tag)
+		var accept := opening.find_child("Accept", true, false) as Control
+		if accept.is_visible_in_tree():
+			assert_true(_inside(accept.get_global_rect(), card.get_global_rect()), "%s Begin Day 1 sits inside the dock" % tag)
+	var narration := opening.find_child("Narration", true, false) as Control
+	if narration.is_visible_in_tree():
+		var lines := narration.get_global_rect()
+		assert_true(lines.position.y >= 90.0 and lines.end.y <= 990.0, "%s narration sits between the letterbox bars" % tag)
+	var note_card := opening.find_child("NoteCard", true, false) as Control
+	if note_card.is_visible_in_tree():
+		var paper := Rect2(Vector2.ZERO, note_card.size)
+		for corner: Vector2 in [paper.position, Vector2(paper.end.x, paper.position.y), paper.end, Vector2(paper.position.x, paper.end.y)]:
+			var point: Vector2 = note_card.get_global_transform() * corner
+			assert_true(point.y >= 90.0 and point.y <= 990.0, "%s the note card sits between the letterbox bars" % tag)
+		var note_text := note_card.find_child("NoteText", true, false) as Control
+		assert_true(_inside(Rect2(note_text.position, note_text.size), paper), "%s the note text sits inside its card" % tag)
+	var top_bar := opening.find_child("LetterboxTop", true, false) as Control
+	var bottom_bar := opening.find_child("LetterboxBottom", true, false) as Control
+	var skip := opening.find_child("Skip", true, false) as Control
+	var continue_button := opening.find_child("Continue", true, false) as Control
+	assert_true(_inside(skip.get_global_rect(), top_bar.get_global_rect()), "%s Skip sits inside the top bar" % tag)
+	var targets: Array[Control] = [skip, opening.find_child("Prologue", true, false) as Control, opening.find_child("SceneTag", true, false) as Control]
+	if continue_button.is_visible_in_tree():
+		assert_true(_inside(continue_button.get_global_rect(), bottom_bar.get_global_rect()), "%s Continue sits inside the bottom bar" % tag)
+		targets.append(continue_button)
+	for first in targets.size():
+		for second in range(first + 1, targets.size()):
+			var shared := targets[first].get_global_rect().intersection(targets[second].get_global_rect())
+			assert_false(shared.has_area(), "%s %s and %s do not overlap" % [tag, targets[first].name, targets[second].name])
+
+## True when inner lies inside outer, with half a pixel of slack for layout rounding.
+func _inside(inner: Rect2, outer: Rect2) -> bool:
+	return (
+		inner.position.x >= outer.position.x - 0.5
+		and inner.position.y >= outer.position.y - 0.5
+		and inner.end.x <= outer.end.x + 0.5
+		and inner.end.y <= outer.end.y + 0.5
+	)
+
 func test_title_menu_rows_match_the_mockup_measurements() -> void:
 	var title := _title()
 	if title == null:
