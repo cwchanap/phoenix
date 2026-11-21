@@ -3234,6 +3234,25 @@ func test_escape_on_the_final_prologue_page_starts_day_one_without_opening_pause
     assert_true(world._session.state()["intro_acknowledged"])
 
 
+func test_completed_and_skipped_prologues_both_start_day_one_at_six_with_150_gold() -> void:
+    var skipped := _locked_world()
+    await _press_escape()
+    var completed := _locked_world()
+    var overlay := completed.hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
+    for _press_index in overlay.page_count():
+        await _press_panel_action(&"ui_accept")
+    var fresh_tutorial: Dictionary = GameSession.new().snapshot()["tutorial"]
+    var worlds: Array[WorldShell] = [skipped, completed]
+    for world in worlds:
+        var snapshot: Dictionary = world._session.snapshot()
+        assert_eq(snapshot["day"], 1)
+        assert_eq(snapshot["time_minutes"], GameRules.DAY_START_MINUTES, "06:00")
+        assert_eq(snapshot["money"], GameRules.STARTING_MONEY)
+        assert_eq(int(snapshot["seeds"][&"turnip"]), 3, "three Turnip seeds")
+        assert_eq(snapshot["tutorial"], fresh_tutorial, "tutorial completion is unchanged")
+        assert_true(snapshot["intro_acknowledged"])
+
+
 func test_escape_toggles_code_built_help_and_world_gate() -> void:
     var world := _world()
     var hud := _hud(world)
