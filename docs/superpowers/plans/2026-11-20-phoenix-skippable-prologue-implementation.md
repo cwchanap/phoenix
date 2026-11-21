@@ -115,4 +115,4 @@ Recorded during implementation. The acceptance checkboxes above stay open.
 - **Scene 3's mirrored right-hand Gen-san is not reproduced.** The table has no side data, so the country-road scene shows the truck and the scene's portrait rules only.
 - **Listeners are dimmed with `DialoguePanel.DIMMED`**, the same 45% alpha the dialogue panel uses for non-speaking characters.
 - **The night grade is a single `NIGHT_GRADE` modulate.** It darkens only the background painting for scenes 4 and 5; the letterbox bars, dock and text stay unshaded.
-- **Inner voice keeps the pink-to-orange dock band.** The mockup's violet band would need a per-page recolour of the gradient that `UiStyle.gradient_band()` builds once, so it was not applied. The mockup's `#5e4470` 34px/500 body text and `#6b4a9e` role pill are applied.
+- **Inner voice keeps the pink-to-orange dock band.** The mockup's violet band would need a per-page recolour of the gradient that `UiStyle.gradient_band()` builds once, so it was not applied. The mockup's `#5e4470` 34px/500 body text and `#6b4a9e` role-label text colour are applied (the pill itself keeps the white card).
