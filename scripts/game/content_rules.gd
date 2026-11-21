@@ -1,6 +1,8 @@
 class_name ContentRules
 extends RefCounted
 
+enum LineKind { NARRATION, DIALOGUE, INNER_VOICE, NOTE }
+
 const PROMISING_SHIPPED_VALUE := 150
 const HEART_SHIPPED_VALUE := 300
 
@@ -14,6 +16,333 @@ const OPENING_GUIDE := (
 )
 const OPENING_SPEAKER := "KENJI"
 const OPENING_ROLE := "Former software engineer"
+
+const NOTE_AUTHOR := "Mrs Moriyama"
+const INNER_VOICE_LABEL := "Inner voice"
+
+const PROLOGUE_SCENES: Array[Dictionary] = [
+    {
+        "tag": "Station · 19:00",
+        "background": "res://assets/ui/backgrounds/prologue-platform.png",
+        "portrait": -1,
+        "night": false,
+        "truck": false,
+        "lines": [
+            {
+                "kind": LineKind.NARRATION,
+                "text": "Seven in the evening. The last train eases into a small station. Only one lamp is lit on the platform.",
+            },
+            {
+                "kind": LineKind.INNER_VOICE,
+                "text": "Left Tokyo. Three transfers, four hours on trains. Then the doors opened on a wall of insect song.",
+            },
+            {
+                "kind": LineKind.INNER_VOICE,
+                "text": "Three months ago, I was staring at a crashed server at two in the morning.",
+            },
+            {
+                "kind": LineKind.INNER_VOICE,
+                "text": "While the system rebooted, I checked a lottery ticket. Then again. Then a third time.",
+            },
+            {
+                "kind": LineKind.INNER_VOICE,
+                "text": "The next day I resigned. My manager asked where I was going next. I said, 'Farming.'",
+            },
+            {
+                "kind": LineKind.INNER_VOICE,
+                "text": "After buying the land, I put the rest of the prize money in the bank and planned not to touch a cent. Only living money stays in my pocket. This season, I want to see what my own two hands can do.",
+            },
+            {
+                "kind": LineKind.INNER_VOICE,
+                "text": "Nobody here knows about the lottery. I plan to keep it that way.",
+            },
+        ],
+    },
+    {
+        "tag": "Station front · 19:05",
+        "background": "res://assets/ui/backgrounds/prologue-station.png",
+        "portrait": VillagerRules.VillagerId.RESIDENT,
+        "night": false,
+        "truck": false,
+        "lines": [
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.RESIDENT,
+                "text": "Hey! You with the suitcase and the just-off-work face.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.RESIDENT,
+                "text": "You're the one who bought the Moriyama field, right?",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": -1,
+                "text": "...Is it that obvious?",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.RESIDENT,
+                "text": "Anyone who gets off at this hour is either going home or lost. You don't look like you're going home.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.RESIDENT,
+                "text": "I'm Hana. I run the cafe by the station.",
+            },
+            {
+                "kind": LineKind.NARRATION,
+                "text": "She hands over a can of hot coffee from the vending machine.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.RESIDENT,
+                "text": "This one's a welcome gift. Real coffee costs money, though. I open tomorrow morning.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.RESIDENT,
+                "text": "Gen-san's been out front since six. Says he isn't waiting, just passing by. For an hour. Ride with him, and hold on to something.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.RESIDENT,
+                "text": "Past the bridge, the phone signal comes and goes. Everyone here says that's the best part.",
+            },
+            {
+                "kind": LineKind.INNER_VOICE,
+                "text": "She seems to know that just-off-work look very well.",
+            },
+        ],
+    },
+    {
+        "tag": "Country road · 19:20",
+        "background": "res://assets/ui/backgrounds/prologue-road.png",
+        "portrait": VillagerRules.VillagerId.FARMER,
+        "night": false,
+        "truck": true,
+        "lines": [
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.FARMER,
+                "text": "You're late.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": -1,
+                "text": "The train was delayed...",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.FARMER,
+                "text": "The trains out here never run late. They just run slow.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.FARMER,
+                "text": "Just the one suitcase? City folk usually bring more.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": -1,
+                "text": "Most of it stayed in Tokyo. On purpose.",
+            },
+            {
+                "kind": LineKind.NARRATION,
+                "text": "The kei truck coughs twice, then takes the dirt road into the hills at a speed the law might not approve of.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.FARMER,
+                "text": "That field belonged to the Moriyamas. After old Moriyama passed, his wife moved to Osaka to live with their daughter.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.FARMER,
+                "text": "Then it sat empty for ten years. I open the windows now and then, and start this truck once a month. Somebody has to.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": -1,
+                "text": "So this truck came with the land too...?",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.FARMER,
+                "text": "Old Moriyama's. It went with the land. Mrs Moriyama says a truck left idle breaks, and a field left idle goes to ruin.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.FARMER,
+                "text": "Why would a Tokyo man buy a dead field?",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": -1,
+                "text": "Call it good luck.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.FARMER,
+                "text": "Luck won't water your turnips.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.FARMER,
+                "text": "Ever grown anything?",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": -1,
+                "text": "I kept a basil plant on my desk once. It died the week the product launched.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.FARMER,
+                "text": "...Hmph. At least you're honest.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.FARMER,
+                "text": "Town is 30 minutes from the field, if the deer behave. Buy seeds from Sato-san. Get your coffee from Hana. She talks a lot, but she doesn't pry.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.FARMER,
+                "text": "The harvest market is on Day 14, two weeks from now. The whole town goes. Bring what you grew, or don't bother coming.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.FARMER,
+                "text": "And no farming after 22:00. Working in the dark just gets you hurt.",
+            },
+            {
+                "kind": LineKind.INNER_VOICE,
+                "text": "He talks like he's writing a spec. Short, no filler, and every point matters.",
+            },
+        ],
+    },
+    {
+        "tag": "Moriyama farm · 19:50",
+        "background": "res://assets/ui/backgrounds/intro.png",
+        "portrait": VillagerRules.VillagerId.FARMER,
+        "night": true,
+        "truck": false,
+        "lines": [
+            {
+                "kind": LineKind.NARRATION,
+                "text": "Full dark now. The headlights find an old house and a field grown over with weeds. Somewhere out past it, a river runs.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.FARMER,
+                "text": "We're here.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.FARMER,
+                "text": "Power's on, water's on. I aired out the futons yesterday.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.FARMER,
+                "text": "The field's over there. Nobody's touched it in ten years. The weeds are taller than you.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.FARMER,
+                "text": "That wooden box by the field is the shipping bin. Put what you want to sell in before bed. Someone collects it by morning, and the money goes straight into your account.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.FARMER,
+                "text": "Sato-san asked me to drop this off. 3 packs of Turnip seeds. First batch is free, next time it's full price.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.FARMER,
+                "text": "Everything's ready. The rest is up to you.",
+            },
+            {
+                "kind": LineKind.NARRATION,
+                "text": "Gen-san tosses over a ring of keys.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": -1,
+                "text": "Then how are you getting home?",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.FARMER,
+                "text": "On foot. Good for the knees.",
+            },
+            {
+                "kind": LineKind.DIALOGUE,
+                "villager": VillagerRules.VillagerId.FARMER,
+                "text": "Don't call me unless the place is on fire. ...And if it is, call the fire department first.",
+            },
+            {
+                "kind": LineKind.NARRATION,
+                "text": "Gen-san walks off down the dirt road into the night, flashlight in hand, without looking back.",
+            },
+        ],
+    },
+    {
+        "tag": "House · 21:30",
+        "background": "res://assets/ui/backgrounds/interior-night.png",
+        "portrait": -1,
+        "night": true,
+        "truck": false,
+        "lines": [
+            {
+                "kind": LineKind.NARRATION,
+                "text": "The house smells of tatami and old timber.",
+            },
+            {
+                "kind": LineKind.INNER_VOICE,
+                "text": "One bar of signal left. The work group chat keeps pinging.",
+            },
+            {
+                "kind": LineKind.INNER_VOICE,
+                "text": "I deleted it. Easier than I expected.",
+            },
+            {
+                "kind": LineKind.NARRATION,
+                "text": "A note is weighed down on the low table. The handwriting is neat.",
+            },
+            {
+                "kind": LineKind.NOTE,
+                "text": "The soil here is good. It has only been lonely. Please take good care of it for me. — Moriyama",
+            },
+            {
+                "kind": LineKind.INNER_VOICE,
+                "text": "...Right. I'll try.",
+            },
+        ],
+    },
+    {
+        "tag": "Day 1 · 06:00",
+        "background": "res://assets/ui/backgrounds/intro.png",
+        "portrait": -1,
+        "night": false,
+        "truck": false,
+        "lines": [
+            {
+                "kind": LineKind.NARRATION,
+                "text": "Six in the morning.",
+            },
+            {
+                "kind": LineKind.INNER_VOICE,
+                "text": "No alarm clock. Birds woke me up.",
+            },
+            {
+                "kind": LineKind.INNER_VOICE,
+                "text": "Gen-san said the harvest market is two weeks away. To be exact, 13 days. Turn the soil, plant, water, and see what this field can grow.",
+            },
+        ],
+    },
+]
 
 const RESULT_TIERS: Dictionary = {
     &"new_beginning": {

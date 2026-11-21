@@ -4,7 +4,7 @@ Potato,馬鈴薯,ジャガイモ
 Pumpkin,南瓜,カボチャ
 Sunny,晴天,晴れ
 Rainy,雨天,雨
-Sato-san,佐藤先生,佐藤さん
+Sato-san,佐藤小姐,佐藤さん
 Gen-san,阿源伯,源さん
 Hana,小花,ハナ
 Seed-shop keeper,種子行店主,種屋の店主
@@ -23,7 +23,7 @@ Water the crop,幫作物澆水,作物に水をやろう
 End the day,結束這一天,一日を終えよう
 "When today's work is done, face the bed, press E, and sleep.",今天的工作做完後，面向床鋪按 E 睡覺。,今日の作業が終わったら、ベッドの方を向いて E キーで眠る。
 Meet the village,認識村裡的人,村の人に会おう
-"Face Sato-san, Gen-san, or Hana and press E to talk.",面向佐藤先生、阿源伯或小花，按 E 聊天。,佐藤さん、源さん、ハナの方を向いて E キーで話しかける。
+"Face Sato-san, Gen-san, or Hana and press E to talk.",面向佐藤小姐、阿源伯或小花，按 E 聊天。,佐藤さん、源さん、ハナの方を向いて E キーで話しかける。
 Reinvest,再投資,再投資しよう
 "Face the Seed Shop, press E, and buy seeds to keep planting.",面向種子行按 E，買些種子繼續種。,種屋の方を向いて E キーを押し、種を買って植え続けよう。
 Harvest,收成,収穫
@@ -349,3 +349,69 @@ Not yet,還不要,まだ
 Driving to town,開車進鎮中,町までドライブ中
 Driving home,開車回家中,家までドライブ中
 +%d min,+%d 分鐘,+%d分
+Station · 19:00,車站・晚上 7:00,駅・19:00
+Station front · 19:05,站前・晚上 7:05,駅前・19:05
+Country road · 19:20,鄉間小路・晚上 7:20,田舎道・19:20
+Moriyama farm · 19:50,森山家的田・晚上 7:50,森山家の畑・19:50
+House · 21:30,屋內・晚上 9:30,家の中・21:30
+Day 1 · 06:00,第 1 天・早上 6:00,1日目・06:00
+Seven in the evening. The last train eases into a small station. Only one lamp is lit on the platform.,晚上七點，今天的末班車慢慢停進一座小小的車站。月台上只有一盞燈。,夜の七時。今日最後の電車が、小さな駅へゆっくりと滑り込む。ホームを照らすのは、灯り一つだけだ。
+"Left Tokyo. Three transfers, four hours on trains. Then the doors opened on a wall of insect song.",從東京出發，轉了三次車，坐了四個小時。車門一開，迎面是一整片蟲鳴。,東京を出て、乗り換えは三回。四時間ほど電車に揺られました。ドアが開くと、虫の声が一面に押し寄せてきて……
+"Three months ago, I was staring at a crashed server at two in the morning.",三個月前，我還在凌晨兩點盯著當機的伺服器。,三か月前までは、午前二時にフリーズしたサーバーを睨んでいました。
+"While the system rebooted, I checked a lottery ticket. Then again. Then a third time.",等系統重開的空檔，我順手對了一下彩券。……又對了一次。再對了第三次。,再起動を待つあいだ、宝くじの番号を確かめました。……もう一回。さらに三回目。
+"The next day I resigned. My manager asked where I was going next. I said, 'Farming.'",隔天我遞了辭呈。主管問我要跳槽去哪。我說：去種田。,翌日、退職届を出しました。上司に「次はどこへ行くんだ」と聞かれて、「農業です」と答えました。
+"After buying the land, I put the rest of the prize money in the bank and planned not to touch a cent. Only living money stays in my pocket. This season, I want to see what my own two hands can do.",買下這塊地以後，剩下的獎金我全存進銀行，一毛都不打算動。身上只留一點生活費。這一季，我想看看自己靠一雙手能做到什麼。,土地を買ったあと、残りの賞金は全部銀行に預けました。一円も使わないつもりです。手元に残したのは生活費だけ。この一季で、自分の両手に何ができるのか確かめてみたいんです。
+Nobody here knows about the lottery. I plan to keep it that way.,這裡沒有人知道彩券的事。我打算就這樣保持下去。,この土地で、宝くじのことを知っている人はいません。このまま黙っておくつもりです。
+Hey! You with the suitcase and the just-off-work face.,欸——那邊那位提著行李箱、一臉剛下班的先生。,ねえ、そこのスーツケースを持った、仕事帰りっぽいお兄さん！
+"You're the one who bought the Moriyama field, right?",你就是買下森山家那塊田的人吧？,あんたが森山さんとこの畑を買った人でしょ？
+...Is it that obvious?,……有這麼明顯嗎？,……そんなに分かりやすいですか？
+Anyone who gets off at this hour is either going home or lost. You don't look like you're going home.,這個時間下車的，不是回家的人，就是迷路的人。你看起來不像回家。,この時間に降りる人なんて、家に帰る人か迷子の人だけだよ。あんたは、家に帰る人の顔じゃないね。
+I'm Hana. I run the cafe by the station.,我是小花，車站咖啡廳是我開的。,あたしはハナ。駅前のカフェ、あたしの店なの。
+She hands over a can of hot coffee from the vending machine.,她遞來一罐自動販賣機的熱咖啡。,彼女は自販機で買った温かい缶コーヒーを差し出す。
+"This one's a welcome gift. Real coffee costs money, though. I open tomorrow morning.",這個給你，歡迎禮。真正的咖啡要付錢喔。明天早上開門。,これは歓迎のおごりね。ちゃんとしたコーヒーはお金を取るからね。店は明日の朝から開けてるよ。
+"Gen-san's been out front since six. Says he isn't waiting, just passing by. For an hour. Ride with him, and hold on to something.",阿源伯六點就在外面等了。他說他沒在等，只是剛好路過。路過了一個小時。坐他的車，記得抓好扶手。,源さん、六時からあそこで待ってたよ。待ってたんじゃなくて、通りかかっただけだって。一時間もね。あの人の車に乗るなら、手すりにしっかりつかまってて。
+"Past the bridge, the phone signal comes and goes. Everyone here says that's the best part.",還有，過了橋，手機訊號就時有時無。這裡的人都說，那是最棒的部分。,それと、橋を越えると電波が入ったり切れたりするからね。ここの人はみんな、そこがいいところだって言うよ。
+She seems to know that just-off-work look very well.,她好像很熟悉那種「剛下班」的表情。,あの人、仕事帰りのあの顔をよく知っているみたいです。
+You're late.,你遲到了。,遅いぞ。
+The train was delayed...,是火車誤點……,電車が遅れてしまって……
+The trains out here never run late. They just run slow.,這裡的火車從不誤點。只是慢。,この辺の電車は遅れたりしねえよ。ただ遅いだけだ。
+Just the one suitcase? City folk usually bring more.,就一個行李箱？都市人通常帶得比較多。,荷物はそれだけか。都会の人間は、たいてい、もっと持ってくるもんだが。
+Most of it stayed in Tokyo. On purpose.,大部分都留在東京了。故意的。,残りは東京に置いてきました。わざとです。
+"The kei truck coughs twice, then takes the dirt road into the hills at a speed the law might not approve of.",小貨車咳了兩聲，用不太合法的速度開上往山裡的土路。,軽トラックが二回咳き込み、山へ続く土の道を、あまり合法とは言えない速さで登っていく。
+"That field belonged to the Moriyamas. After old Moriyama passed, his wife moved to Osaka to live with their daughter.",那塊田是森山家的。老森山走了以後，他太太搬去大阪跟女兒住。,あの畑は森山家のものだ。森山の爺さんが亡くなったあと、奥さんは大阪の娘のところへ行った。
+"Then it sat empty for ten years. I open the windows now and then, and start this truck once a month. Somebody has to.",之後荒了十年。房子我偶爾去開窗通風，這台車我每個月發動一次。總得有人做。,そのあと十年、荒れっぱなしだ。家はたまに窓を開けて風を通してる。この車も月に一度はエンジンをかけてる。誰かがやらなきゃならんだろ。
+So this truck came with the land too...?,所以這台車也是……？,じゃあ、この車も……？
+"Old Moriyama's. It went with the land. Mrs Moriyama says a truck left idle breaks, and a field left idle goes to ruin.",老森山的。跟著地一起賣給你了。森山太太說，車不開會壞，田不種也會壞。,森山の爺さんのだ。土地と一緒に売った。奥さんが言うには、車は動かさなきゃ壊れるし、畑は手を入れなきゃ荒れるんだと。
+Why would a Tokyo man buy a dead field?,一個東京人，怎麼會跑來買一塊荒田？,東京の人間が、なんでまた荒れた畑なんか買ったんだ？
+Call it good luck.,就當我運氣好吧。,まあ、運が良かったんでしょうね。
+Luck won't water your turnips.,運氣可不會幫你澆蕪菁。,運じゃ、カブに水はやれねえぞ。
+Ever grown anything?,你種過東西嗎？,何か育てたことはあるのか？
+I kept a basil plant on my desk once. It died the week the product launched.,辦公桌上養過一盆羅勒。產品上線那週死了。,デスクでバジルを育てたことがあります。プロダクトをリリースした週に枯れましたけど。
+...Hmph. At least you're honest.,……哼。至少你很老實。,……ふん。少なくとも正直ではあるな。
+"Town is 30 minutes from the field, if the deer behave. Buy seeds from Sato-san. Get your coffee from Hana. She talks a lot, but she doesn't pry.",鎮上離田三十分鐘，鹿乖的話。種子去佐藤小姐那買。咖啡去小花那喝，她話多，但不會多問。,町までは畑から車で30分。シカがおとなしくしてればな。種は佐藤さんのところで買え。コーヒーはハナの店で飲め。よくしゃべるやつだが、余計なことは聞いてこん。
+"The harvest market is on Day 14, two weeks from now. The whole town goes. Bring what you grew, or don't bother coming.",兩個禮拜後是豐收市集，整個鎮的人都會去。帶你自己種的東西來，不然就別來丟臉。,十四日目に収穫市がある。今から二週間後だ。町中の人間が来る。自分で育てたものを持ってこい。さもなきゃ、恥をかくだけだから来るな。
+And no farming after 22:00. Working in the dark just gets you hurt.,還有，晚上十點以後就別下田了。摸黑做事，只會弄傷自己。,それと、22時を過ぎたら畑に出るな。暗がりで作業したら、怪我をするだけだ。
+"He talks like he's writing a spec. Short, no filler, and every point matters.",他講話像在寫規格書。簡短、沒有廢話，而且每一條都很重要。,あの人の話し方は、仕様書を書いているみたいです。短くて無駄がなくて、どの一言も大事なんですよね。
+"Full dark now. The headlights find an old house and a field grown over with weeds. Somewhere out past it, a river runs.",天全黑了。車燈照出一棟老房子、一大片長滿雜草的田，遠處有河水的聲音。,すっかり暗くなった。ヘッドライトが、古い家と雑草に覆われた広い畑を照らし出す。その先のどこかで、川の流れる音がする。
+We're here.,到了。,着いたぞ。
+"Power's on, water's on. I aired out the futons yesterday.",電通了，水也通了，棉被我昨天拿出來曬過。,電気も水も通した。布団は昨日干しといた。
+The field's over there. Nobody's touched it in ten years. The weeds are taller than you.,田就在那邊。十年沒人碰，雜草長得比你還高。,畑はあっちだ。十年、誰も手をつけてない。雑草がお前の背より高いぞ。
+"That wooden box by the field is the shipping bin. Put what you want to sell in before bed. Someone collects it by morning, and the money goes straight into your account.",田旁邊那個木箱是出貨箱。想賣的東西睡前放進去，隔天一早就有人來收，錢會直接入帳。,畑のそばの木箱が出荷箱だ。売りたいものは寝る前に入れとけ。朝には誰かが回収に来て、代金はそのまま口座に入る。
+"Sato-san asked me to drop this off. 3 packs of Turnip seeds. First batch is free, next time it's full price.",這個，佐藤小姐託我拿給你。三包蕪菁種子，她說第一次免費，下次照價算。,これ、佐藤さんから預かってきた。カブの種が3袋だ。初回はタダ、次からは定価だとさ。
+Everything's ready. The rest is up to you.,都準備好了。剩下的，就看你了。,準備はできてる。あとはお前次第だ。
+Gen-san tosses over a ring of keys.,阿源伯把一串鑰匙丟過來。,源さんが、鍵の束を放ってよこす。
+Then how are you getting home?,那你要怎麼回家？,じゃあ、帰りはどうするんですか？
+On foot. Good for the knees.,走路。對膝蓋好。,歩きだ。膝にいいんだ。
+"Don't call me unless the place is on fire. ...And if it is, call the fire department first.",沒失火就別打給我。……失火了也先打給消防隊。,火事じゃなきゃ電話してくるな。……火事なら、先に消防に電話しろ。
+"Gen-san walks off down the dirt road into the night, flashlight in hand, without looking back.",阿源伯打著手電筒，沿著土路走進夜裡，沒有回頭。,源さんは懐中電灯を手に、土の道を夜の闇へと歩いていく。振り返りもしなかった。
+The house smells of tatami and old timber.,屋子裡有榻榻米和舊木頭的味道。,家の中は、畳と古い木の匂いがする。
+One bar of signal left. The work group chat keeps pinging.,手機只剩一格訊號。工作群組還在跳通知。,電波は一本だけ。仕事のグループチャットが、まだ通知を鳴らし続けています。
+I deleted it. Easier than I expected.,我把它刪了。比想像中簡單。,アプリを削除しました。思ったより簡単でした。
+A note is weighed down on the low table. The handwriting is neat.,矮桌上壓著一張紙條，字跡很工整。,ちゃぶ台の上に、重しで押さえられた紙が一枚ある。字がとても丁寧だ。
+The soil here is good. It has only been lonely. Please take good care of it for me. — Moriyama,這塊地的土很好，它只是寂寞了。請替我好好照顧它。——森山,この土は良い土です。ただ、寂しかっただけなんです。どうか、私の代わりに大事にしてやってください。――森山
+...Right. I'll try.,……好。我會試試看。,……わかりました。やってみます。
+Six in the morning.,早上六點。,朝の六時。
+No alarm clock. Birds woke me up.,沒有鬧鐘。是鳥把我叫醒的。,目覚ましはなかった。起こしてくれたのは鳥の声でした。
+"Gen-san said the harvest market is two weeks away. To be exact, 13 days. Turn the soil, plant, water, and see what this field can grow.",阿源伯說，離豐收市集還有兩個禮拜。精確地說，是十三天。翻土、播種、澆水，看看這塊田能長出什麼。,源さんは、収穫市まであと二週間だと言っていました。正確には13日だそうです。土を耕して、種をまいて、水をやって。この畑に何が育つか、見届けてみようと思います。
+Mrs Moriyama,森山太太,森山夫人
+Inner voice,心聲,心の声
