@@ -122,11 +122,11 @@ func test_new_game_propagates_settings_and_tutorial_toggle_to_world_hud() -> voi
     var tutorial_before: Dictionary = world._session.snapshot()["tutorial"].duplicate(true)
 
     var accepted := InputEventAction.new()
-    accepted.action = &"ui_accept"
+    accepted.action = &"ui_cancel"
     accepted.pressed = true
     hud.get_viewport().push_input(accepted)
     var released := InputEventAction.new()
-    released.action = &"ui_accept"
+    released.action = &"ui_cancel"
     released.pressed = false
     hud.get_viewport().push_input(released)
     assert_false(opening.visible)
