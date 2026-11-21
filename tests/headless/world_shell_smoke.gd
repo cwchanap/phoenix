@@ -124,11 +124,11 @@ func _release_movement_actions() -> void:
 
 func _acknowledge_intro(world: WorldShell) -> void:
     var accepted := InputEventAction.new()
-    accepted.action = &"ui_accept"
+    accepted.action = &"ui_cancel"
     accepted.pressed = true
     world.get_viewport().push_input(accepted)
     var released := InputEventAction.new()
-    released.action = &"ui_accept"
+    released.action = &"ui_cancel"
     released.pressed = false
     world.get_viewport().push_input(released)
 

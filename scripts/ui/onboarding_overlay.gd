@@ -208,7 +208,10 @@ func is_opening_visible() -> bool:
     return _opening_panel.visible
 
 func _unhandled_input(event: InputEvent) -> void:
-    if not _opening_panel.visible or not event.is_action_pressed("ui_accept"):
+    if not _opening_panel.visible:
+        return
+    # shortcut: Enter dismisses the whole intro until Enter advances one page at a time
+    if not (event.is_action_pressed("ui_cancel") or event.is_action_pressed("ui_accept")):
         return
     get_viewport().set_input_as_handled()
     intro_acknowledged.emit()

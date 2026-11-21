@@ -29,11 +29,11 @@ func _spawn_world(acknowledge_intro: bool, settings: UiSettings = null) -> World
     add_child_autoqfree(world)
     if acknowledge_intro:
         var accepted := InputEventAction.new()
-        accepted.action = &"ui_accept"
+        accepted.action = &"ui_cancel"
         accepted.pressed = true
         world.get_viewport().push_input(accepted)
         var released := InputEventAction.new()
-        released.action = &"ui_accept"
+        released.action = &"ui_cancel"
         released.pressed = false
         world.get_viewport().push_input(released)
     return world
@@ -3182,7 +3182,7 @@ func _press_escape() -> void:
     Input.parse_input_event(released)
     await get_tree().process_frame
 
-func test_escape_does_not_open_help_over_blocking_intro() -> void:
+func test_escape_skips_blocking_intro_without_opening_help() -> void:
     var world := _locked_world()
     var hud := _hud(world)
     var overlay := hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
@@ -3190,9 +3190,25 @@ func test_escape_does_not_open_help_over_blocking_intro() -> void:
 
     await _press_escape()
 
-    assert_true(overlay.is_opening_visible())
+    assert_false(overlay.is_opening_visible())
     assert_false(_panel(hud, "PausePanel").visible)
-    assert_false(world._world_input_enabled)
+    assert_true(world._world_input_enabled)
+
+func test_esc_skip_and_enter_dismissal_leave_the_same_day_one_snapshot() -> void:
+    var esc_world := _locked_world()
+    await _press_escape()
+    var enter_world := _locked_world()
+    await _press_panel_action(&"ui_accept")
+    var esc_snapshot := esc_world._session.snapshot()
+    var enter_snapshot := enter_world._session.snapshot()
+    for key in ["day", "time_minutes", "money", "seeds", "intro_acknowledged", "tutorial"]:
+        assert_eq(esc_snapshot[key], enter_snapshot[key], key)
+    for world: WorldShell in [esc_world, enter_world]:
+        var hud := _hud(world)
+        var overlay := hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
+        assert_false(overlay.is_opening_visible())
+        assert_false(_panel(hud, "PausePanel").visible)
+        assert_true(world._world_input_enabled)
 
 
 func test_escape_toggles_code_built_help_and_world_gate() -> void:
@@ -4447,14 +4463,17 @@ func _configured_world(initial_state: Variant, repository: SaveRepository) -> Wo
     world.configure(initial_state, repository)
     world.clock_running = false
     add_child_autoqfree(world)
-    var accepted := InputEventAction.new()
-    accepted.action = &"ui_accept"
-    accepted.pressed = true
-    world.get_viewport().push_input(accepted)
-    var released := InputEventAction.new()
-    released.action = &"ui_accept"
-    released.pressed = false
-    world.get_viewport().push_input(released)
+    # An acknowledged seeded save has no intro, and an Esc there could open Pause.
+    var overlay := world.hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
+    if overlay.is_opening_visible():
+        var accepted := InputEventAction.new()
+        accepted.action = &"ui_cancel"
+        accepted.pressed = true
+        world.get_viewport().push_input(accepted)
+        var released := InputEventAction.new()
+        released.action = &"ui_cancel"
+        released.pressed = false
+        world.get_viewport().push_input(released)
     return world
 
 func test_overnight_save_restores_upgrade_and_efficient_watering() -> void:
