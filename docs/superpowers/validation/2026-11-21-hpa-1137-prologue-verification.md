@@ -15,12 +15,12 @@ unverified, and the local e2e lane was not clean in a single full run.
 
 ## Lane results
 
-Tested commit `bd0fc48`. The only later change is the e2e test trim in `ca1238e`.
+Local lanes ran on `4d173e6`, except godot-e2e, which was last run locally on earlier commits (see below) because the host was too loaded to repeat it; GitHub CI covers the pushed head.
 
 | Lane | Result |
 |---|---|
 | `godot --headless --editor --quit` (import) | pass |
-| GUT unit and integration | 629 of 629 pass, 42,290 asserts |
+| GUT unit and integration | 629 of 629 pass, 42,378 asserts |
 | `project_smoke`, `world_math_smoke`, `world_shell_smoke` | pass |
 | `tools/check_audio_sources.py` | pass |
 | `tools/verify-clean.sh` (archives committed HEAD, fetches GUT) | pass, 629 of 629 |
