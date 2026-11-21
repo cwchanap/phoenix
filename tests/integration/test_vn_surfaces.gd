@@ -645,7 +645,10 @@ func test_clicking_accept_on_the_last_page_acknowledges_once_without_advancing()
 	await _settle()
 	await _go_to_page(overlay, overlay.page_count())
 	watch_signals(overlay)
-	await _click(_opening(overlay).find_child("Accept", true, false) as Button)
+	var accept := _opening(overlay).find_child("Accept", true, false) as Button
+	await _press_and_release_outside(accept)
+	assert_signal_not_emitted(overlay, "intro_acknowledged", "press-then-release outside Accept does not acknowledge")
+	await _click(accept)
 	assert_signal_emit_count(overlay, "intro_acknowledged", 1)
 	assert_eq(overlay.current_page()["page_number"], 58)
 
@@ -777,6 +780,7 @@ func test_prologue_and_skip_captions_auto_translate_in_each_locale() -> void:
 	var opening := _opening(overlay)
 	var prologue := opening.find_child("Prologue", true, false) as Label
 	var skip := opening.find_child("Skip", true, false) as Button
+	var role := opening.find_child("Role", true, false) as Label
 	var skip_caption: Label = null
 	for label in skip.find_children("*", "Label", true, false):
 		if (label as Label).text == "Skip intro":
@@ -784,13 +788,39 @@ func test_prologue_and_skip_captions_auto_translate_in_each_locale() -> void:
 	assert_not_null(skip_caption)
 	if skip_caption == null:
 		return
+	await _go_to_page(overlay, _page_of(1, 2))
+	var line_key := String(ContentRules.PROLOGUE_SCENES[1]["lines"][2]["text"])
+	assert_eq(role.text, ContentRules.OPENING_ROLE)
 	TranslationServer.set_locale("zh_TW")
 	assert_eq(prologue.atr(prologue.text), "序章")
 	assert_eq(skip_caption.atr(skip_caption.text), "跳過開場")
+	assert_eq(role.atr(role.text), "前軟體工程師")
+	assert_eq(_dock_body(overlay).text, tr("“%s”") % tr(line_key))
 	TranslationServer.set_locale("ja")
 	assert_eq(prologue.atr(prologue.text), "プロローグ")
 	assert_eq(skip_caption.atr(skip_caption.text), "イントロをスキップ")
+	assert_eq(role.atr(role.text), "元ソフトウェアエンジニア")
+	assert_eq(_dock_body(overlay).text, tr("“%s”") % tr(line_key))
 	TranslationServer.set_locale("en")
+	assert_eq(_dock_body(overlay).text, "“%s”" % line_key)
+
+func test_acknowledged_render_keeps_prologue_textures_unloaded() -> void:
+	var overlay := _spawn_panel("res://scenes/ui/onboarding_overlay.tscn") as OnboardingOverlay
+	if overlay == null:
+		return
+	var background := overlay.get_node("IntroBackground") as TextureRect
+	var portrait := _opening(overlay).find_child("Portrait", true, false) as TextureRect
+	assert_null(background.texture, "ready does not pre-load scene 1 before render")
+	overlay.render(_acknowledged_snapshot())
+	assert_null(background.texture, "an acknowledged save never loads prologue background art")
+	assert_null(portrait.texture)
+	overlay.render(GameSession.new().snapshot())
+	await _go_to_page(overlay, _page_of(1, 0))
+	assert_not_null(background.texture)
+	assert_not_null(portrait.texture)
+	overlay.render(_acknowledged_snapshot())
+	assert_null(background.texture, "acknowledging releases prologue background art")
+	assert_null(portrait.texture, "acknowledging releases prologue portrait art")
 
 func test_enter_plays_all_58_pages_in_order_and_acknowledges_once_on_the_last() -> void:
 	var overlay := _intro()
