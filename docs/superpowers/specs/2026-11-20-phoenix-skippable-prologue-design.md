@@ -84,5 +84,5 @@ Recorded during implementation. The acceptance checkboxes above stay open.
 - **The night grade is a single `NIGHT_GRADE` modulate.** It darkens only the background painting for scenes 4 and 5; the letterbox bars, dock and text stay unshaded.
 - **Inner voice keeps the pink-to-orange dock band.** The mockup's violet band would need a per-page recolour of the gradient that `UiStyle.gradient_band()` builds once, so it was not applied. The mockup's `#5e4470` 34px/500 body text and `#6b4a9e` role-label text colour are applied (the pill itself keeps the white card).
 - **Kenji's note reply uses the dock.** The mockup shows a bare line under the card; the overlay keeps the inner-voice dock so every spoken line looks alike.
-- **Narration has no bottom scrim.** The mockup darkens the lower part of scene 1; the overlay draws the narration text directly over the painting.
+- **Narration pages draw a bottom `Scrim` gradient**, added after review, matching the mockup's darkened lower part so the text reads over any painting.
 - **The top-bar label is the translated "Prologue" alone**, so zh_TW shows 序章 where the mockup shows 序章 PROLOGUE.
