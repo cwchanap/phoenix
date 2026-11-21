@@ -81,7 +81,6 @@ func _rules_strings() -> Array[String]:
         result.append(String(scene["tag"]))
         for line in scene["lines"]:
             result.append(String(line["text"]))
-    result.append(ContentRules.NOTE_AUTHOR)
     result.append(ContentRules.INNER_VOICE_LABEL)
     for opening_text in [
         ContentRules.OPENING_SPEAKER,

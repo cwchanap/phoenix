@@ -23,6 +23,7 @@ const NIGHT_GRADE := Color(0.5, 0.5, 0.66)
 const PAPER := Color("fffaf0")
 const PAPER_INK := Color("3b2a1e")
 const INNER_VOICE_INK := Color("6b4a9e")
+const INNER_VOICE_BODY := Color("5e4470")
 const DOT_IDLE := Color(1.0, 1.0, 1.0, 0.45)
 const DOT_SIZE := 10.0
 const DOT_ACTIVE_WIDTH := 34.0
@@ -139,6 +140,8 @@ func _build_opening() -> void:
     _truck = _picture("Truck", TRUCK_POSITION, TRUCK_SIZE)
     _truck.texture = frame
     _portrait = _picture("Portrait", PORTRAIT_POSITION, PORTRAIT_SIZE)
+    # The tag and dots draw above the portrait and truck art they sit beside.
+    _opening_panel.move_child(header, _portrait.get_index() + 1)
 
     var narration_column := UiStyle.vbox(0)
     narration_column.name = "NarrationBox"
@@ -413,9 +416,12 @@ func _render_dock(line: Dictionary, kind: int, speaker: int) -> void:
     else:
         _name_tag.set_tag(ContentRules.OPENING_SPEAKER, UiStyle.ACCENT_GRADIENT)
         _set_role(ContentRules.OPENING_ROLE, UiStyle.INK_MUTED)
-    _body.text = String(line["text"])
-    var body_ink := INNER_VOICE_INK if kind == ContentRules.LineKind.INNER_VOICE else UiStyle.INK
-    _body.add_theme_color_override("font_color", body_ink)
+    var text_value := String(line["text"])
+    _body.text = (tr("“%s”") % tr(text_value)) if kind == ContentRules.LineKind.DIALOGUE else text_value
+    if kind == ContentRules.LineKind.INNER_VOICE:
+        UiStyle.text(_body, 34, INNER_VOICE_BODY, 500)
+    else:
+        UiStyle.text(_body, 36, UiStyle.INK, 700)
 
 func _set_role(text_value: String, color: Color) -> void:
     _role.text = text_value
