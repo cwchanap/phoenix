@@ -131,6 +131,7 @@ Done on the same branch after the first push:
   The behaviour is kept and README and CLAUDE.md now say so.
 - **Day 1 diary line.** `DIARY_LINES[0]` is no longer shown, but the 14-entry table is pinned
   by tests and by the morning summary's clamp, so it stays; CLAUDE.md now says it is unused.
-
-Not changed: the scene 1 texture is still loaded when a World is built, even on Continue (one
-3.6 MB texture, no measured cost), and the remaining visual differences above are unchanged.
+- **Lazy prologue texture loading and locale re-render.** `OnboardingOverlay._ready()` no longer
+  loads the scene-1 painting before `render()`, `render()` releases background/portrait textures
+  once `intro_acknowledged` is true, and locale changes re-render the current page in place so
+  quoted dialogue bodies update immediately.

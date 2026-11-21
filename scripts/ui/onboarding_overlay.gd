@@ -60,11 +60,14 @@ var _line_index := 0
 
 func _ready() -> void:
     _build_opening()
-    _show_page()
     _build_tutorial_card()
     _intro_background.visible = false
     _opening_panel.visible = false
     _tutorial_card.visible = false
+
+func _notification(what: int) -> void:
+    if what == NOTIFICATION_TRANSLATION_CHANGED and _opening_panel != null and _opening_panel.visible:
+        _show_page()
 
 func _build_opening() -> void:
     _intro_background = TextureRect.new()
@@ -291,10 +294,14 @@ func render(snapshot: Dictionary) -> void:
     _intro_background.visible = _opening_panel.visible
     if _opening_panel.visible:
         _tutorial_card.visible = false
-    elif not _tutorial_cards_enabled:
-        _tutorial_card.visible = false
+        _show_page()
     else:
-        _render_tutorial(ContentRules.next_tutorial_prompt(snapshot, _dismissed))
+        _intro_background.texture = null
+        _portrait.texture = null
+        if not _tutorial_cards_enabled:
+            _tutorial_card.visible = false
+        else:
+            _render_tutorial(ContentRules.next_tutorial_prompt(snapshot, _dismissed))
     if was_blocking != _opening_panel.visible:
         blocking_state_changed.emit()
 
@@ -362,7 +369,9 @@ func _show_page() -> void:
     var line := _line()
     var kind := int(line["kind"])
     var speaker := int(line.get("villager", -1))
-    _intro_background.texture = load(String(scene["background"]))
+    var background_path := String(scene["background"])
+    if _intro_background.texture == null or _intro_background.texture.resource_path != background_path:
+        _intro_background.texture = load(background_path)
     _intro_background.modulate = NIGHT_GRADE if bool(scene["night"]) else Color.WHITE
     _scene_tag.set_tag(String(scene["tag"]), [UiStyle.ACCENT_2])
     _truck.visible = bool(scene["truck"])
@@ -417,7 +426,9 @@ func _render_portrait(scene_portrait: int, kind: int, speaker: int) -> void:
     _portrait.visible = shown
     if not shown:
         return
-    _portrait.texture = load("res://assets/ui/portraits/%s.png" % VillagerRules.PORTRAIT_NAMES[villager])
+    var portrait_path := "res://assets/ui/portraits/%s.png" % VillagerRules.PORTRAIT_NAMES[villager]
+    if _portrait.texture == null or _portrait.texture.resource_path != portrait_path:
+        _portrait.texture = load(portrait_path)
     _portrait.modulate = Color.WHITE if speaker >= 0 else DialoguePanel.DIMMED
 
 ## The latest note in this scene, so a note stays up until the scene changes.
