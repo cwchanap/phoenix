@@ -9,8 +9,8 @@ automatically tills, plants, waters, or harvests the faced farm cell, and E
 interacts — physical near-contact first, exact raw cell only as the
 fixture/legacy fallback — with the bed, shipping bin, farm/town trucks, town
 Seed Shop, Harvest Market, or faced villager. A new run opens on the
-skippable six-scene prologue: Enter or a click advances one line, and Esc or
-Skip acknowledges from any page.
+skippable six-scene prologue: Enter, Space or a click advances one line, and
+Esc or Skip acknowledges from any page.
 There is no JavaScript or Tauri runtime in the current checkout.
 
 - I/B/C open and close Bag, Almanac, and Calendar while the world is available;
@@ -105,7 +105,9 @@ There is no JavaScript or Tauri runtime in the current checkout.
 - `scripts/game/content_rules.gd` (`ContentRules`) owns the frozen HPA-597
   content policy: `TUTORIALS` is the one tutorial identity/copy/completion
   table, plus prompt relevance and the harvest result tiers/totals. HPA-684
-  adds the authored one-per-day `DIARY_LINES`/`diary_line()` sequence and the
+  adds the authored one-per-day `DIARY_LINES`/`diary_line()` sequence (Day 1's
+  entry stays in the 14-entry table but is no longer shown, since the prologue
+  replaced the old opening card) and the
   single `RESULT_TIERS` table holding each tier's title and epilogue; views
   render both as plain auto-translated Labels and never duplicate the copy.
   It is stateless.
@@ -192,9 +194,10 @@ There is no JavaScript or Tauri runtime in the current checkout.
   the CSV. `OnboardingOverlay` renders it with two transient indexes
   (`_scene_index`, `_line_index`) and no save state; `intro_acknowledged` stays
   the only flag, and `SlantTag.set_tag()` retitles the scene tag in place.
-  Enter and a click on the passive panel advance one line, the last page's
-  Begin Day 1 acknowledges once, and Esc or Skip acknowledges from any page
-  without opening Pause.
+  Enter or Space (`ui_accept`) and a click on the passive panel advance one
+  line, the last page's Begin Day 1 acknowledges once, and Esc or Skip
+  acknowledges from any page without opening Pause. Narration pages draw a
+  bottom `Scrim` gradient behind the text.
 - GameHud.has_blocking_modal() remains the single world-input gate.
 - `scripts/world/world_shell.gd` is the only production session holder and
   coordinator: it owns the `GameSession` instance, wires HUD signals to

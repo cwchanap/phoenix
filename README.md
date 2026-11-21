@@ -37,8 +37,8 @@ user://phoenix-settings.cfg.
 
 A fresh run opens on a skippable six-scene prologue in Kenji's voice: he won
 the lottery, left his software job in Tokyo, and bought a neglected field two
-weeks before the Day 14 harvest market. Enter advances one line (a click does
-too), Esc or Skip acknowledges from any page, and the last page's Begin Day 1
+weeks before the Day 14 harvest market. Enter or Space advances one line (a
+click does too), Esc or Skip acknowledges from any page, and the last page's Begin Day 1
 starts the day at 06:00 with 150 gold and three Turnip seeds, followed by
 dismissible, contextual help for the current step. Every overnight advance (Days 2–14) puts that
 day's authored diary line in the blocking morning summary, and a completed
