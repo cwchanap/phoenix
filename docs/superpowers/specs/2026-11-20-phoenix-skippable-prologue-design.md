@@ -73,3 +73,13 @@ Existing `test_every_key_has_both_translations_with_matching_placeholders` alrea
 - Existing verifier, headless smoke, GUT/integration, GdUnit4, godot-e2e and GitHub CI are green on committed implementation. Publish en/ja copy clearly in the PR for editorial feedback, but **human approval is not an acceptance gate**.
 
 **Non-goals:** generating new art or sound, cutscene/scene framework, train/truck animation, choices, new player naming, save migration/backwards compatibility, economy/balance changes, multiple PRs, or multi-platform duplicate acceptance.
+
+## Implementation notes and deviations
+
+Recorded during implementation. The acceptance checkboxes above stay open.
+
+- **NOTE attribution stays inline.** The approved zh_TW and ja note text already ends with the signature, so `ContentRules.NOTE_AUTHOR` and its `Mrs Moriyama` CSV row were removed instead of printing the signature twice.
+- **Scene 3's mirrored right-hand Gen-san is not reproduced.** The table has no side data, so the country-road scene shows the truck and the scene's portrait rules only.
+- **Listeners are dimmed with `DialoguePanel.DIMMED`**, the same 45% alpha the dialogue panel uses for non-speaking characters.
+- **The night grade is a single `NIGHT_GRADE` modulate.** It darkens only the background painting for scenes 4 and 5; the letterbox bars, dock and text stay unshaded.
+- **Inner voice keeps the pink-to-orange dock band.** The mockup's violet band would need a per-page recolour of the gradient that `UiStyle.gradient_band()` builds once, so it was not applied. The mockup's `#5e4470` 34px/500 body text and `#6b4a9e` role pill are applied.

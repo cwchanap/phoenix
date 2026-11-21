@@ -8,7 +8,9 @@ statically typed GDScript. Open the repository in Godot and run
 automatically tills, plants, waters, or harvests the faced farm cell, and E
 interacts — physical near-contact first, exact raw cell only as the
 fixture/legacy fallback — with the bed, shipping bin, farm/town trucks, town
-Seed Shop, Harvest Market, or faced villager.
+Seed Shop, Harvest Market, or faced villager. A new run opens on the
+skippable six-scene prologue: Enter or a click advances one line, and Esc or
+Skip acknowledges from any page.
 There is no JavaScript or Tauri runtime in the current checkout.
 
 - I/B/C open and close Bag, Almanac, and Calendar while the world is available;
@@ -185,6 +187,14 @@ There is no JavaScript or Tauri runtime in the current checkout.
 - OnboardingOverlay is code-built under `GameHud` (like DialoguePanel) and
   forwards opening/tutorial visibility through the existing
   `modal_state_changed` signal; it owns no gameplay state.
+- `ContentRules.PROLOGUE_SCENES` (with `LineKind`) is the single prologue
+  story table: six scenes, 58 lines, English source text translated through
+  the CSV. `OnboardingOverlay` renders it with two transient indexes
+  (`_scene_index`, `_line_index`) and no save state; `intro_acknowledged` stays
+  the only flag, and `SlantTag.set_tag()` retitles the scene tag in place.
+  Enter and a click on the passive panel advance one line, the last page's
+  Begin Day 1 acknowledges once, and Esc or Skip acknowledges from any page
+  without opening Pause.
 - GameHud.has_blocking_modal() remains the single world-input gate.
 - `scripts/world/world_shell.gd` is the only production session holder and
   coordinator: it owns the `GameSession` instance, wires HUD signals to
