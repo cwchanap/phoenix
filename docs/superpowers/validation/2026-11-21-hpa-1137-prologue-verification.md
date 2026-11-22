@@ -1,10 +1,10 @@
 # HPA-1137 prologue: verification record
 
 Agent-run evidence for the skippable six-scene prologue. The MCP-driven
-gate below is verified on `3982ac1`; the acceptance checkboxes can close
-once CI is green on the pushed head. The local e2e lane was not clean in
-a single full run on the shared host, so GitHub CI remains the authority
-for that lane.
+gate below is verified: the visual/signal-path run on `3982ac1` and the
+real-input (Enter/Esc) run on `08abbc6`. GitHub CI is green on `08abbc6`
+and remains the authority for the GdUnit e2e lane, which was not clean in
+a single full run on the shared host.
 
 ## Environment
 
@@ -109,6 +109,43 @@ One environment note, not a defect: the first windowed capture came out
 1879x1057 because the game's fit logic shrank the window to the X server's
 usable rect; fullscreen on `:99` yields a native 1920x1080 client and all
 frames above are native 1920x1080.
+
+### Real-input path through MCP: verified on `08abbc6`
+
+Review on `3982ac1` correctly noted the run above emits `pressed` on
+`BaseButton` nodes, which bypasses `OnboardingOverlay._unhandled_input()`
+for Enter/Esc and cannot cover the Esc-consumption / no-Pause regression.
+A follow-up run drove real `InputEventKey`s through the same MCP session.
+
+Mechanism, recorded plainly: the stock bridge allowlists only `press`, and
+the connected MCP server also drops non-`press` actions before forwarding
+(`runtime-control-manager.js` `SUPPORTED_NODE_ACTIONS`). The locally
+installed bridge (`addons/godot_mcp_runtime`, gitignored, not part of the
+branch) was therefore extended so a `#<directive>` suffix on `nodePath`
+carries the instruction alongside `action: "press"`: `#key:<name>` injects
+a press+release `InputEventKey` via `Input.parse_input_event` — the same
+injection the gdunit_e2e server uses for `input_key`
+(`command_handler.gd`) — and `#get:<property>` reads node state. The
+bridge copy was reverted to stock after the run.
+
+Environment: Godot 4.7.2 stable mono, llvmpipe under `Xvfb :99` at
+1920x1080x24, fullscreen (native 1920x1080 frames), `en` locale, no save
+file, mirroring the e2e fixture.
+
+Sequence and read-back results, mirroring
+`test_new_game_enter_advances_one_page_then_escape_skips_to_day_one`:
+
+| Step | Drive | Result |
+|---|---|---|
+| Title → New Game | `press` on `TitleScreen/Menu/NewGame` | `OpeningPanel.visible` = true, `_line_index` = 0 |
+| Enter once | `#key:enter` → `InputEventKey(KEY_ENTER)` | `_line_index` = 1, `OpeningPanel.visible` = true (exactly one page) |
+| Esc | `#key:escape` → `InputEventKey(KEY_ESCAPE)` | `OpeningPanel.visible` = false, **`PausePanel.visible` = false**, `Day` text = "Day 1", money = "150G", seed count = "×3", `World._world_input_enabled` = true |
+
+The Esc therefore reached `_unhandled_input`, was consumed by
+`set_input_as_handled()`, skipped the opening and never opened Pause —
+the regression the button-press run could not observe. Evidence frames
+(native 1920x1080, downscaled to 660 px): `mcp-realkey-page02.jpg` (after
+Enter, page 2 up) and `mcp-realkey-day1.jpg` (post-skip Day 1 HUD).
 
 ## Visual check at 1920x1080
 
