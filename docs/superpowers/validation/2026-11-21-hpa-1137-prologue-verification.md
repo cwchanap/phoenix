@@ -1,8 +1,10 @@
 # HPA-1137 prologue: verification record
 
-Agent-run evidence for the skippable six-scene prologue. The acceptance
-checkboxes in the plan and spec stay open: the MCP-driven gate below is
-unverified, and the local e2e lane was not clean in a single full run.
+Agent-run evidence for the skippable six-scene prologue. The MCP-driven
+gate below is verified on `3982ac1`; the acceptance checkboxes can close
+once CI is green on the pushed head. The local e2e lane was not clean in
+a single full run on the shared host, so GitHub CI remains the authority
+for that lane.
 
 ## Environment
 
@@ -58,12 +60,55 @@ per-frame work after the skip. The baseline's three clean runs are most plausibl
 luck, and a clean snapshot copy of HEAD flaked the same way. **GitHub CI on the pushed
 branch is the authority for this lane.**
 
-## MCP-driven acceptance: unverified
+## MCP-driven acceptance: verified
 
-The repository has no Godot MCP transport and this session had no MCP-connected
-Godot execution environment. Every run above is an agent shell run, not an MCP run,
-so the plan's MCP criterion is **unverified**. Nothing here should be read as MCP
-evidence.
+A later session ran the gate through the Godot MCP runtime bridge
+(`addons/godot_mcp_runtime`, v0.1.5, gitignored) on `3982ac1`. Environment:
+Godot 4.7.2 stable mono, llvmpipe GL under `Xvfb :99` at 1920x1080x24, fullscreen
+mode so the client viewport is natively 1920x1080. Drive was `invoke_node_action
+press` on real `BaseButton` nodes (`TitleScreen/Menu/NewGame`, the overlay's
+`Skip` and `Continue`); `capture_screenshot` captured the rendered
+viewport. The bridge's project.godot autoload line is a local-only change used
+for this run and is not part of the branch.
+
+Per locale (en, zh_TW, ja): New Game press → prologue page 1 → `Continue`
+presses to the representative pages → `Skip` press → Day 1. Every captured frame
+is 1920x1080; `mcp-frames-<locale>.jpg` sheets in `hpa-1137-prologue/` are these
+frames downscaled to 660 px wide, and `mcp-day1.jpg` holds the three post-skip
+Day 1 frames.
+
+Coverage and results:
+
+- en: pages 1, 2, 15, 32, 44, 55, 58, Day 1. Page 2 confirms one `Continue`
+  press advances exactly one page (the Enter-equivalent path); page 2 frame is
+  `mcp-en-page02.jpg`.
+- zh_TW: pages 1, 16, 32, 44, 55, 58, Day 1. Page 16 is the scene-2 Hana frame
+  (one extra press landed one line past 15; same scene and composition).
+- ja: pages 1, 15, 32, 44, 55, 58, Day 1.
+
+Post-skip Day 1 in all three locales shows the localized day tag (Day 1 /
+第 1 天 / 1日目), 150G, Turnip seed ×3, the localized tutorial card and no pause
+panel. The HUD clock read 06:05 (en), 06:16 (zh_TW) and 06:10 (ja) — expected,
+not a defect. The clock starts at `DAY_START_MINUTES` (06:00) and is frozen
+while the prologue holds the input gate (`WorldShell._advance_passive_clock`
+early-returns on `_world_input_enabled` false); once Day 1 begins it advances
+at `REAL_SECONDS_PER_GAME_MINUTE` = 0.15 s per game-minute, so a second of real
+latency between the Skip press and the capture is several game minutes. The
+e2e test asserts day tag/money/seeds, not a frozen clock.
+
+The MCP frames match the shell-captured sheets and the mockup on every
+composition element: letterbox bars and localized "Prologue" label and skip
+hint, scene tag with six progress dots, speaker portrait and dimmed listener,
+scene-3 kei truck, scenes 4 and 5 night grade, narration scrim, scene-5 paper
+note card, scene-6 Begin Day 1 button, and localized name/role pills. No
+clipped or overlapping text in any frame. The documented deviations (lighter
+scene-4 grade, left-dimmed scene-3 listener, pink inner-voice band, inline
+note signature, zh_TW 序章 label) appear identically in the MCP frames.
+
+One environment note, not a defect: the first windowed capture came out
+1879x1057 because the game's fit logic shrank the window to the X server's
+usable rect; fullscreen on `:99` yields a native 1920x1080 client and all
+frames above are native 1920x1080.
 
 ## Visual check at 1920x1080
 
