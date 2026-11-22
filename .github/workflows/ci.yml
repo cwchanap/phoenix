@@ -30,6 +30,14 @@ jobs:
           mkdir -p build
           godot --headless --path . --export-release "macOS" build/Phoenix.zip
           unzip -l build/Phoenix.zip | grep -F "Phoenix.app/Contents/MacOS/Phoenix"
+      - name: Verify exported PCK loads its world resources
+        run: |
+          rm -rf build/pack-gate
+          mkdir -p build/pack-gate/home
+          unzip -p build/Phoenix.zip Phoenix.app/Contents/Resources/Phoenix.pck > build/pack-gate/Phoenix.pck
+          cd build/pack-gate
+          HOME="$PWD/home" godot --headless --main-pack Phoenix.pck \
+            --script res://tools/export_pack_smoke.gd
       - name: Upload macOS build
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
