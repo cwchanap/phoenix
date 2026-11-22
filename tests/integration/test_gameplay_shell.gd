@@ -7457,6 +7457,7 @@ func test_modal_submit_reuses_saved_interact_target_even_if_player_moves_or_turn
     await _drive_to_town(world)
     var shop_rows := _face_rows(TownContract.SHOP_FOOTPRINT)
     var shop_stop := await _contact_stop(world, GameRules.MapId.TOWN, TownContract.SHOP_FOOTPRINT, shop_rows[2])
+    assert_true(shop_stop["ok"], "the shop's south face must be physically reachable")
     if not shop_stop["ok"]:
         return
     world.player.facing = WorldMath.Facing.UP
@@ -7478,6 +7479,7 @@ func test_modal_submit_reuses_saved_interact_target_even_if_player_moves_or_turn
     var bed_slice := _bed_door_slice()
     var bed_rows := _face_rows(bed_slice)
     var bed_stop := await _contact_stop(world, GameRules.MapId.FARM, bed_slice, bed_rows[2])
+    assert_true(bed_stop["ok"], "the house door slice's yard face must be physically reachable")
     if not bed_stop["ok"]:
         return
     world.player.facing = WorldMath.Facing.UP
@@ -7504,6 +7506,7 @@ func test_modal_submit_reuses_saved_interact_target_even_if_player_moves_or_turn
     await _drive_to_town(world)
     var market_rows := _face_rows(TownContract.MARKET_FOOTPRINT)
     var market_stop := await _contact_stop(world, GameRules.MapId.TOWN, TownContract.MARKET_FOOTPRINT, market_rows[2])
+    assert_true(market_stop["ok"], "the market's south face must be physically reachable")
     if not market_stop["ok"]:
         return
     world.player.facing = WorldMath.Facing.UP
