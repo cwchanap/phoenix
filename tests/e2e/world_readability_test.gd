@@ -175,9 +175,10 @@ func test_near_contact_e_opens_five_interactables_and_wrong_facing_refuses() -> 
 		await game.wait_for_property(HUD + "/SleepPanel", "visible", false, 5.0)
 	).is_true()
 
-	# Shipping bin: a west near-contact opens the shipping panel.
+	# Shipping bin: the approved field fence seals the west face, so a north
+	# near-contact (faced down-screen) opens the shipping panel.
 	var bin_footprint := _region_footprint(true, WorldContract.SHIPPING_CELL)
-	await _stand_at_contact(game, bin_footprint, 3, DOWN)
+	await _stand_at_contact(game, bin_footprint, 0, DOWN)
 	assert_str(await game.call_method(GAME_HUD, "prompt_text")).is_equal(
 		"[E] Shipping"
 	)

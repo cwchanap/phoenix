@@ -27,15 +27,13 @@ func _fill_perimeters(
 	for index in perimeter_rects.size():
 		_fill_collision(static_collision, perimeter_names[index], perimeter_rects[index])
 
-func _fill_backdrop(
-	layer: TileMapLayer,
-	is_road: Callable,
-	is_water: Callable = Callable(),
+func _add_collisions(
+	body: StaticBody2D,
+	rects: Array[Rect2],
+	prefix := "Collision",
 ) -> void:
-	for cell in WorldMath.backdrop_cells(camera_bounds(), map_size()):
-		var tile := WorldContract.BACKDROP_GRASS_TILE
-		if is_water.is_valid() and is_water.call(cell):
-			tile = WorldContract.BACKDROP_WATER_TILE
-		elif is_road.call(cell):
-			tile = WorldContract.BACKDROP_ROAD_TILE
-		layer.set_cell(cell, 0, tile)
+	for index in rects.size():
+		var collision := CollisionPolygon2D.new()
+		collision.name = "%s%d" % [prefix, index]
+		collision.polygon = WorldMath.footprint_to_polygon(rects[index])
+		body.add_child(collision)
