@@ -147,6 +147,17 @@ the regression the button-press run could not observe. Evidence frames
 (native 1920x1080, downscaled to 660 px): `mcp-realkey-page02.jpg` (after
 Enter, page 2 up) and `mcp-realkey-day1.jpg` (post-skip Day 1 HUD).
 
+Scope note: the GdUnit4 suite itself is not invocable through the
+bridge. `runtest.sh` launches it as `godot -s res://addons/gdUnit4/bin/
+GdUnitCmdTool.gd`, which spawns its own runner and game client, and the
+bridge — the only MCP-connected execution environment in this session —
+has no command-execution path. The run above therefore reproduces the
+test's exact sequence and read-backs through the same
+`Input.parse_input_event` mechanism the e2e `input_key` command uses
+(`addons/gdunit_e2e/server/command_handler.gd`). The literal suite
+remains covered by GitHub CI on the pushed head, already the designated
+authority for that lane.
+
 ## Visual check at 1920x1080
 
 Frames come from `scenes/app/app.tscn`, driven by real key and mouse events (title
