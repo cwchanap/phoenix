@@ -1,16 +1,37 @@
 [gd_resource type="TileSet" format=3]
 
-[ext_resource type="Texture2D" path="res://assets/sprites/town-terrain.png" id="1_terrain"]
+[ext_resource type="Texture2D" path="res://assets/sprites/world-v2/ground/grass-phases.png" id="t0"]
+[ext_resource type="Texture2D" path="res://assets/sprites/world-v2/ground/paving-phases.png" id="t1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/world-v2/ground/road-phases.png" id="t2"]
 
-[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_town"]
-texture = ExtResource("1_terrain")
+[sub_resource type="TileSetAtlasSource" id="phase_grass"]
+texture = ExtResource("t0")
 texture_region_size = Vector2i(64, 32)
 0:0/0 = 0
 1:0/0 = 0
 2:0/0 = 0
+3:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="phase_paving"]
+texture = ExtResource("t1")
+texture_region_size = Vector2i(64, 32)
+0:0/0 = 0
+1:0/0 = 0
+2:0/0 = 0
+3:0/0 = 0
+
+[sub_resource type="TileSetAtlasSource" id="phase_road"]
+texture = ExtResource("t2")
+texture_region_size = Vector2i(64, 32)
+0:0/0 = 0
+1:0/0 = 0
+2:0/0 = 0
+3:0/0 = 0
 
 [resource]
 tile_shape = 1
 tile_layout = 5
 tile_size = Vector2i(64, 32)
-sources/0 = SubResource("TileSetAtlasSource_town")
+sources/0 = SubResource("phase_grass")
+sources/1 = SubResource("phase_paving")
+sources/2 = SubResource("phase_road")

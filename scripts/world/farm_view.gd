@@ -1,9 +1,9 @@
 class_name FarmView
 extends Node2D
 
-const CROP_TEXTURE: Texture2D = preload("res://assets/sprites/proof-crops.png")
+const CROP_TEXTURE: Texture2D = preload("res://assets/sprites/world-v2/crops.png")
 const SHADOW_TEXTURE: Texture2D = preload("res://assets/sprites/proof-shadow.png")
-const SOIL_TEXTURE: Texture2D = preload("res://assets/sprites/proof-soil.png")
+const SOIL_TEXTURE: Texture2D = preload("res://assets/sprites/world-v2/soil.png")
 const SPARKLE_TEXTURE: Texture2D = preload("res://assets/sprites/polish/harvest-sparkle.png")
 const SPARKLE_CROP_OFFSET := Vector2(0, -44)
 const DRY_CROP_TINT := Color("c87c56")

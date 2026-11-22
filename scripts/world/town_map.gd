@@ -6,8 +6,6 @@ const CAMERA_BOUNDS := TownContract.CAMERA_BOUNDS
 const MAP_SIZE := TownContract.MAP_SIZE
 
 func _ready() -> void:
-    _fill_backdrop($Backdrop as TileMapLayer, TownContract.is_backdrop_road)
-
     var static_collision := $StaticCollision as StaticBody2D
     _fill_collision(static_collision, "StationCollision", TownContract.STATION_FOOTPRINT)
     _fill_collision(static_collision, "SeedShopCollision", TownContract.SHOP_FOOTPRINT)

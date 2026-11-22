@@ -266,7 +266,7 @@ func test_thirty_soil_sprites_use_farm_cell_centers() -> void:
             soil.position.distance_to(_cell_center(cells[index])) <= 0.0001,
             "soil %s center" % cells[index],
         )
-        assert_eq(soil.texture.resource_path, "res://assets/sprites/proof-soil.png")
+        assert_eq(soil.texture.resource_path, "res://assets/sprites/world-v2/soil.png")
         assert_eq(soil.hframes, 2)
 
 func test_entities_is_farm_view_and_only_y_sort_node() -> void:
@@ -358,7 +358,7 @@ func test_crop_roots_are_direct_entities_children_at_cell_centers() -> void:
         assert_not_null(crop_sprite)
         if crop_sprite == null:
             continue
-        assert_eq(crop_sprite.texture.resource_path, "res://assets/sprites/proof-crops.png")
+        assert_eq(crop_sprite.texture.resource_path, "res://assets/sprites/world-v2/crops.png")
         assert_eq(crop_sprite.hframes, 4)
         assert_eq(crop_sprite.vframes, 3)
         assert_eq(crop_sprite.offset, Vector2(0, -24))
@@ -2693,7 +2693,7 @@ func test_harvest_effect_keeps_premutation_crop_kind_under_entities() -> void:
     if pop != null:
         assert_eq(pop.position, WorldMath.grid_to_world(Vector2(cell) + Vector2(0.5, 0.5)))
         var crop := pop.get_node("Sprite2D") as Sprite2D
-        assert_eq(crop.texture.resource_path, "res://assets/sprites/proof-crops.png")
+        assert_eq(crop.texture.resource_path, "res://assets/sprites/world-v2/crops.png")
         assert_eq(crop.frame, GameRules.CropKind.TURNIP * 4 + 3, "mature turnip frame")
         var sparkle := crop.get_node("Sparkle") as Sprite2D
         assert_eq(sparkle.texture.resource_path, "res://assets/sprites/polish/harvest-sparkle.png")
@@ -7148,6 +7148,15 @@ func test_crops_and_harvest_fx_are_never_occluders() -> void:
 ## ---- HPA-743 task 4: shared map backdrop painter and farm edge ----
 
 const BACKDROP_TEXTURE_PATH := "res://assets/sprites/starting-farm-terrain.png"
+const TOWN_TILESET_PATH := "res://scenes/world/town_tileset.tres"
+const TOWN_SOURCE_TEXTURES: Array[String] = [
+    "res://assets/sprites/world-v2/ground/grass-phases.png",
+    "res://assets/sprites/world-v2/ground/paving-phases.png",
+    "res://assets/sprites/world-v2/ground/road-phases.png",
+]
+
+func _town_phase(cell: Vector2i) -> int:
+    return posmod(cell.x, 2) + 2 * posmod(cell.y, 2)
 
 func _farm_backdrop_tile(cell: Vector2i) -> Vector2i:
     if (
@@ -7255,11 +7264,29 @@ func test_backdrop_survives_a_truck_round_trip_with_town_predicate_unchanged() -
     assert_not_null(backdrop, "TownMap Backdrop must exist")
     if backdrop == null:
         return
-    var source := backdrop.tile_set.get_source(0) as TileSetAtlasSource
+    var town_ground := town.get_node("Ground") as TileMapLayer
+    assert_not_null(town_ground, "TownMap Ground must exist")
+    if town_ground == null:
+        return
+    var town_tileset := backdrop.tile_set
     assert_eq(
-        source.texture.resource_path, BACKDROP_TEXTURE_PATH,
-        "town Backdrop keeps the shared tile atlas",
+        town_tileset.resource_path, TOWN_TILESET_PATH,
+        "town Backdrop uses the town-owned tileset",
     )
+    assert_true(
+        town_ground.tile_set == town_tileset,
+        "town Ground and Backdrop share the town-owned tileset",
+    )
+    for source_id in TOWN_SOURCE_TEXTURES.size():
+        var town_source := town_tileset.get_source(source_id) as TileSetAtlasSource
+        assert_not_null(town_source, "town source %d is an atlas" % source_id)
+        if town_source == null:
+            continue
+        assert_eq(
+            town_source.texture.resource_path, TOWN_SOURCE_TEXTURES[source_id],
+            "town source %d texture" % source_id,
+        )
+        assert_eq(town_source.get_tiles_count(), 4, "town source %d has four phases" % source_id)
     var expected := WorldMath.backdrop_cells(TownContract.CAMERA_BOUNDS, TownContract.MAP_SIZE)
     assert_gt(expected.size(), 0, "town camera overdraw has cells")
     var used := backdrop.get_used_cells()
@@ -7269,40 +7296,55 @@ func test_backdrop_survives_a_truck_round_trip_with_town_predicate_unchanged() -
     )
     var map_rect := Rect2i(Vector2i.ZERO, TownContract.MAP_SIZE)
     # The authored layout is pinned literally, not through
-    # TownContract.is_backdrop_road — the same predicate the painter calls:
+    # TownContract.is_backdrop_road — the same predicate the stamper calls:
     # road row y == 9 continues both ways, plus a west-only row-10 stub for
     # x <= 4 (off-map, that means the west edge only).
     for cell in expected:
         assert_false(map_rect.has_point(cell), "town %s stays outside the playable map" % cell)
         assert_true(used.has(cell), "town Backdrop missing cell %s" % cell)
-        var tile := (
-            WorldContract.BACKDROP_ROAD_TILE
-            if cell.y == 9 or (cell.y == 10 and cell.x <= 4)
-            else WorldContract.BACKDROP_GRASS_TILE
+        var road_cell := cell.y == 9 or (cell.y == 10 and cell.x <= 4)
+        assert_eq(
+            backdrop.get_cell_source_id(cell), 2 if road_cell else 0,
+            "town Backdrop %s source" % cell,
         )
-        assert_eq(backdrop.get_cell_atlas_coords(cell), tile, "town Backdrop %s tile" % cell)
+        assert_eq(
+            backdrop.get_cell_atlas_coords(cell),
+            Vector2i(_town_phase(cell), 0),
+            "town Backdrop %s phase" % cell,
+        )
     # Representative pins on both sides of the row-10 cutoff.
     assert_true(expected.has(Vector2i(-1, 10)), "town west row-10 road stub cell exists")
     assert_eq(
-        backdrop.get_cell_atlas_coords(Vector2i(-1, 9)),
-        WorldContract.BACKDROP_ROAD_TILE,
+        backdrop.get_cell_source_id(Vector2i(-1, 9)), 2,
         "the authored road continues west on row 9",
     )
     assert_eq(
-        backdrop.get_cell_atlas_coords(Vector2i(16, 9)),
-        WorldContract.BACKDROP_ROAD_TILE,
+        backdrop.get_cell_source_id(Vector2i(16, 9)), 2,
         "the authored road continues east on row 9",
     )
     assert_eq(
-        backdrop.get_cell_atlas_coords(Vector2i(-1, 10)),
-        WorldContract.BACKDROP_ROAD_TILE,
+        backdrop.get_cell_source_id(Vector2i(-1, 10)), 2,
         "the authored road stub continues west on row 10",
     )
     assert_eq(
-        backdrop.get_cell_atlas_coords(Vector2i(16, 10)),
-        WorldContract.BACKDROP_GRASS_TILE,
+        backdrop.get_cell_source_id(Vector2i(16, 10)), 0,
         "east of the row-10 cutoff stays grass",
     )
+    for y in TownContract.MAP_SIZE.y:
+        for x in TownContract.MAP_SIZE.x:
+            var ground_cell := Vector2i(x, y)
+            var ground_road := ground_cell.y == 9 or (
+                ground_cell.y == 10 and ground_cell.x <= 4
+            )
+            assert_eq(
+                town_ground.get_cell_source_id(ground_cell), 2 if ground_road else 1,
+                "town Ground %s source" % ground_cell,
+            )
+            assert_eq(
+                town_ground.get_cell_atlas_coords(ground_cell),
+                Vector2i(_town_phase(ground_cell), 0),
+                "town Ground %s phase" % ground_cell,
+            )
     await _drive_home(world)
     _assert_farm_backdrop(world, "returned farm")
 

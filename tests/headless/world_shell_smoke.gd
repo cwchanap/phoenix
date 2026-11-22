@@ -8,11 +8,23 @@ const WATER_TILE := Vector2i(4, 0)
 const BANK_SOUTH_TILE := Vector2i(6, 0)
 const TERRAIN_TEXTURE_PATH := "res://assets/sprites/starting-farm-terrain.png"
 const PROPS_TEXTURE_PATH := "res://assets/sprites/starting-farm-props.png"
+const TOWN_TILESET_PATH := "res://scenes/world/town_tileset.tres"
+const TOWN_PROP_TEXTURE_DIR := "res://assets/sprites/world-v2/cutouts/"
+const BIN_TEXTURE_PATH := "res://assets/sprites/world-v2/cutouts/shipping-bin.png"
+const TOWN_SOURCE_TEXTURES: Array[String] = [
+    "res://assets/sprites/world-v2/ground/grass-phases.png",
+    "res://assets/sprites/world-v2/ground/paving-phases.png",
+    "res://assets/sprites/world-v2/ground/road-phases.png",
+]
 const EXPECTED_ASSETS := [
     {"path": "res://assets/sprites/player-walk.png", "size": Vector2i(128, 192), "hframes": 4, "vframes": 4},
     {"path": "res://assets/sprites/proof-scenery.png", "size": Vector2i(384, 96)},
-    {"path": "res://assets/sprites/proof-soil.png", "size": Vector2i(128, 32)},
-    {"path": "res://assets/sprites/proof-crops.png", "size": Vector2i(128, 144)},
+    {"path": "res://assets/sprites/world-v2/soil.png", "size": Vector2i(128, 32)},
+    {"path": "res://assets/sprites/world-v2/crops.png", "size": Vector2i(128, 144)},
+    {"path": "res://assets/sprites/world-v2/cutouts/shipping-bin.png", "size": Vector2i(96, 96)},
+    {"path": "res://assets/sprites/world-v2/ground/grass-phases.png", "size": Vector2i(256, 32)},
+    {"path": "res://assets/sprites/world-v2/ground/paving-phases.png", "size": Vector2i(256, 32)},
+    {"path": "res://assets/sprites/world-v2/ground/road-phases.png", "size": Vector2i(256, 32)},
     {"path": "res://assets/sprites/villagers.png", "size": Vector2i(96, 48)},
     {"path": "res://assets/sprites/proof-shadow.png", "size": Vector2i(16, 8)},
     {"path": "res://assets/sprites/starting-farm-tiles-source.webp", "size": Vector2i(384, 192)},
@@ -67,6 +79,9 @@ func _expect_vec2(actual: Vector2, expected: Vector2, label: String) -> bool:
 
 func _expect_vec2i(actual: Vector2i, expected: Vector2i, label: String) -> bool:
     return _expect(actual == expected, "%s: %s != %s" % [label, actual, expected])
+
+func _town_phase(cell: Vector2i) -> int:
+    return posmod(cell.x, 2) + 2 * posmod(cell.y, 2)
 
 func _expect_polygon(
     actual: PackedVector2Array, expected: PackedVector2Array, label: String
@@ -227,7 +242,7 @@ func _prop_entities() -> Array:
 
 func _proof_entities() -> Array:
     return [
-        {"node": "Shipping", "frame": 2, "label": "shipping"},
+        {"node": "Shipping", "texture": BIN_TEXTURE_PATH, "label": "shipping"},
     ]
 
 func _run() -> void:
@@ -555,7 +570,7 @@ func _run() -> void:
         ):
             return
         if not _expect(
-            soil.texture.resource_path == "res://assets/sprites/proof-soil.png",
+            soil.texture.resource_path == "res://assets/sprites/world-v2/soil.png",
             "soil %s texture" % farm_cells[index],
         ):
             return
@@ -717,13 +732,11 @@ func _run() -> void:
             return
         var sprite := entity.get_node("Sprite2D") as Sprite2D
         if not _expect(
-            sprite.texture.resource_path == "res://assets/sprites/proof-scenery.png",
+            sprite.texture.resource_path == entry.texture,
             "%s texture" % entry.label,
         ):
             return
-        if not _expect(sprite.hframes == 4, "%s scenery frame columns" % entry.label):
-            return
-        if not _expect(sprite.frame == entry.frame, "%s scenery frame" % entry.label):
+        if not _expect(sprite.hframes == 1, "%s single-frame cutout" % entry.label):
             return
         if not _expect_vec2(
             sprite.offset, Vector2(0.0, -48.0), "%s bottom-center offset" % entry.label
@@ -841,7 +854,7 @@ func _run() -> void:
             return
         var crop_sprite := crop_root.get_node("Sprite2D") as Sprite2D
         if not _expect(
-            crop_sprite.texture.resource_path == "res://assets/sprites/proof-crops.png",
+            crop_sprite.texture.resource_path == "res://assets/sprites/world-v2/crops.png",
             "crop %s texture" % farm_cell,
         ):
             return
@@ -1163,17 +1176,47 @@ func _run() -> void:
         return
     if not _expect(backdrop.position == Vector2(736.0, 0.0), "town Backdrop alignment"):
         return
-    var backdrop_set := backdrop.tile_set
-    if not _expect(backdrop_set != null, "town Backdrop must have a TileSet"):
+    var town_ground := town_map.get_node("Ground") as TileMapLayer
+    if not _expect(town_ground != null, "TownMap Ground must exist"):
         return
-    var backdrop_source := backdrop_set.get_source(0) as TileSetAtlasSource
-    if not _expect(backdrop_source != null, "town Backdrop source must be an atlas"):
+    if not _expect(town_ground.position == Vector2(736.0, 0.0), "town Ground alignment transform"):
+        return
+    var town_tile_set := town_ground.tile_set
+    if not _expect(town_tile_set != null, "town Ground must have a TileSet"):
         return
     if not _expect(
-        backdrop_source.texture.resource_path == "res://assets/sprites/starting-farm-terrain.png",
-        "town Backdrop must reuse the farm terrain atlas",
+        town_tile_set.resource_path == TOWN_TILESET_PATH, "town Ground uses the town-owned tileset"
     ):
         return
+    if not _expect(
+        backdrop.tile_set == town_tile_set, "town Backdrop shares the town-owned tileset"
+    ):
+        return
+    if not _expect(town_tile_set.tile_size == Vector2i(64, 32), "town tile size"):
+        return
+    if not _expect(town_tile_set.tile_shape == TileSet.TILE_SHAPE_ISOMETRIC, "town tile shape"):
+        return
+    if not _expect(town_tile_set.tile_layout == TileSet.TILE_LAYOUT_DIAMOND_DOWN, "town tile layout"):
+        return
+    if not _expect(town_tile_set.get_source_count() == 3, "town tileset source count"):
+        return
+    for source_id in TOWN_SOURCE_TEXTURES.size():
+        var town_source := town_tile_set.get_source(source_id) as TileSetAtlasSource
+        if not _expect(town_source != null, "town source %d must be an atlas" % source_id):
+            return
+        if not _expect(
+            town_source.texture.resource_path == TOWN_SOURCE_TEXTURES[source_id],
+            "town source %d texture" % source_id,
+        ):
+            return
+        if not _expect(
+            town_source.texture_region_size == Vector2i(64, 32),
+            "town source %d tile size" % source_id,
+        ):
+            return
+        if not _expect(town_source.get_tiles_count() == 4, "town source %d phase count" % source_id):
+            return
+
     var backdrop_used := backdrop.get_used_cells()
     var backdrop_cells := WorldMath.backdrop_cells(
         TownContract.CAMERA_BOUNDS, TownContract.MAP_SIZE
@@ -1187,51 +1230,27 @@ func _run() -> void:
             return
         if not _expect(backdrop_used.has(backdrop_cell), "town Backdrop missing cell %s" % backdrop_cell):
             return
-        # Pinned literally rather than via TownContract.is_backdrop_road —
-        # the same predicate the painter calls — so a predicate regression
-        # cannot pass this check.
-        var expected_tile := (
-            WorldContract.BACKDROP_ROAD_TILE
-            if backdrop_cell.y == 9 or (backdrop_cell.y == 10 and backdrop_cell.x <= 4)
-            else WorldContract.BACKDROP_GRASS_TILE
+        # Pinned literally rather than via TownContract.is_backdrop_road — the
+        # same predicate the stamper calls — so a predicate regression cannot
+        # pass this check.
+        var road_cell: bool = backdrop_cell.y == 9 or (
+            backdrop_cell.y == 10 and backdrop_cell.x <= 4
         )
+        if not _expect(
+            backdrop.get_cell_source_id(backdrop_cell) == (2 if road_cell else 0),
+            "town Backdrop %s source" % backdrop_cell,
+        ):
+            return
         if not _expect_vec2i(
             backdrop.get_cell_atlas_coords(backdrop_cell),
-            expected_tile,
-            "town Backdrop %s tile" % backdrop_cell,
+            Vector2i(_town_phase(backdrop_cell), 0),
+            "town Backdrop %s phase" % backdrop_cell,
         ):
             return
     if not _expect(
         backdrop_used.size() == backdrop_cells.size(),
         "town Backdrop must paint only the camera coverage outside the map",
     ):
-        return
-
-    var town_ground := town_map.get_node("Ground") as TileMapLayer
-    if not _expect(town_ground != null, "TownMap Ground must exist"):
-        return
-    if not _expect(town_ground.position == Vector2(736.0, 0.0), "town Ground alignment transform"):
-        return
-    var town_tile_set := town_ground.tile_set
-    if not _expect(town_tile_set != null, "town Ground must have a TileSet"):
-        return
-    if not _expect(town_tile_set.tile_size == Vector2i(64, 32), "town tile size"):
-        return
-    if not _expect(town_tile_set.tile_shape == TileSet.TILE_SHAPE_ISOMETRIC, "town tile shape"):
-        return
-    if not _expect(town_tile_set.tile_layout == TileSet.TILE_LAYOUT_DIAMOND_DOWN, "town tile layout"):
-        return
-    var town_source := town_tile_set.get_source(0) as TileSetAtlasSource
-    if not _expect(town_source != null, "town Ground source must be an atlas"):
-        return
-    if not _expect(
-        town_source.texture.resource_path == "res://assets/sprites/town-terrain.png",
-        "town atlas texture",
-    ):
-        return
-    if not _expect(town_source.texture_region_size == Vector2i(64, 32), "town atlas tile size"):
-        return
-    if not _expect(town_source.get_tiles_count() == 3, "town atlas tile count"):
         return
 
     var town_used := town_ground.get_used_cells()
@@ -1249,10 +1268,16 @@ func _run() -> void:
                 "town cell %s center" % cell,
             ):
                 return
-            var road_cell: bool = cell.y == 9 or (cell.y == 10 and cell.x <= 4)
-            var expected_tile := Vector2i(2, 0) if road_cell else Vector2i(0, 0)
+            var cell_road: bool = cell.y == 9 or (cell.y == 10 and cell.x <= 4)
+            if not _expect(
+                town_ground.get_cell_source_id(cell) == (2 if cell_road else 1),
+                "town cell %s source" % cell,
+            ):
+                return
             if not _expect_vec2i(
-                town_ground.get_cell_atlas_coords(cell), expected_tile, "town cell %s tile" % cell
+                town_ground.get_cell_atlas_coords(cell),
+                Vector2i(_town_phase(cell), 0),
+                "town cell %s phase" % cell,
             ):
                 return
 
@@ -1343,10 +1368,10 @@ func _run() -> void:
         return
 
     var town_props := [
-        {"node": "Station", "frame": 0, "footprint": TownContract.STATION_FOOTPRINT},
-        {"node": "SeedShop", "frame": 1, "footprint": TownContract.SHOP_FOOTPRINT},
-        {"node": "Cafe", "frame": 2, "footprint": TownContract.CAFE_FOOTPRINT},
-        {"node": "Market", "frame": 3, "footprint": TownContract.MARKET_FOOTPRINT},
+        {"node": "Station", "texture": TOWN_PROP_TEXTURE_DIR + "station.png", "footprint": TownContract.STATION_FOOTPRINT},
+        {"node": "SeedShop", "texture": TOWN_PROP_TEXTURE_DIR + "seed-shop.png", "footprint": TownContract.SHOP_FOOTPRINT},
+        {"node": "Cafe", "texture": TOWN_PROP_TEXTURE_DIR + "cafe.png", "footprint": TownContract.CAFE_FOOTPRINT},
+        {"node": "Market", "texture": TOWN_PROP_TEXTURE_DIR + "market.png", "footprint": TownContract.MARKET_FOOTPRINT},
     ]
     for entry in town_props:
         var prop := town_entities.get_node(entry.node) as Node2D
@@ -1368,15 +1393,11 @@ func _run() -> void:
             return
         var prop_sprite := prop.get_node("Sprite2D") as Sprite2D
         if not _expect(
-            prop_sprite.texture.resource_path == "res://assets/sprites/town-props.png",
+            prop_sprite.texture.resource_path == entry.texture,
             "town %s texture" % entry.node,
         ):
             return
-        if not _expect(prop_sprite.hframes == 2, "town %s frame columns" % entry.node):
-            return
-        if not _expect(prop_sprite.vframes == 2, "town %s frame rows" % entry.node):
-            return
-        if not _expect(prop_sprite.frame == entry.frame, "town %s frame" % entry.node):
+        if not _expect(prop_sprite.hframes == 1, "town %s single-frame cutout" % entry.node):
             return
         if not _expect_vec2(
             prop_sprite.offset, Vector2(0.0, -48.0), "town %s bottom-center offset" % entry.node

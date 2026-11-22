@@ -14,7 +14,6 @@ const SOIL_IMPACT_TEXTURE: Texture2D = preload("res://assets/sprites/polish/soil
 const WATER_SPLASH_TEXTURE: Texture2D = preload("res://assets/sprites/polish/water-splash.png")
 const SEED_TEXTURE: Texture2D = preload("res://assets/sprites/polish/planting-seed.png")
 const SPARKLE_TEXTURE: Texture2D = preload("res://assets/sprites/polish/harvest-sparkle.png")
-const CROP_TEXTURE: Texture2D = preload("res://assets/sprites/proof-crops.png")
 
 # tests/visual/hpa-458/README.md tool-facing contract, encoded exactly once.
 const TOOL_FACING := {
@@ -139,7 +138,7 @@ func _play_harvest(cell: Vector2i, crop_kind: Variant, player_position: Vector2)
 
     var crop := Sprite2D.new()
     crop.name = "Sprite2D"
-    crop.texture = CROP_TEXTURE
+    crop.texture = FarmView.CROP_TEXTURE
     crop.hframes = 4
     crop.vframes = 3
     crop.offset = Vector2(0, -24)
