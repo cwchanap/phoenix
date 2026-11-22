@@ -34,10 +34,9 @@ Runtime: Godot 4.7.1.stable.official.a13da4feb (`Godot_v4.7.1-stable_linux.arm64
   this re-run is the provenance-of-record for the committed captures. The pre-existing
   leaked-objects warning at engine exit is unchanged from the main-branch baseline.
 
-## Captures (committed alongside this note)
+## Captures
 
-All 22 PNGs are committed at `docs/superpowers/validation/hpa-743-tour-captures/` — PR-accessible
-evidence, no external hosting required.
+The [full 22-frame evidence set](https://github.com/cwchanap/phoenix/tree/b14a3756e54c9949ca437c9f9ecfe0598140dd35/docs/superpowers/validation/hpa-743-tour-captures) is preserved at the original merge revision. The current tree keeps the truck fade/restore pair, east-edge prompt, and restored shop frame.
 
 | Capture | Asserted in-tour / visually verified |
 |---|---|

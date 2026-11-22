@@ -6,6 +6,8 @@ real-input (Enter/Esc) run on `08abbc6`. GitHub CI is green on `08abbc6`
 and remains the authority for the GdUnit e2e lane, which was not clean in
 a single full run on the shared host.
 
+The [complete checked-in capture set at the original merge revision](https://github.com/cwchanap/phoenix/tree/b14a3756e54c9949ca437c9f9ecfe0598140dd35/docs/superpowers/validation/hpa-1137-prologue) remains available. The current tree retains the English MCP sheet, Enter/Esc evidence pair, and narration-scrim sheet; other filenames below refer to the archived set.
+
 ## Environment
 
 - Linux arm64 shared host, load average 7 to 19 on 4 cores, 23 GB RAM with swap in use.
