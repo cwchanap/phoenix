@@ -1,6 +1,6 @@
 # HPA-1137 — Skippable prologue: single-PR implementation plan
 
-**Status:** Implemented on PR #47; agent-run lane results and the visual check are in the [verification record](../validation/2026-11-21-hpa-1137-prologue-verification.md), and GitHub CI (`unit-tests`, `e2e-tests`, `verify`) is green on the pushed head `f7a97e0`, which includes the prologue texture and locale changes. Acceptance checkboxes stay open per that record: the MCP-driven e2e gate is unverified and the local godot-e2e lane was not clean in a single full run.  
+**Status:** Implemented on PR #47; lane results, the visual check and both MCP-driven acceptance runs are in the [verification record](../validation/2026-11-21-hpa-1137-prologue-verification.md). GitHub CI (`unit-tests`, `e2e-tests`, `verify`) is green on the pushed head `a7af543`. The MCP-driven e2e gate is **verified**: real Enter/Esc `InputEventKey`s were injected through the Godot MCP bridge on `08abbc6` (run recorded in `a7af543`), covering the Esc-consumption / no-Pause path the earlier button-press run could not observe. Caveat: the local godot-e2e lane was not clean in a single full run on the shared host (load-related `wait_seconds` flakes); CI on the pushed head is the authority for that lane.  
 **Design:** [Skippable prologue design specification](../specs/2026-11-20-phoenix-skippable-prologue-design.md)  
 **Issue:** https://linear.app/cwchanap/issue/HPA-1137/play-a-skippable-story-prologue-before-day-1  
 **Implementation branch / PR:** `agent/hpa-1137-skippable-prologue-plan` / **#47** — implement and verify on this same draft PR. **Single PR per issue.**  
@@ -95,15 +95,17 @@ GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/e2e -c
 
 6. Record the exact tested commit, commands, test outcomes, screenshots and mockup-comparison notes in PR #47. Keep this same PR draft while any required acceptance gate is unverified; **do not invent evidence or silently treat CI as the MCP/visual check**. Do not open a second PR.
 
-## End-to-end acceptance checklist (pending; plan-only update)
+## End-to-end acceptance checklist (verified on PR #47)
 
-- [ ] All **58 lines × six scenes** appear in ticket order, with correct localized tags, paintings, speakers/roles/portraits, dimmed listener, truck and retained note.
-- [ ] Real-input New Game → Enter advances exactly one page → Esc skips to Day 1; finishing the 58th page also starts normal Day 1 at **06:00 / 150G / 3 Turnip seeds**, with original tutorial and world input gate.
-- [ ] First/middle/final Esc all produce the same session snapshot as completion, **without opening Pause**, double acknowledgement, extra time advance or changed tutorial completion; acknowledged Continue bypasses the opening.
-- [ ] Both `test_gameplay_shell.gd` helpers (**guard `_configured_world()`'s skip when an acknowledged save has no prologue**), headless intro helper, app-launch integration and all three e2e New Game fixture paths are updated; existing unrelated Enter interactions remain intact.
-- [ ] All 58 story lines, scene tags, roles, hints and note author translate en/zh_TW/ja; the **58×3 real geometry check** shows no dock/tag or bar overlap, including **Skip/Continue hit targets when the VN dock is hidden**, with Sato-san corrected to `佐藤小姐`.
-- [ ] The project's **MCP-driven** real-input Godot e2e runs on **one platform** and the executing agent compares **actual 1920×1080 frames** for the six representative scenes against HPA-1137 mockups, checks en/zh_TW/ja layouts and records provenance. Existing capture/test tooling only; no new capture framework. If no connected execution/capture route exists, keep this acceptance gate **unverified**, rather than reporting a non-MCP run as passing.
-- [ ] Unit/integration GUT, headless smoke, committed-head clean verifier, GdUnit4, godot-e2e and GitHub CI green on the final implementation. Editorial en/ja feedback invited in the PR, **not** a human-approval acceptance gate.
+- [x] All **58 lines × six scenes** appear in ticket order, with correct localized tags, paintings, speakers/roles/portraits, dimmed listener, truck and retained note.
+- [x] Real-input New Game → Enter advances exactly one page → Esc skips to Day 1; finishing the 58th page also starts normal Day 1 at **06:00 / 150G / 3 Turnip seeds**, with original tutorial and world input gate.
+- [x] First/middle/final Esc all produce the same session snapshot as completion, **without opening Pause**, double acknowledgement, extra time advance or changed tutorial completion; acknowledged Continue bypasses the opening.
+- [x] Both `test_gameplay_shell.gd` helpers (**guard `_configured_world()`'s skip when an acknowledged save has no prologue**), headless intro helper, app-launch integration and all three e2e New Game fixture paths are updated; existing unrelated Enter interactions remain intact.
+- [x] All 58 story lines, scene tags, roles, hints and note author translate en/zh_TW/ja; the **58×3 real geometry check** shows no dock/tag or bar overlap, including **Skip/Continue hit targets when the VN dock is hidden**, with Sato-san corrected to `佐藤小姐`.
+- [x] The project's **MCP-driven** real-input Godot e2e ran on **one platform** through the Godot MCP runtime bridge: real Enter/Esc `InputEventKey`s on `08abbc6`, plus `BaseButton` press navigation and native 1920×1080 captures in en/zh_TW/ja on `3982ac1`, compared with the HPA-1137 mockups and recorded with provenance in the verification record.
+- [x] Unit/integration GUT, headless smoke, committed-head clean verifier, GdUnit4, godot-e2e and GitHub CI green on the final implementation. Editorial en/ja feedback invited in the PR, **not** a human-approval acceptance gate.
+
+Caveat: the local godot-e2e lane was not clean in a single full run on the shared host (load-related `wait_seconds` flakes, mechanism documented in the verification record); GitHub CI on the pushed head is the authority for that lane. A real human desktop pass was not done.
 
 **Changes deliberately excluded:** new art/SFX generation, generic cutscene framework, animation, save migrations/backwards compatibility, additional test frameworks, mandatory new native tour, multi-PR split, and duplicate platform testing.
 
