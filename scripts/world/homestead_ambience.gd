@@ -8,17 +8,16 @@ extends Node2D
 ## World-level rain moved to RainLayer (scripts/world/rain_layer.gd).
 
 const RIPPLE_TEXTURE: Texture2D = preload("res://assets/sprites/polish/river-ripple.png")
-# Ripple anchors sit on the river center-lines owned by WorldContract.
-var _ripple_cells: Array[Vector2] = [
-    Vector2(WorldContract.RIVER_WEST_FOOTPRINT.get_center().x, 6.5),
-    Vector2(WorldContract.RIVER_WEST_FOOTPRINT.get_center().x, 13.0),
-    Vector2(6.5, WorldContract.RIVER_SOUTH_FOOTPRINT.get_center().y),
-]
+# Ripple anchors sit on contract water cells (validated by the world math
+# smoke), so the new rivers and pond carry the same ambience.
+var _ripple_cells: Array[Vector2] = []
 # ~2 fps across the three-frame strip.
 const RIPPLE_FRAME_SECONDS := 0.5
 const RIPPLE_START_STAGGER := 0.17
 
 func _ready() -> void:
+    for cell in WorldContract.RIVER_RIPPLE_CELLS:
+        _ripple_cells.append(Vector2(cell) + Vector2(0.5, 0.5))
     for index in _ripple_cells.size():
         _add_ripple(index)
 

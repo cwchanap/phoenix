@@ -1,13 +1,11 @@
 extends SceneTree
 
-const DEFAULT_TILE := Vector2i(0, 0)
-const GRASS_DETAIL_TILE := Vector2i(1, 0)
-const FARM_TILE := Vector2i(2, 0)
-const PATH_TILE := Vector2i(3, 0)
-const WATER_TILE := Vector2i(4, 0)
-const BANK_SOUTH_TILE := Vector2i(6, 0)
-const TERRAIN_TEXTURE_PATH := "res://assets/sprites/starting-farm-terrain.png"
-const PROPS_TEXTURE_PATH := "res://assets/sprites/starting-farm-props.png"
+const Stamper := preload("res://tools/stamp_farm_ground.gd")
+const FARM_TILESET_PATH := "res://scenes/world/terrain_tileset.tres"
+const FARM_SOURCE_COUNT := 35
+const FARM_TILE_COUNT := 1542
+const FARM_MAP_CELLS := 1920
+const FARM_TEXTURE_DIR := "res://assets/sprites/world-v2/cutouts/"
 const TOWN_TILESET_PATH := "res://scenes/world/town_tileset.tres"
 const TOWN_PROP_TEXTURE_DIR := "res://assets/sprites/world-v2/cutouts/"
 const BIN_TEXTURE_PATH := "res://assets/sprites/world-v2/cutouts/shipping-bin.png"
@@ -22,6 +20,17 @@ const EXPECTED_ASSETS := [
     {"path": "res://assets/sprites/world-v2/soil.png", "size": Vector2i(128, 32)},
     {"path": "res://assets/sprites/world-v2/crops.png", "size": Vector2i(128, 144)},
     {"path": "res://assets/sprites/world-v2/cutouts/shipping-bin.png", "size": Vector2i(96, 96)},
+    {"path": "res://assets/sprites/world-v2/cutouts/farmhouse.png", "size": Vector2i(224, 192)},
+    {"path": "res://assets/sprites/world-v2/cutouts/storehouse.png", "size": Vector2i(320, 256)},
+    {"path": "res://assets/sprites/world-v2/cutouts/greenhouse.png", "size": Vector2i(320, 256)},
+    {"path": "res://assets/sprites/world-v2/cutouts/tool-shed.png", "size": Vector2i(160, 144)},
+    {"path": "res://assets/sprites/world-v2/cutouts/shrine.png", "size": Vector2i(160, 144)},
+    {"path": "res://assets/sprites/world-v2/cutouts/camphor-tree.png", "size": Vector2i(160, 144)},
+    {"path": "res://assets/sprites/world-v2/cutouts/persimmon.png", "size": Vector2i(96, 96)},
+    {"path": "res://assets/sprites/world-v2/cutouts/bamboo-fence-a.png", "size": Vector2i(96, 96)},
+    {"path": "res://assets/sprites/world-v2/cutouts/bamboo-fence-b.png", "size": Vector2i(96, 96)},
+    {"path": "res://assets/sprites/world-v2/cutouts/wood-fence-a.png", "size": Vector2i(96, 96)},
+    {"path": "res://assets/sprites/world-v2/cutouts/wood-fence-b.png", "size": Vector2i(96, 96)},
     {"path": "res://assets/sprites/world-v2/ground/grass-phases.png", "size": Vector2i(256, 32)},
     {"path": "res://assets/sprites/world-v2/ground/paving-phases.png", "size": Vector2i(256, 32)},
     {"path": "res://assets/sprites/world-v2/ground/road-phases.png", "size": Vector2i(256, 32)},
@@ -29,8 +38,6 @@ const EXPECTED_ASSETS := [
     {"path": "res://assets/sprites/proof-shadow.png", "size": Vector2i(16, 8)},
     {"path": "res://assets/sprites/starting-farm-tiles-source.webp", "size": Vector2i(384, 192)},
     {"path": "res://assets/sprites/starting-farm-props-source.webp", "size": Vector2i(384, 192)},
-    {"path": "res://assets/sprites/starting-farm-terrain.png", "size": Vector2i(512, 32)},
-    {"path": "res://assets/sprites/starting-farm-props.png", "size": Vector2i(384, 192)},
     {"path": "res://assets/sprites/polish/hoe-overlay.png", "size": Vector2i(72, 24), "hframes": 3},
     {"path": "res://assets/sprites/polish/watering-can-overlay.png", "size": Vector2i(72, 24), "hframes": 3},
     {"path": "res://assets/sprites/polish/soil-impact.png", "size": Vector2i(96, 32), "hframes": 3},
@@ -40,16 +47,6 @@ const EXPECTED_ASSETS := [
     {"path": "res://assets/ui/icons/watering-can-efficient.png", "size": Vector2i(32, 32)},
     {"path": "res://assets/sprites/polish/river-ripple.png", "size": Vector2i(192, 32), "hframes": 3},
     {"path": "res://assets/sprites/polish/house-window-light.png", "size": Vector2i(96, 96)},
-]
-const DECORATION_CELLS: Array[Vector2i] = [
-    Vector2i(4, 3),
-    Vector2i(8, 6),
-    Vector2i(12, 2),
-    Vector2i(15, 3),
-    Vector2i(19, 3),
-    Vector2i(21, 12),
-    Vector2i(4, 7),
-    Vector2i(14, 15),
 ]
 
 func _fail(message: String) -> void:
@@ -164,85 +161,52 @@ func _place_player(player: CharacterBody2D, logical_position: Vector2) -> void:
 func _cell_center(cell: Vector2i) -> Vector2:
     return WorldMath.grid_to_world(Vector2(cell) + Vector2(0.5, 0.5))
 
-func _rect_cells(rect: Rect2) -> Array[Vector2i]:
-    var cells: Array[Vector2i] = []
-    for y in range(int(rect.position.y), int(rect.end.y)):
-        for x in range(int(rect.position.x), int(rect.end.x)):
-            cells.append(Vector2i(x, y))
-    return cells
+func _terrain_run_rects() -> Array[Rect2]:
+    # Independent re-derivation of FarmMap's row runs from the final grid.
+    var rects: Array[Rect2] = []
+    for y in WorldContract.MAP_SIZE.y:
+        var start := -1
+        for x in WorldContract.MAP_SIZE.x + 1:
+            var blocking := (
+                x < WorldContract.MAP_SIZE.x
+                and WorldContract.blocks_movement(Vector2i(x, y))
+            )
+            if blocking and start < 0:
+                start = x
+            elif not blocking and start >= 0:
+                rects.append(Rect2(start, y, x - start, 1))
+                start = -1
+    return rects
 
-func _expected_path_cells() -> Array[Vector2i]:
-    # Main east-west road to the future village, the farm-side path that starts
-    # at x=10 beside the farm, and the workbench spur reaching x=12.
-    var cells: Array[Vector2i] = []
-    for x in range(10, WorldContract.MAP_SIZE.x):
-        cells.append(Vector2i(x, 9))
-    for y in range(10, 17):
-        cells.append(Vector2i(10, y))
-    cells.append(Vector2i(11, 16))
-    cells.append(Vector2i(12, 16))
-    return cells
+func _polygon_key(polygon: PackedVector2Array) -> String:
+    var parts := PackedStringArray()
+    for point in polygon:
+        parts.append("%.3f,%.3f" % [point.x, point.y])
+    return ";".join(parts)
 
-func _static_entity_names() -> Array:
+func _expected_collision_counts() -> Dictionary:
+    var counts := {}
+    var rects: Array[Rect2] = _terrain_run_rects()
+    for entry in WorldContract.blocking_props():
+        rects.append(entry["footprint"])
+    rects.append_array(WorldContract.fence_footprints())
+    rects.append_array(WorldContract.perimeter_footprints(WorldContract.MAP_SIZE))
+    for rect in rects:
+        var key := _polygon_key(WorldMath.footprint_to_polygon(rect))
+        counts[key] = int(counts.get(key, 0)) + 1
+    return counts
+
+func _fence_materials() -> Dictionary:
+    var materials := {}
+    for run in WorldContract.fence_runs():
+        for index in int(run["length"]):
+            materials[run["start"] + run["step"] * index] = run["material"]
+    return materials
+
+func _fence_textures(material: String) -> Array[String]:
     return [
-        "Player",
-        "House",
-        "TreeForest",
-        "TreeBank",
-        "TreeNorth",
-        "RockYard",
-        "RockMeadow",
-        "TreeNorth2",
-        "TreeNorth3",
-        "TreeNorth4",
-        "RockNorth1",
-        "TreeNorth5",
-        "TreeNorth6",
-        "RockNorth2",
-        "TreeNorth7",
-        "FarmFence_1",
-        "FarmFence_2",
-        "FarmFence_3",
-        "Workbench",
-        "VillageSign",
-        "Shipping",
-        "Truck",
-    ]
-
-func _expected_water_tile(cell: Vector2i) -> Vector2i:
-    # The south river's north shore faces up-right, matching the bank-B sheet
-    # cell; the west river's shore faces down-right, which no sheet cell
-    # provides, so those cells stay plain water.
-    if cell.y == 18 and cell.x >= 2 and cell.x <= 11:
-        return BANK_SOUTH_TILE
-    return WATER_TILE
-
-func _prop_entities() -> Array:
-    return [
-        {"node": "House", "frame": 0, "label": "house"},
-        {"node": "TreeForest", "frame": 2, "label": "forest tree"},
-        {"node": "TreeBank", "frame": 2, "label": "bank tree"},
-        {"node": "TreeNorth", "frame": 2, "label": "north tree"},
-        {"node": "RockYard", "frame": 3, "label": "yard rock"},
-        {"node": "RockMeadow", "frame": 3, "label": "meadow rock"},
-        {"node": "TreeNorth2", "frame": 2, "label": "north tree 2"},
-        {"node": "TreeNorth3", "frame": 2, "label": "north tree 3"},
-        {"node": "TreeNorth4", "frame": 2, "label": "north tree 4"},
-        {"node": "RockNorth1", "frame": 3, "label": "north rock 1"},
-        {"node": "TreeNorth5", "frame": 2, "label": "north tree 5"},
-        {"node": "TreeNorth6", "frame": 2, "label": "north tree 6"},
-        {"node": "RockNorth2", "frame": 3, "label": "north rock 2"},
-        {"node": "TreeNorth7", "frame": 2, "label": "north tree 7"},
-        {"node": "FarmFence_1", "frame": 4, "label": "farm fence 1"},
-        {"node": "FarmFence_2", "frame": 4, "label": "farm fence 2"},
-        {"node": "FarmFence_3", "frame": 4, "label": "farm fence 3"},
-        {"node": "Workbench", "frame": 5, "label": "workbench"},
-        {"node": "VillageSign", "frame": 6, "label": "village sign"},
-    ]
-
-func _proof_entities() -> Array:
-    return [
-        {"node": "Shipping", "texture": BIN_TEXTURE_PATH, "label": "shipping"},
+        FARM_TEXTURE_DIR + "%s-fence-a.png" % material,
+        FARM_TEXTURE_DIR + "%s-fence-b.png" % material,
     ]
 
 func _run() -> void:
@@ -275,9 +239,6 @@ func _run() -> void:
     var map_names := [
         "Backdrop",
         "Ground",
-        "Water",
-        "Paths",
-        "GroundDecoration",
         "FarmSoil",
         "FarmActionEffects",
         "HomesteadAmbience",
@@ -289,28 +250,43 @@ func _run() -> void:
     if not _expect_child_order(farm_map, map_names, "FarmMap scene-tree order"):
         return
 
+    # --- Static ground: the committed 35-source manifest and stamped cells ---
     var ground := farm_map.get_node("Ground") as TileMapLayer
     if not _expect(ground.position == Vector2(736.0, 0.0), "Ground alignment transform"):
         return
-    if not _expect(ground.tile_set != null, "Ground must have a TileSet"):
-        return
     var tile_set := ground.tile_set
+    if not _expect(tile_set != null, "Ground must have a TileSet"):
+        return
+    if not _expect(
+        tile_set.resource_path == FARM_TILESET_PATH, "farm Ground uses the committed TileSet"
+    ):
+        return
     if not _expect(tile_set.tile_size == Vector2i(64, 32), "ground tile size"):
         return
     if not _expect(tile_set.tile_shape == TileSet.TILE_SHAPE_ISOMETRIC, "ground tile shape"):
         return
     if not _expect(tile_set.tile_layout == TileSet.TILE_LAYOUT_DIAMOND_DOWN, "ground tile layout"):
         return
-    if not _expect(tile_set.get_source_count() == 1, "Ground must use one atlas source"):
+    if not _expect(tile_set.get_source_count() == FARM_SOURCE_COUNT, "35 farm atlas sources"):
         return
-    var source := tile_set.get_source(0) as TileSetAtlasSource
-    if not _expect(source != null, "Ground source must be an atlas"):
-        return
-    if not _expect(source.texture.resource_path == TERRAIN_TEXTURE_PATH, "ground atlas texture"):
-        return
-    if not _expect(source.texture_region_size == Vector2i(64, 32), "ground atlas tile size"):
-        return
-    if not _expect(source.get_tiles_count() == 8, "ground atlas tile count"):
+    var manifest: Array[Dictionary] = Stamper.farm_sources()
+    var tile_count := 0
+    for source_id in FARM_SOURCE_COUNT:
+        var source := tile_set.get_source(source_id) as TileSetAtlasSource
+        if not _expect(source != null, "farm source %d must be an atlas" % source_id):
+            return
+        if not _expect(
+            source.texture.resource_path == manifest[source_id]["path"],
+            "farm source %d texture manifest" % source_id,
+        ):
+            return
+        if not _expect(
+            source.texture_region_size == Vector2i(64, 32),
+            "farm source %d tile size" % source_id,
+        ):
+            return
+        tile_count += source.get_tiles_count()
+    if not _expect(tile_count == FARM_TILE_COUNT, "1,542 registered farm atlas tiles"):
         return
 
     var farm_backdrop := farm_map.get_node("Backdrop") as TileMapLayer
@@ -321,177 +297,71 @@ func _run() -> void:
     ):
         return
     if not _expect(
-        farm_backdrop.tile_set == ground.tile_set,
+        farm_backdrop.tile_set == tile_set,
         "FarmMap Backdrop must share the terrain TileSet",
     ):
         return
-    var farm_backdrop_used := farm_backdrop.get_used_cells()
-    var expected_farm_backdrop := WorldMath.backdrop_cells(
-        WorldContract.CAMERA_BOUNDS, WorldContract.MAP_SIZE
+    var expected_backdrop := WorldMath.backdrop_cells(
+        WorldMath.map_camera_bounds(WorldContract.MAP_SIZE), WorldContract.MAP_SIZE
     )
     if not _expect(
-        farm_backdrop_used.size() == expected_farm_backdrop.size(),
-        "farm Backdrop must paint exactly the camera overdraw cells",
+        farm_backdrop.get_used_cells().size() == expected_backdrop.size(),
+        "farm Backdrop paints exactly the camera overdraw cells",
     ):
         return
     var farm_map_rect := Rect2i(Vector2i.ZERO, WorldContract.MAP_SIZE)
-    for farm_backdrop_cell in expected_farm_backdrop:
+    for cell in expected_backdrop:
         if not _expect(
-            not farm_map_rect.has_point(farm_backdrop_cell),
-            "farm Backdrop %s must stay outside the playable map" % farm_backdrop_cell,
+            not farm_map_rect.has_point(cell), "farm Backdrop %s stays off the map" % cell
         ):
             return
-        if not _expect(
-            farm_backdrop_used.has(farm_backdrop_cell),
-            "farm Backdrop missing cell %s" % farm_backdrop_cell,
-        ):
-            return
-        var expected_farm_tile := DEFAULT_TILE
-        if (
-            farm_backdrop_cell.x >= int(WorldContract.RIVER_WEST_FOOTPRINT.position.x)
-            and farm_backdrop_cell.x < int(WorldContract.RIVER_WEST_FOOTPRINT.end.x)
-        ) or (
-            farm_backdrop_cell.y >= WorldContract.MAP_SIZE.y
-            and farm_backdrop_cell.x >= int(WorldContract.RIVER_SOUTH_FOOTPRINT.position.x)
-            and farm_backdrop_cell.x < int(WorldContract.RIVER_SOUTH_FOOTPRINT.end.x)
-        ):
-            expected_farm_tile = WATER_TILE
-        elif (
-            farm_backdrop_cell.y == WorldContract.BACKDROP_ROAD_ROW
-            and farm_backdrop_cell.x >= WorldContract.MAP_SIZE.x
-        ):
-            expected_farm_tile = PATH_TILE
+    # A few independent cell fixtures: interior materials, plus clamped
+    # edge overdraw (the stamper's contract clamp, never grass or a new shore).
+    for cell in [
+        Vector2i(0, 0),
+        Vector2i(23, 14),
+        Vector2i(1, 0),
+        Vector2i(44, 0),
+        Vector2i(15, 19),
+        Vector2i(42, 0),
+        Vector2i(23, 35),
+    ]:
+        var expected := Stamper.tile_for(cell)
         if not _expect_vec2i(
-            farm_backdrop.get_cell_atlas_coords(farm_backdrop_cell),
-            expected_farm_tile,
-            "farm Backdrop %s tile" % farm_backdrop_cell,
+            ground.get_cell_atlas_coords(cell),
+            Vector2i(expected.y, expected.z),
+            "ground %s tile" % cell,
         ):
             return
-    if not _expect_vec2i(
-        farm_backdrop.get_cell_atlas_coords(Vector2i(24, 9)),
-        PATH_TILE,
-        "farm Backdrop east road continuation",
-    ):
-        return
-    if not _expect_vec2i(
-        farm_backdrop.get_cell_atlas_coords(Vector2i(0, -1)),
-        WATER_TILE,
-        "farm Backdrop west river north continuation",
-    ):
-        return
-    if not _expect_vec2i(
-        farm_backdrop.get_cell_atlas_coords(Vector2i(5, 20)),
-        WATER_TILE,
-        "farm Backdrop south river continuation",
-    ):
-        return
-    if not _expect_vec2i(
-        farm_backdrop.get_cell_atlas_coords(Vector2i(-1, 19)),
-        DEFAULT_TILE,
-        "farm Backdrop south-west river bank stays grass",
-    ):
-        return
-
+        if not _expect(
+            ground.get_cell_source_id(cell) == expected.x, "ground %s source" % cell
+        ):
+            return
     var used_cells := ground.get_used_cells()
-    if not _expect(used_cells.size() == 480, "Ground must contain exactly 480 cells"):
+    if not _expect(used_cells.size() == FARM_MAP_CELLS, "Ground must contain 1,920 cells"):
         return
-    for y in WorldContract.MAP_SIZE.y:
-        for x in WorldContract.MAP_SIZE.x:
-            var cell := Vector2i(x, y)
-            if not _expect(used_cells.has(cell), "Ground missing cell %s" % cell):
-                return
-            var expected_center := WorldMath.grid_to_world(Vector2(cell) + Vector2(0.5, 0.5))
-            if not _expect_vec2(
-                ground.to_global(ground.map_to_local(cell)),
-                expected_center,
-                "cell %s center" % cell,
-            ):
-                return
-            if not _expect(
-                ground.local_to_map(ground.map_to_local(cell)) == cell,
-                "TileMapLayer %s must round-trip" % cell,
-            ):
-                return
-            if not _expect(ground.get_cell_source_id(cell) == 0, "cell %s source" % cell):
-                return
-            var expected_tile := FARM_TILE if WorldContract.FARM_PATCH.has_point(cell) else DEFAULT_TILE
-            if not _expect_vec2i(
-                ground.get_cell_atlas_coords(cell), expected_tile, "ground cell %s tile" % cell
-            ):
-                return
-
-    var water := farm_map.get_node("Water") as TileMapLayer
-    if not _expect(water != null, "Water must exist"):
-        return
-    if not _expect(water.position == Vector2(736.0, 0.0), "Water alignment transform"):
-        return
-    if not _expect(water.tile_set == ground.tile_set, "Water must share the terrain TileSet"):
-        return
-    var water_used := water.get_used_cells()
-    var expected_water := _rect_cells(WorldContract.RIVER_WEST_FOOTPRINT)
-    for river_cell in _rect_cells(WorldContract.RIVER_SOUTH_FOOTPRINT):
-        if not expected_water.has(river_cell):
-            expected_water.append(river_cell)
-    if not _expect(
-        water_used.size() == expected_water.size(), "Water must paint exactly the river cells"
-    ):
-        return
-    for river_cell in expected_water:
-        if not _expect(water_used.has(river_cell), "Water missing river cell %s" % river_cell):
+    for cell in [Vector2i(0, 0), Vector2i(47, 39), Vector2i(20, 23)]:
+        if not _expect(used_cells.has(cell), "Ground missing cell %s" % cell):
             return
-        if not _expect(water.get_cell_source_id(river_cell) == 0, "water %s source" % river_cell):
-            return
-        if not _expect_vec2i(
-            water.get_cell_atlas_coords(river_cell),
-            _expected_water_tile(river_cell),
-            "water %s tile" % river_cell,
+        if not _expect_vec2(
+            ground.to_global(ground.map_to_local(cell)),
+            _cell_center(cell),
+            "cell %s center" % cell,
         ):
             return
-
-    var paths := farm_map.get_node("Paths") as TileMapLayer
-    if not _expect(paths != null, "Paths must exist"):
-        return
-    if not _expect(paths.position == Vector2(736.0, 0.0), "Paths alignment transform"):
-        return
-    if not _expect(paths.tile_set == ground.tile_set, "Paths must share the ground TileSet"):
-        return
-    var path_used := paths.get_used_cells()
-    var expected_paths := _expected_path_cells()
-    if not _expect(
-        path_used.size() == expected_paths.size(), "Paths must paint exactly the path cells"
-    ):
-        return
-    for path_cell in expected_paths:
-        if not _expect(path_used.has(path_cell), "Paths missing path cell %s" % path_cell):
-            return
+    for backdrop_cell in [Vector2i(-1, 0), Vector2i(48, 9), Vector2i(20, -1)]:
+        # The material clamps to the edge cell while the phase keeps the raw
+        # (possibly negative) cell parity, exactly as the stamper authored it.
+        var expected := Stamper.tile_for(backdrop_cell)
         if not _expect_vec2i(
-            paths.get_cell_atlas_coords(path_cell), PATH_TILE, "path %s tile" % path_cell
+            farm_backdrop.get_cell_atlas_coords(backdrop_cell),
+            Vector2i(expected.y, expected.z),
+            "farm Backdrop %s clamped edge tile" % backdrop_cell,
         ):
             return
-
-    var decoration := farm_map.get_node("GroundDecoration") as TileMapLayer
-    if not _expect(decoration != null, "GroundDecoration must exist"):
-        return
-    if not _expect(decoration.position == Vector2(736.0, 0.0), "GroundDecoration alignment"):
-        return
-    if not _expect(
-        decoration.tile_set == ground.tile_set, "GroundDecoration must share the ground TileSet"
-    ):
-        return
-    var decoration_used := decoration.get_used_cells()
-    if not _expect(
-        decoration_used.size() == DECORATION_CELLS.size(), "GroundDecoration cell count"
-    ):
-        return
-    for decoration_cell in DECORATION_CELLS:
         if not _expect(
-            decoration_used.has(decoration_cell), "GroundDecoration missing cell %s" % decoration_cell
-        ):
-            return
-        if not _expect_vec2i(
-            decoration.get_cell_atlas_coords(decoration_cell),
-            GRASS_DETAIL_TILE,
-            "GroundDecoration %s tile" % decoration_cell,
+            farm_backdrop.get_cell_source_id(backdrop_cell) == expected.x,
+            "farm Backdrop %s clamped edge source" % backdrop_cell,
         ):
             return
 
@@ -524,12 +394,13 @@ func _run() -> void:
         var ripple := child as Sprite2D
         if ripple != null:
             ripples.append(ripple)
-    if not _expect(ripples.size() == 3, "HomesteadAmbience ripple count"):
+    if not _expect(
+        ripples.size() == WorldContract.RIVER_RIPPLE_CELLS.size(),
+        "HomesteadAmbience ripple count",
+    ):
         return
     for index in ripples.size():
         var ripple := ripples[index]
-        if not _expect(ripple != null, "ripple %d sprite" % index):
-            return
         if not _expect(
             ripple.texture.resource_path == "res://assets/sprites/polish/river-ripple.png",
             "ripple %d texture" % index,
@@ -540,6 +411,12 @@ func _run() -> void:
         if not _expect_vec2(ripple.scale, Vector2(1, 1), "ripple %d scale" % index):
             return
         if not _expect_vec2(ripple.offset, Vector2.ZERO, "ripple %d offset" % index):
+            return
+        if not _expect_vec2(
+            ripple.position,
+            _cell_center(WorldContract.RIVER_RIPPLE_CELLS[index]),
+            "ripple %d sits on its contract water cell" % index,
+        ):
             return
     if not _expect(
         farm_soil.z_index < ambience.z_index
@@ -577,49 +454,53 @@ func _run() -> void:
         if not _expect(soil.hframes == 2, "soil %s frame columns" % farm_cells[index]):
             return
 
+    # --- Collision: every contract-bearing polygon exists exactly once ---
     var static_collision := farm_map.get_node("StaticCollision") as StaticBody2D
-    var collision_names := [
-        "HouseCollision",
-        "ForestCollision",
-        "RiverWestCollision",
-        "RiverSouthCollision",
-        "WorkbenchCollision",
-        "ShippingCollision",
-        "TruckCollision",
-        "PerimeterTop",
-        "PerimeterRight",
-        "PerimeterBottom",
-        "PerimeterLeft",
-    ]
-    if not _expect_names(static_collision, collision_names, "StaticCollision"):
-        return
-    if not _expect_child_order(static_collision, collision_names, "StaticCollision scene-tree order"):
-        return
     if not _expect(
         static_collision.position == Vector2.ZERO, "StaticCollision must be at world origin"
     ):
         return
-    var collider_footprints := {
-        "HouseCollision": WorldContract.HOUSE_FOOTPRINT,
-        "ForestCollision": WorldContract.FOREST_FOOTPRINT,
-        "RiverWestCollision": WorldContract.RIVER_WEST_FOOTPRINT,
-        "RiverSouthCollision": WorldContract.RIVER_SOUTH_FOOTPRINT,
-        "WorkbenchCollision": WorldContract.WORKBENCH_FOOTPRINT,
-        "ShippingCollision": WorldContract.SHIPPING_FOOTPRINT,
-        "TruckCollision": WorldContract.TRUCK_FOOTPRINT,
-    }
-    var perimeter_rects := WorldContract.perimeter_footprints(WorldContract.MAP_SIZE)
-    if not _expect(perimeter_rects.size() == 4, "perimeter footprint count"):
+    var expected_collisions := _expected_collision_counts()
+    var actual_collisions := {}
+    for child in static_collision.get_children():
+        var collision := child as CollisionPolygon2D
+        if not _expect(collision != null, "StaticCollision children must be polygons"):
+            return
+        var key := _polygon_key(collision.polygon)
+        actual_collisions[key] = int(actual_collisions.get(key, 0)) + 1
+    if not _expect(
+        actual_collisions.size() == expected_collisions.size(),
+        "collision polygon set must equal terrain runs + props + fences + perimeter",
+    ):
         return
-    var perimeter_names := ["PerimeterTop", "PerimeterRight", "PerimeterBottom", "PerimeterLeft"]
-    for index in perimeter_rects.size():
-        collider_footprints[perimeter_names[index]] = perimeter_rects[index]
-    for collider_name in collision_names:
-        var collision := static_collision.get_node(collider_name) as CollisionPolygon2D
+    for key in expected_collisions:
+        if not _expect(
+            int(actual_collisions.get(key, 0)) == int(expected_collisions[key]),
+            "missing or duplicated collision polygon %s" % key,
+        ):
+            return
+    for named in [
+        {"node": "HouseCollision", "footprint": WorldContract.HOUSE_FOOTPRINT},
+        {"node": "ShippingCollision", "footprint": WorldContract.SHIPPING_FOOTPRINT},
+        {"node": "TruckCollision", "footprint": WorldContract.TRUCK_FOOTPRINT},
+    ]:
+        var collision := static_collision.get_node_or_null(named["node"]) as CollisionPolygon2D
+        if not _expect(collision != null, "%s must stay authored" % named["node"]):
+            return
         if not _expect_polygon(
             collision.polygon,
-            WorldMath.footprint_to_polygon(collider_footprints[collider_name]),
-            "%s polygon" % collider_name,
+            WorldMath.footprint_to_polygon(named["footprint"]),
+            "%s polygon" % named["node"],
+        ):
+            return
+    var perimeter_names := ["PerimeterTop", "PerimeterRight", "PerimeterBottom", "PerimeterLeft"]
+    var perimeter_rects := WorldContract.perimeter_footprints(WorldContract.MAP_SIZE)
+    for index in perimeter_rects.size():
+        var collision := static_collision.get_node(perimeter_names[index]) as CollisionPolygon2D
+        if not _expect_polygon(
+            collision.polygon,
+            WorldMath.footprint_to_polygon(perimeter_rects[index]),
+            "%s polygon" % perimeter_names[index],
         ):
             return
 
@@ -643,112 +524,69 @@ func _run() -> void:
         "Entities must be the only enabled y-sort CanvasItem",
     ):
         return
-    var entity_names := _static_entity_names()
-    for farm_cell in farm_cells:
-        entity_names.append("FarmCrop_%d_%d" % [farm_cell.x, farm_cell.y])
-    if not _expect_names(entities, entity_names, "Entities"):
-        return
-    if not _expect_child_order(entities, entity_names, "Entities scene-tree order"):
+    var prop_count := WorldContract.blocking_props().size()
+    var fence_count := WorldContract.fence_cells().size()
+    if not _expect(
+        entities.get_child_count() == 1 + prop_count + fence_count + farm_cells.size(),
+        "Entities holds the player, every contract prop/fence and the 30 crops",
+    ):
         return
 
+    # --- Contract-bearing sprite roots: anchor, parts and approved 1x1s ---
+    for entry in WorldContract.blocking_props():
+        var prop := entities.get_node_or_null(entry["node"]) as Node2D
+        if not _expect(prop != null, "%s blocking prop root" % entry["node"]):
+            return
+        var footprint: Rect2 = entry["footprint"]
+        if not _expect_vec2(
+            prop.position,
+            WorldMath.footprint_ground_anchor(footprint),
+            "%s ground anchor" % entry["node"],
+        ):
+            return
+        if not _expect_names(prop, ["Shadow", "Sprite2D"], "%s entity" % entry["node"]):
+            return
+        var shadow := prop.get_node("Shadow") as Sprite2D
+        if not _expect(
+            shadow.texture.resource_path == "res://assets/sprites/proof-shadow.png",
+            "%s shadow texture" % entry["node"],
+        ):
+            return
+        var sprite := prop.get_node("Sprite2D") as Sprite2D
+        if not _expect(sprite.texture != null, "%s sprite texture" % entry["node"]):
+            return
+        if not _expect_vec2(
+            sprite.offset,
+            Vector2(0.0, -sprite.texture.get_height() * 0.5),
+            "%s bottom-center offset" % entry["node"],
+        ):
+            return
+        if footprint.size == Vector2.ONE:
+            if not _expect(
+                footprint.position == footprint.position.floor(),
+                "%s 1x1 footprint sits on an approved cell" % entry["node"],
+            ):
+                return
     var house := entities.get_node("House") as Node2D
+    if not _expect_vec2(house.scale, Vector2.ONE, "the 224x192 farmhouse uses native scale 1"):
+        return
+    if not _expect(
+        (house.get_node("Sprite2D") as Sprite2D).texture.resource_path
+        == FARM_TEXTURE_DIR + "farmhouse.png",
+        "farmhouse cutout",
+    ):
+        return
     var shipping := entities.get_node("Shipping") as Node2D
-    var workbench := entities.get_node("Workbench") as Node2D
-    var village_sign := entities.get_node("VillageSign") as Node2D
-    if not _expect_vec2(
-        house.position,
-        WorldMath.footprint_ground_anchor(WorldContract.HOUSE_FOOTPRINT),
-        "house anchor",
-    ):
-        return
-    # The 96x96 house frame displays at integer 2x (nearest filtering makes
-    # fractional scales resolve to uneven texel widths). The locked
-    # footprint's 176x88 projected diamond is inscribed in the drawn yard
-    # ellipse (~178x92 px), so the player stops at the visible yard edge with
-    # no band of invisible collision. The root scale also enlarges Shadow.
-    if not _expect_vec2(house.scale, Vector2(2.0, 2.0), "house display scale"):
-        return
-    if not _expect_vec2(
-        shipping.position, _cell_center(WorldContract.SHIPPING_CELL), "shipping anchor"
-    ):
-        return
-    if not _expect_vec2(
-        workbench.position, _cell_center(WorldContract.WORKBENCH_CELL), "workbench anchor"
-    ):
-        return
-    if not _expect_vec2(
-        village_sign.position, _cell_center(WorldContract.VILLAGE_SIGN_CELL), "village sign anchor"
+    if not _expect(
+        (shipping.get_node("Sprite2D") as Sprite2D).texture.resource_path == BIN_TEXTURE_PATH,
+        "shipping bin cutout",
     ):
         return
     var truck := entities.get_node("Truck") as Node2D
-    if not _expect(truck != null, "farm truck entity"):
-        return
     if not _expect_vec2(
         truck.position,
         WorldMath.footprint_ground_anchor(WorldContract.TRUCK_FOOTPRINT),
         "farm truck anchor",
-    ):
-        return
-
-    for entry in _prop_entities():
-        var entity := entities.get_node(entry.node) as Node2D
-        if not _expect(entity != null, "%s entity" % entry.label):
-            return
-        if not _expect_names(entity, ["Shadow", "Sprite2D"], "%s entity" % entry.label):
-            return
-        var entity_shadow := entity.get_node("Shadow") as Sprite2D
-        if not _expect(
-            entity_shadow.texture.resource_path == "res://assets/sprites/proof-shadow.png",
-            "%s shadow texture" % entry.label,
-        ):
-            return
-        var sprite := entity.get_node("Sprite2D") as Sprite2D
-        if not _expect(
-            sprite.texture.resource_path == PROPS_TEXTURE_PATH, "%s texture" % entry.label
-        ):
-            return
-        if not _expect(sprite.hframes == 4, "%s prop frame columns" % entry.label):
-            return
-        if not _expect(sprite.vframes == 2, "%s prop frame rows" % entry.label):
-            return
-        if not _expect(sprite.frame == entry.frame, "%s prop frame" % entry.label):
-            return
-        if not _expect_vec2(
-            sprite.offset, Vector2(0.0, -48.0), "%s bottom-center offset" % entry.label
-        ):
-            return
-
-    for entry in _proof_entities():
-        var entity := entities.get_node(entry.node) as Node2D
-        if not _expect(entity != null, "%s entity" % entry.label):
-            return
-        if not _expect_names(entity, ["Shadow", "Sprite2D"], "%s entity" % entry.label):
-            return
-        var entity_shadow := entity.get_node("Shadow") as Sprite2D
-        if not _expect(
-            entity_shadow.texture.resource_path == "res://assets/sprites/proof-shadow.png",
-            "%s shadow texture" % entry.label,
-        ):
-            return
-        var sprite := entity.get_node("Sprite2D") as Sprite2D
-        if not _expect(
-            sprite.texture.resource_path == entry.texture,
-            "%s texture" % entry.label,
-        ):
-            return
-        if not _expect(sprite.hframes == 1, "%s single-frame cutout" % entry.label):
-            return
-        if not _expect_vec2(
-            sprite.offset, Vector2(0.0, -48.0), "%s bottom-center offset" % entry.label
-        ):
-            return
-
-    if not _expect_names(truck, ["Shadow", "Sprite2D"], "farm truck entity"):
-        return
-    var truck_shadow := truck.get_node("Shadow") as Sprite2D
-    if not _expect(
-        truck_shadow.texture.resource_path == "res://assets/sprites/proof-shadow.png",
-        "farm truck shadow texture",
     ):
         return
     var truck_sprite := truck.get_node("Sprite2D") as Sprite2D
@@ -767,6 +605,29 @@ func _run() -> void:
         truck_sprite.offset, Vector2(0.0, -48.0), "farm truck bottom-center offset"
     ):
         return
+
+    # --- All 85 fence sprites sit on their approved cells ---
+    var fence_materials := _fence_materials()
+    for cell in WorldContract.fence_cells():
+        var material: String = fence_materials[cell]
+        var prefix := "BambooFence" if material == "bamboo" else "WoodFence"
+        var fence := entities.get_node_or_null("%s_%d_%d" % [prefix, cell.x, cell.y]) as Node2D
+        if not _expect(fence != null, "%s fence at %s" % [material, cell]):
+            return
+        if not _expect_vec2(
+            fence.position,
+            WorldMath.footprint_ground_anchor(Rect2(cell, Vector2.ONE)),
+            "fence %s anchor" % cell,
+        ):
+            return
+        if not _expect_names(fence, ["Shadow", "Sprite2D"], "fence %s entity" % cell):
+            return
+        var sprite := fence.get_node("Sprite2D") as Sprite2D
+        if not _expect(
+            _fence_textures(material).has(sprite.texture.resource_path),
+            "fence %s uses the %s fence art" % [cell, material],
+        ):
+            return
 
     var player := world.player
     if not _expect(player != null, "World must expose its Player"):
@@ -831,7 +692,7 @@ func _run() -> void:
         return
 
     var shared_entity_z_index := house.z_index
-    for prop in [shipping, workbench, village_sign, player]:
+    for prop in [shipping, truck, player]:
         if not _expect(
             prop.z_index == shared_entity_z_index, "%s shared entity z-index" % prop.name
         ):
@@ -867,42 +728,6 @@ func _run() -> void:
         if not _expect(not crop_sprite.visible, "crop %s initially hidden" % farm_cell):
             return
 
-    _place_player(player, Vector2(12.0, 9.0))
-    await physics_frame
-    if not _expect(
-        is_equal_approx(player.global_position.y, house.global_position.y),
-        "house exact-Y checkpoint",
-    ):
-        return
-    if not _expect(player.get_index() < house.get_index(), "house exact-Y scene-tree order"):
-        return
-
-    _place_player(player, Vector2(12.0, 8.8))
-    await physics_frame
-    if not _expect(is_equal_approx(player.global_position.y, 332.8), "house behind ground Y"):
-        return
-    if not _expect(player.global_position.y < house.global_position.y, "player ground Y < house.y"):
-        return
-
-    _place_player(player, Vector2(12.0, 9.2))
-    await physics_frame
-    if not _expect(is_equal_approx(player.global_position.y, 339.2), "house in-front ground Y"):
-        return
-    if not _expect(player.global_position.y > house.global_position.y, "player ground Y > house.y"):
-        return
-
-    _place_player(player, Vector2(10.5, 13.5))
-    await physics_frame
-    if not _expect(
-        is_equal_approx(player.global_position.y, shipping.global_position.y),
-        "shipping exact-Y checkpoint",
-    ):
-        return
-    if not _expect(
-        player.get_index() < shipping.get_index(), "shipping exact-Y scene-tree order"
-    ):
-        return
-
     var target_highlight := world.get_node_or_null("TargetHighlight") as Line2D
     if not _expect(target_highlight != null, "World must contain TargetHighlight"):
         return
@@ -929,7 +754,10 @@ func _run() -> void:
         camera.limit_right - camera.limit_left,
         camera.limit_bottom - camera.limit_top,
     )
-    if not _expect(camera_bounds == WorldContract.CAMERA_BOUNDS, "camera bounds"):
+    if not _expect(
+        camera_bounds == WorldMath.map_camera_bounds(WorldContract.MAP_SIZE),
+        "camera bounds derive from the 48x40 map",
+    ):
         return
     if not _expect(camera.zoom == Vector2.ONE * WorldContract.CAMERA_ZOOM, "camera zoom"):
         return
@@ -992,11 +820,14 @@ func _run() -> void:
     if not _expect(player.get("facing") == WorldMath.Facing.RIGHT, "player idle facing retention"):
         return
 
+    var spawn_cell := Vector2i(
+        floori(WorldContract.PLAYER_SPAWN.x), floori(WorldContract.PLAYER_SPAWN.y)
+    )
     var target_cases := [
-        {"action": "move_up", "facing": WorldMath.Facing.UP, "cell": Vector2i(10, 7)},
-        {"action": "move_right", "facing": WorldMath.Facing.RIGHT, "cell": Vector2i(12, 7)},
-        {"action": "move_down", "facing": WorldMath.Facing.DOWN, "cell": Vector2i(12, 9)},
-        {"action": "move_left", "facing": WorldMath.Facing.LEFT, "cell": Vector2i(10, 9)},
+        {"action": "move_up", "facing": WorldMath.Facing.UP, "cell": spawn_cell + Vector2i(-1, -1)},
+        {"action": "move_right", "facing": WorldMath.Facing.RIGHT, "cell": spawn_cell + Vector2i(1, -1)},
+        {"action": "move_down", "facing": WorldMath.Facing.DOWN, "cell": spawn_cell + Vector2i(1, 1)},
+        {"action": "move_left", "facing": WorldMath.Facing.LEFT, "cell": spawn_cell + Vector2i(-1, 1)},
     ]
     for entry in target_cases:
         _place_player(player, WorldContract.PLAYER_SPAWN)
@@ -1016,124 +847,115 @@ func _run() -> void:
         ):
             return
 
-    _place_player(player, Vector2(23.5, 10.5))
+    _place_player(player, Vector2(0.5, 0.5))
     await physics_frame
-    Input.action_press("move_right")
+    Input.action_press("move_up")
     await physics_frame
-    Input.action_release("move_right")
+    Input.action_release("move_up")
     await physics_frame
-    if not _expect(player.get("facing") == WorldMath.Facing.RIGHT, "off-map player facing"):
+    if not _expect(player.get("facing") == WorldMath.Facing.UP, "off-map player facing"):
         return
     if not _expect(not target_highlight.visible, "off-map target hidden"):
         return
     if not _expect(target_highlight.points.is_empty(), "off-map target points cleared"):
         return
 
-    # The bin shares the old small-prop collider size class: approach along the
-    # east vertex world-Y so the extreme-velocity stop is a symmetric vertex
-    # hit instead of an edge slide.
-    var bin_vertex := WorldMath.grid_to_world(WorldContract.SHIPPING_FOOTPRINT.end)
-    _place_player(
-        player,
-        WorldMath.world_to_grid(bin_vertex + Vector2(3.0 * WorldContract.TILE_SIZE.x, 0.0)),
-    )
+    # High-motion collision against the full-cell shipping bin: the real stop
+    # lands outside the footprint rather than tunnelling through it.
+    _place_player(player, Vector2(22.5, 17.5))
     await physics_frame
-    player.velocity = Vector2(-12000.0, 0.0)
+    player.velocity = Vector2(0.0, 12000.0)
     player.move_and_slide()
-    var high_motion_stop := WorldMath.world_to_grid(player.global_position)
+    var bin_stop := WorldMath.world_to_grid(player.global_position)
     if not _expect(
-        high_motion_stop.x >= 10.97
-        and high_motion_stop.x <= 11.02
+        _outside_footprint(bin_stop, WorldContract.SHIPPING_FOOTPRINT)
         and player.get_slide_collision_count() > 0,
         "high-motion shipping bin collision",
     ):
         return
     player.velocity = Vector2.ZERO
 
-    # The house is approached from the south: an up-walk stops at its south
-    # face, and a held north-west detour clears the house's west side, so the
-    # homestead never seals the map.
-    _place_player(player, Vector2(12.5, 7.5))
+    # The door approach stops on the house's southern slice; the yard gate and
+    # the field gate are real openings, not sealed walls.
+    _place_player(player, Vector2(23.5, 11.5))
     await physics_frame
-    await _hold_actions(["move_up"], 60)
-    var house_approach := WorldMath.world_to_grid(player.global_position)
+    await _hold_actions(["move_up"], 40)
+    var door_approach := WorldMath.world_to_grid(player.global_position)
     if not _expect(
-        _outside_footprint(house_approach, WorldContract.HOUSE_FOOTPRINT),
-        "house approach remains outside footprint",
+        _outside_footprint(door_approach, WorldContract.HOUSE_FOOTPRINT),
+        "door approach remains outside the house footprint",
     ):
         return
     if not _expect(
-        house_approach.y >= 7.41 and house_approach.y <= 7.63,
-        "house approach stops at the south face",
+        door_approach.y >= 10.0 and door_approach.y <= 10.6,
+        "door approach stops at the bed-side house face (%s)" % door_approach,
     ):
         return
-    await _hold_actions(["move_left", "move_up"], 180)
-    var house_detour := WorldMath.world_to_grid(player.global_position)
+    _place_player(player, Vector2(23.5, 13.5))
+    await physics_frame
+    await _hold_actions(["move_down"], 60)
+    var yard_exit := WorldMath.world_to_grid(player.global_position)
     if not _expect(
-        _outside_footprint(house_detour, WorldContract.HOUSE_FOOTPRINT),
-        "house detour remains outside footprint",
+        yard_exit.y > 14.5 and yard_exit.x > 22.5,
+        "the yard's south gate lets the player leave the homestead",
     ):
         return
-    if not _expect(
-        house_detour.x <= 9.4 and house_detour.y <= 6.8,
-        "house west detour clears the yard",
-    ):
-        return
-
-    # The west river is solid: an east-bank approach stops at the water line,
-    # and a walk pressed along the bank stays ashore instead of wading.
-    _place_player(player, Vector2(3.5, 10.0))
+    _place_player(player, Vector2(22.5, 20.5))
     await physics_frame
     await _hold_actions(["move_left"], 60)
-    var river_approach := WorldMath.world_to_grid(player.global_position)
+    var field_entry := WorldMath.world_to_grid(player.global_position)
     if not _expect(
-        _outside_footprint(river_approach, WorldContract.RIVER_WEST_FOOTPRINT),
-        "river west approach remains outside water",
-    ):
-        return
-    if not _expect(
-        river_approach.x >= 2.18 and river_approach.x <= 2.39,
-        "river west approach stops at the bank",
-    ):
-        return
-    await _hold_actions(["move_left", "move_down"], 120)
-    var bank_walk := WorldMath.world_to_grid(player.global_position)
-    if not _expect(
-        _outside_footprint(bank_walk, WorldContract.RIVER_WEST_FOOTPRINT)
-        and _outside_footprint(bank_walk, WorldContract.RIVER_SOUTH_FOOTPRINT)
-        and _within_player_bounds(bank_walk),
-        "river west bank walk stays ashore",
+        field_entry.x < 21.0 and field_entry.x > 18.0,
+        "the field gate opens from the path into the wooden yard",
     ):
         return
 
+    # Perimeter and blocking terrain: every edge walk stays in bounds and off
+    # the blocking band.
     _place_player(player, Vector2(2.5, 10.0))
     await physics_frame
     await _hold_actions(["move_left"], 120)
-    if not _expect(_within_player_bounds(WorldMath.world_to_grid(player.global_position)), "west river boundary"):
+    if not _expect(
+        _within_player_bounds(WorldMath.world_to_grid(player.global_position)),
+        "west river boundary",
+    ):
         return
-    _place_player(player, Vector2(23.5, 10.0))
+    _place_player(player, Vector2(41.5, 10.0))
     await physics_frame
     await _hold_actions(["move_right"], 120)
-    if not _expect(_within_player_bounds(WorldMath.world_to_grid(player.global_position)), "right perimeter"):
+    var east_stop := WorldMath.world_to_grid(player.global_position)
+    if not _expect(
+        _within_player_bounds(east_stop) and east_stop.x < 44.0,
+        "east road boundary stops before the paddy",
+    ):
         return
-    _place_player(player, Vector2(12.0, 2.5))
+    _place_player(player, Vector2(12.5, 5.5))
     await physics_frame
     await _hold_actions(["move_up"], 120)
-    if not _expect(_within_player_bounds(WorldMath.world_to_grid(player.global_position)), "north forest boundary"):
+    var north_stop := WorldMath.world_to_grid(player.global_position)
+    if not _expect(
+        _within_player_bounds(north_stop) and north_stop.y > 3.0,
+        "north forest boundary blocks the player",
+    ):
         return
-    _place_player(player, Vector2(12.5, 19.0))
+    _place_player(player, Vector2(32.5, 34.5))
     await physics_frame
     await _hold_actions(["move_down"], 120)
-    if not _expect(_within_player_bounds(WorldMath.world_to_grid(player.global_position)), "bottom perimeter"):
+    if not _expect(
+        _within_player_bounds(WorldMath.world_to_grid(player.global_position)),
+        "bottom perimeter",
+    ):
         return
 
-    # Farm-edge reachability: a diagonal walk from the expanded patch's
-    # north-west corner crosses every row and exits past its south-east edge.
-    _place_player(player, Vector2(4.5, 10.5))
+    # The canonical 30-cell patch is open ground: a diagonal walk crosses it.
+    _place_player(player, Vector2(15.5, 19.5))
     await physics_frame
     await _hold_actions(["move_down"], 130)
     var farm_exit := WorldMath.world_to_grid(player.global_position)
-    if not _expect(farm_exit.x > 9.0 and farm_exit.y > 14.0, "farm edge traversal exits south-east"):
+    if not _expect(
+        farm_exit.x > 18.0 and farm_exit.y > 22.0,
+        "farm edge traversal crosses the patch freely",
+    ):
         return
 
     _place_player(player, Vector2(WorldContract.TRUCK_ARRIVAL) + Vector2(0.5, 0.5))
@@ -1548,7 +1370,7 @@ func _run() -> void:
     world.hud._sfx_player.stop()
     await create_timer(0.2).timeout
 
-    print("world shell smoke passed: 480 cells, alignment, water/paths, player, camera, collisions, assets")
+    print("world shell smoke passed: 48x40 stamped ground/backdrop, 47 props, 85 fences, collisions, player, camera, assets")
     quit(0)
 
 func _init() -> void:

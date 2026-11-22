@@ -23,6 +23,7 @@ git archive --format=tar HEAD | tar -xf - -C "$tmp"
     -gdir=res://tests/unit,res://tests/integration -gexit
   godot --headless --path . --script res://tests/headless/project_smoke.gd
   godot --headless --path . --script res://tests/headless/world_math_smoke.gd
+  godot --headless --path . --script res://tests/headless/terrain_stamp_smoke.gd
   godot --headless --path . --script res://tests/headless/world_shell_smoke.gd
   python3 tools/check_audio_sources.py
 )

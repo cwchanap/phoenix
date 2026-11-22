@@ -1,6 +1,9 @@
 extends GutTest
 
 const SETTINGS_PATH := "user://phoenix-task9-gameplay-settings.cfg"
+# Inert, non-farm fixture target with an unobstructed stand cell: plain
+# grass west of the approved village-sign (40,17) and vending (41,18) props.
+const INERT_CELL := Vector2i(39, 17)
 const OVERNIGHT_SAVE_PATH := "user://phoenix-hpa-460-overnight-ownership.json"
 
 func before_each() -> void:
@@ -294,30 +297,21 @@ func test_entities_is_farm_view_and_only_y_sort_node() -> void:
     if enabled_y_sort_nodes.size() == 1:
         assert_eq(enabled_y_sort_nodes[0], entities)
 
-const ENTITY_STATIC_NAMES := [
-    "Player",
-    "House",
-    "TreeForest",
-    "TreeBank",
-    "TreeNorth",
-    "RockYard",
-    "RockMeadow",
-    "TreeNorth2",
-    "TreeNorth3",
-    "TreeNorth4",
-    "RockNorth1",
-    "TreeNorth5",
-    "TreeNorth6",
-    "RockNorth2",
-    "TreeNorth7",
-    "FarmFence_1",
-    "FarmFence_2",
-    "FarmFence_3",
-    "Workbench",
-    "VillageSign",
-    "Shipping",
-    "Truck",
-]
+## Contract-driven authored order: the 47 blocking prop roots in
+## WorldContract.blocking_props() order, then all 85 fence roots, then the 30
+## FarmView crop roots. The Player is reparented to index 0 at map load.
+func _farm_static_entity_names() -> Array:
+    var names: Array = ["Player"]
+    for entry in WorldContract.blocking_props():
+        names.append(entry["node"])
+    var materials := {}
+    for run in WorldContract.fence_runs():
+        for index in int(run["length"]):
+            materials[run["start"] + run["step"] * index] = run["material"]
+    for cell in WorldContract.fence_cells():
+        var prefix := "BambooFence" if materials[cell] == "bamboo" else "WoodFence"
+        names.append("%s_%d_%d" % [prefix, cell.x, cell.y])
+    return names
 
 func test_crop_roots_are_direct_entities_children_at_cell_centers() -> void:
     var world := _world()
@@ -328,12 +322,13 @@ func test_crop_roots_are_direct_entities_children_at_cell_centers() -> void:
     if entities == null:
         return
     var cells := WorldContract.farm_cells()
-    var static_count := ENTITY_STATIC_NAMES.size()
+    var static_names := _farm_static_entity_names()
+    var static_count := static_names.size()
     assert_eq(entities.get_child_count(), static_count + cells.size())
     if entities.get_child_count() < static_count + cells.size():
         return
     for index in static_count:
-        assert_eq(String(entities.get_child(index).name), ENTITY_STATIC_NAMES[index])
+        assert_eq(String(entities.get_child(index).name), static_names[index])
     for index in cells.size():
         var cell: Vector2i = cells[index]
         var crop_root := entities.get_child(static_count + index) as Node2D
@@ -857,7 +852,7 @@ func _hud(world: WorldShell) -> GameHud:
 func _place_target(
     world: WorldShell,
     target: Vector2i,
-    facing := WorldMath.Facing.DOWN,
+    facing := WorldMath.Facing.RIGHT,
 ) -> void:
     var player := world.player
     assert_not_null(player)
@@ -2034,7 +2029,7 @@ func test_opening_shipping_immediately_gates_world_input() -> void:
     var hud := _hud(world)
     if hud == null:
         return
-    await _place_target(world, WorldContract.SHIPPING_CELL)
+    await _place_target(world, WorldContract.SHIPPING_CELL, WorldMath.Facing.UP)
     world.interact()
     assert_false(world._world_input_enabled)
     hud.close_shipping()
@@ -2313,7 +2308,7 @@ func test_blocked_routing_leaves_session_snapshot_unchanged() -> void:
     var world := _world()
     if world == null:
         return
-    await _place_target(world, WorldContract.SHIPPING_CELL, WorldMath.Facing.DOWN)
+    await _place_target(world, WorldContract.SHIPPING_CELL, WorldMath.Facing.UP)
     world.interact()
     var before := world._session.snapshot()
     world.cycle_seed()
@@ -2561,7 +2556,7 @@ func test_successful_till_spawns_transient_tool_and_soil_effects() -> void:
     if effects == null:
         return
     var cell: Vector2i = WorldContract.farm_cells()[0]
-    await _place_target(world, cell)
+    await _place_target(world, cell, WorldMath.Facing.RIGHT)
     world.use_target_action()
     # Observe the real transient nodes immediately after dispatch.
     var impact := effects.get_node_or_null(_fx_name("SoilFx", cell)) as Sprite2D
@@ -2575,9 +2570,9 @@ func test_successful_till_spawns_transient_tool_and_soil_effects() -> void:
     assert_not_null(tool, "tool overlay is a child of the Player root")
     if tool != null:
         assert_eq(tool.texture.resource_path, "res://assets/sprites/polish/hoe-overlay.png")
-        # DOWN facing: frame 0 at (10, -12) per the HPA-458 tool-facing contract.
-        assert_eq(tool.frame, 0)
-        assert_eq(tool.position, Vector2(10, -12))
+        # RIGHT facing: frame 2 at (10, -15) per the HPA-458 tool-facing contract.
+        assert_eq(tool.frame, 2)
+        assert_eq(tool.position, Vector2(10, -15))
         assert_false(tool.flip_h)
     await _await_effects_settled()
     assert_null(effects.get_node_or_null(_fx_name("SoilFx", cell)), "cell effect frees")
@@ -2725,7 +2720,7 @@ func test_blocked_farming_commands_spawn_no_effects() -> void:
     assert_eq(effects.get_child_count(), 0, "blocked watering spawns no effect")
     assert_null(world.player.get_node_or_null("ToolFx"))
 
-    await _place_target(world, WorldContract.VILLAGE_SIGN_CELL, WorldMath.Facing.UP)
+    await _place_target(world, INERT_CELL, WorldMath.Facing.UP)
     world.use_target_action()
     assert_eq(effects.get_child_count(), 0, "non-farm target spawns no effect")
     assert_null(world.player.get_node_or_null("ToolFx"))
@@ -3869,7 +3864,7 @@ func _push_use_action(world: WorldShell, pressed: bool) -> void:
 func _set_target(
     world: WorldShell,
     target: Vector2i,
-    facing := WorldMath.Facing.DOWN,
+    facing := WorldMath.Facing.RIGHT,
 ) -> void:
     var offset: Vector2i = WorldMath.TARGET_OFFSETS[facing]
     world.player.global_position = WorldMath.grid_to_world(
@@ -3983,14 +3978,14 @@ func test_hold_invalid_and_nonfarm_targets_never_dispatch_or_restart_feedback() 
     var invalid_preview := _hold_preview(world, cells[1])
     assert_eq(invalid_preview["code"], GameRules.CommandCode.ALREADY_WATERED)
     # Non-farm target alongside it.
-    _set_target(world, WorldContract.VILLAGE_SIGN_CELL, WorldMath.Facing.UP)
-    var sign_preview := _hold_preview(world, WorldContract.VILLAGE_SIGN_CELL)
+    _set_target(world, INERT_CELL, WorldMath.Facing.UP)
+    var sign_preview := _hold_preview(world, INERT_CELL)
     assert_eq(sign_preview["code"], GameRules.CommandCode.NOT_FARM_CELL)
     var before := world._session.snapshot()
 
     for _poll in 10:
         assert_false(world._advance_action_hold(0.1, cells[1], invalid_preview))
-        assert_false(world._advance_action_hold(0.1, WorldContract.VILLAGE_SIGN_CELL, sign_preview))
+        assert_false(world._advance_action_hold(0.1, INERT_CELL, sign_preview))
     assert_eq(world._session.snapshot(), before, "hold polling must not dispatch")
     assert_eq(hud.toast_text(), "", "polling a blocked target must not raise a toast")
     assert_eq(
@@ -4124,7 +4119,7 @@ func test_hold_off_farm_and_blocked_farm_bind_their_first_resolved_action() -> v
     var world := _world()
     var session := world._session
     var cells := WorldContract.farm_cells()
-    await _place_target(world, WorldContract.VILLAGE_SIGN_CELL, WorldMath.Facing.UP)
+    await _place_target(world, INERT_CELL, WorldMath.Facing.UP)
 
     _push_use_action(world, true)
     assert_null(world._action_hold_action)
@@ -4460,7 +4455,7 @@ func test_passive_clock_ticks_pauses_and_keeps_late_day_interactive() -> void:
     hud.close_shipping()
     assert_true(world._world_input_enabled)
 
-    _set_target(world, Vector2i(12, 9))
+    _set_target(world, Vector2i(23, 11))
     var moved_from := world.player.global_position
     Input.action_press("move_right")
     await get_tree().physics_frame
@@ -4699,7 +4694,7 @@ func test_load_map_farm_reload_preserves_player_session_and_hud() -> void:
     var spawn_target: Variant = WorldMath.target_cell(
         WorldMath.world_to_grid(player.global_position), player.facing, WorldContract.MAP_SIZE
     )
-    assert_eq(spawn_target, Vector2i(12, 9), "spawn target cell")
+    assert_eq(spawn_target, Vector2i(24, 12), "spawn target cell")
     assert_true(target_highlight.visible, "initial target drawn without a physics tick")
     assert_eq(
         target_highlight.points,
@@ -5794,15 +5789,15 @@ func _regions(map_id: GameRules.MapId) -> Array:
 
 func _collider_footprints(map_id: GameRules.MapId) -> Array:
     if map_id == GameRules.MapId.FARM:
-        return [
-            WorldContract.HOUSE_FOOTPRINT,
-            WorldContract.FOREST_FOOTPRINT,
-            WorldContract.RIVER_WEST_FOOTPRINT,
-            WorldContract.RIVER_SOUTH_FOOTPRINT,
-            WorldContract.WORKBENCH_FOOTPRINT,
-            WorldContract.SHIPPING_FOOTPRINT,
-            WorldContract.TRUCK_FOOTPRINT,
-        ] + WorldContract.perimeter_footprints(WorldContract.MAP_SIZE)
+        var farm_rects: Array = []
+        for y in WorldContract.MAP_SIZE.y:
+            for x in WorldContract.MAP_SIZE.x:
+                if WorldContract.blocks_movement(Vector2i(x, y)):
+                    farm_rects.append(Rect2(x, y, 1, 1))
+        for entry in WorldContract.blocking_props():
+            farm_rects.append(entry["footprint"])
+        farm_rects.append_array(WorldContract.fence_footprints())
+        return farm_rects + WorldContract.perimeter_footprints(WorldContract.MAP_SIZE)
     return [
         TownContract.STATION_FOOTPRINT,
         TownContract.SHOP_FOOTPRINT,
@@ -5988,9 +5983,7 @@ func _backoff_facing(world: WorldShell, position: Vector2, row: Dictionary, cano
 func _evidence_region_footprints(map_id: GameRules.MapId) -> Array:
     if map_id == GameRules.MapId.FARM:
         return [
-            WorldContract.HOUSE_FOOTPRINT.intersection(
-                Rect2(WorldContract.BED_CELL, Vector2.ONE)
-            ),
+            WorldContract.bed_contact_footprint(),
             WorldContract.SHIPPING_FOOTPRINT,
             WorldContract.TRUCK_FOOTPRINT,
         ]
@@ -6155,7 +6148,7 @@ func test_farm_contact_table_covers_every_reachable_face() -> void:
     var world := _world()
     if world == null:
         return
-    await _run_contact_table(world, GameRules.MapId.FARM, 9)
+    await _run_contact_table(world, GameRules.MapId.FARM, 8)
 
 func test_town_contact_table_covers_every_reachable_face() -> void:
     var world := _world()
@@ -6339,20 +6332,22 @@ func test_market_hana_neighbors_turn_away_or_back_off_legally() -> void:
     )
     assert_eq(gap_got, TownContract.MARKET_CELL, "the gap probe legally resolves the market")
 
-func test_bin_contact_e_opens_shipping_while_space_keeps_the_raw_farm_tile() -> void:
+func test_bin_contact_e_opens_shipping_while_space_keeps_the_raw_target() -> void:
     var world := _world()
     var hud := world.hud
-    # 9.6, not 9.5: a straight-down push from the bin N vertex's exact screen
-    # x stops with the contact vector pure screen-down, so horizontal facings
-    # dot exactly 0 and the resolver correctly refuses; the 0.1-cell east
-    # offset lands the real collision stop on the NE edge, where LEFT
-    # genuinely faces the contact while the raw target stays the farm tile.
-    var start := WorldMath.grid_to_world(Vector2(9.6, 12.5))
-    assert_false(_probe_collides(GameRules.MapId.FARM, start))
-    world.player.global_position = start
-    await _push_until_stopped(world, Vector2(0, 1))
-    var stop: Vector2 = world.player.global_position
-    world.player.facing = WorldMath.Facing.LEFT
+    var session := world._session
+    # The approved field fence at (21,19) seals the bin's west face, and the
+    # bin now sits two cells from the patch, so the old E-over-farm-tile
+    # overlap is geometrically impossible. Pin a real reachable face instead.
+    var bin_rows := _face_rows(WorldContract.SHIPPING_FOOTPRINT)
+    var stop_info := await _contact_stop(
+        world, GameRules.MapId.FARM, WorldContract.SHIPPING_FOOTPRINT, bin_rows[0]
+    )
+    assert_true(stop_info["ok"], "the bin's north face must be physically reachable")
+    if not stop_info["ok"]:
+        return
+    var stop: Vector2 = stop_info["stop"]
+    world.player.facing = bin_rows[0]["positive"][0]
     world.player.velocity = Vector2.ZERO
     world.player.refresh_target()
     world._process(0.0)
@@ -6362,55 +6357,96 @@ func test_bin_contact_e_opens_shipping_while_space_keeps_the_raw_farm_tile() -> 
     var raw: Variant = world.player.current_target_cell()
     assert_true(raw != null, "precondition: the raw target exists")
     if raw != null:
-        assert_true(
+        assert_false(
             WorldContract.FARM_PATCH.has_point(raw),
-            "precondition: the raw target is a farm tile (the Space side of the overlap)",
-        )
-        assert_eq(
-            raw, Vector2i(9, 14),
-            "precondition: the overlap's raw target is the exact farm tile beside the bin",
+            "precondition: no farm tile overlaps this reachable bin pose",
         )
 
-    # E takes prompt and highlight priority over the overlapping farm tile,
-    # while Space still acts on the raw farm tile.
+    # E owns the prompt and the diamond at the real contact, and E dispatch
+    # resolves the canonical bin rather than the raw cell.
     assert_eq(hud.prompt_text(), "[E] Shipping")
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_NEUTRAL)
-    assert_eq(world.player.target_highlight.points, WorldMath.cell_diamond(WorldContract.SHIPPING_CELL))
-    # E still dispatches the independent resolver to Shipping.
+    assert_eq(
+        world.player.target_highlight.points,
+        WorldMath.cell_diamond(WorldContract.SHIPPING_CELL),
+    )
     assert_eq(_resolver_cell(world), WorldContract.SHIPPING_CELL)
     world.interact()
-    assert_true(_panel(hud, "ShippingPanel").visible, "E at the bin contact opens Shipping on the first press")
+    assert_true(_panel(hud, "ShippingPanel").visible, "E at the bin contact opens Shipping")
     hud.close_modals()
     assert_false(hud.has_blocking_modal())
-    # Space still works the raw farm tile.
-    if raw != null:
-        world.use_target_action()
-        var index: int = WorldContract.farm_cells().find(raw)
-        assert_true(bool(world._session.snapshot()["farm"][index]["tilled"]), "Space tilled the raw farm tile")
+    # Space has no farm tile at this pose: the canonical patch is elsewhere.
+    var before := session.snapshot()
+    world.use_target_action()
+    assert_eq(session.snapshot(), before, "Space cannot farm from the bin contact")
+
+    # Space farming stays available on a separately reachable patch cell.
+    var patch_cell: Vector2i = WorldContract.farm_cells()[0]
+    _set_target(world, patch_cell, WorldMath.Facing.UP)
+    world._process(0.0)
+    assert_eq(hud.prompt_text(), "[Space] Till soil · 3 stamina")
+    world.use_target_action()
+    var index: int = WorldContract.farm_cells().find(patch_cell)
+    assert_true(bool(session.snapshot()["farm"][index]["tilled"]), "Space tilled the patch cell")
+
+func test_farm_regions_have_area_and_the_origin_never_interacts() -> void:
+    var world := _world()
+    var hud := world.hud
+    for region in _regions(GameRules.MapId.FARM):
+        assert_true(
+            (region["footprint"] as Rect2).has_area(),
+            "farm E region %s must keep a real footprint area" % region["cell"],
+        )
+    # The retired bed region was HOUSE_FOOTPRINT.intersection(bed cell), an
+    # empty Rect2() at the logical origin. A pose within 14 px of the projected
+    # origin, facing the zero vector, must not accidentally resolve or open the
+    # bed: the real door slice lives at (23, 9.75..10).
+    var origin := WorldMath.grid_to_world(Vector2.ZERO)
+    _set_pose_and_process(world, origin + Vector2(0.0, 12.0), WorldMath.Facing.UP)
+    assert_eq(
+        WorldMath.closest_contact(origin + Vector2(0.0, 12.0), Rect2()).distance_to(
+            origin + Vector2(0.0, 12.0)
+        ),
+        12.0,
+        "precondition: the origin point would sit inside the retired empty-rect reach",
+    )
+    assert_null(_resolver_cell(world), "the empty origin rect must never resolve an interactable")
+    var before := world._session.snapshot()
+    world.interact()
+    assert_eq(world._session.snapshot(), before, "the origin pose must not act on the bed")
+    assert_false(_panel(hud, "SleepPanel").visible)
+    assert_eq(hud.toast_text(), "Nothing to interact with.")
 
 func test_bin_vertex_perpendicular_contact_refuses_despite_touching() -> void:
     var world := _world()
     var hud := world.hud
-    # The original bin overlap pose (start 9.5, not the success fixture's
-    # 9.6): the straight-down push stops on the bin N vertex's exact screen
-    # x, so the contact vector is pure screen-down and LEFT dots to exactly
-    # 0. Strict dot > 0 must refuse it — a >= 0 comparison or a zero-distance
-    # acceptance path would resolve the bin from this touching pose.
-    var start := WorldMath.grid_to_world(Vector2(9.5, 12.5))
-    assert_false(_probe_collides(GameRules.MapId.FARM, start))
-    world.player.global_position = start
-    await _push_until_stopped(world, Vector2(0, 1))
-    world.player.facing = WorldMath.Facing.LEFT
+    # The bin's south vertex sits on the gate path with no flanking prop, so a
+    # straight up-screen push stops with the contact vector pure screen-up and
+    # RIGHT (screen +x) dots to exactly 0. Strict dot > 0 must refuse it — a
+    # >= 0 comparison or a zero-distance acceptance path would resolve the bin
+    # from this touching pose.
+    # A vertex-perpendicular collision stop has an ambiguous slide normal, so
+    # the physical stop would slide along one edge. The pose is placed on the
+    # free gate-path cell exactly 14 px below the south vertex instead: the
+    # vertex is the unique inclusive-reach contact and RIGHT is perpendicular.
+    var south_vertex := WorldMath.footprint_to_polygon(WorldContract.SHIPPING_FOOTPRINT)[2]
+    var stop := south_vertex + Vector2(0.0, CONTACT_REACH_PX)
+    assert_false(_probe_collides(GameRules.MapId.FARM, stop))
+    world.player.global_position = stop
+    world.player.facing = WorldMath.Facing.RIGHT
     world.player.velocity = Vector2.ZERO
     world.player.refresh_target()
     world._process(0.0)
-    var stop: Vector2 = world.player.global_position
     var contact := _closest_contact_point(WorldContract.SHIPPING_FOOTPRINT, stop)
-    assert_lt(stop.distance_to(contact), CONTACT_REACH_PX, "precondition: the vertex pose is well within contact reach")
+    assert_lte(
+        stop.distance_to(contact),
+        CONTACT_REACH_PX,
+        "precondition: the vertex pose sits exactly on the inclusive contact reach",
+    )
     assert_eq(
-        WorldMath.grid_delta_to_world(WorldMath.TARGET_OFFSETS[WorldMath.Facing.LEFT]).dot(contact - stop),
+        WorldMath.grid_delta_to_world(WorldMath.TARGET_OFFSETS[WorldMath.Facing.RIGHT]).dot(contact - stop),
         0.0,
-        "precondition: the stop pins the perpendicular vertex pose (LEFT dot is exactly 0)",
+        "precondition: the stop pins the perpendicular vertex pose (RIGHT dot is exactly 0)",
     )
     var raw: Variant = world.player.current_target_cell()
     assert_true(
@@ -6485,16 +6521,17 @@ func test_process_transitions_e_hint_farming_idle_without_stale_highlight() -> v
     var world := _world()
     var hud := world.hud
     var highlight := world.player.target_highlight
-    # E hint at the bin's west face (RIGHT faces the bin inward; the raw
-    # target is the empty path cell beside it). The physics push only carries
-    # the player to the contact; every state change below is synchronous, so
-    # _process alone must re-render the hint — no _update_target() repaint.
+    # E hint at a real bin face (the north face, faced down-screen). Every
+    # state change below is synchronous, so _process alone must re-render the
+    # hint — no _update_target() repaint.
     var bin_rows := _face_rows(WorldContract.SHIPPING_FOOTPRINT)
-    var stop_info := await _contact_stop(world, GameRules.MapId.FARM, WorldContract.SHIPPING_FOOTPRINT, bin_rows[3])
-    assert_true(stop_info["ok"], "the bin's west face must be physically reachable")
+    var stop_info := await _contact_stop(
+        world, GameRules.MapId.FARM, WorldContract.SHIPPING_FOOTPRINT, bin_rows[0]
+    )
+    assert_true(stop_info["ok"], "the bin's north face must be physically reachable")
     if not stop_info["ok"]:
         return
-    world.player.facing = WorldMath.Facing.RIGHT
+    world.player.facing = bin_rows[0]["positive"][0]
     world.player.velocity = Vector2.ZERO
     world._process(0.0)
     assert_eq(hud.prompt_text(), "[E] Shipping")
@@ -6502,19 +6539,27 @@ func test_process_transitions_e_hint_farming_idle_without_stale_highlight() -> v
     assert_eq(highlight.points, WorldMath.cell_diamond(WorldContract.SHIPPING_CELL))
     assert_eq(highlight.default_color, PlayerController.TARGET_NEUTRAL)
 
-    # E hint -> farming: turning UP raw-targets the farm tile behind the bin;
-    # _process itself must repaint the raw diamond over the E diamond.
+    # E hint -> idle: turning away leaves the raw target as a plain cell; the
+    # process pass must repaint the raw neutral diamond and hide the prompt.
     world.player.facing = WorldMath.Facing.UP
     world._process(0.0)
     var raw: Variant = world.player.current_target_cell()
-    assert_true(raw != null and WorldContract.FARM_PATCH.has_point(raw), "farming turn must raw-target a farm tile")
+    assert_true(raw != null, "turning up keeps a raw target")
+    assert_eq(hud.prompt_text(), "")
+    assert_eq(highlight.default_color, PlayerController.TARGET_NEUTRAL)
+    assert_eq(highlight.points, WorldMath.cell_diamond(raw), "the raw diamond replaces the E diamond")
+
+    # idle -> farming: a real patch stand paints the farming hint.
+    var patch_cell: Vector2i = WorldContract.farm_cells()[0]
+    _set_target(world, patch_cell, WorldMath.Facing.UP)
+    world._process(0.0)
     assert_true(hud.prompt_text().begins_with("[Space]"))
     assert_eq(highlight.default_color, PlayerController.TARGET_VALID)
-    assert_eq(highlight.points, WorldMath.cell_diamond(raw), "the raw diamond replaces the E diamond")
+    assert_eq(highlight.points, WorldMath.cell_diamond(patch_cell))
 
     # farming -> idle from a clear empty spot: neutral diamond on the raw
     # target, prompt hidden, no stale E diamond anywhere.
-    _set_target(world, Vector2i(13, 11), WorldMath.Facing.DOWN)
+    _set_target(world, Vector2i(24, 12), WorldMath.Facing.DOWN)
     world._process(0.0)
     assert_eq(hud.prompt_text(), "")
     assert_eq(highlight.default_color, PlayerController.TARGET_NEUTRAL)
@@ -6530,33 +6575,37 @@ func test_process_recovers_highlight_from_null_raw_target_to_physical_e_hint() -
     assert_null(world.player.current_target_cell())
     assert_false(highlight.visible)
     assert_eq(hud.prompt_text(), "")
-    # East-edge truck contact facing DOWN: the raw candidate lands off-map at
-    # (24, 9) so it stays null, while the truck sits ~12 px away and faced.
-    # _process() alone must un-hide the diamond through the E-hint branch —
-    # _update_target() cannot, because there is no raw cell to paint.
-    var stop := WorldMath.grid_to_world(Vector2(23.125, 8.75))
-    world.player.global_position = stop
-    world.player.facing = WorldMath.Facing.DOWN
+    # A real bin north-face contact can only be reached with a face; the
+    # process pass alone must un-hide the diamond through the E-hint branch
+    # after the null-raw pose.
+    var bin_rows := _face_rows(WorldContract.SHIPPING_FOOTPRINT)
+    var stop_info := await _contact_stop(
+        world, GameRules.MapId.FARM, WorldContract.SHIPPING_FOOTPRINT, bin_rows[0]
+    )
+    assert_true(stop_info["ok"], "the bin's north face must be physically reachable")
+    if not stop_info["ok"]:
+        return
+    world.player.facing = bin_rows[0]["positive"][0]
     world.player.velocity = Vector2.ZERO
     world._process(0.0)
-    var truck_contact := _closest_contact_point(WorldContract.TRUCK_FOOTPRINT, stop)
+    var stop: Vector2 = world.player.global_position
+    var contact := _closest_contact_point(WorldContract.SHIPPING_FOOTPRINT, stop)
     assert_lt(
-        stop.distance_to(truck_contact),
+        stop.distance_to(contact),
         CONTACT_REACH_PX,
-        "precondition: the truck is in near-contact reach at the edge pose",
+        "precondition: the bin is in near-contact reach",
     )
     assert_gt(
-        _screen_direction(WorldMath.Facing.DOWN).dot(truck_contact - stop),
+        _screen_direction(bin_rows[0]["positive"][0]).dot(contact - stop),
         0.0,
-        "precondition: DOWN faces the truck contact at the edge pose",
+        "precondition: the chosen facing sees the bin contact",
     )
-    assert_null(world.player.current_target_cell(), "the raw target is null off the east map edge")
-    assert_eq(hud.prompt_text(), "[E] Drive to town")
+    assert_eq(hud.prompt_text(), "[E] Shipping")
     assert_true(highlight.visible, "the E hint must un-hide the diamond after a null raw target")
-    assert_eq(highlight.points, WorldMath.cell_diamond(WorldContract.TRUCK_CELL))
+    assert_eq(highlight.points, WorldMath.cell_diamond(WorldContract.SHIPPING_CELL))
     assert_eq(highlight.default_color, PlayerController.TARGET_NEUTRAL)
     var centre: Vector2 = world.get_viewport().get_canvas_transform() * WorldMath.grid_to_world(
-        Vector2(WorldContract.TRUCK_CELL) + Vector2(0.5, 0.5)
+        Vector2(WorldContract.SHIPPING_CELL) + Vector2(0.5, 0.5)
     )
     var prompt := _chrome(hud).get_node("Prompt") as Control
     assert_eq(prompt.position, centre - Vector2(0, HudChrome.PROMPT_LIFT))
@@ -6616,11 +6665,11 @@ func test_bin_contact_panel_submit_deposits_into_the_canonical_bin() -> void:
     _grow_mature_turnip(world, cell)
     assert_eq(session.harvest(cell), GameRules.CommandCode.CROP_HARVESTED)
     var bin_rows := _face_rows(WorldContract.SHIPPING_FOOTPRINT)
-    var stop_info := await _contact_stop(world, GameRules.MapId.FARM, WorldContract.SHIPPING_FOOTPRINT, bin_rows[3])
-    assert_true(stop_info["ok"], "the bin's west face must be physically reachable")
+    var stop_info := await _contact_stop(world, GameRules.MapId.FARM, WorldContract.SHIPPING_FOOTPRINT, bin_rows[0])
+    assert_true(stop_info["ok"], "the bin's north face must be physically reachable")
     if not stop_info["ok"]:
         return
-    world.player.facing = WorldMath.Facing.DOWN
+    world.player.facing = bin_rows[0]["positive"][0]
     world.player.velocity = Vector2.ZERO
     world.player.refresh_target()
     world._process(0.0)
@@ -6648,13 +6697,10 @@ func test_bed_door_contact_panel_submit_sleeps_through_canonical_bed_cell() -> v
     var session := world._session
     # The bed's door slice faces the yard: standing at the door and facing UP
     # is the physical contact the raw grid can never express.
-    var bed_rows := _face_rows(
-        WorldContract.HOUSE_FOOTPRINT.intersection(Rect2(WorldContract.BED_CELL, Vector2.ONE))
-    )
+    var bed_slice := _bed_door_slice()
+    var bed_rows := _face_rows(bed_slice)
     var stop_info := await _contact_stop(
-        world, GameRules.MapId.FARM,
-        WorldContract.HOUSE_FOOTPRINT.intersection(Rect2(WorldContract.BED_CELL, Vector2.ONE)),
-        bed_rows[2],
+        world, GameRules.MapId.FARM, bed_slice, bed_rows[2],
     )
     assert_true(stop_info["ok"], "the house door slice's yard face must be physically reachable")
     if not stop_info["ok"]:
@@ -6766,28 +6812,41 @@ func test_farm_truck_contact_e_drives_to_town() -> void:
 
 const FARM_OCCLUDER_NAMES := [
     "House",
-    "TreeForest",
-    "TreeBank",
-    "TreeNorth",
-    "TreeNorth2",
-    "TreeNorth3",
-    "TreeNorth4",
-    "TreeNorth5",
-    "TreeNorth6",
-    "TreeNorth7",
-    "FarmFence_1",
-    "FarmFence_2",
-    "FarmFence_3",
+    "Persimmon",
+    "Well",
+    "ToolShed",
     "Shipping",
+    "Scarecrow",
+    "Storehouse",
+    "BuildBoard",
+    "Shrine",
     "Truck",
+    "Mailbox",
+    "VillageSign",
+    "VendingMachine",
+    "Greenhouse",
+    "FruitTree1",
+    "FruitTree2",
+    "FruitTree3",
+    "FruitTree4",
+    "FruitTree5",
+    "FruitTree6",
+    "FruitTree7",
+    "FruitTree8",
+    "FruitTree9",
+    "Camphor",
 ]
 const FARM_NON_OCCLUDER_NAMES := [
-    "RockYard",
-    "RockMeadow",
-    "RockNorth1",
-    "RockNorth2",
     "Workbench",
-    "VillageSign",
+    "Crates",
+    "StoneLanternA",
+    "StoneLanternB",
+    "Compost",
+    "RainBarrel",
+    "Jizo",
+    "UtilityPole1",
+    "RockMeadow3",
+    "Bush3",
 ]
 const TOWN_OCCLUDER_NAMES := ["Station", "SeedShop", "Cafe", "Market", "Truck"]
 const TOWN_NON_OCCLUDER_NAMES := [
@@ -6839,8 +6898,14 @@ func test_foreground_occluders_opt_into_player_occluder_group_and_fx_stay_out() 
             continue
         assert_false(low.is_in_group("player_occluder"), "%s stays out" % prop_name)
     assert_false(
-        (world._map.get_node("Entities/FarmCrop_7_12") as Node).is_in_group("player_occluder"),
+        (world._map.get_node("Entities/FarmCrop_15_19") as Node).is_in_group("player_occluder"),
         "crops stay out",
+    )
+    # Fences are low and stay out of the fade group; the fade pass only ever
+    # touches tall foreground props.
+    assert_false(
+        (world._map.get_node("Entities/BambooFence_22_6") as Node).is_in_group("player_occluder"),
+        "fences stay out",
     )
     assert_false(
         world._map.get_node("FarmActionEffects").is_in_group("player_occluder"),
@@ -6861,19 +6926,22 @@ func test_foreground_occluders_opt_into_player_occluder_group_and_fx_stay_out() 
         assert_false(villager.is_in_group("player_occluder"), "%s stays out" % prop_name)
     await _drive_home(world)
 
-func test_house_fades_on_reachable_north_lawn_and_restores_south_of_root() -> void:
+func test_house_fades_behind_the_west_lawn_and_restores_south_of_the_tip() -> void:
     var world := _world()
     if world == null:
         return
     var house_sprite := _occluder_sprite(world, "House")
-    # Reachable lawn pose north of the house footprint diamond, inside the
-    # drawn house rectangle, player root strictly above the house root.
-    _set_pose(world, Vector2(1017.6, 259.2))
+    var house_root := house_sprite.get_parent() as Node2D
+    # The bed-cell spawn sits at the exact Y tie with the house tip, so settle
+    # the fade fully opaque from a clear pose before measuring the ramp.
+    _set_pose(world, WorldMath.grid_to_world(Vector2(0.5, 0.5)))
+    world._process(1.0)
+    assert_almost_eq(house_sprite.self_modulate.a, 1.0, 0.001)
+    # Reachable west-lawn pose inside the drawn house rectangle, player root
+    # strictly above the southern-tip house anchor.
+    _set_pose(world, WorldMath.grid_to_world(Vector2(21.5, 9.5)))
     _assert_pose_overlaps(world, "House")
-    assert_lt(
-        world.player.global_position.y,
-        (house_sprite.get_parent() as Node2D).global_position.y,
-    )
+    assert_lt(world.player.global_position.y, house_root.global_position.y)
     world._process(0.2)
     assert_almost_eq(
         house_sprite.self_modulate.a, 0.8, 0.001,
@@ -6882,14 +6950,13 @@ func test_house_fades_on_reachable_north_lawn_and_restores_south_of_root() -> vo
     world._process(1.0)
     assert_almost_eq(house_sprite.self_modulate.a, 0.45, 0.001)
     # A distant grouped occluder stays fully opaque at the same pose.
-    assert_almost_eq(_occluder_sprite(world, "TreeForest").self_modulate.a, 1.0, 0.001)
+    assert_almost_eq(_occluder_sprite(world, "Persimmon").self_modulate.a, 1.0, 0.001)
     assert_almost_eq(
         (world._map.get_node("Entities/House/Shadow") as Sprite2D).self_modulate.a,
         1.0, 0.001, "the sibling Shadow never fades",
     )
-    # A real southern-face contact still fades: the house root uses the
-    # southern-tip footprint_ground_anchor(), so even front-contact poses
-    # sort the house in front (the brief's front-anchor caveat, pinned).
+    # A real southern-face contact still fades: the southern-tip anchor sorts
+    # the house in front of a door-side stand (front-anchor caveat, pinned).
     var house_rows := _face_rows(WorldContract.HOUSE_FOOTPRINT)
     var front_stop := await _contact_stop(
         world, GameRules.MapId.FARM, WorldContract.HOUSE_FOOTPRINT, house_rows[2]
@@ -6905,65 +6972,57 @@ func test_house_fades_on_reachable_north_lawn_and_restores_south_of_root() -> vo
     )
     # Physically south of the tip anchor the player sorts in front and the
     # house restores.
-    _set_pose(world, Vector2(976.0, 360.0))
-    assert_gt(
-        world.player.global_position.y,
-        (house_sprite.get_parent() as Node2D).global_position.y,
-    )
+    _set_pose(world, WorldMath.grid_to_world(Vector2(24.0, 12.0)))
+    assert_gt(world.player.global_position.y, house_root.global_position.y)
     world._process(1.0)
     assert_almost_eq(house_sprite.self_modulate.a, 1.0, 0.001)
 
-func test_shipping_bin_fades_on_minus_contacts_and_stays_opaque_on_plus_contacts() -> void:
+func test_shipping_bin_fades_behind_and_stays_opaque_in_front() -> void:
     var world := _world()
     if world == null:
         return
     var bin := _occluder_sprite(world, "Shipping")
     var bin_rows := _face_rows(WorldContract.SHIPPING_FOOTPRINT)
-    # Real near-contact stops on the -x (NW) and -y (NE) faces sit above the
-    # cell-centre anchor: overlap holds and the bin fades.
-    for row_index: int in [3, 0]:
-        var behind := await _contact_stop(
-            world, GameRules.MapId.FARM, WorldContract.SHIPPING_FOOTPRINT, bin_rows[row_index]
-        )
-        assert_true(behind["ok"], "bin face %d must be physically reachable" % row_index)
-        if not behind["ok"]:
-            return
-        _assert_pose_overlaps(world, "Shipping")
-        world._process(1.0)
-        assert_almost_eq(
-            bin.self_modulate.a, 0.45, 0.001,
-            "the bin fades at its face-%d contact" % row_index,
-        )
-    # The +x (SE) and +y (SW) face contacts put the player in front of the
-    # cell-centre anchor: overlap still holds, yet the bin stays opaque.
-    for row_index: int in [1, 2]:
-        var front := await _contact_stop(
-            world, GameRules.MapId.FARM, WorldContract.SHIPPING_FOOTPRINT, bin_rows[row_index]
-        )
-        assert_true(front["ok"], "bin face %d must be physically reachable" % row_index)
-        if not front["ok"]:
-            return
-        _assert_pose_overlaps(world, "Shipping")
-        world._process(1.0)
-        assert_almost_eq(
-            bin.self_modulate.a, 1.0, 0.001,
-            "the bin stays opaque in front of its cell-centre anchor (face %d)" % row_index,
-        )
+    # The north-face stop sits above the full-cell southern-tip anchor:
+    # overlap holds and the bin fades.
+    var behind := await _contact_stop(
+        world, GameRules.MapId.FARM, WorldContract.SHIPPING_FOOTPRINT, bin_rows[0]
+    )
+    assert_true(behind["ok"], "the bin's north face must be physically reachable")
+    if not behind["ok"]:
+        return
+    _assert_pose_overlaps(world, "Shipping")
+    world._process(1.0)
+    assert_almost_eq(bin.self_modulate.a, 0.45, 0.001, "the bin fades behind its north face")
+    # A pose south-east of the tip anchor sorts the player in front: overlap
+    # still holds, yet the bin stays opaque.
+    var bin_root := bin.get_parent() as Node2D
+    _set_pose(world, bin_root.global_position + Vector2(20.0, 10.0))
+    assert_gt(world.player.global_position.y, bin_root.global_position.y)
+    _assert_pose_overlaps(world, "Shipping")
+    world._process(1.0)
+    assert_almost_eq(
+        bin.self_modulate.a, 1.0, 0.001,
+        "the bin stays opaque in front of its tip anchor",
+    )
+    # The approved field fence at (21,19) seals the west face: no physical
+    # stop exists there, which is exactly why the fixtures moved north.
+    var west := await _contact_stop(
+        world, GameRules.MapId.FARM, WorldContract.SHIPPING_FOOTPRINT, bin_rows[3]
+    )
+    assert_false(west["ok"], "the fence-blocked bin west face has no reachable contact")
 
-func test_shipping_bin_exact_y_tie_contact_fades() -> void:
+func test_shipping_bin_exact_y_tie_fades() -> void:
     var world := _world()
     if world == null:
         return
     var bin := _occluder_sprite(world, "Shipping")
-    # The exact tie pose is where a straight east push collision-stops:
-    # the player's east vertex against the footprint diamond's west vertex.
-    # move_and_slide cannot produce it (a vertex-to-vertex contact at an
-    # exact tie has an ambiguous slide normal), so the contact stop is
-    # placed directly and pinned by reach + tie assertions.
-    var w_vertex: Vector2 = WorldMath.footprint_to_polygon(WorldContract.SHIPPING_FOOTPRINT)[3]
-    var stop := w_vertex - Vector2(
-        WorldContract.PLAYER_HALF_EXTENT * WorldContract.TILE_SIZE.x, 0.0
-    )
+    var bin_root := bin.get_parent() as Node2D
+    # Sit exactly on the bin anchor's Y, 14 px east of the south vertex: the
+    # vertex is the unique inclusive-reach contact and the player sorts at an
+    # exact tie with the full-cell anchor. move_and_slide cannot produce a
+    # vertex-perpendicular stop, so the pose is placed directly and pinned.
+    var stop := bin_root.global_position + Vector2(CONTACT_REACH_PX, 0.0)
     world.player.global_position = stop
     world.player.velocity = Vector2.ZERO
     assert_lte(
@@ -6971,28 +7030,31 @@ func test_shipping_bin_exact_y_tie_contact_fades() -> void:
         CONTACT_REACH_PX, "precondition: the tie pose is in near-contact reach",
     )
     assert_almost_eq(
-        stop.y, (bin.get_parent() as Node2D).global_position.y, 0.001,
-        "precondition: exact Y tie with the cell-centre bin anchor",
+        stop.y, bin_root.global_position.y, 0.001,
+        "precondition: exact Y tie with the full-cell bin anchor",
     )
     _assert_pose_overlaps(world, "Shipping")
     world._process(1.0)
     assert_almost_eq(bin.self_modulate.a, 0.45, 0.001, "an exact Y tie fades the bin")
 
-func test_fence_and_truck_fade_from_reachable_poses_and_restore_in_front() -> void:
+func test_scarecrow_and_truck_fade_from_reachable_poses_and_restore_in_front() -> void:
     var world := _world()
     if world == null:
         return
-    var fence := _occluder_sprite(world, "FarmFence_2")
-    var fence_root := fence.get_parent() as Node2D
-    _set_pose(world, Vector2(448.0, 320.0))
-    _assert_pose_overlaps(world, "FarmFence_2")
+    var scarecrow := _occluder_sprite(world, "Scarecrow")
+    var scarecrow_root := scarecrow.get_parent() as Node2D
+    _set_pose(world, WorldMath.grid_to_world(Vector2(11.5, 21.8)))
+    _assert_pose_overlaps(world, "Scarecrow")
     world._process(1.0)
-    assert_almost_eq(fence.self_modulate.a, 0.45, 0.001)
-    # South of the fence root the player sorts in front and it restores.
-    _set_pose(world, Vector2(448.0, 388.0))
-    assert_gt(world.player.global_position.y, fence_root.global_position.y)
+    assert_almost_eq(scarecrow.self_modulate.a, 0.45, 0.001)
+    # South of the scarecrow root the player sorts in front and it restores.
+    _set_pose(world, WorldMath.grid_to_world(Vector2(11.5, 24.0)))
+    assert_gt(world.player.global_position.y, scarecrow_root.global_position.y)
     world._process(1.0)
-    assert_almost_eq(fence.self_modulate.a, 1.0, 0.001, "the fence restores in front of its root")
+    assert_almost_eq(
+        scarecrow.self_modulate.a, 1.0, 0.001,
+        "the scarecrow restores in front of its root",
+    )
     var truck := _occluder_sprite(world, "Truck")
     var truck_root := truck.get_parent() as Node2D
     # A real north-face near-contact stop behind the truck fades it.
@@ -7007,9 +7069,8 @@ func test_fence_and_truck_fade_from_reachable_poses_and_restore_in_front() -> vo
     world._process(1.0)
     assert_almost_eq(truck.self_modulate.a, 0.45, 0.001)
     # The truck root is a southern-tip anchor: a pose south of the tip sorts
-    # the player in front and restores the truck (a front contact alone
-    # would not — front-face stops still sit above the tip and fade).
-    _set_pose(world, Vector2(1152.0, 544.0))
+    # the player in front and restores the truck.
+    _set_pose(world, WorldMath.grid_to_world(Vector2(33.8, 13.8)))
     assert_gt(world.player.global_position.y, truck_root.global_position.y)
     world._process(1.0)
     assert_almost_eq(
@@ -7023,31 +7084,15 @@ func test_house_fade_advances_while_blocked_input_gate_early_returns() -> void:
         return
     var house_sprite := _occluder_sprite(world, "House")
     assert_false(world._world_input_enabled, "the intro overlay blocks world input")
-    _set_pose(world, Vector2(1017.6, 259.2))
+    _set_pose(world, WorldMath.grid_to_world(Vector2(21.5, 9.5)))
     world._process(1.0)
     assert_almost_eq(house_sprite.self_modulate.a, 0.45, 0.001)
-
-func test_bin_fade_advances_on_farming_preview_frames() -> void:
-    var world := _world()
-    if world == null:
-        return
-    var bin := _occluder_sprite(world, "Shipping")
-    # Facing UP from the bin's west contact targets the farm patch, so the
-    # frame ends at the farming-prompt early return, after the fade pass.
-    _set_pose(world, Vector2(632.0, 384.0), WorldMath.Facing.UP)
-    assert_eq(
-        world._session.preview_target_action(world.player.current_target_cell())["code"],
-        GameRules.CommandCode.SOIL_TILLED,
-        "the pose must sit on a farming-preview frame",
-    )
-    world._process(1.0)
-    assert_almost_eq(bin.self_modulate.a, 0.45, 0.001)
 
 func test_town_buildings_fade_and_travel_round_trip_restores_opacity_one() -> void:
     var world := _world()
     if world == null:
         return
-    _set_pose(world, Vector2(1017.6, 259.2))
+    _set_pose(world, WorldMath.grid_to_world(Vector2(21.5, 9.5)))
     world._process(1.0)
     await _drive_to_town(world)
     var shop := _occluder_sprite(world, "SeedShop")
@@ -7145,9 +7190,10 @@ func test_crops_and_harvest_fx_are_never_occluders() -> void:
     )
 
 
-## ---- HPA-743 task 4: shared map backdrop painter and farm edge ----
+## ---- HPA-863: stamped static farm backdrop; town stays town-owned ----
 
-const BACKDROP_TEXTURE_PATH := "res://assets/sprites/starting-farm-terrain.png"
+const FARM_TILESET_PATH := "res://scenes/world/terrain_tileset.tres"
+const Stamper := preload("res://tools/stamp_farm_ground.gd")
 const TOWN_TILESET_PATH := "res://scenes/world/town_tileset.tres"
 const TOWN_SOURCE_TEXTURES: Array[String] = [
     "res://assets/sprites/world-v2/ground/grass-phases.png",
@@ -7158,52 +7204,47 @@ const TOWN_SOURCE_TEXTURES: Array[String] = [
 func _town_phase(cell: Vector2i) -> int:
     return posmod(cell.x, 2) + 2 * posmod(cell.y, 2)
 
-func _farm_backdrop_tile(cell: Vector2i) -> Vector2i:
-    if (
-        cell.x >= int(WorldContract.RIVER_WEST_FOOTPRINT.position.x)
-        and cell.x < int(WorldContract.RIVER_WEST_FOOTPRINT.end.x)
-    ) or (
-        cell.y >= WorldContract.MAP_SIZE.y
-        and cell.x >= int(WorldContract.RIVER_SOUTH_FOOTPRINT.position.x)
-        and cell.x < int(WorldContract.RIVER_SOUTH_FOOTPRINT.end.x)
-    ):
-        return WorldContract.BACKDROP_WATER_TILE
-    if cell.y == WorldContract.BACKDROP_ROAD_ROW and cell.x >= WorldContract.MAP_SIZE.x:
-        return WorldContract.BACKDROP_ROAD_TILE
-    return WorldContract.BACKDROP_GRASS_TILE
-
-func _assert_farm_backdrop(world: WorldShell, label: String) -> void:
+## Both farm layers are authored, static 35-source ground-v2 data: no runtime
+## painter survives, and the map's own camera bounds drive the overdraw set.
+func _assert_static_farm_backdrop(world: WorldShell, label: String) -> void:
     var farm := world._map as FarmMap
     assert_not_null(farm, "%s: FarmMap is the active map" % label)
     if farm == null:
         return
-    assert_eq(farm.camera_bounds(), WorldContract.CAMERA_BOUNDS, "%s: camera bounds unchanged" % label)
-    var river_south := farm.get_node("StaticCollision/RiverSouthCollision") as CollisionPolygon2D
     assert_eq(
-        river_south.polygon,
-        WorldMath.footprint_to_polygon(WorldContract.RIVER_SOUTH_FOOTPRINT),
-        "%s: river collision unchanged" % label,
+        farm.camera_bounds(), WorldMath.map_camera_bounds(WorldContract.MAP_SIZE),
+        "%s: camera bounds derive from the 48x40 map" % label,
+    )
+    for retired in ["Water", "Paths", "GroundDecoration"]:
+        assert_null(farm.get_node_or_null(retired), "%s: retired %s layer is gone" % [label, retired])
+    var truck_collision := farm.get_node("StaticCollision/TruckCollision") as CollisionPolygon2D
+    assert_eq(
+        truck_collision.polygon,
+        WorldMath.footprint_to_polygon(WorldContract.TRUCK_FOOTPRINT),
+        "%s: named truck collision unchanged" % label,
     )
     var backdrop := farm.get_node("Backdrop") as TileMapLayer
     assert_not_null(backdrop, "%s: FarmMap Backdrop must exist" % label)
-    if backdrop == null:
-        return
-    assert_eq(
-        backdrop.position, Vector2(736.0, 0.0),
-        "%s: Backdrop uses Ground's projected origin" % label,
-    )
     var ground := farm.get_node("Ground") as TileMapLayer
+    assert_not_null(ground, "%s: FarmMap Ground must exist" % label)
+    if backdrop == null or ground == null:
+        return
+    assert_eq(backdrop.position, Vector2(736.0, 0.0), "%s: Backdrop origin" % label)
+    assert_eq(
+        backdrop.tile_set.resource_path, FARM_TILESET_PATH,
+        "%s: Backdrop uses the committed farm tileset" % label,
+    )
     assert_true(
         backdrop.tile_set == ground.tile_set,
-        "%s: Backdrop shares the terrain tileset" % label,
+        "%s: Ground and Backdrop share the committed farm tileset" % label,
     )
-    var source := backdrop.tile_set.get_source(0) as TileSetAtlasSource
     assert_eq(
-        source.texture.resource_path, BACKDROP_TEXTURE_PATH,
-        "%s: Backdrop uses the shared tile atlas" % label,
+        ground.tile_set.get_source_count(), 35,
+        "%s: the farm tileset keeps its 35-source manifest" % label,
     )
-    var expected := WorldMath.backdrop_cells(WorldContract.CAMERA_BOUNDS, WorldContract.MAP_SIZE)
-    assert_gt(expected.size(), 0, "%s: camera overdraw has cells" % label)
+    var expected := WorldMath.backdrop_cells(
+        WorldMath.map_camera_bounds(WorldContract.MAP_SIZE), WorldContract.MAP_SIZE
+    )
     var used := backdrop.get_used_cells()
     assert_eq(
         used.size(), expected.size(),
@@ -7211,44 +7252,37 @@ func _assert_farm_backdrop(world: WorldShell, label: String) -> void:
     )
     var map_rect := Rect2i(Vector2i.ZERO, WorldContract.MAP_SIZE)
     for cell in expected:
-        assert_false(map_rect.has_point(cell), "%s: %s stays outside the playable map" % [label, cell])
+        assert_false(map_rect.has_point(cell), "%s: %s stays outside the map" % [label, cell])
         assert_true(used.has(cell), "%s: Backdrop missing cell %s" % [label, cell])
+    # Independent fixtures through the one authoring selector: interior
+    # material and clamped edge overdraw keep the authored phase.
+    for cell in [Vector2i(23, 14), Vector2i(0, 0), Vector2i(44, 0)]:
+        var tile: Vector3i = Stamper.tile_for(cell)
         assert_eq(
-            backdrop.get_cell_atlas_coords(cell), _farm_backdrop_tile(cell),
-            "%s: Backdrop %s tile" % [label, cell],
+            ground.get_cell_source_id(cell), tile.x,
+            "%s: ground %s source" % [label, cell],
         )
-    assert_true(
-        expected.has(Vector2i(24, 9)),
-        "%s: east road continuation cell exists" % label,
-    )
+        assert_eq(
+            ground.get_cell_atlas_coords(cell), Vector2i(tile.y, tile.z),
+            "%s: ground %s tile" % [label, cell],
+        )
     assert_eq(
-        backdrop.get_cell_atlas_coords(Vector2i(24, 9)), WorldContract.BACKDROP_ROAD_TILE,
-        "%s: the authored east road continues off-map" % label,
-    )
-    assert_eq(
-        backdrop.get_cell_atlas_coords(Vector2i(0, -1)), WorldContract.BACKDROP_WATER_TILE,
-        "%s: the west river continues north off-map" % label,
-    )
-    assert_eq(
-        backdrop.get_cell_atlas_coords(Vector2i(5, 20)), WorldContract.BACKDROP_WATER_TILE,
-        "%s: the south river continues south off-map" % label,
-    )
-    assert_eq(
-        backdrop.get_cell_atlas_coords(Vector2i(-1, 19)), WorldContract.BACKDROP_GRASS_TILE,
-        "%s: the south-west river bank stays grass" % label,
+        backdrop.get_cell_source_id(Vector2i(-1, 0)),
+        Stamper.tile_for(Vector2i(-1, 0)).x,
+        "%s: west edge overdraw keeps the clamped forest material" % label,
     )
 
-func test_farm_backdrop_fills_off_map_camera_cells_and_east_road_edge() -> void:
+func test_farm_ground_and_backdrop_are_stamped_static_layers() -> void:
     var world := _world()
     if world == null:
         return
-    _assert_farm_backdrop(world, "farm")
+    _assert_static_farm_backdrop(world, "farm")
 
-func test_backdrop_survives_a_truck_round_trip_with_town_predicate_unchanged() -> void:
+func test_static_backdrops_survive_a_truck_round_trip_with_town_predicate_unchanged() -> void:
     var world := _world()
     if world == null:
         return
-    _assert_farm_backdrop(world, "departing farm")
+    _assert_static_farm_backdrop(world, "departing farm")
     await _drive_to_town(world)
     var town := world._map as TownMap
     assert_not_null(town, "TownMap is the active map after driving to town")
@@ -7346,32 +7380,44 @@ func test_backdrop_survives_a_truck_round_trip_with_town_predicate_unchanged() -
                 "town Ground %s phase" % ground_cell,
             )
     await _drive_home(world)
-    _assert_farm_backdrop(world, "returned farm")
+    _assert_static_farm_backdrop(world, "returned farm")
 
 func test_e_prompt_clears_mature_crop_sparkle_so_only_one_cell_is_highlighted() -> void:
     var world := _world()
     if world == null:
         return
     var hud := world.hud
-    var raw_cell := Vector2i(9, 14)
+    var raw_cell: Vector2i = WorldContract.farm_cells()[0]
     _grow_mature_turnip(world, raw_cell)
-    var start := WorldMath.grid_to_world(Vector2(9.6, 12.5))
-    assert_false(_probe_collides(GameRules.MapId.FARM, start))
-    world.player.global_position = start
-    await _push_until_stopped(world, Vector2(0, 1))
-    world.player.facing = WorldMath.Facing.LEFT
+    # Show the readiness sparkle by targeting the mature crop from a legal
+    # patch stand.
+    _set_target(world, raw_cell, WorldMath.Facing.UP)
+    world._process(0.0)
+    var sparkle := world.farm_view.get_node(
+        "FarmCrop_%d_%d/Sprite2D/ReadinessSparkle" % [raw_cell.x, raw_cell.y]
+    ) as Sprite2D
+    assert_true(sparkle.visible, "precondition: the mature crop sparkles while targeted")
+
+    # A real bin contact takes the one highlight: the E hint diamond replaces
+    # the crop sparkle even though a mature crop exists.
+    var bin_rows := _face_rows(WorldContract.SHIPPING_FOOTPRINT)
+    var stop_info := await _contact_stop(
+        world, GameRules.MapId.FARM, WorldContract.SHIPPING_FOOTPRINT, bin_rows[0]
+    )
+    assert_true(stop_info["ok"], "the bin's north face must be physically reachable")
+    if not stop_info["ok"]:
+        return
+    world.player.facing = bin_rows[0]["positive"][0]
     world.player.velocity = Vector2.ZERO
     world.player.refresh_target()
     world._process(0.0)
-
-    assert_eq(world.player.current_target_cell(), raw_cell)
     assert_eq(hud.prompt_text(), "[E] Shipping")
     assert_eq(world.player.target_highlight.points, WorldMath.cell_diamond(WorldContract.SHIPPING_CELL))
-    var sparkle := world.farm_view.get_node("FarmCrop_9_14/Sprite2D/ReadinessSparkle") as Sprite2D
     assert_false(sparkle.visible, "E hint clears mature crop sparkle so only one cell is highlighted")
 
-    # Stepping out of bin reach restores the mature crop sparkle and Space prompt.
-    _set_target(world, raw_cell, WorldMath.Facing.LEFT)
+    # Stepping back to the patch restores the mature crop sparkle and the
+    # Space prompt.
+    _set_target(world, raw_cell, WorldMath.Facing.UP)
     world._process(0.0)
     assert_true(hud.prompt_text().begins_with("[Space]"))
     assert_true(sparkle.visible)
@@ -7392,10 +7438,11 @@ func test_modal_submit_reuses_saved_interact_target_even_if_player_moves_or_turn
     _grow_mature_turnip(world, crop_cell)
     assert_eq(session.harvest(crop_cell), GameRules.CommandCode.CROP_HARVESTED)
     var bin_rows := _face_rows(WorldContract.SHIPPING_FOOTPRINT)
-    var bin_stop := await _contact_stop(world, GameRules.MapId.FARM, WorldContract.SHIPPING_FOOTPRINT, bin_rows[3])
+    var bin_stop := await _contact_stop(world, GameRules.MapId.FARM, WorldContract.SHIPPING_FOOTPRINT, bin_rows[0])
+    assert_true(bin_stop["ok"], "the bin's north face must be physically reachable")
     if not bin_stop["ok"]:
         return
-    world.player.facing = WorldMath.Facing.DOWN
+    world.player.facing = bin_rows[0]["positive"][0]
     world.player.refresh_target()
     world._process(0.0)
     world.interact()
