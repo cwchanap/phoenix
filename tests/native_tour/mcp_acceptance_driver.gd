@@ -2,6 +2,10 @@
 # only press BaseButtons, so this scene exposes one button per real-input step:
 # every movement and interaction below still travels through Input actions and
 # the live WorldShell/collision path — nothing teleports or edits the session.
+# Remaining fixture controls are presentation-only: `ClockOff` pauses the
+# passive day clock, `EnglishUI` changes the runtime locale, `DismissTutorial`
+# presses the real tip dismiss button and `ToggleUI` hides this panel. They do
+# not touch player position, facing or session state.
 extends Node
 
 const APP_SCENE := preload("res://scenes/app/app.tscn")
@@ -11,6 +15,9 @@ const ARRIVE_PX := 2.5
 const WALK_TIMEOUT_MS := 45000
 const MOVE_ACTIONS: Array[StringName] = [
 	&"move_left", &"move_right", &"move_up", &"move_down",
+]
+const FACE_ACTIONS: Array[StringName] = [
+	&"move_up", &"move_right", &"move_down", &"move_left",
 ]
 
 var app: Node
@@ -60,6 +67,7 @@ func _build_ui() -> void:
 		"WalkFrontDoor", "WalkStorehouse", "WalkField", "WalkBin", "WalkBed", "WalkFarmTruck",
 		"WalkShop", "WalkInert", "WalkTownTruck", "WalkSouthWest",
 		"WalkNorthEast", "WalkTownWest", "WalkTownEast", "WalkTownCentre",
+		"WalkUnreachable",
 	]:
 		var button := Button.new()
 		button.name = action_name
@@ -129,6 +137,8 @@ func _on_button(action_name: String) -> void:
 			_goto_cell(Vector2i(14, 1), "town_east")
 		"WalkTownCentre":
 			_goto_cell(Vector2i(8, 6), "town_centre")
+		"WalkUnreachable":
+			_goto_cell(Vector2i(999, 999), "unreachable")
 
 
 func _farm_pose(cell: Vector2i, footprint: Rect2, side: int, label: String) -> Dictionary:
@@ -164,26 +174,47 @@ func _facing_for_screen(direction: Vector2) -> int:
 
 
 func _goto_interact(goal: Dictionary) -> void:
-	if await _walk_to(goal["position"], goal["label"]):
-		player().facing = goal["facing"]
-		await get_tree().process_frame
-		_log("goto", {
+	if not await _walk_to(goal["position"], goal["label"]):
+		return
+	if not await _face_via_input(goal["facing"]):
+		_log("walk_error", {
 			"goal": goal["label"],
-			"cell": goal["cell"],
-			"facing": player().facing,
-			"target": player().current_target_cell(),
+			"error": "facing",
+			"expected": goal["facing"],
+			"actual": player().facing,
 		})
-		_set_state("At_%s" % goal["label"])
+		_set_state("Error")
+		return
+	_log("goto", {
+		"goal": goal["label"],
+		"cell": goal["cell"],
+		"facing": player().facing,
+		"target": player().current_target_cell(),
+	})
+	_set_state("At_%s" % goal["label"])
 
 
 func _goto_cell(cell: Vector2i, label: String) -> void:
 	var position := WorldMath.grid_to_world(Vector2(cell) + Vector2(0.5, 0.5))
-	if await _walk_to(position, label):
-		_log("goto", {"goal": label, "cell": cell})
-		_set_state("At_%s" % label)
+	if not await _walk_to(position, label):
+		return
+	_log("goto", {"goal": label, "cell": cell})
+	_set_state("At_%s" % label)
 
 
-func _walk_to(target: Vector2, label: String) -> bool:
+# One direction action held for one physics tick establishes facing through the
+# live PlayerController sampler; the ~1.6 px step stays inside the 8 px
+# contact standoff. This is deliberately not a direct `player.facing` write.
+func _face_via_input(facing: int) -> bool:
+	_release_moves()
+	_set_move(FACE_ACTIONS[facing], true)
+	await get_tree().physics_frame
+	_release_moves()
+	await get_tree().physics_frame
+	return player().facing == facing
+
+
+func _walk_to(target: Vector2, label: String, timeout_ms := WALK_TIMEOUT_MS) -> bool:
 	_busy = true
 	_set_state("Busy")
 	var world := _world()
@@ -197,12 +228,23 @@ func _walk_to(target: Vector2, label: String) -> bool:
 	var path := _path(start_cell, target_cell)
 	if path.is_empty():
 		_log("walk_error", {"goal": label, "error": "no path", "from": start_cell, "to": target_cell})
+		_release_moves()
 		_busy = false
 		_set_state("Error")
 		return false
 	for cell in path:
-		await _seek(WorldMath.grid_to_world(Vector2(cell) + Vector2(0.5, 0.5)), label)
-	await _seek(target, label)
+		if not await _seek(
+			WorldMath.grid_to_world(Vector2(cell) + Vector2(0.5, 0.5)),
+			label,
+			timeout_ms,
+		):
+			_busy = false
+			_set_state("Error")
+			return false
+	if not await _seek(target, label, timeout_ms):
+		_busy = false
+		_set_state("Error")
+		return false
 	_release_moves()
 	_log("walk", {
 		"goal": label,
@@ -215,14 +257,15 @@ func _walk_to(target: Vector2, label: String) -> bool:
 	return true
 
 
-func _seek(target: Vector2, label: String) -> void:
-	var deadline := Time.get_ticks_msec() + WALK_TIMEOUT_MS
+func _seek(target: Vector2, label: String, timeout_ms: int) -> bool:
+	var deadline := Time.get_ticks_msec() + timeout_ms
 	var last := player().global_position
 	var stuck_frames := 0
 	while player().global_position.distance_to(target) > ARRIVE_PX:
 		if Time.get_ticks_msec() > deadline:
 			_log("walk_error", {"goal": label, "error": "timeout", "at": player().global_position, "target": target})
-			break
+			_release_moves()
+			return false
 		var offset := target - player().global_position
 		_set_move(&"move_left", offset.x < 0.0)
 		_set_move(&"move_right", offset.x > 0.0)
@@ -233,11 +276,13 @@ func _seek(target: Vector2, label: String) -> void:
 			stuck_frames += 1
 			if stuck_frames > 90:
 				_log("walk_error", {"goal": label, "error": "stuck", "at": player().global_position, "target": target})
-				break
+				_release_moves()
+				return false
 		else:
 			stuck_frames = 0
 			last = player().global_position
 	_release_moves()
+	return true
 
 
 func _path(from_cell: Vector2i, to_cell: Vector2i) -> Array[Vector2i]:
