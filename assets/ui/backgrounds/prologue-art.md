@@ -3,8 +3,9 @@
 HPA-1138's three 1280×720 paintings were generated with Codex's built-in
 image generator, with the user's approval as a fallback for the requested
 OpenAI Image API. The built-in tool did not expose a model identifier.
-`intro.png` was the style reference for all three; `town-art-source.webp`
-was an additional building-design reference for the station front.
+`intro.png` was the style reference for all three;
+`assets/sprites/provenance/town-art-source.webp` was an additional
+building-design reference for the station front.
 
 The generated 1672×941 images were converted to RGB and resized to 1280×720
 using Pillow's Lanczos resampling. The station image initially contained

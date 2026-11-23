@@ -36,19 +36,62 @@ const TEXTURES := {
 }
 const CHECKOUT_ONLY := "res://tests/headless/project_smoke.gd"
 # Source provenance is .gdignore'd in the checkout and excluded from the
-# export, so neither the run directory nor the pack may resolve it.
-const PROVENANCE_ONLY := [
+# export. Raw files (README/source sheets) are checked with FileAccess because
+# ResourceLoader.exists never sees unimported files; imported paths are checked
+# with ResourceLoader. Any packed entry beneath either folder is a failure.
+const PROVENANCE_DIRS: Array[String] = [
+	"res://assets/sprites/hpa-861-review",
+	"res://assets/sprites/provenance",
+]
+const PROVENANCE_RAW: Array[String] = [
 	"res://assets/sprites/hpa-861-review/farm-source.png",
 	"res://assets/sprites/hpa-861-review/README.md",
+	"res://assets/sprites/provenance/starting-farm-tiles-source.webp",
+	"res://assets/sprites/provenance/starting-farm-props-source.webp",
+	"res://assets/sprites/provenance/town-art-source.webp",
+	"res://assets/sprites/provenance/town-art-cutouts.png",
+	"res://assets/sprites/provenance/town-truck-views.png",
+	"res://assets/sprites/provenance/town-art-source.md",
 ]
+const PROVENANCE_IMPORTED: Array[String] = [
+	"res://assets/sprites/hpa-861-review/farm-source.png",
+	"res://assets/sprites/provenance/town-art-cutouts.png",
+	"res://assets/sprites/provenance/town-truck-views.png",
+]
+
+func _packed_files(directory: String) -> PackedStringArray:
+	var files := PackedStringArray()
+	var dir := DirAccess.open(directory)
+	if dir == null:
+		return files
+	dir.list_dir_begin()
+	var entry := dir.get_next()
+	while entry != "":
+		if entry.begins_with("."):
+			entry = dir.get_next()
+			continue
+		var path := directory.path_join(entry)
+		if dir.current_is_dir():
+			files.append_array(_packed_files(path))
+		else:
+			files.append(path)
+		entry = dir.get_next()
+	dir.list_dir_end()
+	return files
 
 func _initialize() -> void:
 	var failures := PackedStringArray()
-	if ResourceLoader.exists(CHECKOUT_ONLY):
+	if FileAccess.file_exists(CHECKOUT_ONLY) or ResourceLoader.exists(CHECKOUT_ONLY):
 		failures.append("%s resolved, so this run fell back to the checkout" % CHECKOUT_ONLY)
-	for path in PROVENANCE_ONLY:
+	for path in PROVENANCE_RAW:
+		if FileAccess.file_exists(path):
+			failures.append("raw provenance leaked into the pack: %s" % path)
+	for path in PROVENANCE_IMPORTED:
 		if ResourceLoader.exists(path):
-			failures.append("%s resolved, so provenance leaked into the pack" % path)
+			failures.append("imported provenance leaked into the pack: %s" % path)
+	for directory in PROVENANCE_DIRS:
+		for path in _packed_files(directory):
+			failures.append("packed entry beneath provenance: %s" % path)
 	for path in SCENES:
 		if ResourceLoader.load(path) == null:
 			failures.append("missing packed resource %s" % path)

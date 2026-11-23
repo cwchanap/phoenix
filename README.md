@@ -322,7 +322,9 @@ The export job then extracts `Phoenix.app/Contents/Resources/Phoenix.pck`
 into an isolated directory and runs `tools/export_pack_smoke.gd` from that
 directory with `--main-pack`. The gate loads the packed app/world/farm/town
 scenes and the accepted `world-v2` crop, soil, ground, and cutout textures
-from the PCK, rejects any resolvable checkout-only path, and verifies the
-`.gdignore` provenance folder is absent from the package. Enable
+from the PCK, rejects any resolvable checkout-only path, and checks both
+`.gdignore` provenance folders with `FileAccess.file_exists()` for raw files
+and `ResourceLoader.exists()` for imported resources — any packed entry
+beneath them fails. Enable
 `textures/vram_compression/import_s3tc_bptc` only on hosts whose exporter
 cannot build the universal macOS template; CI's x86_64 runner has it on.

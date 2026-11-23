@@ -73,8 +73,6 @@ const EXPECTED_ASSETS := [
     {"path": "res://assets/sprites/world-v2/ground/road-phases.png", "size": Vector2i(256, 32)},
     {"path": "res://assets/sprites/villagers.png", "size": Vector2i(96, 48)},
     {"path": "res://assets/sprites/proof-shadow.png", "size": Vector2i(16, 8)},
-    {"path": "res://assets/sprites/starting-farm-tiles-source.webp", "size": Vector2i(384, 192)},
-    {"path": "res://assets/sprites/starting-farm-props-source.webp", "size": Vector2i(384, 192)},
     {"path": "res://assets/sprites/polish/hoe-overlay.png", "size": Vector2i(72, 24), "hframes": 3},
     {"path": "res://assets/sprites/polish/watering-can-overlay.png", "size": Vector2i(72, 24), "hframes": 3},
     {"path": "res://assets/sprites/polish/soil-impact.png", "size": Vector2i(96, 32), "hframes": 3},
