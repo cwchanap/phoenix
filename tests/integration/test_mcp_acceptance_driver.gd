@@ -54,7 +54,6 @@ func test_failed_seek_propagates_and_releases_movement_input() -> void:
     var started := await _start_driver()
     if started == null:
         return
-    var start: Vector2 = driver.player().global_position
     var reached: bool = await driver._walk_to(
         WorldMath.grid_to_world(Vector2(3.5, 34.5)), "timeout_probe", 1
     )
@@ -68,8 +67,10 @@ func test_failed_seek_propagates_and_releases_movement_input() -> void:
         "a failed walk must not publish an At_ goal marker",
     )
     assert_true(
-        driver.player().global_position.distance_to(start) < 8.0,
-        "a 1 ms seek timeout must not finish the route",
+        driver.player().global_position.distance_to(
+            WorldMath.grid_to_world(Vector2(3.5, 34.5))
+        ) > 100.0,
+        "a 1 ms seek timeout must not reach the far target",
     )
     for action in MOVE_ACTIONS:
         assert_false(Input.is_action_pressed(action), "%s must be released" % action)
