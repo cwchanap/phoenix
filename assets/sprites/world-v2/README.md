@@ -22,7 +22,9 @@ HPA-863 pruned the superseded review scaffolding from
 `assets/sprites/hpa-861-review/`: the redundant `ground-v2/*-00..11.png`
 splits, `tiles/`, individual `cutouts/crop-*.png` stages, candidate atlases,
 previews, review scenes and stale `.import` sidecars are gone. Only the
-generation source sheets, the prompt record and `.gdignore` remain there, and
-nothing under that folder may be referenced at runtime.
+generation source sheets, the prompt record and `.gdignore` remain there.
+The legacy starting-farm and town source sheets/prompt record moved to
+`assets/sprites/provenance/`, which is also `.gdignore`d and export-excluded.
+Nothing under either provenance folder may be referenced at runtime.
 `tools/stamp_farm_ground.gd` is the only writer of the farm ground TileSet
 and cell data; `town_tileset.tres` carries the standalone town sources.

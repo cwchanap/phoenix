@@ -493,9 +493,12 @@ Sprite-isometric art contract
   `ground/*-phases.png`, `ground/<a>-to-<b>.png`,
   `ground/multi-junctions.png`, `cutouts/*.png`, `crops.png`, and `soil.png`.
   `assets/sprites/world-v2/README.md` records the phase/corner/frame
-  contract. The generation source sheets and prompt record remain in the
-  `.gdignore`d, export-excluded `assets/sprites/hpa-861-review/` folder;
-  no runtime file may reference it.
+  contract. The HPA-861 generation sources and prompt record remain in the
+  `.gdignore`d, export-excluded `assets/sprites/hpa-861-review/` folder; the
+  legacy starting-farm sheets, `town-art-source.webp`, its transparent
+  intermediates and `town-art-source.md` were moved to the equally
+  `.gdignore`d, export-excluded `assets/sprites/provenance/`. No runtime file
+  may reference either folder.
 - `player-walk.png` is the active player sprite (a 4x4 walk-cycle sheet);
   `proof-shadow.png` remains the shared ground-shadow texture; `villagers.png`
   renders the three town residents; `kei-truck.png` renders both trucks.
