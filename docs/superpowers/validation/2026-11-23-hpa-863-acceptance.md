@@ -13,6 +13,10 @@ Operator: agent-operated, not human. No new art or SFX was generated.
 | `7483cac` | review/proof asset prune and pack-provenance gate |
 | `d8c972a` | MCP acceptance driver (test-only, never exported) |
 | `0c007f7` | README/CLAUDE/AGENTS 48x40 contract and save policy |
+| `f28c5a7` | fix MCP walk failure propagation and input-facing |
+| `eb65a63` | move provenance out of the shipped pack; raw/imported gate |
+| `921342c` | separate MCP capture runs; pack negative control |
+| `7da4c8d` | timing-robust failed-seek regression |
 
 ## Test evidence (Godot 4.7.1, isolated `HOME`)
 
@@ -22,8 +26,9 @@ fresh temporary `HOME`. `./tools/verify-clean.sh` archives committed `HEAD`.
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Clean verifier | `./tools/verify-clean.sh` | **exit 0**: import, GUT **632/632** (51,113 asserts), project smoke, world-math smoke, terrain-stamp drift (35 sources / 1,542 tiles / 1,920 cells), world-shell smoke (`48x40`, 47 props, 85 fences, 8 decor, 3-plank PierDeck), audio |
+| Clean verifier | `./tools/verify-clean.sh` | **exit 0**: import, GUT **635/635** (51,146 asserts; includes the 3 focused driver regressions), project smoke, world-math smoke, terrain-stamp drift (35 sources / 1,542 tiles / 1,920 cells), world-shell smoke (`48x40`, 47 props, 85 fences, 8 decor, 3-plank PierDeck), audio |
 | GdUnit4 | `GODOT_BIN=... xvfb-run -a ./addons/gdUnit4/runtest.sh -a tests/gdunit -c` | **16/16**, 0 errors/failures/orphans |
+| Driver regression | `godot ... -gtest=res://tests/integration/test_mcp_acceptance_driver.gd -gexit` | **3/3**, 33 asserts; failed seek returns false, releases input, keeps Error and no At_ marker; input-facing succeeds |
 | godot-e2e, individual suites | same harness with `-a tests/e2e/world_readability_test.gd` and `-a tests/e2e/gameplay_day_one_test.gd` | `world_readability` **1/1 pass** (29.1 s); `gameplay_day_one` **7/7 pass** (2 min 42 s) |
 | godot-e2e, full lane | `... -a tests/e2e -c` (three runs) | **exit 100 all three times**; 13 cases. Runs 1–2: 3 errors / 85 failures; run 3 (lower host load): 1 error / 21 failures. The failing set varies inside `gameplay_day_one_test` (`held_row`, `player_moves`, `travel_overlay`, `observe`); `app_launch` 3/3, `market_confirm` 1/1, `ui_navigation` 1/1 and `world_readability` 1/1 passed in every run. Every failure begins with `Command 'wait_seconds' timed out after 1300–1600 ms` followed by `E2E session is not open`; no map/decor assertion failed. Each affected suite passes alone. The suspected cause is host CPU/llvmpipe frame latency under unrelated load, but that is **not proven**: no profiler or frame-time trace was captured, and the failing subset changes between runs. |
 
@@ -152,12 +157,11 @@ Y-sort/fade. None of the MCP captures is a screenshot-golden test.
 
 ## Export PCK gate
 
-On a temporary `git archive` of committed `HEAD` (`7ff4e47`) with the
+On a temporary `git archive` of committed `HEAD` (`7da4c8d`) with the
 host-only `textures/vram_compression/import_s3tc_bptc=true` added **only in
-the temporary copy**, the unsigned macOS export produced a 97 MB ZIP with
-`Phoenix.app/Contents/MacOS/Phoenix` and `Contents/Resources/Phoenix.pck`.
-A post-fix copy of the current tree produced a 95 MB ZIP / 41 MB PCK. The PCK
-was extracted into an isolated directory and run as:
+the temporary copy**, the unsigned macOS export produced a 94 MB ZIP with
+`Phoenix.app/Contents/MacOS/Phoenix` and `Contents/Resources/Phoenix.pck`
+(41 MB PCK). The PCK was extracted into an isolated directory and run as:
 
 ```bash
 godot --headless --main-pack Phoenix.pck --script res://tools/export_pack_smoke.gd
@@ -174,10 +178,10 @@ entry beneath them. A checkout-side probe confirms the raw paths exist in the
 checkout but `.gdignore` prevents them from resolving as imported resources;
 the exported PCK resolves none of them.
 
-Negative control: the same temp project with the provenance excludes removed,
-both `.gdignore` files deleted and the raw Markdown include filter enabled
-produced a 116 MB leaky ZIP. The same gate exited **1** with 28 provenance
-errors: raw `hpa-861-review/README.md`/`provenance/town-art-source.md`,
+Negative control: the same `7da4c8d` archive with the provenance excludes
+removed, both `.gdignore` files deleted and the raw Markdown include filter
+enabled produced a 114 MB leaky ZIP. The same gate exited **1** with 28
+provenance errors: raw `hpa-861-review/README.md`/`provenance/town-art-source.md`,
 imported `farm-source.png`/`town-art-cutouts.png`/`town-truck-views.png`, and
 recursive `packed entry beneath provenance:` lines for every packed source and
 `.import` sidecar. This proves the positive gate is not vacuous.
