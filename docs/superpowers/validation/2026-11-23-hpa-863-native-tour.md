@@ -17,7 +17,7 @@ capture's dimensions before writing it.
   disabled, so the HUD stays visible without the transient tip card covering the world.
 - The farm poses teleport the live player; walking is transport only, not a reachability proof.
   Interaction/reachability stays pinned by the headless, GUT and godot-e2e suites.
-- One real E at the reachable farm-truck north-west contact (`32.78,12.72` facing RIGHT) drives to
+- One real E at the reachable farm-truck west-face contact (`32.78,12.72` facing RIGHT) drives to
   town through the real travel overlay and map swap; the town captures are the arrived map.
 - Rerun command (from the repo root):
 
