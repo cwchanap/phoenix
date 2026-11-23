@@ -22,10 +22,11 @@ There is no JavaScript or Tauri runtime in the current checkout.
 
 ## Architecture
 
-- `scripts/world/world_contract.gd` is the single source for fixed HPA-590
-  constants: map, projection, spawn, movement, footprints, anchors, farm/path
-  cells, perimeter, and camera bounds. Do not duplicate those values in scene
-  checks or gameplay code.
+- `scripts/world/world_contract.gd` is the single source for fixed world
+  constants: 48x40 map, projection, spawn, movement, footprints, anchors,
+  farm/path cells, the ordered last-writer terrain table, fences, perimeter,
+  and camera bounds. Do not duplicate those values in scene checks or
+  gameplay code.
 - `scripts/world/world_math.gd` is framework-free pure math for projection,
   inverse projection, cell lookup, diamonds, facing, targets, and projected
   logical footprints. It does not own nodes, input, physics, or gameplay state.
@@ -36,27 +37,26 @@ There is no JavaScript or Tauri runtime in the current checkout.
   `z_index = 10`, and each map's Y-sorted `Entities` at `z_index = 20`), the
   shell-owned `TargetHighlight`, and the `GameHud`.
 - `scenes/world/farm_map.tscn` and `scripts/world/farm_map.gd` (`FarmMap`)
-  own the authored farm map: the ground/water/path/decoration
+  own the authored 48x40 farm map: the stamped `Ground`/`Backdrop`
   `TileMapLayer`s, `FarmSoil`, `FarmActionEffects`, `HomesteadAmbience`
   (`z_index = 7`, river ripples only — rain rendering lives in the shell
   `RainLayer` at `z_index = 6` so ripples remain over rain streaks), the
-  farm `StaticCollision` bodies, and the `Entities` Y-sort root. `FarmMap`
-  derives its collision geometry from `WorldContract` and `WorldMath` at
-  `_ready()`, and defines its `SPAWN` and `CAMERA_BOUNDS` from
-  `WorldContract`. Its first `Backdrop` `TileMapLayer` is painted by the
-  shared `GameMap._fill_backdrop()` (grass outside `MAP_SIZE`, the authored
-  east road continued on row 9) so camera corners show no grey. The parked
-  kei truck stands by the east road sign at `TRUCK_CELL`/`TRUCK_ARRIVAL`.
+  farm `StaticCollision` bodies, the below-actor `PierDeck`, and the
+  `Entities` Y-sort root. `FarmMap` derives its collision geometry from
+  `WorldContract` and `WorldMath` at `_ready()`, and defines its `SPAWN` and
+  `CAMERA_BOUNDS` from `WorldContract`. Its `Ground` and camera `Backdrop`
+  cells are authored data stamped by `tools/stamp_farm_ground.gd` from the
+  ordered `WorldContract.TERRAIN_RECTS` table, so the camera corners show
+  continuous grass/water/road rather than grey. The parked kei truck stands
+  at `TRUCK_CELL`/`TRUCK_ARRIVAL`.
 - `scenes/world/town_map.tscn` and `scripts/world/town_map.gd` (`TownMap`)
-  own the authored 16x12 town: a `Backdrop` `TileMapLayer` that reuses the
-  farm terrain atlas to paint the `WorldMath.backdrop_cells()` camera
-  coverage outside the playable rect through the shared
-  `GameMap._fill_backdrop()` painter (grass field, with the road rows
-  continuing as a dirt track), the paved/road `Ground` `TileMapLayer`, the
-  `TownContract`-derived `StaticCollision` bodies (station, seed shop,
-  cafe, market, truck, the three villager footprints, and the four
-  perimeter bands), and its own `Entities` Y-sort root holding the town
-  props, the three residents, and the parked truck at
+  own the authored 16x12 town: a `Backdrop` `TileMapLayer` and the
+  paved/road `Ground` `TileMapLayer`, both stamped from the standalone
+  `town_tileset.tres` (grass, paving, road four-phase sources; no farm
+  source-ID dependency), the `TownContract`-derived `StaticCollision` bodies
+  (station, seed shop, cafe, market, truck, the three villager footprints,
+  and the four perimeter bands), and its own `Entities` Y-sort root holding
+  the town props, the three residents, and the parked truck at
   `TownContract.TRUCK_CELL`/`TRUCK_ARRIVAL`. `TownContract` is the single
   source for the town map size, truck/shop/market cells, villager cells and
   footprints, and town camera bounds — parallel constants stay banned.
@@ -72,7 +72,7 @@ There is no JavaScript or Tauri runtime in the current checkout.
   shell-owned `RainLayer` instance persists across swaps), reparents the same
   `Player` under the active `Entities` root at index 0 with `owner`
   restored so `World/%Player` keeps resolving, and places it via
-  `player.enter_map()` at the house spawn or the arrived-by-truck
+  `player.enter_map()` at the authored farm spawn or the arrived-by-truck
   `TRUCK_ARRIVAL`. The swap is presentation-only — `GameSession`, the
   `Camera2D`, `GameHud`, and its signal connections survive untouched.
   A successful E at the active truck previews the trip with
@@ -246,7 +246,11 @@ There is no JavaScript or Tauri runtime in the current checkout.
   result teardown removes the live World with `remove_child()` then
   `queue_free()` before presenting it.
 - scripts/persistence/save_file.gd owns schema-v4 JSON transport only; older
-  saves are intentionally incompatible and there is no migration.
+  schema versions are intentionally incompatible and there is no migration.
+  HPA-863 kept schema 4 but moved the authored farm cells: a pre-v2 save with
+  the retired `24x20` cell order decodes and then fails
+  `SessionStateValidator` against `WorldContract.farm_cells()`, so Continue
+  stays disabled and the file is left untouched (never migrated).
 - scripts/persistence/save_repository.gd writes user://phoenix-save.json with FileAccess.
 - `scripts/ui/ui_settings.gd` owns the separate preference file and its
   Music/Sound `0..10`, Window `1080p/FULL`, Tutorial Cards `ON/OFF`,
@@ -268,8 +272,8 @@ There is no JavaScript or Tauri runtime in the current checkout.
 - GameSession.state()/restore_state() own mutable-state export and canonical restore; SessionStateValidator.state_error() owns all persisted-state validation; snapshot() remains the view read model.
 - `location` is deliberately transient: `snapshot()` carries it so views
   and `load_map()` track the live map, but `state()` never persists it, so
-  every save/Continue restores to the farm spawn regardless of where the
-  session last stood.
+  every save/Continue restores to the authored farm spawn `(23.5,11.5)`
+  regardless of where the session last stood.
 - WorldShell remains the only live production session holder and synchronously writes once after successful overnight advancement.
 - Player position/facing/camera/UI state remain transient/authored.
 - HPA-599 delivered the release closeout: truthful farm preview/target tint
@@ -282,27 +286,33 @@ There is no JavaScript or Tauri runtime in the current checkout.
 
 ## Locked world contract
 
-The logical map is `24x20` with `64x32` ground diamonds and projection origin
-`(768, 0)`. Player spawn is `(11.5, 8.5)`, half extent is `0.18`, speed is `96`
-projected pixels/second, and player centers stay in `[0.18, 23.82]` on x and
-`[0.18, 19.82]` on y. The farm patch is `FARM_PATCH Rect2i(4, 10, 6, 5)`
-(`x=4..9,y=10..14`, 30 cells); the farm-side path starts at `x=10` and the
-workbench spur joins the main path at `x=12`.
+The logical map is `48x40` with `64x32` ground diamonds and projection origin
+`(768, 0)`. Player spawn is `(23.5, 11.5)`, half extent is `0.18`, speed is
+`96` projected pixels/second, and player centers stay in `[0.18, 47.82]` on x
+and `[0.18, 39.82]` on y. The farm patch is `FARM_PATCH Rect2i(15, 19, 6, 5)`
+(`x=15..20`, `y=19..23`, 30 cells). The ordered, last-writer
+`TERRAIN_RECTS` table holds 28 terrain strokes (grass base, forest, water,
+reeds, bamboo, road, paddy, yard, lot, path, gravel, field, three fallow
+plots, and the pier); `WorldContract.material_at()` clamps every queried
+cell to the map edge, so backdrop overdraw never invents a shore or rim.
+The farm-side path runs from the house south through the yard; the gravel
+east drive continues off-map.
 
-The house footprint is `(11,4.5,2.75,2.75)` with derived bottom-center ground
-anchor `(976,336)`, and the House node displays its `96x96` prop frame at
-integer `2x` so the footprint's projected diamond is inscribed in the drawn
-yard ellipse.
-Farm interactable cells are the bed `(12,7)`, the shipping cell `(10,13)`
-with footprint `(10.2,13.2,0.6,0.6)`, and the truck cell `(22,9)` with
-footprint `(22,9,1,1)` and arrival `(21,10)`;
-the world-shell smoke pins the cells, footprints, anchors, collisions, sprite
-frames, and detour coverage. Blockers are the forest band `(0,0,24,2)`, the
-west river `(0,0,2,20)`, the south river `(0,18,12,2)`, and the workbench
-footprint `(13.25,16.25,0.5,0.5)` at cell `(13,16)`; the village sign stands
-at `(21,8)`.
-The retired `TREE_*`, `BUILDING_*`, `PATH_ROW`, `path_cells()`, seed-box, and
-farm-market constants must not return as stale parallel representations.
+The house footprint is `(22,7,3,3)` with derived bottom-center ground anchor
+`(1200,536)`; the `224x192` farmhouse cutout draws its stone base/doorway
+28 px right of frame centre, so `House/Sprite2D.offset` is `(-28,-96)`. Farm
+interactable cells are the bed `(23,10)` with contact slice
+`(23,9.75,1,0.25)`, the shipping bin `(22,19)` with the full-cell footprint
+`(22,19,1,1)`, and the truck `(33,12)` with footprint `(33,12,1,1)` and
+arrival `(32,13)`; the world-shell smoke pins cells, footprints, anchors,
+collisions, sprite frames, and detour coverage. Blocking props are
+`WorldContract.blocking_props()`, the 12 fence runs / 85 blocking fence
+sprites, and the perimeter bands; the terrain grid contributes the
+`bamboo`/`forest`/`paddy`/`reeds`/`water` blockers. The three pier planks
+are a below-actor `PierDeck` at `z_index = 5`, not `Entities` children.
+The retired `TREE_*`, `BUILDING_*`, `PATH_ROW`, `path_cells()`, seed-box,
+farm-market, `BACKDROP_*`, and `GameMap._fill_backdrop()` representations
+must not return.
 
 The town is `TownContract`: `16x12` logical cells on the same projection,
 camera bounds `Rect2(384,-96,896,544)`, and footprint-derived collisions
@@ -311,9 +321,12 @@ the Harvest Market `(13,7)`, the truck `(2,9)` with arrival `(3,8)`, and
 the villager cells `(9,4)`/`(5,7)`/`(11,6)` for Sato-san, Gen-san, and Hana.
 Station `(1.85,3.85,1.3,1.3)`, shop `(6.85,2.85,1.3,1.3)`, cafe
 `(10.85,2.85,1.3,1.3)`, market `(12.85,5.85,1.3,1.3)`, truck `(2,9,1,1)`,
-and the three `0.6x0.6` villager footprints block movement.
+and the three `0.6x0.6` villager footprints block movement. Both town
+`Ground` and `Backdrop` use the standalone `town_tileset.tres`, whose
+grass/paving/road four-phase sources are `world-v2/ground/*-phases.png`.
 
-Farm camera bounds are `Rect2(128,-96,1408,800)` with `96` pixels of top padding.
+Farm camera bounds are `Rect2(-512,-96,2816,1504)` with `96` pixels of top
+padding.
 The project renders at a single 1080p: a `1920x1080` base viewport with
 `canvas_items`/`keep` stretching, fractional scale, 2D transform pixel snap,
 nearest filtering, and a minimum `960x540` window (`UiSettings`). The world
@@ -331,7 +344,7 @@ target highlight, camera follow, collision, perimeter clamping, reachability,
 and front/behind depth ordering. HPA-589 is done: farming, the crop economy,
 the daily clock/stamina rhythm, weather, shipping, and the morning-summary
 gate all exist as Godot gameplay, with `GameRules`/`GameSession` as the
-authority and bed `(12,7)` / shipping `(10,13)` / truck `(22,9)` cells wired
+authority and bed `(23,10)` / shipping `(22,19)` / truck `(33,12)` cells wired
 into the shell. Day 14 is the terminal day of the season — no settlement or
 advance happens past it. HPA-594 provides the social rules domain —
 identities, relationship policy, dialogue and finale lines in
@@ -350,8 +363,8 @@ pre-existing limitation, not parity.
 HPA-743 made E contact-first (footprint-derived interact regions with a
 14 px reach, refusal instead of raw fallback when an in-reach region is
 unfaced), fades occluding props per sprite while the player walks behind
-them, and shares one backdrop painter across both maps so the farm camera
-shows grass and the continued east road instead of grey void.
+them, and authors both maps' camera backdrops at build time so the farm and
+town camera edges show continuous ground instead of grey void.
 HPA-597 is done: the blocking introduction with contextual dismissible help,
 the Day 14 harvest market, and the terminal result flow all shipped.
 HPA-263 makes the day clock a real constraint: it ticks passively during
@@ -393,11 +406,15 @@ and late interactions end to end on the pre-seeding build.
   Shipping, and Dialogue — with the seven phone apps on the shared
   `PhoneFrame`; HPA-684 owns diary/result copy and HPA-687 new art.
 - The starting-farm expansion replaced the HPA-590 `12x12` proof ground with
-  the locked `24x20` homestead — house, `6x5` farm, river/forest, workbench
-  yard, and eastbound village road — rendered from the approved committed art;
-  the locked contract above and
-  `docs/superpowers/specs/2026-09-07-phoenix-starting-farm-expansion-design.md`
-  are the reference.
+  a `24x20` homestead; HPA-863 replaced that with the current `48x40`
+  world-v2 map — the approved `6x5` field, farmhouse/kura/tool-shed yard,
+  river/forest/paddy/PierDeck, and gravel/road east drive — rendered from the
+  promoted `assets/sprites/world-v2/` art. The v2 contract above and
+  `docs/superpowers/specs/2026-11-21-phoenix-farm-v2-world-art-design.md`
+  are the reference; HPA-863 validation lives in
+  `docs/superpowers/validation/2026-11-23-hpa-863-native-tour.md` and its
+  capture folder. Old `24x20` saves are rejected by farm-cell validation,
+  with no migration.
 
 ## Headless workflow
 
@@ -468,16 +485,21 @@ Sprite-isometric art contract
 - Entity roots are bottom-center ground contacts.
 - Visible sprites offset upward from the root.
 - Shadows are child sprites on the ground plane, never Y-sort roots.
-- Entities remains the sole Y-sort owner for foreground/occluding world objects.
+- Entities remains the sole Y-sort owner for foreground/occluding world objects;
+  the three pier planks are a below-actor `PierDeck` child.
 - Nearest filtering is mandatory; world art scales by the integer
   `WorldContract.CAMERA_ZOOM` on the 1080p canvas.
-- World terrain and props derive from the two committed
-  `starting-farm-*-source.webp` sheets; the sheets stay tracked as source
-  provenance and approved art is never regenerated.
+- Accepted world-v2 runtime art lives under `assets/sprites/world-v2/`:
+  `ground/*-phases.png`, `ground/<a>-to-<b>.png`,
+  `ground/multi-junctions.png`, `cutouts/*.png`, `crops.png`, and `soil.png`.
+  `assets/sprites/world-v2/README.md` records the phase/corner/frame
+  contract. The generation source sheets and prompt record remain in the
+  `.gdignore`d, export-excluded `assets/sprites/hpa-861-review/` folder;
+  no runtime file may reference it.
 - `player-walk.png` is the active player sprite (a 4x4 walk-cycle sheet);
-  the proof crops/soil/shadow/scenery sprites remain live entity textures;
-  the villager sprite sheets now render the three town residents.
-  Only provably unreferenced proof resources were deleted.
+  `proof-shadow.png` remains the shared ground-shadow texture; `villagers.png`
+  renders the three town residents; `kei-truck.png` renders both trucks.
+  Only provably unreferenced proof/starting-farm resources were deleted.
 
 Audio generation convention
 - New Phoenix audio assets are generated through the ElevenLabs MCP
