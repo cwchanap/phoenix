@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=4]
+
+[ext_resource type="Script" path="res://tests/native_tour/mcp_acceptance_driver.gd" id="1_driver"]
+
+[node name="McpAcceptanceDriver" type="Node"]
+script = ExtResource("1_driver")
