@@ -17,14 +17,19 @@ generated transparent-background edit used to prepare the four prop frames.
 the two truck views in the source sheet. Its front view is on the left and its
 rear view is on the right.
 
-## Runtime atlases
+## Runtime art (HPA-863)
 
-- `town-terrain.png`: three 64×32 diamond cells, left to right: paving, marked
-  road, plain asphalt. The marked cell includes curb markings; use the plain
-  cell for continuous road areas. Both road cells come from the source road.
-- `town-props.png`: four 96×96 cells in a 2×2 grid: station and seed shop on
-  the first row, cafe and market stall on the second.
-- `kei-truck.png`: two 96×96 cells: front view on the left, rear on the right.
+`town-art-source.webp` remains the source sheet; `town-art-cutouts.png` and
+`town-truck-views.png` preserve its intermediate transparent cutouts. The
+retired runtime atlases `town-terrain.png` and `town-props.png` were deleted
+in HPA-863 cleanup. Runtime now uses:
+
+- `scenes/world/town_tileset.tres`: standalone grass/paving/road four-phase
+  sources from `assets/sprites/world-v2/ground/*-phases.png`.
+- `assets/sprites/world-v2/cutouts/{station,seed-shop,cafe,market}.png`:
+  single 96×96 props, bottom-centre anchored on their existing footprints.
+- `kei-truck.png`: two 96×96 cells, front view on the left and rear on the
+  right.
 
 Props and trucks are centred in their cells with their visible ground contact
 on the bottom row. Use nearest filtering and place them under the existing

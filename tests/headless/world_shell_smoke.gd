@@ -50,7 +50,6 @@ const TOWN_SOURCE_TEXTURES: Array[String] = [
 ]
 const EXPECTED_ASSETS := [
     {"path": "res://assets/sprites/player-walk.png", "size": Vector2i(128, 192), "hframes": 4, "vframes": 4},
-    {"path": "res://assets/sprites/proof-scenery.png", "size": Vector2i(384, 96)},
     {"path": "res://assets/sprites/world-v2/soil.png", "size": Vector2i(128, 32)},
     {"path": "res://assets/sprites/world-v2/crops.png", "size": Vector2i(128, 144)},
     {"path": "res://assets/sprites/world-v2/cutouts/shipping-bin.png", "size": Vector2i(96, 96)},
