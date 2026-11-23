@@ -25,7 +25,7 @@ fresh temporary `HOME`. `./tools/verify-clean.sh` archives committed `HEAD`.
 | Clean verifier | `./tools/verify-clean.sh` | **exit 0**: import, GUT **632/632** (51,113 asserts), project smoke, world-math smoke, terrain-stamp drift (35 sources / 1,542 tiles / 1,920 cells), world-shell smoke (`48x40`, 47 props, 85 fences, 8 decor, 3-plank PierDeck), audio |
 | GdUnit4 | `GODOT_BIN=... xvfb-run -a ./addons/gdUnit4/runtest.sh -a tests/gdunit -c` | **16/16**, 0 errors/failures/orphans |
 | godot-e2e, individual suites | same harness with `-a tests/e2e/world_readability_test.gd` and `-a tests/e2e/gameplay_day_one_test.gd` | `world_readability` **1/1 pass** (29.1 s); `gameplay_day_one` **7/7 pass** (2 min 42 s) |
-| godot-e2e, full lane | `... -a tests/e2e -c` (two runs) | **exit 100 both times**; 13 cases, **3 errors / 85 failures**, all inside `gameplay_day_one_test`: `held_row` 26, `player_moves` 5, `travel_overlay` 52, `observe` 2. `app_launch` 3/3, `market_confirm` 1/1, `ui_navigation` 1/1 and `world_readability` 1/1 passed in the same run. Every failure begins with `Command 'wait_seconds' timed out after 1300–1600 ms` followed by `E2E session is not open`; no map/decor assertion failed. The same suite passes alone, so this is host load/llvmpipe latency, not a v2 regression. |
+| godot-e2e, full lane | `... -a tests/e2e -c` (three runs) | **exit 100 all three times**; 13 cases. Runs 1–2: 3 errors / 85 failures; run 3 (lower host load): 1 error / 21 failures. The failing set varies inside `gameplay_day_one_test` (`held_row`, `player_moves`, `travel_overlay`, `observe`); `app_launch` 3/3, `market_confirm` 1/1, `ui_navigation` 1/1 and `world_readability` 1/1 passed in every run. Every failure begins with `Command 'wait_seconds' timed out after 1300–1600 ms` followed by `E2E session is not open`; no map/decor assertion failed. Each affected suite passes alone, so this is host load/llvmpipe latency, not a v2 regression. |
 
 The two previously reported child-server failures (`test_player_moves_with_real_input`
 and `test_travel_overlay_blocks_input_and_resumes_the_clock`) now fail only in
@@ -90,7 +90,10 @@ Exact method:
    `/root/McpAcceptanceDriver/App/World/FarmMap` / `TownMap`.
 6. `capture_screenshot` for each pose; `get_runtime_state`/state markers and
    `test_output/mcp_acceptance/actions.jsonl` (ignored) recorded the live
-   state. `stop_project` ended the session.
+   state. `stop_project` ended the session. The driver's per-run
+   `test_output/mcp_acceptance/actions.jsonl` (ignored) was overwritten by the
+   clean capture pass; the full-path values below were read from the live tool
+   responses during the main run and are corroborated by the captures.
 
 The driver is test-only and in `tests/native_tour/` (excluded from export). It
 does not teleport or touch the session: each walk uses AStar waypoints, real
