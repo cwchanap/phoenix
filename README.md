@@ -28,12 +28,14 @@ the current slot. Continue is enabled only for a schema-4 save accepted by
 current GameSession rules at user://phoenix-save.json. Successful sleep
 advances gameplay first, then synchronously writes the completed next-morning
 state and pending morning summary. Continue restores gameplay at the authored
-spawn. Invalid/incompatible loads and save failures never block New Game or
-roll back an already completed day.
+farm spawn `(23.5,11.5)`. Invalid/incompatible loads and save failures never
+block New Game or roll back an already completed day.
 
 Farm saves use schema 4 and have no migration path; older schema versions are
-rejected. UI preferences are stored separately in
-user://phoenix-settings.cfg.
+rejected. HPA-863 also rejects pre-v2 saves that still carry the retired
+`24x20` farm-cell order: they decode as schema 4, fail the current
+`WorldContract.farm_cells()` validation, and Continue stays disabled. UI
+preferences are stored separately in user://phoenix-settings.cfg.
 
 A fresh run opens on a skippable six-scene prologue in Kenji's voice: he won
 the lottery, left his software job in Tokyo, and bought a neglected field two
@@ -79,8 +81,8 @@ translations in the same commit; `tests/unit/test_localisation.gd` fails on a
 missing translation, a placeholder mismatch, or an untranslated rules string.
 
 The target diamond is hidden when the faced cell is outside the map.
-Standing in near contact with the farm bed cell `(12,7)`, shipping cell
-`(10,13)`, or truck cell `(22,9)`, or the town shop cell `(7,4)`, market
+Standing in near contact with the farm bed cell `(23,10)`, shipping cell
+`(22,19)`, or truck cell `(33,12)`, or the town shop cell `(7,4)`, market
 cell `(13,7)`, truck cell `(2,9)`, or a villager, and facing it shows a
 contextual interaction hint (for example `[E] Seed Shop` or
 `[E] Drive to town`). When an interactable is within reach but not faced,
@@ -111,10 +113,10 @@ The social commands `talk_to` and `gift_crop` instead return a narrow result
 dictionary (lines, points gained, gift reaction) that the dialogue panel
 renders when a town resident is the E target.
 
-1. **Farm.** Face a cell in the `6x5` farm patch and press Space to do its next
-   action: till bare soil, plant the selected seed, water growing crops, or
-   harvest mature crops. Hold Space to sweep across cells with one action;
-   release before working the next stage.
+1. **Farm.** Face a cell in the `6x5` farm patch (`x=15..20`, `y=19..23`)
+   and press Space to do its next action: till bare soil, plant the selected
+   seed, water growing crops, or harvest mature crops. Hold Space to sweep
+   across cells with one action; release before working the next stage.
 2. **Budget the day.** Each action costs clock minutes and stamina; the day
    runs 06:00 to 22:00 and stamina caps at 20. The clock also advances
    passively while the world accepts input — 0.15 real seconds per game
@@ -122,7 +124,7 @@ renders when a town resident is the E target.
    one. Watering costs 2 stamina, or 1 with the Efficient Can upgrade. Rain
    waters every crop for
    free, so the watering can is unneeded on rainy days.
-3. **Drive to town.** Face the farm truck cell `(22,9)` and press E: the
+3. **Drive to town.** Face the farm truck cell `(33,12)` and press E: the
    thirty-minute drive swaps the farm for the authored `16x12` town map and
    drops the player at its west truck arrival; the town truck `(2,9)` drives
    home for the same cost. The Seed Shop `(7,4)` sells Turnip, Potato, and
@@ -202,35 +204,41 @@ accessories through `app_header_accessory()`, add footer controls through
 
 | Contract | Value |
 | --- | --- |
-| Farm map | `24x20` logical cells |
+| Farm map | `48x40` logical cells |
 | Town map | `16x12` logical cells |
 | Ground diamond | `64x32` |
 | Projection origin | `(768, 0)` |
-| Player spawn | `(11.5, 8.5)` logical on the farm |
+| Player spawn | `(23.5, 11.5)` logical on the farm |
 | Player half extent | `0.18` logical cells |
 | Player speed | `96` projected pixels/second |
-| Player center limits | `x in [0.18, 23.82]`, `y in [0.18, 19.82]` on the farm |
-| Farm patch | `x=4..9`, `y=10..14` |
-| House footprint | `x=11`, `y=4.5`, `w=2.75`, `h=2.75` logical |
-| House bottom-center anchor | `(976, 336)` projected world |
-| Farm truck | cell `(22,9)`, arrival `(21,10)` |
+| Player center limits | `x in [0.18, 47.82]`, `y in [0.18, 39.82]` on the farm |
+| Farm patch | `Rect2i(15, 19, 6, 5)` (`x=15..20`, `y=19..23`, 30 cells) |
+| House footprint | `x=22`, `y=7`, `w=3`, `h=3` logical |
+| House bottom-center anchor | `(1200, 536)` projected world |
+| Farm bed | cell `(23,10)`, contact slice `(23,9.75,1,0.25)` |
+| Farm shipping bin | cell `(22,19)`, full-cell footprint `(22,19,1,1)` |
+| Farm truck | cell `(33,12)`, arrival `(32,13)` |
 | Town truck | cell `(2,9)`, arrival `(3,8)` |
 | Camera padding | `96` projected pixels above the map |
-| Farm camera bounds | `Rect2(128, -96, 1408, 800)` |
+| Farm camera bounds | `Rect2(-512, -96, 2816, 1504)` |
 | Town camera bounds | `Rect2(384, -96, 896, 544)` |
 
-Each ground is an authored `TileMapLayer`; both maps also carry a
-`Backdrop` layer reusing the farm terrain atlas, painted once by the shared
-`GameMap._fill_backdrop()` helper: the town's paved square sits in a grass
-field with its road rows continuing out of the map as a dirt track, and the
-farm fills grass outside the playable rect with the east road continuing on
-row 9, so camera corners never show grey void. Scenery and player roots use
-bottom-center ground-contact positions. Collision polygons are projected from
-the logical house, forest/river/workbench, shipping, town station,
-shop, cafe, market, villager, truck, and perimeter
-geometry; Godot's `CharacterBody2D` supplies the
-collision response. `Entities` is the single Y-sorted container, with shared
-entity z-order and stable scene-tree tie order.
+Both maps author their ground at build time instead of painting a runtime
+backdrop. `tools/stamp_farm_ground.gd` writes the farm's one ordered
+35-source/1,542-tile `terrain_tileset.tres` and stamps its `48x40` `Ground`
+and camera `Backdrop` cells from the last-writer `WorldContract.TERRAIN_RECTS`
+table. The town has its own `town_tileset.tres` with grass, paving, and road
+four-phase sources and stamps its `16x12` `Ground` plus the camera `Backdrop`
+from `WorldMath.backdrop_cells()`; it has no farm source-ID dependency.
+Phases use `posmod(x,2) + 2*posmod(y,2)`, multi-material corners choose the
+indexed `multi-junctions` tile, and `WorldContract.material_at()` clamps every
+queried cell to the map edge so overdraw never invents a shore or grass rim.
+Scenery and player roots use bottom-center ground-contact positions. Collision
+polygons are projected from the logical house, blocking props, 12 fence runs,
+truck, town buildings, villager, and perimeter geometry; Godot's
+`CharacterBody2D` supplies the collision response. `Entities` is the single
+Y-sorted container, with shared entity z-order and stable scene-tree tie
+order; the three pier deck planks live in the separate below-actor `PierDeck`.
 
 `WorldShell.load_map()` owns the only map swap: the same `Player`,
 `Camera2D`, `GameHud`, and `GameSession` survive while the authored
@@ -248,9 +256,12 @@ added the complete single-player farming/economy loop on that shell: tilling,
 planting, watering, harvesting, seed shopping, shipping, sleeping, weather,
 and the morning summary, with `GameRules`/`GameSession` as the gameplay
 authority. The starting-farm expansion then replaced the `12x12` proof ground
-with the locked `24x20` homestead — house, `6x5` farm, river/forest
-boundaries, workbench yard, and an eastbound village road — using the approved
-committed art.
+with a `24x20` homestead; HPA-863 replaced that with the current `48x40`
+world-v2 map — the approved `6x5` field at `(15,19)`, farmhouse and kura
+storehouse yard, river/forest/rice-paddy boundaries, the gravel/road east
+drive, and a `2x3` pier — rendered from the promoted
+`assets/sprites/world-v2/` atlases and cutouts. The shipping bin is one full
+collide-able cell at `(22,19)`.
 
 Day 14 is the terminal day of the season. HPA-594 added the social systems —
 the Sato-san, Gen-san, and Hana identities, the talk/gift relationship
@@ -284,10 +295,10 @@ test, and headless smoke checks:
 ```
 
 It runs the editor/import smoke, the GUT unit and integration tests, the
-project contract smoke, world-math smoke, and world-shell smoke in that
-order. There is no second JavaScript or desktop-shell runtime in the current
-checkout; historical behavior references remain in Git history and
-`docs/superpowers/`.
+project contract smoke, world-math smoke, terrain-stamp drift smoke, and
+world-shell smoke in that order. There is no second JavaScript or desktop-shell
+runtime in the current checkout; historical behavior references remain in Git
+history and `docs/superpowers/`.
 
 Live-World fixtures opt out of passive ticking with
 `WorldShell.clock_running = false` — directly instantiated Worlds before
@@ -306,3 +317,12 @@ godot --headless --path . --import
 mkdir -p build
 godot --headless --path . --export-release "macOS" build/Phoenix.zip
 ```
+
+The export job then extracts `Phoenix.app/Contents/Resources/Phoenix.pck`
+into an isolated directory and runs `tools/export_pack_smoke.gd` from that
+directory with `--main-pack`. The gate loads the packed app/world/farm/town
+scenes and the accepted `world-v2` crop, soil, ground, and cutout textures
+from the PCK, rejects any resolvable checkout-only path, and verifies the
+`.gdignore` provenance folder is absent from the package. Enable
+`textures/vram_compression/import_s3tc_bptc` only on hosts whose exporter
+cannot build the universal macOS template; CI's x86_64 runner has it on.
