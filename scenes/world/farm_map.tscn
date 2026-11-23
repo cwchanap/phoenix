@@ -59,6 +59,39 @@ tile_set = ExtResource("2_6m72w")
 [node name="FarmSoil" type="Node2D" parent="." unique_id=253862436]
 z_index = 5
 
+[node name="PierDeck" type="Node2D" parent="." unique_id=1850451453]
+z_index = 5
+
+[node name="PierPlank1" type="Node2D" parent="PierDeck" unique_id=460824059]
+position = Vector2(464, 944)
+
+[node name="Shadow" type="Sprite2D" parent="PierDeck/PierPlank1" unique_id=234570349]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="PierDeck/PierPlank1" unique_id=1063324294]
+texture = ExtResource("42_pier")
+offset = Vector2(0, -48)
+
+[node name="PierPlank2" type="Node2D" parent="PierDeck" unique_id=617567105]
+position = Vector2(432, 960)
+
+[node name="Shadow" type="Sprite2D" parent="PierDeck/PierPlank2" unique_id=1798990548]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="PierDeck/PierPlank2" unique_id=2007485542]
+texture = ExtResource("42_pier")
+offset = Vector2(0, -48)
+
+[node name="PierPlank3" type="Node2D" parent="PierDeck" unique_id=931916503]
+position = Vector2(400, 976)
+
+[node name="Shadow" type="Sprite2D" parent="PierDeck/PierPlank3" unique_id=121723180]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="PierDeck/PierPlank3" unique_id=654059030]
+texture = ExtResource("42_pier")
+offset = Vector2(0, -48)
+
 [node name="FarmActionEffects" type="Node2D" parent="." unique_id=253862437]
 z_index = 5
 script = ExtResource("9_fx")
@@ -94,7 +127,6 @@ position = Vector2(1248, 560)
 [node name="Shadow" type="Sprite2D" parent="Entities/House" unique_id=1805692599]
 texture = ExtResource("9_shadow")
 scale = Vector2(13, 13)
-offset = Vector2(0, -48)
 
 [node name="Sprite2D" type="Sprite2D" parent="Entities/House" unique_id=407276040]
 texture = ExtResource("7_xgpii")
@@ -136,7 +168,6 @@ position = Vector2(1408, 608)
 [node name="Shadow" type="Sprite2D" parent="Entities/ToolShed" unique_id=416908025]
 texture = ExtResource("9_shadow")
 scale = Vector2(9, 9)
-offset = Vector2(0, -32)
 
 [node name="Sprite2D" type="Sprite2D" parent="Entities/ToolShed" unique_id=295883255]
 texture = ExtResource("11_uvdsc")
@@ -238,7 +269,6 @@ position = Vector2(912, 464)
 [node name="Shadow" type="Sprite2D" parent="Entities/Storehouse" unique_id=275893563]
 texture = ExtResource("9_shadow")
 scale = Vector2(19, 19)
-offset = Vector2(0, -72)
 
 [node name="Sprite2D" type="Sprite2D" parent="Entities/Storehouse" unique_id=248502575]
 texture = ExtResource("20_i0s58")
@@ -260,7 +290,6 @@ position = Vector2(832, 224)
 [node name="Shadow" type="Sprite2D" parent="Entities/Shrine" unique_id=1322934126]
 texture = ExtResource("9_shadow")
 scale = Vector2(9, 9)
-offset = Vector2(0, -32)
 
 [node name="Sprite2D" type="Sprite2D" parent="Entities/Shrine" unique_id=1329511014]
 texture = ExtResource("22_kd0ts")
@@ -404,7 +433,6 @@ position = Vector2(1040, 880)
 [node name="Shadow" type="Sprite2D" parent="Entities/Greenhouse" unique_id=585824456]
 texture = ExtResource("9_shadow")
 scale = Vector2(19, 19)
-offset = Vector2(0, -72)
 
 [node name="Sprite2D" type="Sprite2D" parent="Entities/Greenhouse" unique_id=1717731375]
 texture = ExtResource("31_pintd")
@@ -506,7 +534,6 @@ position = Vector2(1696, 752)
 [node name="Shadow" type="Sprite2D" parent="Entities/Camphor" unique_id=249654917]
 texture = ExtResource("9_shadow")
 scale = Vector2(9, 9)
-offset = Vector2(0, -32)
 
 [node name="Sprite2D" type="Sprite2D" parent="Entities/Camphor" unique_id=1460489987]
 texture = ExtResource("33_ujcoa")
@@ -1500,34 +1527,4 @@ texture = ExtResource("9_shadow")
 
 [node name="Sprite2D" type="Sprite2D" parent="Entities/LotRope5" unique_id=1392094232]
 texture = ExtResource("41_stakes")
-offset = Vector2(0, -48)
-
-[node name="PierPlank1" type="Node2D" parent="Entities" unique_id=460824059]
-position = Vector2(464, 944)
-
-[node name="Shadow" type="Sprite2D" parent="Entities/PierPlank1" unique_id=234570349]
-texture = ExtResource("9_shadow")
-
-[node name="Sprite2D" type="Sprite2D" parent="Entities/PierPlank1" unique_id=1063324294]
-texture = ExtResource("42_pier")
-offset = Vector2(0, -48)
-
-[node name="PierPlank2" type="Node2D" parent="Entities" unique_id=617567105]
-position = Vector2(432, 960)
-
-[node name="Shadow" type="Sprite2D" parent="Entities/PierPlank2" unique_id=1798990548]
-texture = ExtResource("9_shadow")
-
-[node name="Sprite2D" type="Sprite2D" parent="Entities/PierPlank2" unique_id=2007485542]
-texture = ExtResource("42_pier")
-offset = Vector2(0, -48)
-
-[node name="PierPlank3" type="Node2D" parent="Entities" unique_id=931916503]
-position = Vector2(400, 976)
-
-[node name="Shadow" type="Sprite2D" parent="Entities/PierPlank3" unique_id=121723180]
-texture = ExtResource("9_shadow")
-
-[node name="Sprite2D" type="Sprite2D" parent="Entities/PierPlank3" unique_id=654059030]
-texture = ExtResource("42_pier")
 offset = Vector2(0, -48)

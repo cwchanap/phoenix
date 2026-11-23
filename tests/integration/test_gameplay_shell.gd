@@ -315,7 +315,6 @@ func _farm_static_entity_names() -> Array:
     for decor_name in [
         "Flowers1", "Flowers2", "Torii",
         "LotRope1", "LotRope2", "LotRope3", "LotRope4", "LotRope5",
-        "PierPlank1", "PierPlank2", "PierPlank3",
     ]:
         names.append(decor_name)
     return names

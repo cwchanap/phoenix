@@ -2,7 +2,8 @@ extends "res://tests/native_tour/rain_tour_base.gd"
 ## HPA-863 agent-operated native visual tour for the 48x40 farm and the
 ## unchanged town. Boots the real windowed app on a seeded Day-1 farm, teleports
 ## to the approved front-door, storehouse-yard, field, driveway/roadside, pier
-## and camera-extreme poses, then drives to town with the real truck E command
+## (including the reviewed standing-on-deck pose) and camera-extreme poses, then
+## drives to town with the real truck E command
 ## and captures the town centre and edge. Screenshots are 1920x1080 native
 ## evidence only: interaction and geometry behaviour stay pinned by the
 ## headless/GUT/e2e suites, so movement here is transport, not a reachability
@@ -121,20 +122,23 @@ func _phase_farm() -> void:
 	await _pose(Vector2(22.5, 20.5), WorldMath.Facing.LEFT, "05-farm-field-east-gate")
 	await _pose(Vector2(37.0, 15.5), WorldMath.Facing.RIGHT, "06-farm-driveway-roadside")
 	await _pose(Vector2(23.5, 33.5), WorldMath.Facing.DOWN, "07-farm-pier")
-	await _pose(Vector2(2.5, 36.5), WorldMath.Facing.LEFT, "08-farm-camera-southwest")
-	await _pose(Vector2(45.5, 1.5), WorldMath.Facing.RIGHT, "09-farm-camera-northeast")
+	# The review's legal deck stance: the player root (464,930) stands on a
+	# plank rooted at Y=944; the below-actor deck must not cover the player.
+	await _pose(Vector2(24.3125, 33.8125), WorldMath.Facing.DOWN, "08-farm-pier-standing")
+	await _pose(Vector2(2.5, 36.5), WorldMath.Facing.LEFT, "09-farm-camera-southwest")
+	await _pose(Vector2(45.5, 1.5), WorldMath.Facing.RIGHT, "10-farm-camera-northeast")
 
 
 func _phase_town() -> void:
 	# Real E at the truck: the travel overlay performs the map swap.
-	await _pose(Vector2(32.78, 12.72), WorldMath.Facing.RIGHT, "10-farm-truck-contact", false)
+	await _pose(Vector2(32.78, 12.72), WorldMath.Facing.RIGHT, "11-farm-truck-contact", false)
 	await _interact()
 	if not await _wait_map_location(false):
 		return
 	await _frames(SETTLE_FRAMES)
-	await _pose(_grid_centre(TownContract.TRUCK_ARRIVAL + Vector2i(2, 0)), WorldMath.Facing.LEFT, "10-town-centre")
-	await _pose(Vector2(15.5, 1.5), WorldMath.Facing.UP, "11-town-camera-northeast")
-	await _pose(Vector2(0.5, 10.5), WorldMath.Facing.LEFT, "12-town-camera-southwest")
+	await _pose(_grid_centre(TownContract.TRUCK_ARRIVAL + Vector2i(2, 0)), WorldMath.Facing.LEFT, "11-town-centre")
+	await _pose(Vector2(15.5, 1.5), WorldMath.Facing.UP, "12-town-camera-northeast")
+	await _pose(Vector2(0.5, 10.5), WorldMath.Facing.LEFT, "13-town-camera-southwest")
 
 
 func _grid_centre(cell: Vector2i) -> Vector2:
