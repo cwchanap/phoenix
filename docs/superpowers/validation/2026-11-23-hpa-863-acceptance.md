@@ -3,7 +3,7 @@
 Date: 2026-11-23
 Branch: `plan/hpa-863-farm-map-v2-world-art`
 Status: **local changed-map/MCP/PCK acceptance complete for the runs recorded
-here; approval-image comparison, the full godot-e2e lane and final-SHA CI
+here; approved-image comparison, the full godot-e2e lane and final-SHA CI
 remain open. This is not overall release acceptance.**
 Operator: agent-operated, not human. No new art or SFX was generated.
 
