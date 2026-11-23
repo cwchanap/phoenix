@@ -9,6 +9,33 @@ const FARM_TEXTURE_DIR := "res://assets/sprites/world-v2/cutouts/"
 const TOWN_TILESET_PATH := "res://scenes/world/town_tileset.tres"
 const TOWN_PROP_TEXTURE_DIR := "res://assets/sprites/world-v2/cutouts/"
 const BIN_TEXTURE_PATH := "res://assets/sprites/world-v2/cutouts/shipping-bin.png"
+# HPA-863 Task 4 passable decor: approved layout records for the two flower
+# beds and the torii, plus the lot rope markers and pier planks that dress the
+# approved lot/pier areas. Visual-only — no collision, no interact, no occluder.
+const FARM_DECOR := [
+    {"node": "Flowers1", "footprint": Rect2(21.0, 10.0, 1.0, 1.0), "texture": "flowers.png"},
+    {"node": "Flowers2", "footprint": Rect2(25.0, 10.0, 1.0, 1.0), "texture": "flowers.png"},
+    {"node": "Torii", "footprint": Rect2(7.0, 6.0, 1.0, 1.0), "texture": "torii.png"},
+    {"node": "LotRope1", "footprint": Rect2(3.0, 8.0, 4.0, 3.0), "texture": "stakes-rope.png"},
+    {"node": "LotRope2", "footprint": Rect2(8.0, 8.0, 3.0, 3.0), "texture": "stakes-rope.png"},
+    {"node": "LotRope3", "footprint": Rect2(3.0, 13.0, 4.0, 3.0), "texture": "stakes-rope.png"},
+    {"node": "LotRope4", "footprint": Rect2(8.0, 13.0, 4.0, 3.0), "texture": "stakes-rope.png"},
+    {"node": "LotRope5", "footprint": Rect2(13.0, 13.0, 4.0, 3.0), "texture": "stakes-rope.png"},
+    {"node": "PierPlank1", "footprint": Rect2(23.0, 33.0, 2.0, 1.0), "texture": "pier.png"},
+    {"node": "PierPlank2", "footprint": Rect2(23.0, 34.0, 2.0, 1.0), "texture": "pier.png"},
+    {"node": "PierPlank3", "footprint": Rect2(23.0, 35.0, 2.0, 1.0), "texture": "pier.png"},
+]
+# The farmhouse cutout's drawn base is 28 px right of frame centre; its sprite
+# offset centres the base and doorway on the authored 3x3 footprint.
+const HOUSE_ART_OFFSET := Vector2(-28.0, -96.0)
+const BUILDING_SHADOWS := {
+    "House": {"scale": Vector2(13.0, 13.0), "offset": Vector2(0.0, -48.0)},
+    "Storehouse": {"scale": Vector2(19.0, 19.0), "offset": Vector2(0.0, -72.0)},
+    "Greenhouse": {"scale": Vector2(19.0, 19.0), "offset": Vector2(0.0, -72.0)},
+    "ToolShed": {"scale": Vector2(9.0, 9.0), "offset": Vector2(0.0, -32.0)},
+    "Shrine": {"scale": Vector2(9.0, 9.0), "offset": Vector2(0.0, -32.0)},
+    "Camphor": {"scale": Vector2(9.0, 9.0), "offset": Vector2(0.0, -32.0)},
+}
 const TOWN_SOURCE_TEXTURES: Array[String] = [
     "res://assets/sprites/world-v2/ground/grass-phases.png",
     "res://assets/sprites/world-v2/ground/paving-phases.png",
@@ -31,6 +58,10 @@ const EXPECTED_ASSETS := [
     {"path": "res://assets/sprites/world-v2/cutouts/bamboo-fence-b.png", "size": Vector2i(96, 96)},
     {"path": "res://assets/sprites/world-v2/cutouts/wood-fence-a.png", "size": Vector2i(96, 96)},
     {"path": "res://assets/sprites/world-v2/cutouts/wood-fence-b.png", "size": Vector2i(96, 96)},
+    {"path": "res://assets/sprites/world-v2/cutouts/flowers.png", "size": Vector2i(96, 96)},
+    {"path": "res://assets/sprites/world-v2/cutouts/torii.png", "size": Vector2i(96, 96)},
+    {"path": "res://assets/sprites/world-v2/cutouts/stakes-rope.png", "size": Vector2i(96, 96)},
+    {"path": "res://assets/sprites/world-v2/cutouts/pier.png", "size": Vector2i(96, 96)},
     {"path": "res://assets/sprites/world-v2/ground/grass-phases.png", "size": Vector2i(256, 32)},
     {"path": "res://assets/sprites/world-v2/ground/paving-phases.png", "size": Vector2i(256, 32)},
     {"path": "res://assets/sprites/world-v2/ground/road-phases.png", "size": Vector2i(256, 32)},
@@ -527,8 +558,9 @@ func _run() -> void:
     var prop_count := WorldContract.blocking_props().size()
     var fence_count := WorldContract.fence_cells().size()
     if not _expect(
-        entities.get_child_count() == 1 + prop_count + fence_count + farm_cells.size(),
-        "Entities holds the player, every contract prop/fence and the 30 crops",
+        entities.get_child_count()
+        == 1 + prop_count + fence_count + FARM_DECOR.size() + farm_cells.size(),
+        "Entities holds the player, every contract prop/fence, passable decor and the 30 crops",
     ):
         return
 
@@ -555,9 +587,12 @@ func _run() -> void:
         var sprite := prop.get_node("Sprite2D") as Sprite2D
         if not _expect(sprite.texture != null, "%s sprite texture" % entry["node"]):
             return
+        var expected_offset := Vector2(0.0, -sprite.texture.get_height() * 0.5)
+        if entry["node"] == "House":
+            expected_offset = HOUSE_ART_OFFSET
         if not _expect_vec2(
             sprite.offset,
-            Vector2(0.0, -sprite.texture.get_height() * 0.5),
+            expected_offset,
             "%s bottom-center offset" % entry["node"],
         ):
             return
@@ -567,6 +602,53 @@ func _run() -> void:
                 "%s 1x1 footprint sits on an approved cell" % entry["node"],
             ):
                 return
+    # --- HPA-863 passable decor: approved anchors, textures, no collision ---
+    for entry in FARM_DECOR:
+        var decor := entities.get_node_or_null(entry["node"]) as Node2D
+        if not _expect(decor != null, "%s passable decor root" % entry["node"]):
+            return
+        if not _expect_names(decor, ["Shadow", "Sprite2D"], "%s decor entity" % entry["node"]):
+            return
+        if not _expect_vec2(
+            decor.position,
+            WorldMath.footprint_ground_anchor(entry["footprint"]),
+            "%s decor ground anchor" % entry["node"],
+        ):
+            return
+        var decor_sprite := decor.get_node("Sprite2D") as Sprite2D
+        if not _expect(
+            decor_sprite.texture.resource_path == FARM_TEXTURE_DIR + entry["texture"],
+            "%s decor texture" % entry["node"],
+        ):
+            return
+        if not _expect_vec2(
+            decor_sprite.offset,
+            Vector2(0.0, -decor_sprite.texture.get_height() * 0.5),
+            "%s decor bottom-center offset" % entry["node"],
+        ):
+            return
+        if not _expect(
+            not decor.is_in_group("player_occluder"),
+            "%s passable decor never fades the player" % entry["node"],
+        ):
+            return
+
+    # --- HPA-863 art polish: building shadows and the farmhouse art offset ---
+    for node_name in BUILDING_SHADOWS:
+        var building := entities.get_node_or_null(node_name) as Node2D
+        if not _expect(building != null, "%s building root" % node_name):
+            return
+        var building_shadow := building.get_node("Shadow") as Sprite2D
+        var shadow_spec: Dictionary = BUILDING_SHADOWS[node_name]
+        if not _expect_vec2(
+            building_shadow.scale, shadow_spec["scale"], "%s grounded shadow scale" % node_name
+        ):
+            return
+        if not _expect_vec2(
+            building_shadow.offset, shadow_spec["offset"], "%s grounded shadow offset" % node_name
+        ):
+            return
+
     var house := entities.get_node("House") as Node2D
     if not _expect_vec2(house.scale, Vector2.ONE, "the 224x192 farmhouse uses native scale 1"):
         return
@@ -1370,7 +1452,7 @@ func _run() -> void:
     world.hud._sfx_player.stop()
     await create_timer(0.2).timeout
 
-    print("world shell smoke passed: 48x40 stamped ground/backdrop, 47 props, 85 fences, collisions, player, camera, assets")
+    print("world shell smoke passed: 48x40 stamped ground/backdrop, 47 props, 85 fences, 11 passable decor, collisions, player, camera, assets")
     quit(0)
 
 func _init() -> void:
