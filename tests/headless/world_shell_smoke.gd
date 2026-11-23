@@ -10,8 +10,9 @@ const TOWN_TILESET_PATH := "res://scenes/world/town_tileset.tres"
 const TOWN_PROP_TEXTURE_DIR := "res://assets/sprites/world-v2/cutouts/"
 const BIN_TEXTURE_PATH := "res://assets/sprites/world-v2/cutouts/shipping-bin.png"
 # HPA-863 Task 4 passable decor: approved layout records for the two flower
-# beds and the torii, plus the lot rope markers and pier planks that dress the
-# approved lot/pier areas. Visual-only — no collision, no interact, no occluder.
+# beds and the torii, plus the five lot rope markers. Visual-only — no
+# collision, no interact, no occluder. The pier planks are a walkable deck, so
+# they live below the actor layer (PierDeck), not in the Y-sorted Entities.
 const FARM_DECOR := [
     {"node": "Flowers1", "footprint": Rect2(21.0, 10.0, 1.0, 1.0), "texture": "flowers.png"},
     {"node": "Flowers2", "footprint": Rect2(25.0, 10.0, 1.0, 1.0), "texture": "flowers.png"},
@@ -21,6 +22,8 @@ const FARM_DECOR := [
     {"node": "LotRope3", "footprint": Rect2(3.0, 13.0, 4.0, 3.0), "texture": "stakes-rope.png"},
     {"node": "LotRope4", "footprint": Rect2(8.0, 13.0, 4.0, 3.0), "texture": "stakes-rope.png"},
     {"node": "LotRope5", "footprint": Rect2(13.0, 13.0, 4.0, 3.0), "texture": "stakes-rope.png"},
+]
+const PIER_DECK := [
     {"node": "PierPlank1", "footprint": Rect2(23.0, 33.0, 2.0, 1.0), "texture": "pier.png"},
     {"node": "PierPlank2", "footprint": Rect2(23.0, 34.0, 2.0, 1.0), "texture": "pier.png"},
     {"node": "PierPlank3", "footprint": Rect2(23.0, 35.0, 2.0, 1.0), "texture": "pier.png"},
@@ -28,13 +31,17 @@ const FARM_DECOR := [
 # The farmhouse cutout's drawn base is 28 px right of frame centre; its sprite
 # offset centres the base and doorway on the authored 3x3 footprint.
 const HOUSE_ART_OFFSET := Vector2(-28.0, -96.0)
+# Building contact shadows scale at the prop's ground root, like every other
+# prop shadow. Sprite2D.offset is scaled by the sprite's own scale, so the
+# effective centre is position + offset * scale; the smoke checks that it is
+# the root (no scale-amplified displacement), plus the intended size.
 const BUILDING_SHADOWS := {
-    "House": {"scale": Vector2(13.0, 13.0), "offset": Vector2(0.0, -48.0)},
-    "Storehouse": {"scale": Vector2(19.0, 19.0), "offset": Vector2(0.0, -72.0)},
-    "Greenhouse": {"scale": Vector2(19.0, 19.0), "offset": Vector2(0.0, -72.0)},
-    "ToolShed": {"scale": Vector2(9.0, 9.0), "offset": Vector2(0.0, -32.0)},
-    "Shrine": {"scale": Vector2(9.0, 9.0), "offset": Vector2(0.0, -32.0)},
-    "Camphor": {"scale": Vector2(9.0, 9.0), "offset": Vector2(0.0, -32.0)},
+    "House": 13.0,
+    "Storehouse": 19.0,
+    "Greenhouse": 19.0,
+    "ToolShed": 9.0,
+    "Shrine": 9.0,
+    "Camphor": 9.0,
 }
 const TOWN_SOURCE_TEXTURES: Array[String] = [
     "res://assets/sprites/world-v2/ground/grass-phases.png",
@@ -271,6 +278,7 @@ func _run() -> void:
         "Backdrop",
         "Ground",
         "FarmSoil",
+        "PierDeck",
         "FarmActionEffects",
         "HomesteadAmbience",
         "StaticCollision",
@@ -633,19 +641,81 @@ func _run() -> void:
         ):
             return
 
+    # --- HPA-863 walkable pier deck: below actors, same approved anchors ---
+    var pier_deck := farm_map.get_node_or_null("PierDeck") as Node2D
+    if not _expect(pier_deck != null, "PierDeck container"):
+        return
+    if not _expect(pier_deck.get_parent() == farm_map, "PierDeck is a direct map child"):
+        return
+    if not _expect(not pier_deck.y_sort_enabled, "PierDeck is never Y-sorted with actors"):
+        return
+    if not _expect(
+        pier_deck.z_index < entities.z_index,
+        "the walkable pier deck draws below the Y-sorted actor layer",
+    ):
+        return
+    # The review's legal stance: player root (464,930) stands on a plank rooted
+    # at Y=944. Because the deck is not in Entities and has a lower z, the
+    # player is drawn above the whole deck instead of being covered by it.
+    var legal_deck_stance := WorldMath.grid_to_world(Vector2(24.3125, 33.8125))
+    if not _expect_vec2(
+        legal_deck_stance,
+        Vector2(464.0, 930.0),
+        "the deck-standing stance resolves to the reviewed player root",
+    ):
+        return
+    for entry in PIER_DECK:
+        var plank := pier_deck.get_node_or_null(entry["node"]) as Node2D
+        if not _expect(plank != null, "%s pier deck root" % entry["node"]):
+            return
+        if not _expect(plank.get_parent() == pier_deck, "%s stays out of Entities" % entry["node"]):
+            return
+        if not _expect_names(plank, ["Shadow", "Sprite2D"], "%s deck entity" % entry["node"]):
+            return
+        if not _expect_vec2(
+            plank.position,
+            WorldMath.footprint_ground_anchor(entry["footprint"]),
+            "%s deck ground anchor" % entry["node"],
+        ):
+            return
+        var plank_sprite := plank.get_node("Sprite2D") as Sprite2D
+        if not _expect(
+            plank_sprite.texture.resource_path == FARM_TEXTURE_DIR + entry["texture"],
+            "%s deck texture" % entry["node"],
+        ):
+            return
+        if not _expect_vec2(
+            plank_sprite.offset,
+            Vector2(0.0, -plank_sprite.texture.get_height() * 0.5),
+            "%s deck bottom-center offset" % entry["node"],
+        ):
+            return
+    if not _expect(
+        entities.get_node_or_null("PierPlank1") == null,
+        "pier planks are absent from the Y-sorted actor layer",
+    ):
+        return
+
     # --- HPA-863 art polish: building shadows and the farmhouse art offset ---
     for node_name in BUILDING_SHADOWS:
         var building := entities.get_node_or_null(node_name) as Node2D
         if not _expect(building != null, "%s building root" % node_name):
             return
         var building_shadow := building.get_node("Shadow") as Sprite2D
-        var shadow_spec: Dictionary = BUILDING_SHADOWS[node_name]
+        var shadow_scale := float(BUILDING_SHADOWS[node_name])
         if not _expect_vec2(
-            building_shadow.scale, shadow_spec["scale"], "%s grounded shadow scale" % node_name
+            building_shadow.scale,
+            Vector2(shadow_scale, shadow_scale),
+            "%s grounded shadow scale" % node_name,
         ):
             return
+        var effective_shadow := (
+            building_shadow.position + building_shadow.offset * building_shadow.scale
+        )
         if not _expect_vec2(
-            building_shadow.offset, shadow_spec["offset"], "%s grounded shadow offset" % node_name
+            effective_shadow,
+            Vector2.ZERO,
+            "%s shadow draws at the building ground root" % node_name,
         ):
             return
 
@@ -1452,7 +1522,7 @@ func _run() -> void:
     world.hud._sfx_player.stop()
     await create_timer(0.2).timeout
 
-    print("world shell smoke passed: 48x40 stamped ground/backdrop, 47 props, 85 fences, 11 passable decor, collisions, player, camera, assets")
+    print("world shell smoke passed: 48x40 stamped ground/backdrop, 47 props, 85 fences, 8 passable decor, a 3-plank below-actor pier deck, collisions, player, camera, assets")
     quit(0)
 
 func _init() -> void:

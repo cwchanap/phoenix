@@ -17,6 +17,11 @@ capture's dimensions before writing it.
   disabled, so the HUD stays visible without the transient tip card covering the world.
 - The farm poses teleport the live player; walking is transport only, not a reachability proof.
   Interaction/reachability stays pinned by the headless, GUT and godot-e2e suites.
+- This capture set supersedes the first Task 4 set: the earlier building shadows used a
+  scale-amplified `Sprite2D.offset` (e.g. House -48 x scale 13 = -624 px), and the pier planks
+  lived in the Y-sorted actor layer. The tree now sizes each contact shadow at the building ground
+  root with no amplified displacement, and the pier planks live in the below-actor `PierDeck`;
+  capture 08 is the reviewed standing-on-deck stance.
 - One real E at the reachable farm-truck west-face contact (`32.78,12.72` facing RIGHT) drives to
   town through the real travel overlay and map swap; the town captures are the arrived map.
 - Rerun command (from the repo root):
@@ -28,7 +33,7 @@ capture's dimensions before writing it.
     godot --path . --script res://tests/native_tour/hpa_863_tour.gd
   ```
 
-  Result: exit 0, `TOUR|DONE clean tour=hpa-863`, 12 captures.
+  Result: exit 0, `TOUR|DONE clean tour=hpa-863`, 13 captures.
 
 ## Captures
 
@@ -37,17 +42,18 @@ Committed at `docs/superpowers/validation/hpa-863-tour-captures/`.
 | Capture | Pose | Check |
 | --- | --- | --- |
 | `hpa863-01-farm-front-door-contact.png` | door slice, facing UP | E prompt over the drawn doorway; house fade (HPA-743) active |
-| `hpa863-02-farm-yard.png` | yard centre, facing UP | house art base and door align with the 3x3 footprint/`(23,10)` cell; flower beds flank the door; no tile rims |
-| `hpa863-03-farm-storehouse-yard.png` | lots/kura, facing UP | five lot rope markers, kura grounding, yard/lot/path joins |
+| `hpa863-02-farm-yard.png` | yard centre, facing UP | house art base and door align with the 3x3 footprint/`(23,10)` cell; flower beds flank the door; contact shadow sits under the base, not displaced; no tile rims |
+| `hpa863-03-farm-storehouse-yard.png` | lots/kura, facing UP | five lot rope markers, kura contact shadow under the base, yard/lot/path joins |
 | `hpa863-04-farm-field.png` | patch, facing DOWN | 30 tilled soil decals, crop kinds and stages 2-4 readable; Space preview |
 | `hpa863-05-farm-field-east-gate.png` | field east gate, facing LEFT | `(21,20..21)` gate open; bin at its full-cell anchor (player-occluder fade visible) |
 | `hpa863-06-farm-driveway-roadside.png` | driveway, facing RIGHT | truck, mailbox, sign, vending machine, poles, jizo, orchard, road/paddy join |
 | `hpa863-07-farm-pier.png` | pier, facing DOWN | three plank sections over the pier cells; bench and rocks; ripples on contract water |
-| `hpa863-08-farm-camera-southwest.png` | SW camera extreme | continuous water/reeds/forest, no grey void |
-| `hpa863-09-farm-camera-northeast.png` | NE camera extreme | continuous forest/road/paddy, no grey void |
-| `hpa863-10-town-centre.png` | town centre | continuous paving, props, villagers, truck |
-| `hpa863-11-town-camera-northeast.png` | town NE edge | paved/grass edge, no tile rim or void |
-| `hpa863-12-town-camera-southwest.png` | town SW edge | paved/grass edge, no tile rim or void |
+| `hpa863-08-farm-pier-standing.png` | review stance `(24.3125,33.8125)`, facing DOWN | player root (464,930) stands on a plank rooted at Y=944 and the whole player draws above the deck; deck stays below the actor layer |
+| `hpa863-09-farm-camera-southwest.png` | SW camera extreme | continuous water/reeds/forest, no grey void |
+| `hpa863-10-farm-camera-northeast.png` | NE camera extreme | continuous forest/road/paddy, no grey void |
+| `hpa863-11-town-centre.png` | town centre | continuous paving, props, villagers, truck |
+| `hpa863-12-town-camera-northeast.png` | town NE edge | paved/grass edge, no tile rim or void |
+| `hpa863-13-town-camera-southwest.png` | town SW edge | paved/grass edge, no tile rim or void |
 
 ## Not performed
 
