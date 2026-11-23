@@ -129,7 +129,7 @@ Y-sort/fade. None of the MCP captures is a screenshot-golden test.
 
 ## Export PCK gate
 
-On a temporary `git archive` of committed `HEAD` (`0c007f7`) with the
+On a temporary `git archive` of committed `HEAD` (`7ff4e47`) with the
 host-only `textures/vram_compression/import_s3tc_bptc=true` added **only in
 the temporary copy**, the unsigned macOS export produced a 97 MB ZIP with
 `Phoenix.app/Contents/MacOS/Phoenix` and `Contents/Resources/Phoenix.pck`.
