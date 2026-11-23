@@ -227,6 +227,70 @@ func test_continue_restores_state_and_uses_authored_spawn() -> void:
         ) <= 0.0001
     )
 
+func test_v2_save_continues_at_new_farm_spawn() -> void:
+    var repository := SaveRepository.new(TEST_PATH)
+    var session := GameSession.new(func() -> float: return 0.9)
+    var state := session.state()
+    assert_eq(state["farm"][0]["cell"], Vector2i(15, 19))
+    assert_eq(state["farm"][29]["cell"], Vector2i(20, 23))
+    assert_eq(repository.save(state), OK)
+
+    var app := _spawn_app(repository)
+    if app == null:
+        return
+    var title := app.get_node("TitleScreen") as TitleScreen
+    assert_false((title.get_node("Menu/Continue") as Button).disabled)
+    title.continue_requested.emit()
+    await get_tree().process_frame
+
+    var world := _stop_world_clock(app)
+    assert_eq(world._session.state(), state)
+    assert_eq(WorldContract.MAP_SIZE, Vector2i(48, 40))
+    assert_eq(WorldContract.PLAYER_SPAWN, Vector2(23.5, 11.5))
+    assert_true(
+        WorldMath.world_to_grid(world.player.global_position).distance_to(
+            Vector2(23.5, 11.5)
+        ) <= 0.0001
+    )
+    assert_eq(world._session.snapshot()["location"], GameRules.MapId.FARM)
+
+func test_pre_v2_farm_cells_are_rejected_without_migration() -> void:
+    var repository := SaveRepository.new(TEST_PATH)
+    var legacy := GameSession.new(func() -> float: return 0.9).state()
+    var legacy_cells: Array[Vector2i] = []
+    for y in range(10, 15):
+        for x in range(4, 10):
+            legacy_cells.append(Vector2i(x, y))
+    assert_eq(legacy_cells.size(), legacy["farm"].size())
+    for index in legacy_cells.size():
+        legacy["farm"][index]["cell"] = legacy_cells[index]
+    assert_eq(repository.save(legacy), OK)
+
+    # The schema-4 codec is geometry-blind, so the save still decodes; the
+    # current WorldContract farm order is the deterministic rejection seam.
+    var loaded := repository.load()
+    assert_eq(loaded["status"], &"loaded")
+    assert_eq(
+        SessionStateValidator.state_error(loaded["state"]),
+        "farm[0].cell does not match the authored farm order",
+    )
+
+    var app := _spawn_app(repository)
+    if app == null:
+        return
+    var title := app.get_node("TitleScreen") as TitleScreen
+    assert_true((title.get_node("Menu/Continue") as Button).disabled)
+    assert_eq(title.selected_action(), &"new_game")
+    assert_eq(title.status_text(), "Save is incompatible; start a New Game.")
+    title.continue_requested.emit()
+    await get_tree().process_frame
+    assert_null(app.get_node_or_null("World"))
+    assert_eq(
+        repository.load()["state"]["farm"][0]["cell"],
+        Vector2i(4, 10),
+        "rejection must not migrate or rewrite the old farm geometry",
+    )
+
 func test_continue_restores_one_dry_night_and_wither_summary() -> void:
     var repository := SaveRepository.new(TEST_PATH)
     var session := GameSession.new(func() -> float: return 0.9)
