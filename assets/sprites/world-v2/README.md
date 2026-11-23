@@ -18,7 +18,11 @@ export-excluded; nothing under it may be referenced at runtime).
   and columns growth stages 1–4 (`FarmView.CROP_TEXTURE`).
 - `soil.png`: 128×32 tilled/wet soil atlas, 64×32 frames.
 
-The redundant `ground-v2/*-00..11.png` splits, `tiles/`, individual
-`cutouts/crop-*.png` stages, superseded candidates and offline previews stay
-unpromoted. `tools/stamp_farm_ground.gd` is the only writer of the ground
-TileSet and cell data.
+HPA-863 pruned the superseded review scaffolding from
+`assets/sprites/hpa-861-review/`: the redundant `ground-v2/*-00..11.png`
+splits, `tiles/`, individual `cutouts/crop-*.png` stages, candidate atlases,
+previews, review scenes and stale `.import` sidecars are gone. Only the
+generation source sheets, the prompt record and `.gdignore` remain there, and
+nothing under that folder may be referenced at runtime.
+`tools/stamp_farm_ground.gd` is the only writer of the farm ground TileSet
+and cell data; `town_tileset.tres` carries the standalone town sources.

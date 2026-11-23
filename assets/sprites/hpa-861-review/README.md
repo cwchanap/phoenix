@@ -1,4 +1,13 @@
-# HPA-861 world art candidates
+# HPA-861 world art sources
+
+> **Post-HPA-863 state:** the accepted runtime art was promoted once to
+> `assets/sprites/world-v2/` and this folder was pruned to the generation
+> source sheets, this prompt record and `.gdignore`. The review scenes,
+> previews, candidate atlases, split `ground-v2` tiles, extracted cutouts and
+> `.import` sidecars are gone. The candidate notes below are retained as the
+> historical HPA-861 review record; they describe files that no longer exist
+> and are not runtime paths. Nothing under this folder may be referenced at
+> runtime or included in an export.
 
 The owner accepted the presented previews as looking good for now. The images
 and scenes do not change the live farm or town. The homestead and field scenes show a subset of
