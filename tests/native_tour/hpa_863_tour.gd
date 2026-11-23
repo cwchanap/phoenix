@@ -17,6 +17,9 @@ extends "res://tests/native_tour/rain_tour_base.gd"
 const SEEDED_DAY := 1
 const SETTLE_FRAMES := 30  # camera-smoothing convergence
 const TOUR_LABEL := "hpa863"
+const WET_CELLS: Array[Vector2i] = [
+	Vector2i(16, 19), Vector2i(16, 20), Vector2i(16, 21),
+]
 
 var _out_dir: String
 
@@ -64,7 +67,9 @@ func _seed_save() -> bool:
 	state["weather_history"] = ["sunny"]
 	state["intro_acknowledged"] = true
 	# Till all 30 cells and plant a 3-kind x stages 2-4 grid so the native
-	# capture shows the 30 soil decals and readable crop stages.
+	# capture shows the 30 soil decals and readable crop stages. The first
+	# planted column is watered so the same field view carries both wet frame 1
+	# and dry frame 0 soil.
 	var planted := {
 		Vector2i(16, 19): [&"turnip", 1], Vector2i(18, 19): [&"turnip", 2], Vector2i(20, 19): [&"turnip", 3],
 		Vector2i(16, 20): [&"potato", 2], Vector2i(18, 20): [&"potato", 4], Vector2i(20, 20): [&"potato", 5],
@@ -80,7 +85,7 @@ func _seed_save() -> bool:
 				"kind": planted_cell[0],
 				"growth": planted_cell[1],
 				"dry_nights": 0,
-				"watered_today": false,
+				"watered_today": WET_CELLS.has(tile["cell"]),
 			}
 	state["farm"] = farm
 	var error := SessionStateValidator.state_error(state)
@@ -119,6 +124,7 @@ func _phase_farm() -> void:
 	await _pose(Vector2(23.5, 12.3), WorldMath.Facing.UP, "02-farm-yard")
 	await _pose(Vector2(15.0, 15.0), WorldMath.Facing.UP, "03-farm-storehouse-yard")
 	await _pose(Vector2(17.0, 22.0), WorldMath.Facing.DOWN, "04-farm-field")
+	await _pose(Vector2(17.0, 21.0), WorldMath.Facing.DOWN, "04b-farm-field-wet-dry")
 	await _pose(Vector2(22.5, 20.5), WorldMath.Facing.LEFT, "05-farm-field-east-gate")
 	await _pose(Vector2(37.0, 15.5), WorldMath.Facing.RIGHT, "06-farm-driveway-roadside")
 	await _pose(Vector2(23.5, 33.5), WorldMath.Facing.DOWN, "07-farm-pier")
@@ -127,6 +133,8 @@ func _phase_farm() -> void:
 	await _pose(Vector2(24.3125, 33.8125), WorldMath.Facing.DOWN, "08-farm-pier-standing")
 	await _pose(Vector2(2.5, 36.5), WorldMath.Facing.LEFT, "09-farm-camera-southwest")
 	await _pose(Vector2(45.5, 1.5), WorldMath.Facing.RIGHT, "10-farm-camera-northeast")
+	await _pose(Vector2(4.5, 7.5), WorldMath.Facing.UP, "15-farm-bamboo-west")
+	await _pose(Vector2(10.5, 7.5), WorldMath.Facing.UP, "16-farm-bamboo-east")
 
 
 func _phase_town() -> void:

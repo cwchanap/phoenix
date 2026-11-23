@@ -9,7 +9,8 @@
 extends Node
 
 const APP_SCENE := preload("res://scenes/app/app.tscn")
-const LOG_PATH := "res://test_output/mcp_acceptance/actions.jsonl"
+const DEFAULT_LOG_PATH := "res://test_output/mcp_acceptance/actions.jsonl"
+const LOG_DIR := "res://test_output/mcp_acceptance"
 const STANDOFF_PX := 8.0
 const ARRIVE_PX := 2.5
 const WALK_TIMEOUT_MS := 45000
@@ -22,6 +23,7 @@ const FACE_ACTIONS: Array[StringName] = [
 
 var app: Node
 var log_file: FileAccess
+var log_path := DEFAULT_LOG_PATH
 var panel: PanelContainer
 var status: Label
 var state: Node
@@ -29,16 +31,19 @@ var _busy := false
 
 
 func _ready() -> void:
-	DirAccess.make_dir_recursive_absolute(
-		ProjectSettings.globalize_path("res://test_output/mcp_acceptance")
-	)
-	log_file = FileAccess.open(LOG_PATH, FileAccess.WRITE)
+	var requested := OS.get_environment("PHOENIX_MCP_LOG")
+	if not requested.is_empty():
+		log_path = requested
+	var absolute := ProjectSettings.globalize_path(log_path)
+	var directory := absolute.get_base_dir()
+	DirAccess.make_dir_recursive_absolute(directory)
+	log_file = FileAccess.open(log_path, FileAccess.WRITE)
 	_build_ui()
 	app = APP_SCENE.instantiate()
 	app.name = "App"
 	add_child(app)
 	_set_state("Idle")
-	_log("boot", {})
+	_log("boot", {"log_path": log_path})
 
 
 func _build_ui() -> void:
@@ -67,7 +72,8 @@ func _build_ui() -> void:
 		"WalkFrontDoor", "WalkStorehouse", "WalkField", "WalkBin", "WalkBed", "WalkFarmTruck",
 		"WalkShop", "WalkInert", "WalkTownTruck", "WalkSouthWest",
 		"WalkNorthEast", "WalkTownWest", "WalkTownEast", "WalkTownCentre",
-		"WalkUnreachable",
+		"WalkBambooA", "WalkBambooB",
+		"WalkUnreachable", "CrossYardSouthGate", "CrossFieldEastGate",
 	]:
 		var button := Button.new()
 		button.name = action_name
@@ -137,8 +143,16 @@ func _on_button(action_name: String) -> void:
 			_goto_cell(Vector2i(14, 1), "town_east")
 		"WalkTownCentre":
 			_goto_cell(Vector2i(8, 6), "town_centre")
+		"WalkBambooA":
+			_goto_cell(Vector2i(4, 7), "bamboo_a")
+		"WalkBambooB":
+			_goto_cell(Vector2i(10, 7), "bamboo_b")
 		"WalkUnreachable":
 			_goto_cell(Vector2i(999, 999), "unreachable")
+		"CrossYardSouthGate":
+			_cross_gate(Vector2i(23, 13), Vector2i(23, 16), "yard_south_gate")
+		"CrossFieldEastGate":
+			_cross_gate(Vector2i(22, 20), Vector2i(20, 20), "field_east_gate")
 
 
 func _farm_pose(cell: Vector2i, footprint: Rect2, side: int, label: String) -> Dictionary:
@@ -202,6 +216,21 @@ func _goto_cell(cell: Vector2i, label: String) -> void:
 	_set_state("At_%s" % label)
 
 
+# Two real-input walks across a fence gap. The retained walk route lists the
+# exact cells, including the gate cell(s), so evidence does not rely on a
+# teleported pose.
+func _cross_gate(inside: Vector2i, outside: Vector2i, label: String) -> void:
+	await _goto_cell(inside, "%s_inside" % label)
+	if state.get_node_or_null("Error") != null:
+		_log("gate_error", {"goal": label, "leg": "inside"})
+		return
+	await _goto_cell(outside, "%s_outside" % label)
+	if state.get_node_or_null("Error") != null:
+		_log("gate_error", {"goal": label, "leg": "outside"})
+		return
+	_log("gate_crossing", {"goal": label, "from": inside, "to": outside})
+
+
 # One direction action held for one physics tick establishes facing through the
 # live PlayerController sampler; the ~1.6 px step stays inside the 8 px
 # contact standoff. This is deliberately not a direct `player.facing` write.
@@ -252,6 +281,7 @@ func _walk_to(target: Vector2, label: String, timeout_ms := WALK_TIMEOUT_MS) -> 
 		"end_cell": WorldMath.world_to_grid(player().global_position),
 		"end_position": player().global_position,
 		"route_cells": path.size(),
+		"route": path,
 	})
 	_busy = false
 	return true

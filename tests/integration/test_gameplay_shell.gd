@@ -317,6 +317,12 @@ func _farm_static_entity_names() -> Array:
         "LotRope1", "LotRope2", "LotRope3", "LotRope4", "LotRope5",
     ]:
         names.append(decor_name)
+    # HPA-863 review fix bamboo clumps, authored after the decor.
+    for grove_name in [
+        "BambooGroveA1", "BambooGroveA2", "BambooGroveA3",
+        "BambooGroveB1", "BambooGroveB2", "BambooGroveB3",
+    ]:
+        names.append(grove_name)
     return names
 
 func test_crop_roots_are_direct_entities_children_at_cell_centers() -> void:

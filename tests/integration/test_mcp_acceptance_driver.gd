@@ -16,6 +16,7 @@ var driver: Node
 func after_each() -> void:
     for action in MOVE_ACTIONS:
         Input.action_release(action)
+    OS.unset_environment("PHOENIX_MCP_LOG")
     driver = null
 
 
@@ -25,6 +26,8 @@ func _wait_frames(count: int) -> void:
 
 
 func _start_driver() -> Node:
+    # Keep GUT's driver instance from overwriting the retained native-run log.
+    OS.set_environment("PHOENIX_MCP_LOG", "user://mcp-driver-gut.jsonl")
     driver = DriverScene.instantiate()
     add_child_autoqfree(driver)
     await _wait_frames(3)

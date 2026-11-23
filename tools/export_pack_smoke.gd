@@ -29,6 +29,7 @@ const TEXTURES := {
 	"res://assets/sprites/world-v2/ground/multi-junctions.png": Vector2i(1024, 64),
 	"res://assets/sprites/world-v2/cutouts/farmhouse.png": Vector2i(224, 192),
 	"res://assets/sprites/world-v2/cutouts/storehouse.png": Vector2i(320, 256),
+	"res://assets/sprites/world-v2/cutouts/bamboo.png": Vector2i(96, 96),
 	"res://assets/sprites/player-walk.png": Vector2i(128, 192),
 	"res://assets/sprites/kei-truck.png": Vector2i(192, 96),
 	"res://assets/sprites/villagers.png": Vector2i(96, 48),
