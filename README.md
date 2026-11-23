@@ -214,7 +214,7 @@ accessories through `app_header_accessory()`, add footer controls through
 | Player center limits | `x in [0.18, 47.82]`, `y in [0.18, 39.82]` on the farm |
 | Farm patch | `Rect2i(15, 19, 6, 5)` (`x=15..20`, `y=19..23`, 30 cells) |
 | House footprint | `x=22`, `y=7`, `w=3`, `h=3` logical |
-| House bottom-center anchor | `(1200, 536)` projected world |
+| House bottom-center anchor | `(1248, 560)` projected world |
 | Farm bed | cell `(23,10)`, contact slice `(23,9.75,1,0.25)` |
 | Farm shipping bin | cell `(22,19)`, full-cell footprint `(22,19,1,1)` |
 | Farm truck | cell `(33,12)`, arrival `(32,13)` |
@@ -239,6 +239,8 @@ truck, town buildings, villager, and perimeter geometry; Godot's
 `CharacterBody2D` supplies the collision response. `Entities` is the single
 Y-sorted container, with shared entity z-order and stable scene-tree tie
 order; the three pier deck planks live in the separate below-actor `PierDeck`.
+The two blocking 3x3 bamboo groves are dressed with six existing bamboo-clump
+cutouts (three per grove); those roots are visual only and add no colliders.
 
 `WorldShell.load_map()` owns the only map swap: the same `Player`,
 `Camera2D`, `GameHud`, and `GameSession` survive while the authored

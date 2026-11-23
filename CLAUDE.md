@@ -299,7 +299,7 @@ The farm-side path runs from the house south through the yard; the gravel
 east drive continues off-map.
 
 The house footprint is `(22,7,3,3)` with derived bottom-center ground anchor
-`(1200,536)`; the `224x192` farmhouse cutout draws its stone base/doorway
+`(1248,560)`; the `224x192` farmhouse cutout draws its stone base/doorway
 28 px right of frame centre, so `House/Sprite2D.offset` is `(-28,-96)`. Farm
 interactable cells are the bed `(23,10)` with contact slice
 `(23,9.75,1,0.25)`, the shipping bin `(22,19)` with the full-cell footprint
@@ -310,6 +310,10 @@ collisions, sprite frames, and detour coverage. Blocking props are
 sprites, and the perimeter bands; the terrain grid contributes the
 `bamboo`/`forest`/`paddy`/`reeds`/`water` blockers. The three pier planks
 are a below-actor `PierDeck` at `z_index = 5`, not `Entities` children.
+The two approved 3x3 `bamboo` terrain groves are dressed by six
+`BambooGroveA1..3`/`BambooGroveB1..3` clump roots using
+`world-v2/cutouts/bamboo.png`; they are visual-only (no collision polygon) and
+the terrain grid remains the sole blocker.
 The retired `TREE_*`, `BUILDING_*`, `PATH_ROW`, `path_cells()`, seed-box,
 farm-market, `BACKDROP_*`, and `GameMap._fill_backdrop()` representations
 must not return.

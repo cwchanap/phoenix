@@ -2,7 +2,9 @@
 
 Date: 2026-11-23
 Branch: `plan/hpa-863-farm-map-v2-world-art`
-Status: **local acceptance complete; CI pending the coordinator's final push.**
+Status: **local changed-map/MCP/PCK acceptance complete for the runs recorded
+here; approval-image comparison, the full godot-e2e lane and final-SHA CI
+remain open. This is not overall release acceptance.**
 Operator: agent-operated, not human. No new art or SFX was generated.
 
 ## Commits covered
@@ -26,7 +28,7 @@ fresh temporary `HOME`. `./tools/verify-clean.sh` archives committed `HEAD`.
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Clean verifier | `./tools/verify-clean.sh` | **exit 0**: import, GUT **635/635** (51,146 asserts; includes the 3 focused driver regressions), project smoke, world-math smoke, terrain-stamp drift (35 sources / 1,542 tiles / 1,920 cells), world-shell smoke (`48x40`, 47 props, 85 fences, 8 decor, 3-plank PierDeck), audio |
+| Clean verifier | `./tools/verify-clean.sh` | **exit 0**: import, GUT **635/635** (51,152 asserts; includes the 3 focused driver regressions), project smoke, world-math smoke, terrain-stamp drift (35 sources / 1,542 tiles / 1,920 cells), world-shell smoke (`48x40`, 47 props, 85 fences, 8 decor, 3-plank PierDeck), audio |
 | GdUnit4 | `GODOT_BIN=... xvfb-run -a ./addons/gdUnit4/runtest.sh -a tests/gdunit -c` | **16/16**, 0 errors/failures/orphans |
 | Driver regression | `godot ... -gtest=res://tests/integration/test_mcp_acceptance_driver.gd -gexit` | **3/3**, 33 asserts; failed seek returns false, releases input, keeps Error and no At_ marker; input-facing succeeds |
 | godot-e2e, individual suites | same harness with `-a tests/e2e/world_readability_test.gd` and `-a tests/e2e/gameplay_day_one_test.gd` | `world_readability` **1/1 pass** (29.1 s); `gameplay_day_one` **7/7 pass** (2 min 42 s) |
@@ -88,18 +90,21 @@ Exact method:
    button press.
 4. Driver buttons pressed via `invoke_node_action` (only BaseButton `press` is
    supported by the bridge): `SkipIntro` (real Skip press), `DismissTutorial`,
-   `ClockOff`, `ToggleUI`, then `WalkField`, `Action`, `WalkBin`, `Interact`,
-   `Cancel`, `WalkBed`, `Interact`, `Cancel`, `WalkFarmTruck`, `Interact`,
-   `WalkShop`, `Interact`, `Cancel`, `WalkInert`, `Interact`, `WalkTownTruck`,
-   `Interact`. Run C additionally pressed `WalkUnreachable` before the route.
+   `ClockOff`, `ToggleUI`, then the route buttons. Run A/B used
+   `WalkField`, `Action`, `WalkBin`, `Interact`, `Cancel`, `WalkBed`,
+   `Interact`, `Cancel`, `WalkFarmTruck`, `Interact`, `WalkShop`, `Interact`,
+   `Cancel`, `WalkInert`, `Interact`, `WalkTownTruck`, `Interact`. Run C added
+   `WalkUnreachable`. Run D added `CrossYardSouthGate`,
+   `CrossFieldEastGate`, `WalkBambooA` and `WalkBambooB`.
 5. Map swaps confirmed with `find_node` on
    `/root/McpAcceptanceDriver/App/World/FarmMap` / `TownMap`.
 6. `capture_screenshot` for each pose; `get_runtime_state`/state markers and
-   `test_output/mcp_acceptance/actions.jsonl` (ignored) recorded the live
-   state. `stop_project` ended the session. The driver's per-run
-   `test_output/mcp_acceptance/actions.jsonl` (ignored) was overwritten by the
-   clean capture pass; the full-path values below were read from the live tool
-   responses during the main run and are corroborated by the captures.
+   the native log recorded the live state. `stop_project` ended the session.
+   The native run uses `test_output/mcp_acceptance/actions.jsonl`; GUT now sets
+   `PHOENIX_MCP_LOG=user://mcp-driver-gut.jsonl`, so it can no longer overwrite
+   the native log. Run C was observed live but its complete trace was not
+   retained; Run D's 19-line full log is committed as
+   `docs/superpowers/validation/hpa-863-mcp-captures/run-d-native-actions.jsonl`.
 
 The driver is test-only and in `tests/native_tour/` (excluded from export). It
 does not teleport or touch the session: each walk uses AStar waypoints, real
@@ -130,6 +135,14 @@ Capture provenance by run:
   round trip returned to `FarmMap`. Run C used `ClockOff`, so it proves the
   changed-map movement/interaction path but not the passive clock/cutoff again;
   those remain covered by Run A and the deterministic suites.
+- **Run D — retained gate/bamboo trace (clock disabled).** After the final
+  scene dressing, real-input `CrossYardSouthGate` walked
+  `(23,13)->(23,14)->(23,16)` through the yard south gap, and
+  `CrossFieldEastGate` walked `(22,20)->(21,20)->(20,20)` through the field
+  east gap. `WalkBambooA`/`WalkBambooB` then walked to `(4,7)`/`(10,7)` and
+  produced committed captures 13/14. The complete 19-line log is committed as
+  `run-d-native-actions.jsonl`, so these crossings and approach walks no longer
+  rely on an unretained trace.
 
 The MCP game inherited the host Japanese locale, so HUD/modal copy in the
 captures is Japanese.
@@ -150,10 +163,13 @@ Committed at `docs/superpowers/validation/hpa-863-mcp-captures/`:
 | `hpa863-mcp-10-farm-return.png` | A | return trip landed on the farm at `TRUCK_ARRIVAL` |
 | `hpa863-mcp-11-camera-southwest.png` | A | farm SW camera extreme: continuous water/reeds/grass, no grey |
 | `hpa863-mcp-12-camera-northeast.png` | A | farm NE camera extreme: continuous road/paddy/grass, no grey |
+| `hpa863-mcp-13-bamboo-west.png` | D | real-input approach to `(4,7)`; west `(3,4,3,3)` grove visibly dressed by three bamboo clumps |
+| `hpa863-mcp-14-bamboo-east.png` | D | real-input approach to `(10,7)`; east `(9,4,3,3)` grove visibly dressed by three bamboo clumps |
 
-The earlier Task 4 note (`2026-11-23-hpa-863-native-tour.md`) covers the
-seeded crop growth/soil readability set, town camera extremes, pier deck and
-Y-sort/fade. None of the MCP captures is a screenshot-golden test.
+The earlier native-tour note (`2026-11-23-hpa-863-native-tour.md`) now covers
+the seeded wet/dry field view (`hpa863-04b`), both bamboo grove approaches
+(`hpa863-15/16`) and the unchanged crop/town/pier/Y-sort checks. None of the
+MCP captures is a screenshot-golden test.
 
 ## Export PCK gate
 
@@ -167,10 +183,10 @@ the temporary copy**, the unsigned macOS export produced a 94 MB ZIP with
 godot --headless --main-pack Phoenix.pck --script res://tools/export_pack_smoke.gd
 ```
 
-Result: **exit 0, `export_pack_smoke: 6 scenes and 18 textures load from the
+Result: **exit 0, `export_pack_smoke: 6 scenes and 19 textures load from the
 pack`** (app/world/farm/town, farm/town tilesets, crops, soil, ground phases,
 multi-junctions, farmhouse/storehouse, bin, town buildings, player, truck,
-villagers, shadow). The gate also rejects the checkout-only canary and checks
+villagers, shadow, bamboo). The gate also rejects the checkout-only canary and checks
 both provenance folders: raw files (`README.md`, source sheets, transparent
 intermediates) with `FileAccess.file_exists()`, imported resources with
 `ResourceLoader.exists()`, and a recursive `DirAccess` scan rejects any packed
