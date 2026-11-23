@@ -19,6 +19,8 @@ Operator: agent-operated, not human. No new art or SFX was generated.
 | `eb65a63` | move provenance out of the shipped pack; raw/imported gate |
 | `921342c` | separate MCP capture runs; pack negative control |
 | `7da4c8d` | timing-robust failed-seek regression |
+| `a42165e` | bamboo grove dressing, gate crossings, separate native log |
+| `4250a26` | bamboo/gate/wet-dry evidence and house-anchor docs |
 
 ## Test evidence (Godot 4.7.1, isolated `HOME`)
 
@@ -28,7 +30,7 @@ fresh temporary `HOME`. `./tools/verify-clean.sh` archives committed `HEAD`.
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Clean verifier | `./tools/verify-clean.sh` | **exit 0**: import, GUT **635/635** (51,152 asserts; includes the 3 focused driver regressions), project smoke, world-math smoke, terrain-stamp drift (35 sources / 1,542 tiles / 1,920 cells), world-shell smoke (`48x40`, 47 props, 85 fences, 8 decor, 3-plank PierDeck), audio |
+| Clean verifier | `./tools/verify-clean.sh` | **exit 0**: import, GUT **635/635** (51,152 asserts; includes the 3 focused driver regressions), project smoke, world-math smoke, terrain-stamp drift (35 sources / 1,542 tiles / 1,920 cells), world-shell smoke (`48x40`, 47 props, 85 fences, 8 decor, 6 bamboo clumps, 3-plank PierDeck), audio |
 | GdUnit4 | `GODOT_BIN=... xvfb-run -a ./addons/gdUnit4/runtest.sh -a tests/gdunit -c` | **16/16**, 0 errors/failures/orphans |
 | Driver regression | `godot ... -gtest=res://tests/integration/test_mcp_acceptance_driver.gd -gexit` | **3/3**, 33 asserts; failed seek returns false, releases input, keeps Error and no At_ marker; input-facing succeeds |
 | godot-e2e, individual suites | same harness with `-a tests/e2e/world_readability_test.gd` and `-a tests/e2e/gameplay_day_one_test.gd` | `world_readability` **1/1 pass** (29.1 s); `gameplay_day_one` **7/7 pass** (2 min 42 s) |
@@ -173,7 +175,7 @@ MCP captures is a screenshot-golden test.
 
 ## Export PCK gate
 
-On a temporary `git archive` of committed `HEAD` (`7da4c8d`) with the
+On a temporary `git archive` of committed `HEAD` (`4250a26`) with the
 host-only `textures/vram_compression/import_s3tc_bptc=true` added **only in
 the temporary copy**, the unsigned macOS export produced a 94 MB ZIP with
 `Phoenix.app/Contents/MacOS/Phoenix` and `Contents/Resources/Phoenix.pck`
@@ -194,7 +196,7 @@ entry beneath them. A checkout-side probe confirms the raw paths exist in the
 checkout but `.gdignore` prevents them from resolving as imported resources;
 the exported PCK resolves none of them.
 
-Negative control: the same `7da4c8d` archive with the provenance excludes
+Negative control: the same `4250a26` archive with the provenance excludes
 removed, both `.gdignore` files deleted and the raw Markdown include filter
 enabled produced a 114 MB leaky ZIP. The same gate exited **1** with 28
 provenance errors: raw `hpa-861-review/README.md`/`provenance/town-art-source.md`,
