@@ -311,6 +311,13 @@ func _farm_static_entity_names() -> Array:
     for cell in WorldContract.fence_cells():
         var prefix := "BambooFence" if materials[cell] == "bamboo" else "WoodFence"
         names.append("%s_%d_%d" % [prefix, cell.x, cell.y])
+    # HPA-863 Task 4 passable decor, authored after the fences in scene order.
+    for decor_name in [
+        "Flowers1", "Flowers2", "Torii",
+        "LotRope1", "LotRope2", "LotRope3", "LotRope4", "LotRope5",
+        "PierPlank1", "PierPlank2", "PierPlank3",
+    ]:
+        names.append(decor_name)
     return names
 
 func test_crop_roots_are_direct_entities_children_at_cell_centers() -> void:

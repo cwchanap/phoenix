@@ -38,6 +38,10 @@
 [ext_resource type="Texture2D" path="res://assets/sprites/world-v2/cutouts/bamboo-fence-b.png" id="36_j8bki"]
 [ext_resource type="Texture2D" path="res://assets/sprites/world-v2/cutouts/wood-fence-a.png" id="37_8s68x"]
 [ext_resource type="Texture2D" path="res://assets/sprites/world-v2/cutouts/wood-fence-b.png" id="38_ian5c"]
+[ext_resource type="Texture2D" path="res://assets/sprites/world-v2/cutouts/flowers.png" id="39_flowers"]
+[ext_resource type="Texture2D" path="res://assets/sprites/world-v2/cutouts/torii.png" id="40_torii"]
+[ext_resource type="Texture2D" path="res://assets/sprites/world-v2/cutouts/stakes-rope.png" id="41_stakes"]
+[ext_resource type="Texture2D" path="res://assets/sprites/world-v2/cutouts/pier.png" id="42_pier"]
 
 [node name="FarmMap" type="Node2D" unique_id=1673576846]
 script = ExtResource("1_farm_map")
@@ -89,10 +93,12 @@ position = Vector2(1248, 560)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/House" unique_id=1805692599]
 texture = ExtResource("9_shadow")
+scale = Vector2(13, 13)
+offset = Vector2(0, -48)
 
 [node name="Sprite2D" type="Sprite2D" parent="Entities/House" unique_id=407276040]
 texture = ExtResource("7_xgpii")
-offset = Vector2(0, -96)
+offset = Vector2(-28, -96)
 
 [node name="Persimmon" type="Node2D" parent="Entities" groups=["player_occluder"] unique_id=510078091]
 position = Vector2(1152, 448)
@@ -129,6 +135,8 @@ position = Vector2(1408, 608)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/ToolShed" unique_id=416908025]
 texture = ExtResource("9_shadow")
+scale = Vector2(9, 9)
+offset = Vector2(0, -32)
 
 [node name="Sprite2D" type="Sprite2D" parent="Entities/ToolShed" unique_id=295883255]
 texture = ExtResource("11_uvdsc")
@@ -229,6 +237,8 @@ position = Vector2(912, 464)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/Storehouse" unique_id=275893563]
 texture = ExtResource("9_shadow")
+scale = Vector2(19, 19)
+offset = Vector2(0, -72)
 
 [node name="Sprite2D" type="Sprite2D" parent="Entities/Storehouse" unique_id=248502575]
 texture = ExtResource("20_i0s58")
@@ -249,6 +259,8 @@ position = Vector2(832, 224)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/Shrine" unique_id=1322934126]
 texture = ExtResource("9_shadow")
+scale = Vector2(9, 9)
+offset = Vector2(0, -32)
 
 [node name="Sprite2D" type="Sprite2D" parent="Entities/Shrine" unique_id=1329511014]
 texture = ExtResource("22_kd0ts")
@@ -391,6 +403,8 @@ position = Vector2(1040, 880)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/Greenhouse" unique_id=585824456]
 texture = ExtResource("9_shadow")
+scale = Vector2(19, 19)
+offset = Vector2(0, -72)
 
 [node name="Sprite2D" type="Sprite2D" parent="Entities/Greenhouse" unique_id=1717731375]
 texture = ExtResource("31_pintd")
@@ -491,6 +505,8 @@ position = Vector2(1696, 752)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/Camphor" unique_id=249654917]
 texture = ExtResource("9_shadow")
+scale = Vector2(9, 9)
+offset = Vector2(0, -32)
 
 [node name="Sprite2D" type="Sprite2D" parent="Entities/Camphor" unique_id=1460489987]
 texture = ExtResource("33_ujcoa")
@@ -1404,4 +1420,114 @@ texture = ExtResource("9_shadow")
 
 [node name="Sprite2D" type="Sprite2D" parent="Entities/WoodFence_20_30" unique_id=467610779]
 texture = ExtResource("37_8s68x")
+offset = Vector2(0, -48)
+
+[node name="Flowers1" type="Node2D" parent="Entities" unique_id=2043239177]
+position = Vector2(1120, 528)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/Flowers1" unique_id=1708172442]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/Flowers1" unique_id=1784259651]
+texture = ExtResource("39_flowers")
+offset = Vector2(0, -48)
+
+[node name="Flowers2" type="Node2D" parent="Entities" unique_id=719269331]
+position = Vector2(1248, 592)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/Flowers2" unique_id=703868382]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/Flowers2" unique_id=583324806]
+texture = ExtResource("39_flowers")
+offset = Vector2(0, -48)
+
+[node name="Torii" type="Node2D" parent="Entities" unique_id=125397927]
+position = Vector2(800, 240)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/Torii" unique_id=457027962]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/Torii" unique_id=906624206]
+texture = ExtResource("40_torii")
+offset = Vector2(0, -48)
+
+[node name="LotRope1" type="Node2D" parent="Entities" unique_id=1345160045]
+position = Vector2(624, 288)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/LotRope1" unique_id=460628805]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/LotRope1" unique_id=2036682204]
+texture = ExtResource("41_stakes")
+offset = Vector2(0, -48)
+
+[node name="LotRope2" type="Node2D" parent="Entities" unique_id=361708762]
+position = Vector2(768, 352)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/LotRope2" unique_id=734274650]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/LotRope2" unique_id=817060349]
+texture = ExtResource("41_stakes")
+offset = Vector2(0, -48)
+
+[node name="LotRope3" type="Node2D" parent="Entities" unique_id=798641373]
+position = Vector2(464, 368)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/LotRope3" unique_id=1410283170]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/LotRope3" unique_id=1102621933]
+texture = ExtResource("41_stakes")
+offset = Vector2(0, -48)
+
+[node name="LotRope4" type="Node2D" parent="Entities" unique_id=1002024889]
+position = Vector2(624, 448)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/LotRope4" unique_id=108388374]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/LotRope4" unique_id=418021795]
+texture = ExtResource("41_stakes")
+offset = Vector2(0, -48)
+
+[node name="LotRope5" type="Node2D" parent="Entities" unique_id=1812750739]
+position = Vector2(784, 528)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/LotRope5" unique_id=716331056]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/LotRope5" unique_id=1392094232]
+texture = ExtResource("41_stakes")
+offset = Vector2(0, -48)
+
+[node name="PierPlank1" type="Node2D" parent="Entities" unique_id=460824059]
+position = Vector2(464, 944)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/PierPlank1" unique_id=234570349]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/PierPlank1" unique_id=1063324294]
+texture = ExtResource("42_pier")
+offset = Vector2(0, -48)
+
+[node name="PierPlank2" type="Node2D" parent="Entities" unique_id=617567105]
+position = Vector2(432, 960)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/PierPlank2" unique_id=1798990548]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/PierPlank2" unique_id=2007485542]
+texture = ExtResource("42_pier")
+offset = Vector2(0, -48)
+
+[node name="PierPlank3" type="Node2D" parent="Entities" unique_id=931916503]
+position = Vector2(400, 976)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/PierPlank3" unique_id=121723180]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/PierPlank3" unique_id=654059030]
+texture = ExtResource("42_pier")
 offset = Vector2(0, -48)
