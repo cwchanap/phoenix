@@ -24,9 +24,10 @@ There is no JavaScript or Tauri runtime in the current checkout.
 
 - `scripts/world/world_contract.gd` is the single source for fixed world
   constants: 48x40 map, projection, spawn, movement, footprints, anchors,
-  farm/path cells, the ordered last-writer terrain table, fences, perimeter,
-  and camera bounds. Do not duplicate those values in scene checks or
-  gameplay code.
+  farm/path cells, the ordered last-writer terrain table, fences, and
+  perimeter (camera bounds derive from `MAP_SIZE` and `CAMERA_TOP_PADDING` via
+  `WorldMath.map_camera_bounds()`). Do not duplicate those values in scene
+  checks or gameplay code.
 - `scripts/world/world_math.gd` is framework-free pure math for projection,
   inverse projection, cell lookup, diamonds, facing, targets, and projected
   logical footprints. It does not own nodes, input, physics, or gameplay state.
@@ -43,8 +44,9 @@ There is no JavaScript or Tauri runtime in the current checkout.
   `RainLayer` at `z_index = 6` so ripples remain over rain streaks), the
   farm `StaticCollision` bodies, the below-actor `PierDeck`, and the
   `Entities` Y-sort root. `FarmMap` derives its collision geometry from
-  `WorldContract` and `WorldMath` at `_ready()`, and defines its `SPAWN` and
-  `CAMERA_BOUNDS` from `WorldContract`. Its `Ground` and camera `Backdrop`
+  `WorldContract` and `WorldMath` at `_ready()`, defines its `SPAWN` from
+  `WorldContract`, and derives `camera_bounds()` via
+  `WorldMath.map_camera_bounds(MAP_SIZE)`. Its `Ground` and camera `Backdrop`
   cells are authored data stamped by `tools/stamp_farm_ground.gd` from the
   ordered `WorldContract.TERRAIN_RECTS` table, so the camera corners show
   continuous grass/water/road rather than grey. The parked kei truck stands
@@ -310,10 +312,10 @@ collisions, sprite frames, and detour coverage. Blocking props are
 sprites, and the perimeter bands; the terrain grid contributes the
 `bamboo`/`forest`/`paddy`/`reeds`/`water` blockers. The three pier planks
 are a below-actor `PierDeck` at `z_index = 5`, not `Entities` children.
-The two approved 3x3 `bamboo` terrain groves are dressed by six
-`BambooGroveA1..3`/`BambooGroveB1..3` clump roots using
-`world-v2/cutouts/bamboo.png`; they are visual-only (no collision polygon) and
-the terrain grid remains the sole blocker.
+The two approved 3x3 `bamboo` terrain groves are dressed by 18
+`BambooGroveA1..9`/`BambooGroveB1..9` clump roots (one per blocked grove cell)
+using `world-v2/cutouts/bamboo.png`; they are visual-only (no collision polygon)
+and the terrain grid remains the sole blocker.
 The retired `TREE_*`, `BUILDING_*`, `PATH_ROW`, `path_cells()`, seed-box,
 farm-market, `BACKDROP_*`, and `GameMap._fill_backdrop()` representations
 must not return.
@@ -445,6 +447,7 @@ godot --headless --path . -s addons/gut/gut_cmdln.gd \
   -gdir=res://tests/unit,res://tests/integration -gexit
 godot --headless --path . --script res://tests/headless/project_smoke.gd
 godot --headless --path . --script res://tests/headless/world_math_smoke.gd
+godot --headless --path . --script res://tests/headless/terrain_stamp_smoke.gd
 godot --headless --path . --script res://tests/headless/world_shell_smoke.gd
 python3 tools/check_audio_sources.py
 ```
@@ -469,9 +472,12 @@ them without the wrapper after `./tools/bootstrap-gdunit.sh`:
 GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/gdunit -c
 GODOT_BIN=$(command -v godot) ./addons/gdUnit4/runtest.sh -a tests/e2e -c
 godot --headless --path . --import
-mkdir -p build
+mkdir -p build/pack-gate/home
 godot --headless --path . --export-release "macOS" build/Phoenix.zip
 unzip -l build/Phoenix.zip | grep -F "Phoenix.app/Contents/MacOS/Phoenix"
+unzip -p build/Phoenix.zip Phoenix.app/Contents/Resources/Phoenix.pck > build/pack-gate/Phoenix.pck
+HOME="$PWD/build/pack-gate/home" godot --headless --main-pack build/pack-gate/Phoenix.pck \
+  --script res://tools/export_pack_smoke.gd
 ```
 
 The deterministic Promising route is pinned by

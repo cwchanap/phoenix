@@ -35,6 +35,7 @@ var _clock_window_focused := true
 var _map: GameMap
 var _interact_regions: Array = []
 var _interact_target: Variant = null
+var _multi_cell_occluders: Dictionary = {}
 
 @onready var player: PlayerController = $Player as PlayerController
 @onready var rain_layer: RainLayer = $RainLayer as RainLayer
@@ -110,6 +111,11 @@ func load_map(arrived_by_truck: bool = false) -> void:
         WorldContract.interact_regions()
         if _map is FarmMap
         else TownContract.interact_regions()
+    )
+    _multi_cell_occluders = (
+        WorldContract.multi_cell_occluders()
+        if _map is FarmMap
+        else TownContract.multi_cell_occluders()
     )
     _interact_target = null
     add_child(_map)
@@ -205,6 +211,7 @@ func _update_occluder_fade(delta: float) -> void:
         return
     var player_bounds := _sprite_global_bounds(player.player_sprite)
     var player_y := player.global_position.y
+    var player_grid := WorldMath.world_to_grid(player.global_position)
     for node in get_tree().get_nodes_in_group("player_occluder"):
         var prop := node as Node2D
         if prop == null or not _map.is_ancestor_of(prop):
@@ -212,6 +219,18 @@ func _update_occluder_fade(delta: float) -> void:
         var sprite := prop.get_node_or_null("Sprite2D") as Sprite2D
         if sprite == null:
             continue
+        if _multi_cell_occluders.has(prop.name):
+            var info: Dictionary = _multi_cell_occluders[prop.name]
+            var anchor: Vector2 = info["anchor"]
+            var sort_y := anchor.y
+            if WorldMath.is_in_front_of_footprint(player_grid, info["footprint"]):
+                sort_y = minf(anchor.y, player_y - 1.0)
+            var dy := anchor.y - sort_y
+            prop.position = Vector2(anchor.x, sort_y)
+            sprite.position.y = dy
+            var shadow := prop.get_node_or_null("Shadow") as Node2D
+            if shadow != null:
+                shadow.position.y = dy
         var fades := (
             prop.global_position.y >= player_y
             and _sprite_global_bounds(sprite).intersects(player_bounds)

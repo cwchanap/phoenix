@@ -10,6 +10,7 @@ const DriverScript := preload("res://tests/native_tour/mcp_acceptance_driver.gd"
 const TEST_STORAGE_DIR := "res://test_output/mcp_acceptance_driver_gut"
 const TEST_SAVE_PATH := TEST_STORAGE_DIR + "/playtest-save.json"
 const TEST_SETTINGS_PATH := TEST_STORAGE_DIR + "/playtest-settings.cfg"
+const TEST_LOG_PATH := "user://mcp-driver-gut.jsonl"
 const MOVE_ACTIONS: Array[StringName] = [
     &"move_left", &"move_right", &"move_up", &"move_down",
 ]
@@ -23,12 +24,15 @@ func after_each() -> void:
     OS.unset_environment("PHOENIX_MCP_LOG")
     OS.unset_environment("PHOENIX_SAVE_PATH")
     OS.unset_environment("PHOENIX_SETTINGS_PATH")
+    if driver != null and driver.log_file != null:
+        driver.log_file.close()
+        driver.log_file = null
     driver = null
     _clean_test_storage()
 
 
 func _clean_test_storage() -> void:
-    for path in [TEST_SAVE_PATH, TEST_SETTINGS_PATH]:
+    for path in [TEST_SAVE_PATH, TEST_SETTINGS_PATH, TEST_LOG_PATH]:
         if FileAccess.file_exists(path):
             DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
     var directory := ProjectSettings.globalize_path(TEST_STORAGE_DIR)
@@ -42,9 +46,12 @@ func _wait_frames(count: int) -> void:
 
 
 func _start_driver() -> Node:
-    # Keep GUT's driver instance from overwriting the retained native-run log.
-    OS.set_environment("PHOENIX_MCP_LOG", "user://mcp-driver-gut.jsonl")
+    # Keep GUT's driver instance from overwriting the retained native-run log
+    # or playtest save/settings storage.
+    _clean_test_storage()
+    OS.set_environment("PHOENIX_MCP_LOG", TEST_LOG_PATH)
     driver = DriverScene.instantiate()
+    driver.call("configure_storage_dir", TEST_STORAGE_DIR)
     add_child_autoqfree(driver)
     await _wait_frames(3)
     assert_not_null(driver.app, "driver app must instantiate")
@@ -58,13 +65,13 @@ func _start_driver() -> Node:
         return null
     assert_eq(
         repository._path,
-        DriverScript.PLAYTEST_SAVE_PATH,
-        "the default driver launch must use native playtest save storage",
+        TEST_SAVE_PATH,
+        "driver tests must isolate save storage in TEST_STORAGE_DIR",
     )
     assert_eq(
         settings._path,
-        DriverScript.PLAYTEST_SETTINGS_PATH,
-        "the default driver launch must use native playtest settings storage",
+        TEST_SETTINGS_PATH,
+        "driver tests must isolate settings storage in TEST_STORAGE_DIR",
     )
     var title := driver.app.get_node_or_null("TitleScreen") as TitleScreen
     assert_not_null(title, "title screen must exist")

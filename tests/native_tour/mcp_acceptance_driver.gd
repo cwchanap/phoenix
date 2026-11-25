@@ -136,7 +136,7 @@ func _on_button(action_name: String) -> void:
 		"WalkFrontDoor":
 			_goto_interact(_farm_pose(Vector2i(23, 10), WorldContract.HOUSE_FOOTPRINT, 2, "front_door"))
 		"WalkStorehouse":
-			_goto_interact(_farm_pose(Vector2i(14, 12), Rect2(12, 8, 5, 4), 2, "storehouse"))
+			_goto_interact(_farm_pose(Vector2i(14, 12), WorldContract.prop_footprint("Storehouse"), 2, "storehouse"))
 		"WalkBin":
 			_goto_interact(_farm_pose(WorldContract.SHIPPING_CELL, WorldContract.SHIPPING_FOOTPRINT, 0, "bin"))
 		"WalkBed":
