@@ -247,6 +247,22 @@ func _init() -> void:
     ):
         return
     if not _expect(
+        WorldContract.prop_footprint("Storehouse") == Rect2(12.0, 8.0, 5.0, 4.0)
+        and WorldContract.bamboo_cells().size() == 18,
+        "prop_footprint lookup and 18 bamboo grove cells",
+    ):
+        return
+    var house_fp := WorldContract.HOUSE_FOOTPRINT
+    if not _expect(
+        WorldMath.is_in_front_of_footprint(Vector2(23.5, 10.18), house_fp)
+        and WorldMath.is_in_front_of_footprint(Vector2(25.18, 8.5), house_fp)
+        and not WorldMath.is_in_front_of_footprint(Vector2(21.5, 9.5), house_fp)
+        and not WorldMath.is_in_front_of_footprint(Vector2(23.5, 6.8), house_fp)
+        and not WorldMath.is_in_front_of_footprint(Vector2(25.2, 6.5), house_fp),
+        "is_in_front_of_footprint matches isometric front edges",
+    ):
+        return
+    if not _expect(
         TownContract.CAMERA_BOUNDS == WorldMath.map_camera_bounds(TownContract.MAP_SIZE),
         "frozen town camera bounds must equal derived map camera bounds",
     ):

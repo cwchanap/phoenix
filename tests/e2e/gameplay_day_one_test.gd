@@ -256,9 +256,9 @@ func test_day_one_held_row_works_three_cells() -> void:
 	if game == null or is_failure():
 		return
 
-	# Row 2 of the patch: the UP stand cell (+1, +1) stays inside the patch
-	# instead of landing on the wooden field fence north of row 0.
-	var origin: Vector2i = WorldContract.FARM_PATCH.position + Vector2i(0, 2)
+	# Row 0 of the patch: the UP stand cell (+1, +1) lands on row 1 inside
+	# the patch, clear of the north fence.
+	var origin: Vector2i = WorldContract.FARM_PATCH.position
 	var cells: Array[Vector2i] = [
 		origin, origin + Vector2i(1, 0), origin + Vector2i(2, 0),
 	]

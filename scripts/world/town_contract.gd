@@ -28,6 +28,28 @@ const VILLAGER_COLLISION_NAMES: Array[String] = [
 ]
 const CAMERA_BOUNDS := Rect2(384.0, -96.0, 896.0, 544.0)
 
+static func blocking_props() -> Array:
+    return [
+        {"node": "Station", "footprint": STATION_FOOTPRINT},
+        {"node": "SeedShop", "footprint": SHOP_FOOTPRINT},
+        {"node": "Cafe", "footprint": CAFE_FOOTPRINT},
+        {"node": "Market", "footprint": MARKET_FOOTPRINT},
+        {"node": "Truck", "footprint": TRUCK_FOOTPRINT},
+    ]
+
+## Multi-cell town occluders whose ground-plane sort must yield to the player
+## across both southern front edges, keyed by Entities child name.
+static func multi_cell_occluders() -> Dictionary:
+    var result := {}
+    for entry in blocking_props():
+        var footprint: Rect2 = entry["footprint"]
+        if footprint.size.x > 1.0 or footprint.size.y > 1.0:
+            result[entry["node"]] = {
+                "footprint": footprint,
+                "anchor": WorldMath.footprint_ground_anchor(footprint),
+            }
+    return result
+
 ## HPA-743 canonical E-interact regions in contract order (this order breaks
 ## distance ties): truck, shop, market, then the three villagers — each maps
 ## an interactable cell to its already-defined collision footprint.

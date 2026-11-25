@@ -83,13 +83,32 @@ static func town_source_id(cell: Vector2i, backdrop: bool) -> int:
 	return TOWN_SOURCES.find("grass" if backdrop else "paving")
 
 func _stamp_town() -> void:
+	var text := FileAccess.get_file_as_string(TOWN_MAP_PATH)
+	var tileset_id := _resource_id(text, TOWN_TILESET_PATH)
+	if tileset_id == "":
+		_fail("%s must declare %s" % [TOWN_MAP_PATH, TOWN_TILESET_PATH])
+		return
+	var scene := load(TOWN_MAP_PATH) as PackedScene
+	if scene == null:
+		_fail("cannot load %s" % TOWN_MAP_PATH)
+		return
+	var map := scene.instantiate()
+	for layer_name in TOWN_LAYERS:
+		if map.get_node_or_null(layer_name) as TileMapLayer == null:
+			map.free()
+			_fail("%s missing TileMapLayer %s" % [TOWN_MAP_PATH, layer_name])
+			return
 	_write(TOWN_TILESET_PATH, _town_tileset_text())
 	if _failed:
+		map.free()
 		return
 	var tileset := ResourceLoader.load(
 		TOWN_TILESET_PATH, "TileSet", ResourceLoader.CACHE_MODE_IGNORE
 	) as TileSet
-	var map := (load(TOWN_MAP_PATH) as PackedScene).instantiate()
+	if tileset == null:
+		map.free()
+		_fail("cannot load %s" % TOWN_TILESET_PATH)
+		return
 	var layer_data := {}
 	for layer_name in TOWN_LAYERS:
 		var layer := map.get_node(layer_name) as TileMapLayer
@@ -106,11 +125,6 @@ func _stamp_town() -> void:
 		layer_data[layer_name] = layer.tile_map_data
 	map.free()
 
-	var text := FileAccess.get_file_as_string(TOWN_MAP_PATH)
-	var tileset_id := _resource_id(text, TOWN_TILESET_PATH)
-	if tileset_id == "":
-		_fail("%s must declare %s" % [TOWN_MAP_PATH, TOWN_TILESET_PATH])
-		return
 	_write(
 		TOWN_MAP_PATH,
 		_drop_unused_ext_resources(_patch_layers(text, layer_data, tileset_id)),
@@ -345,10 +359,18 @@ func _farm_cells() -> Array[Vector2i]:
 	return cells
 
 func _resource_id(text: String, path: String) -> String:
-	var re := RegEx.new()
-	re.compile('\\[ext_resource type="[^"]+" path="%s" id="([^"]+)"\\]' % path)
-	var match := re.search(text)
-	return match.get_string(1) if match != null else ""
+	var path_re := RegEx.new()
+	path_re.compile('\\bpath="([^"]+)"')
+	var id_re := RegEx.new()
+	id_re.compile('\\bid="([^"]+)"')
+	for line in text.split("\n"):
+		if not line.begins_with("[ext_resource "):
+			continue
+		var path_match := path_re.search(line)
+		var id_match := id_re.search(line)
+		if path_match != null and id_match != null and path_match.get_string(1) == path:
+			return id_match.get_string(1)
+	return ""
 
 ## Replaces the two ground properties of each stamped layer in place so the
 ## scene diff stays cells-only instead of a full Godot re-save.

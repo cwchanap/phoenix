@@ -29,17 +29,17 @@ const PIER_DECK := [
     {"node": "PierPlank3", "footprint": Rect2(23.0, 35.0, 2.0, 1.0), "texture": "pier.png"},
 ]
 # HPA-863 review fix: the two approved 3x3 bamboo groves are blocking terrain
-# but alias to grass in the ground stamp, so each grove is dressed with three
-# existing bamboo-clump cutouts on its centre row. These roots are visual only:
-# the terrain grid already blocks every grove cell and no collider is added.
-const BAMBOO_GROVES := [
-    {"node": "BambooGroveA1", "cell": Vector2i(3, 5)},
-    {"node": "BambooGroveA2", "cell": Vector2i(4, 5)},
-    {"node": "BambooGroveA3", "cell": Vector2i(5, 5)},
-    {"node": "BambooGroveB1", "cell": Vector2i(9, 5)},
-    {"node": "BambooGroveB2", "cell": Vector2i(10, 5)},
-    {"node": "BambooGroveB3", "cell": Vector2i(11, 5)},
-]
+# but alias to grass in the ground stamp, so every cell of both groves is
+# dressed with the bamboo-clump cutout. These roots are visual only: the terrain
+# grid already blocks every grove cell and no collider is added.
+static func _bamboo_groves() -> Array:
+    var groves: Array = []
+    var cells := WorldContract.bamboo_cells()
+    for index in cells.size():
+        var group_letter := "A" if index < 9 else "B"
+        var local_index := (index % 9) + 1
+        groves.append({"node": "BambooGrove%s%d" % [group_letter, local_index], "cell": cells[index]})
+    return groves
 # The farmhouse cutout's drawn base is 28 px right of frame centre; its sprite
 # offset centres the base and doorway on the authored 3x3 footprint.
 const HOUSE_ART_OFFSET := Vector2(-28.0, -96.0)
@@ -575,25 +575,36 @@ func _run() -> void:
         return
     var prop_count := WorldContract.blocking_props().size()
     var fence_count := WorldContract.fence_cells().size()
+    var bamboo_groves := _bamboo_groves()
     if not _expect(
         entities.get_child_count()
-        == 1 + prop_count + fence_count + FARM_DECOR.size() + BAMBOO_GROVES.size() + farm_cells.size(),
+        == 1 + prop_count + fence_count + FARM_DECOR.size() + bamboo_groves.size() + farm_cells.size(),
         "Entities holds the player, every contract prop/fence, passable decor, bamboo clumps and the 30 crops",
     ):
         return
 
     # --- Contract-bearing sprite roots: anchor, parts and approved 1x1s ---
+    var authored_farm := (load("res://scenes/world/farm_map.tscn") as PackedScene).instantiate()
+    var authored_entities := authored_farm.get_node("Entities") as Node2D
+    for entry in WorldContract.blocking_props():
+        var authored_prop := authored_entities.get_node_or_null(entry["node"]) as Node2D
+        if not _expect(authored_prop != null, "%s authored blocking prop root" % entry["node"]):
+            authored_farm.free()
+            return
+        if not _expect_vec2(
+            authored_prop.position,
+            WorldMath.footprint_ground_anchor(entry["footprint"]),
+            "%s authored ground anchor" % entry["node"],
+        ):
+            authored_farm.free()
+            return
+    authored_farm.free()
+
     for entry in WorldContract.blocking_props():
         var prop := entities.get_node_or_null(entry["node"]) as Node2D
         if not _expect(prop != null, "%s blocking prop root" % entry["node"]):
             return
         var footprint: Rect2 = entry["footprint"]
-        if not _expect_vec2(
-            prop.position,
-            WorldMath.footprint_ground_anchor(footprint),
-            "%s ground anchor" % entry["node"],
-        ):
-            return
         if not _expect_names(prop, ["Shadow", "Sprite2D"], "%s entity" % entry["node"]):
             return
         var shadow := prop.get_node("Shadow") as Sprite2D
@@ -604,6 +615,18 @@ func _run() -> void:
             return
         var sprite := prop.get_node("Sprite2D") as Sprite2D
         if not _expect(sprite.texture != null, "%s sprite texture" % entry["node"]):
+            return
+        if not _expect_vec2(
+            sprite.global_position,
+            WorldMath.footprint_ground_anchor(footprint),
+            "%s ground anchor" % entry["node"],
+        ):
+            return
+        if not _expect_vec2(
+            shadow.global_position,
+            WorldMath.footprint_ground_anchor(footprint),
+            "%s shadow ground anchor" % entry["node"],
+        ):
             return
         var expected_offset := Vector2(0.0, -sprite.texture.get_height() * 0.5)
         if entry["node"] == "House":
@@ -652,7 +675,7 @@ func _run() -> void:
             return
 
     # --- HPA-863 review fix: visible bamboo on the two blocking groves ---
-    for entry in BAMBOO_GROVES:
+    for entry in bamboo_groves:
         var grove := entities.get_node_or_null(entry["node"]) as Node2D
         if not _expect(grove != null, "%s bamboo clump root" % entry["node"]):
             return
@@ -765,11 +788,13 @@ func _run() -> void:
         ):
             return
         var effective_shadow := (
-            building_shadow.position + building_shadow.offset * building_shadow.scale
+            building.position
+            + building_shadow.position
+            + building_shadow.offset * building_shadow.scale
         )
         if not _expect_vec2(
             effective_shadow,
-            Vector2.ZERO,
+            WorldMath.footprint_ground_anchor(WorldContract.prop_footprint(node_name)),
             "%s shadow draws at the building ground root" % node_name,
         ):
             return
@@ -1583,7 +1608,7 @@ func _run() -> void:
     world.hud._sfx_player.stop()
     await create_timer(0.2).timeout
 
-    print("world shell smoke passed: 48x40 stamped ground/backdrop, 47 props, 85 fences, 8 passable decor, 6 bamboo clumps, a 3-plank below-actor pier deck, collisions, player, camera, assets")
+    print("world shell smoke passed: 48x40 stamped ground/backdrop, 47 props, 85 fences, 8 passable decor, 18 bamboo clumps, a 3-plank below-actor pier deck, collisions, player, camera, assets")
     quit(0)
 
 func _init() -> void:

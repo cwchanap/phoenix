@@ -317,12 +317,10 @@ func _farm_static_entity_names() -> Array:
         "LotRope1", "LotRope2", "LotRope3", "LotRope4", "LotRope5",
     ]:
         names.append(decor_name)
-    # HPA-863 review fix bamboo clumps, authored after the decor.
-    for grove_name in [
-        "BambooGroveA1", "BambooGroveA2", "BambooGroveA3",
-        "BambooGroveB1", "BambooGroveB2", "BambooGroveB3",
-    ]:
-        names.append(grove_name)
+    # HPA-863 review fix bamboo clumps, authored after the decor (9 per grove).
+    for group_letter in ["A", "B"]:
+        for number in range(1, 10):
+            names.append("BambooGrove%s%d" % [group_letter, number])
     return names
 
 func test_crop_roots_are_direct_entities_children_at_cell_centers() -> void:
@@ -6967,8 +6965,9 @@ func test_house_fades_behind_the_west_lawn_and_restores_south_of_the_tip() -> vo
         (world._map.get_node("Entities/House/Shadow") as Sprite2D).self_modulate.a,
         1.0, 0.001, "the sibling Shadow never fades",
     )
-    # A real southern-face contact still fades: the southern-tip anchor sorts
-    # the house in front of a door-side stand (front-anchor caveat, pinned).
+    # A real southern-face contact sorts the player in front of the house
+    # across the front edge (door-side stand stays opaque and keeps the
+    # drawn sprite anchored at the ground contact).
     var house_rows := _face_rows(WorldContract.HOUSE_FOOTPRINT)
     var front_stop := await _contact_stop(
         world, GameRules.MapId.FARM, WorldContract.HOUSE_FOOTPRINT, house_rows[2]
@@ -6978,16 +6977,72 @@ func test_house_fades_behind_the_west_lawn_and_restores_south_of_the_tip() -> vo
         return
     _assert_pose_overlaps(world, "House")
     world._process(1.0)
-    assert_almost_eq(
-        house_sprite.self_modulate.a, 0.45, 0.001,
-        "front contact on a southern-tip anchor still fades",
+    assert_lt(
+        house_root.position.y,
+        world.player.position.y,
+        "front-door contact sorts the player in front of the farmhouse",
     )
-    # Physically south of the tip anchor the player sorts in front and the
-    # house restores.
+    assert_almost_eq(
+        house_sprite.self_modulate.a, 1.0, 0.001,
+        "front-door contact keeps the farmhouse opaque",
+    )
+    assert_lte(
+        house_sprite.global_position.distance_to(
+            WorldMath.footprint_ground_anchor(WorldContract.HOUSE_FOOTPRINT)
+        ),
+        0.001,
+        "front-edge sort override preserves the drawn sprite's ground anchor",
+    )
+    # Physically south of the tip anchor the player still sorts in front and
+    # the house restores its authored root anchor.
     _set_pose(world, WorldMath.grid_to_world(Vector2(24.0, 12.0)))
     assert_gt(world.player.global_position.y, house_root.global_position.y)
     world._process(1.0)
     assert_almost_eq(house_sprite.self_modulate.a, 1.0, 0.001)
+
+func test_multi_cell_props_sort_player_in_front_on_all_front_faces_and_fade_behind() -> void:
+    var world := _world()
+    if world == null:
+        return
+    for prop_name in ["Storehouse", "Greenhouse"]:
+        var footprint := WorldContract.prop_footprint(prop_name)
+        var sprite := _occluder_sprite(world, prop_name)
+        var root := sprite.get_parent() as Node2D
+        var anchor := WorldMath.footprint_ground_anchor(footprint)
+        var rows := _face_rows(footprint)
+        # SW and SE front faces: player sorts in front and prop stays opaque.
+        for face_row in [rows[2], rows[1]]:
+            var stop := await _contact_stop(world, GameRules.MapId.FARM, footprint, face_row)
+            assert_true(stop["ok"], "%s front face %s must be reachable" % [prop_name, face_row["side"]])
+            if not stop["ok"]:
+                return
+            _assert_pose_overlaps(world, prop_name)
+            world._process(1.0)
+            assert_lt(
+                root.position.y,
+                world.player.position.y,
+                "%s %s sorts player in front" % [prop_name, face_row["side"]],
+            )
+            assert_almost_eq(
+                sprite.self_modulate.a, 1.0, 0.001,
+                "%s %s stays opaque" % [prop_name, face_row["side"]],
+            )
+            assert_lte(
+                sprite.global_position.distance_to(anchor), 0.001,
+                "%s %s preserves drawn ground anchor" % [prop_name, face_row["side"]],
+            )
+        # Behind NW wall: prop restores its authored anchor, sorts in front, and fades.
+        _set_pose(
+            world,
+            WorldMath.grid_to_world(
+                Vector2(footprint.position.x - 0.3, footprint.position.y + footprint.size.y * 0.5)
+            ),
+        )
+        _assert_pose_overlaps(world, prop_name)
+        world._process(1.0)
+        assert_lte(root.position.distance_to(anchor), 0.001, "%s behind restores anchor" % prop_name)
+        assert_gt(root.position.y, world.player.position.y, "%s behind sorts over player" % prop_name)
+        assert_almost_eq(sprite.self_modulate.a, 0.45, 0.001, "%s behind fades" % prop_name)
 
 func test_shipping_bin_fades_behind_and_stays_opaque_in_front() -> void:
     var world := _world()
@@ -7048,6 +7103,27 @@ func test_shipping_bin_exact_y_tie_fades() -> void:
     _assert_pose_overlaps(world, "Shipping")
     world._process(1.0)
     assert_almost_eq(bin.self_modulate.a, 0.45, 0.001, "an exact Y tie fades the bin")
+
+func test_bin_fade_advances_on_farming_preview_frames() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var bin := _occluder_sprite(world, "Shipping")
+    # Stand inside the east edge of FARM_PATCH facing left onto (19, 20):
+    # Shipping overlaps the player and sorts in front while _process hits the
+    # farming-prompt early return.
+    _set_pose(world, WorldMath.grid_to_world(Vector2(20.8, 19.2)), WorldMath.Facing.LEFT)
+    _assert_pose_overlaps(world, "Shipping")
+    assert_eq(world.player.current_target_cell(), Vector2i(19, 20))
+    world._process(0.2)
+    assert_eq(world.hud.prompt_text(), "[Space] Till soil · 3 stamina")
+    assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_VALID)
+    assert_almost_eq(
+        bin.self_modulate.a, 0.8, 0.001,
+        "_update_occluder_fade must run before the farming-prompt early return",
+    )
+    world._process(1.0)
+    assert_almost_eq(bin.self_modulate.a, 0.45, 0.001)
 
 func test_scarecrow_and_truck_fade_from_reachable_poses_and_restore_in_front() -> void:
     var world := _world()

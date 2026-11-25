@@ -117,6 +117,39 @@ static func blocking_props() -> Array:
         {"node": "RockMeadow3", "footprint": Rect2(3.0, 17.0, 1.0, 1.0)},
     ]
 
+## Looks up a blocking prop's authored footprint by node name.
+static func prop_footprint(node_name: String) -> Rect2:
+    for entry in blocking_props():
+        if entry["node"] == node_name:
+            return entry["footprint"]
+    return Rect2()
+
+## Multi-cell props whose ground-plane sort must yield to the player across
+## both southern front edges, keyed by Entities child name.
+static func multi_cell_occluders() -> Dictionary:
+    var result := {}
+    for entry in blocking_props():
+        var footprint: Rect2 = entry["footprint"]
+        if footprint.size.x > 1.0 or footprint.size.y > 1.0:
+            result[entry["node"]] = {
+                "footprint": footprint,
+                "anchor": WorldMath.footprint_ground_anchor(footprint),
+            }
+    return result
+
+## All cells inside the approved bamboo terrain groves, in row-major order per
+## grove (used to dress every blocked grove cell with a bamboo clump root).
+static func bamboo_cells() -> Array[Vector2i]:
+    var cells: Array[Vector2i] = []
+    for entry in TERRAIN_RECTS:
+        if entry["material"] != "bamboo":
+            continue
+        var rect: Rect2i = entry["rect"]
+        for y in range(rect.position.y, rect.end.y):
+            for x in range(rect.position.x, rect.end.x):
+                cells.append(Vector2i(x, y))
+    return cells
+
 ## The 12 approved straight fence runs: seven bamboo yard runs and five
 ## wooden field runs. Gates are simply the cells the runs leave out.
 static func fence_runs() -> Array:
@@ -162,8 +195,9 @@ const RIVER_RIPPLE_CELLS: Array[Vector2i] = [
 static func bed_contact_footprint() -> Rect2:
     return Rect2(BED_CELL.x, HOUSE_FOOTPRINT.end.y - 0.25, 1.0, 0.25)
 
-## Canonical E-interact regions in contract order: each maps an interactable
-## cell to its already-defined collision footprint.
+## Canonical E-interact regions in contract order: shipping and truck use their
+## collision footprints, while the bed uses the synthetic bed_contact_footprint()
+## door slice inside HOUSE_FOOTPRINT rather than a separate collider.
 static func interact_regions() -> Array:
     return [
         {"cell": BED_CELL, "footprint": bed_contact_footprint()},

@@ -1531,7 +1531,7 @@ texture = ExtResource("41_stakes")
 offset = Vector2(0, -48)
 
 [node name="BambooGroveA1" type="Node2D" parent="Entities" groups=["player_occluder"] unique_id=501000001]
-position = Vector2(704, 160)
+position = Vector2(736, 144)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/BambooGroveA1" unique_id=501000002]
 texture = ExtResource("9_shadow")
@@ -1541,7 +1541,7 @@ texture = ExtResource("43_bamboo")
 offset = Vector2(0, -48)
 
 [node name="BambooGroveA2" type="Node2D" parent="Entities" groups=["player_occluder"] unique_id=501000004]
-position = Vector2(736, 176)
+position = Vector2(768, 160)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/BambooGroveA2" unique_id=501000005]
 texture = ExtResource("9_shadow")
@@ -1551,7 +1551,7 @@ texture = ExtResource("43_bamboo")
 offset = Vector2(0, -48)
 
 [node name="BambooGroveA3" type="Node2D" parent="Entities" groups=["player_occluder"] unique_id=501000007]
-position = Vector2(768, 192)
+position = Vector2(800, 176)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/BambooGroveA3" unique_id=501000008]
 texture = ExtResource("9_shadow")
@@ -1560,8 +1560,68 @@ texture = ExtResource("9_shadow")
 texture = ExtResource("43_bamboo")
 offset = Vector2(0, -48)
 
+[node name="BambooGroveA4" type="Node2D" parent="Entities" groups=["player_occluder"] unique_id=501000019]
+position = Vector2(704, 160)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/BambooGroveA4" unique_id=501000020]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/BambooGroveA4" unique_id=501000021]
+texture = ExtResource("43_bamboo")
+offset = Vector2(0, -48)
+
+[node name="BambooGroveA5" type="Node2D" parent="Entities" groups=["player_occluder"] unique_id=501000022]
+position = Vector2(736, 176)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/BambooGroveA5" unique_id=501000023]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/BambooGroveA5" unique_id=501000024]
+texture = ExtResource("43_bamboo")
+offset = Vector2(0, -48)
+
+[node name="BambooGroveA6" type="Node2D" parent="Entities" groups=["player_occluder"] unique_id=501000025]
+position = Vector2(768, 192)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/BambooGroveA6" unique_id=501000026]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/BambooGroveA6" unique_id=501000027]
+texture = ExtResource("43_bamboo")
+offset = Vector2(0, -48)
+
+[node name="BambooGroveA7" type="Node2D" parent="Entities" groups=["player_occluder"] unique_id=501000028]
+position = Vector2(672, 176)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/BambooGroveA7" unique_id=501000029]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/BambooGroveA7" unique_id=501000030]
+texture = ExtResource("43_bamboo")
+offset = Vector2(0, -48)
+
+[node name="BambooGroveA8" type="Node2D" parent="Entities" groups=["player_occluder"] unique_id=501000031]
+position = Vector2(704, 192)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/BambooGroveA8" unique_id=501000032]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/BambooGroveA8" unique_id=501000033]
+texture = ExtResource("43_bamboo")
+offset = Vector2(0, -48)
+
+[node name="BambooGroveA9" type="Node2D" parent="Entities" groups=["player_occluder"] unique_id=501000034]
+position = Vector2(736, 208)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/BambooGroveA9" unique_id=501000035]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/BambooGroveA9" unique_id=501000036]
+texture = ExtResource("43_bamboo")
+offset = Vector2(0, -48)
+
 [node name="BambooGroveB1" type="Node2D" parent="Entities" groups=["player_occluder"] unique_id=501000010]
-position = Vector2(896, 256)
+position = Vector2(928, 240)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/BambooGroveB1" unique_id=501000011]
 texture = ExtResource("9_shadow")
@@ -1571,7 +1631,7 @@ texture = ExtResource("43_bamboo")
 offset = Vector2(0, -48)
 
 [node name="BambooGroveB2" type="Node2D" parent="Entities" groups=["player_occluder"] unique_id=501000013]
-position = Vector2(928, 272)
+position = Vector2(960, 256)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/BambooGroveB2" unique_id=501000014]
 texture = ExtResource("9_shadow")
@@ -1581,11 +1641,71 @@ texture = ExtResource("43_bamboo")
 offset = Vector2(0, -48)
 
 [node name="BambooGroveB3" type="Node2D" parent="Entities" groups=["player_occluder"] unique_id=501000016]
-position = Vector2(960, 288)
+position = Vector2(992, 272)
 
 [node name="Shadow" type="Sprite2D" parent="Entities/BambooGroveB3" unique_id=501000017]
 texture = ExtResource("9_shadow")
 
 [node name="Sprite2D" type="Sprite2D" parent="Entities/BambooGroveB3" unique_id=501000018]
+texture = ExtResource("43_bamboo")
+offset = Vector2(0, -48)
+
+[node name="BambooGroveB4" type="Node2D" parent="Entities" groups=["player_occluder"] unique_id=501000037]
+position = Vector2(896, 256)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/BambooGroveB4" unique_id=501000038]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/BambooGroveB4" unique_id=501000039]
+texture = ExtResource("43_bamboo")
+offset = Vector2(0, -48)
+
+[node name="BambooGroveB5" type="Node2D" parent="Entities" groups=["player_occluder"] unique_id=501000040]
+position = Vector2(928, 272)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/BambooGroveB5" unique_id=501000041]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/BambooGroveB5" unique_id=501000042]
+texture = ExtResource("43_bamboo")
+offset = Vector2(0, -48)
+
+[node name="BambooGroveB6" type="Node2D" parent="Entities" groups=["player_occluder"] unique_id=501000043]
+position = Vector2(960, 288)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/BambooGroveB6" unique_id=501000044]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/BambooGroveB6" unique_id=501000045]
+texture = ExtResource("43_bamboo")
+offset = Vector2(0, -48)
+
+[node name="BambooGroveB7" type="Node2D" parent="Entities" groups=["player_occluder"] unique_id=501000046]
+position = Vector2(864, 272)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/BambooGroveB7" unique_id=501000047]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/BambooGroveB7" unique_id=501000048]
+texture = ExtResource("43_bamboo")
+offset = Vector2(0, -48)
+
+[node name="BambooGroveB8" type="Node2D" parent="Entities" groups=["player_occluder"] unique_id=501000049]
+position = Vector2(896, 288)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/BambooGroveB8" unique_id=501000050]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/BambooGroveB8" unique_id=501000051]
+texture = ExtResource("43_bamboo")
+offset = Vector2(0, -48)
+
+[node name="BambooGroveB9" type="Node2D" parent="Entities" groups=["player_occluder"] unique_id=501000052]
+position = Vector2(928, 304)
+
+[node name="Shadow" type="Sprite2D" parent="Entities/BambooGroveB9" unique_id=501000053]
+texture = ExtResource("9_shadow")
+
+[node name="Sprite2D" type="Sprite2D" parent="Entities/BambooGroveB9" unique_id=501000054]
 texture = ExtResource("43_bamboo")
 offset = Vector2(0, -48)

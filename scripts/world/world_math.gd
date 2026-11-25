@@ -91,6 +91,20 @@ static func footprint_ground_anchor(footprint: Rect2) -> Vector2:
         grid_to_world(footprint.position + footprint.size).y,
     )
 
+## True when grid_pos is on the viewer's side of a footprint's two southern
+## front edges (past y = end.y or x = end.x and south of the matching corner's
+## screen Y), so the player sorts in front of multi-cell props along all front faces.
+static func is_in_front_of_footprint(grid_pos: Vector2, footprint: Rect2) -> bool:
+    var front_sw := (
+        grid_pos.y >= footprint.end.y
+        and grid_pos.x + grid_pos.y >= footprint.position.x + footprint.end.y
+    )
+    var front_se := (
+        grid_pos.x >= footprint.end.x
+        and grid_pos.x + grid_pos.y >= footprint.end.x + footprint.position.y
+    )
+    return front_sw or front_se
+
 static func map_camera_bounds(map_size: Vector2i) -> Rect2:
     var size := Vector2(map_size)
     var west := grid_to_world(Vector2(0.0, size.y))
