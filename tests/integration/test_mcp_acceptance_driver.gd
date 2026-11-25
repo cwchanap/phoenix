@@ -50,6 +50,22 @@ func _start_driver() -> Node:
     assert_not_null(driver.app, "driver app must instantiate")
     if driver.app == null:
         return null
+    var repository := driver.app._save_repository as SaveRepository
+    var settings := driver.app._settings as UiSettings
+    assert_not_null(repository, "the default driver app must receive a save repository")
+    assert_not_null(settings, "the default driver app must receive settings")
+    if repository == null or settings == null:
+        return null
+    assert_eq(
+        repository._path,
+        DriverScript.PLAYTEST_SAVE_PATH,
+        "the default driver launch must use native playtest save storage",
+    )
+    assert_eq(
+        settings._path,
+        DriverScript.PLAYTEST_SETTINGS_PATH,
+        "the default driver launch must use native playtest settings storage",
+    )
     var title := driver.app.get_node_or_null("TitleScreen") as TitleScreen
     assert_not_null(title, "title screen must exist")
     if title == null:
