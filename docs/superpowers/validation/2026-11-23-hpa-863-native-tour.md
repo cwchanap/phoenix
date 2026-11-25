@@ -1,7 +1,7 @@
 # HPA-863 native visual check — farm v2 passable decor and polish
 
-Date: 2026-11-23
-Branch: `plan/hpa-863-farm-map-v2-world-art` (final review fix wave, after `1fba58f`)
+Date: 2026-11-23, updated 2026-11-25
+Branch: `plan/hpa-863-farm-map-v2-world-art` (refreshed at `b0726f4`)
 Operator: agent-operated native run (agent vision review of real rendered captures), not a human
 playtest.
 
@@ -18,10 +18,14 @@ capture's dimensions before writing it.
   with tutorial cards disabled.
 - The farm poses teleport the live player and reset camera smoothing before settling; walking is
   transport only, not a reachability proof. Interaction/reachability stays pinned by the headless,
-  GUT and godot-e2e suites, and the separate MCP Run D log records real-input fence-gate crossings.
+  GUT and godot-e2e suites, and the separate MCP Run D/E logs record real-input fence-gate crossings.
 - This set supersedes the Task 4 set: it adds the wet/dry field view, the two dressed bamboo
-  groves and explicit top/bottom camera-limit captures. The earlier shadow/pier corrections remain
-  (building contact shadows at their ground root; pier planks in the below-actor `PierDeck`).
+  groves, explicit top/bottom camera-limit captures and the house-rear contact pose. The earlier
+  shadow/pier corrections remain (building contact shadows at their ground root; pier planks in
+  the below-actor `PierDeck`).
+- The 2026-11-25 refresh re-ran the tour at `b0726f4`, after the SortProxy front-face fix and the
+  18-clump grove dressing. The front-door capture now keeps the farmhouse opaque with the player
+  drawn in front; the new house-rear capture shows the expected HPA-743 fade over the player.
 - One real E at the reachable farm-truck west-face contact (`32.78,12.72` facing RIGHT) drives to
   town through the real travel overlay and map swap; the town captures are the arrived map.
 - The house root is the derived footprint anchor `(1248,560)`; its art base/doorway aligns with
@@ -35,7 +39,7 @@ capture's dimensions before writing it.
     godot --path . --script res://tests/native_tour/hpa_863_tour.gd
   ```
 
-  Result: exit 0, `TOUR|DONE clean tour=hpa-863`, 18 captures.
+  Result: exit 0, `TOUR|DONE clean tour=hpa-863`, 19 captures.
 
 ## Captures
 
@@ -43,7 +47,8 @@ Committed at `docs/superpowers/validation/hpa-863-tour-captures/`.
 
 | Capture | Pose | Check |
 | --- | --- | --- |
-| `hpa863-01-farm-front-door-contact.png` | door slice, facing UP | E prompt over the drawn doorway; house fade (HPA-743) active |
+| `hpa863-01-farm-front-door-contact.png` | door slice, facing UP | E prompt over the drawn doorway; farmhouse opaque with the player drawn in front of the south face |
+| `hpa863-01b-farm-house-behind-contact.png` | house rear/west contact, facing RIGHT | house fades toward `FADE_ALPHA` over the player from behind, confirming the rear-face HPA-743 behavior |
 | `hpa863-02-farm-yard.png` | yard centre, facing UP | house art base and door align with the 3x3 footprint/`(23,10)` cell; flower beds flank the door; contact shadow sits under the base, not displaced; no tile rims |
 | `hpa863-03-farm-storehouse-yard.png` | lots/kura, facing UP | five lot rope markers, kura contact shadow under the base, yard/lot/path joins |
 | `hpa863-04-farm-field.png` | patch, facing DOWN | 30 tilled soil decals, crop kinds and stages 2-4 readable; Space preview |
@@ -58,18 +63,30 @@ Committed at `docs/superpowers/validation/hpa-863-tour-captures/`.
 | `hpa863-12-town-camera-northeast.png` | town NE edge | paved/grass edge, no tile rim or void |
 | `hpa863-13-town-camera-southwest.png` | town SW edge | paved/grass edge, no tile rim or void |
 | `hpa863-14-farm-camera-top.png` | farm camera top limit | continuous forest/river/lot backdrop to the top edge, no grey void |
-| `hpa863-15-farm-bamboo-west.png` | west grove approach `(4.5,7.5)`, facing UP | three bamboo clumps dress the approved `(3,4,3,3)` blocking footprint; no invisible blockage |
-| `hpa863-16-farm-bamboo-east.png` | east grove approach `(10.5,7.5)`, facing UP | three bamboo clumps dress the approved `(9,4,3,3)` blocking footprint; no invisible blockage |
+| `hpa863-15-farm-bamboo-west.png` | west grove approach `(4.5,7.5)`, facing UP | nine bamboo clumps dress the approved `(3,4,3,3)` blocking footprint; no invisible blockage |
+| `hpa863-16-farm-bamboo-east.png` | east grove approach `(10.5,7.5)`, facing UP | nine bamboo clumps dress the approved `(9,4,3,3)` blocking footprint; no invisible blockage |
 | `hpa863-17-farm-camera-bottom.png` | farm camera bottom limit | continuous grass/road/paddy backdrop to the bottom edge, no grey void |
+
+## Approved-reference comparison
+
+The HPA-863 blockouts and `world-mockup-vs-game.jpg` were retrieved through the
+connected Linear MCP API (`get_attachment`, `format=content`) on 2026-11-25 and
+compared with the refreshed captures:
+
+- **Front door:** same 3x3 farmhouse, south door/bed cell, well, storehouse and
+  yard fence; final art replaces the flat blockout; the farmhouse stays opaque
+  with the player in front.
+- **Field:** same 6x5 plot, wooden fence, east gate, bin, scarecrow and
+  greenhouse; the seeded crops/soil replace the empty stand-in plot.
+- **Storehouse yard:** same kura footprint, five rope-marked lots, build board,
+  well and yard fence; the player stands at a legal south contact rather than
+  the blockout's west eave pose.
+- **`world-mockup-vs-game.jpg`:** the current captures show continuous ground
+  and paths, no tile grid, no grass islands, no dotted town seams and no grey
+  at the camera extremes. The mockup's painted density is not reproduced
+  pixel-for-pixel; this is a visual check, not a golden test.
 
 ## Not performed
 
-- **No approved-image comparison.** The Linear HPA-863 attachment images could not be fetched:
-  `linear.get_issue` failed with
-  `mcp-remote: Authentication is still pending in another instance on port 22227. Complete that
-  sign-in and retry, or close the other instance to start a new sign-in.` No credentials or tokens
-  were searched for. The captures were reviewed against the written checkpoint only
-  (rims, islands, dotted seams, blocked gates, Y-sort, bin anchor, camera void), not against
-  `farm-map-v2-plan.png`, the blockouts or `world-mockup-vs-game.jpg`.
 - No human review; subjective pacing is out of scope.
 - No terrain/tileset re-stamp: Task 4 changed no terrain art or source IDs.
