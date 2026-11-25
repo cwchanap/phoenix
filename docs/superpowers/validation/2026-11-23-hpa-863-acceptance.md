@@ -102,7 +102,10 @@ comparison is visual, not pixel-golden:
 
 Retained deviations: the shipped art is the HPA-861 sprite-isometric set, not
 the mockup's painted style; the blockouts are flat stand-ins; capture HUD
-state differs by seeded day/time. No new art, SFX or pixel-golden gate was
+state differs by seeded day/time. The `shrine.png` and `torii.png` cutouts
+retain a visible magenta key-color fringe along the shrine roof/eaves,
+lantern edges and torii legs; edge/matte cleanup is separate art follow-up
+scope, not implementation-PR scope. No new art, SFX or pixel-golden gate was
 added.
 
 ## Native MCP acceptance
