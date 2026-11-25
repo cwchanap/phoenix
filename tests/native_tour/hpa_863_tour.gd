@@ -121,6 +121,7 @@ func _run() -> void:
 
 func _phase_farm() -> void:
 	await _pose(Vector2(23.5, 10.3), WorldMath.Facing.UP, "01-farm-front-door-contact")
+	await _pose(Vector2(21.5, 8.5), WorldMath.Facing.RIGHT, "01b-farm-house-behind-contact")
 	await _pose(Vector2(23.5, 12.3), WorldMath.Facing.UP, "02-farm-yard")
 	await _pose(Vector2(15.0, 15.0), WorldMath.Facing.UP, "03-farm-storehouse-yard")
 	await _pose(Vector2(17.0, 22.0), WorldMath.Facing.DOWN, "04-farm-field")
