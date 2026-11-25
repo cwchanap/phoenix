@@ -133,6 +133,8 @@ func _phase_farm() -> void:
 	await _pose(Vector2(24.3125, 33.8125), WorldMath.Facing.DOWN, "08-farm-pier-standing")
 	await _pose(Vector2(2.5, 36.5), WorldMath.Facing.LEFT, "09-farm-camera-southwest")
 	await _pose(Vector2(45.5, 1.5), WorldMath.Facing.RIGHT, "10-farm-camera-northeast")
+	await _pose_vertical_edge(Vector2(0.5, 0.5), WorldMath.Facing.DOWN, "14-farm-camera-top", "top")
+	await _pose_vertical_edge(Vector2(38.5, 39.5), WorldMath.Facing.UP, "17-farm-camera-bottom", "bottom")
 	await _pose(Vector2(4.5, 7.5), WorldMath.Facing.UP, "15-farm-bamboo-west")
 	await _pose(Vector2(10.5, 7.5), WorldMath.Facing.UP, "16-farm-bamboo-east")
 
@@ -153,8 +155,30 @@ func _grid_centre(cell: Vector2i) -> Vector2:
 	return Vector2(cell) + Vector2(0.5, 0.5)
 
 
+func _pose_vertical_edge(
+	grid_point: Vector2,
+	facing: WorldMath.Facing,
+	shot: String,
+	edge: String,
+) -> void:
+	await _pose(grid_point, facing, shot, false)
+	var camera := _world.player.camera
+	var half_height := float(UiSettings.WINDOW_SIZE.y) / (2.0 * WorldContract.CAMERA_ZOOM)
+	var expected := float(camera.limit_bottom) - half_height
+	if edge == "top":
+		expected = float(camera.limit_top) + half_height
+	var actual := camera.get_screen_center_position().y
+	if not is_equal_approx(actual, expected):
+		_failures.append(
+			"capture %s camera %s edge: screen centre y %.3f != %.3f"
+			% [shot, edge, actual, expected]
+		)
+	await _shot(shot)
+
+
 func _pose(grid_point: Vector2, facing: WorldMath.Facing, shot: String, capture := true) -> void:
 	_world.player.global_position = WorldMath.grid_to_world(grid_point)
+	_world.player.camera.reset_smoothing()
 	_world.player.facing = facing
 	await _frames(SETTLE_FRAMES)
 	if capture:

@@ -3,8 +3,9 @@
 Date: 2026-11-23
 Branch: `plan/hpa-863-farm-map-v2-world-art`
 Status: **local changed-map/MCP/PCK acceptance complete for the runs recorded
-here; approved-image comparison, the full godot-e2e lane and final-SHA CI
-remain open. This is not overall release acceptance.**
+here, and the `b405be7` CI/export lanes are green; approved-image comparison
+remains open. Any post-`b405be7` review-fix SHA needs a fresh CI run. This is
+not overall release acceptance.**
 Operator: agent-operated, not human. No new art or SFX was generated.
 
 ## Commits covered
@@ -21,6 +22,8 @@ Operator: agent-operated, not human. No new art or SFX was generated.
 | `7da4c8d` | timing-robust failed-seek regression |
 | `a42165e` | bamboo grove dressing, gate crossings, separate native log |
 | `4250a26` | bamboo/gate/wet-dry evidence and house-anchor docs |
+| `5b289b6` | final pack/gate evidence pinned to `4250a26` |
+| `b405be7` | acceptance status wording |
 
 ## Test evidence (Godot 4.7.1, isolated `HOME`)
 
@@ -30,9 +33,9 @@ fresh temporary `HOME`. `./tools/verify-clean.sh` archives committed `HEAD`.
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Clean verifier | `./tools/verify-clean.sh` | **exit 0**: import, GUT **635/635** (51,152 asserts; includes the 3 focused driver regressions), project smoke, world-math smoke, terrain-stamp drift (35 sources / 1,542 tiles / 1,920 cells), world-shell smoke (`48x40`, 47 props, 85 fences, 8 decor, 6 bamboo clumps, 3-plank PierDeck), audio |
+| Clean verifier | `./tools/verify-clean.sh` | **exit 0**: import, GUT **637/637** (51,166 asserts; includes the 5 focused driver regressions), project smoke, world-math smoke, terrain-stamp drift (35 sources / 1,542 tiles / 1,920 cells), world-shell smoke (`48x40`, 47 props, 85 fences, 8 decor, 6 bamboo clumps, 3-plank PierDeck), audio |
 | GdUnit4 | `GODOT_BIN=... xvfb-run -a ./addons/gdUnit4/runtest.sh -a tests/gdunit -c` | **16/16**, 0 errors/failures/orphans |
-| Driver regression | `godot ... -gtest=res://tests/integration/test_mcp_acceptance_driver.gd -gexit` | **3/3**, 33 asserts; failed seek returns false, releases input, keeps Error and no At_ marker; input-facing succeeds |
+| Driver regression | `godot ... -gtest=res://tests/integration/test_mcp_acceptance_driver.gd -gexit` | **5/5**, 47 asserts; isolated playtest save/settings paths, busy held through the interact marker, failed seek returns false, releases input, keeps Error and no At_ marker; input-facing succeeds |
 | godot-e2e, individual suites | same harness with `-a tests/e2e/world_readability_test.gd` and `-a tests/e2e/gameplay_day_one_test.gd` | `world_readability` **1/1 pass** (29.1 s); `gameplay_day_one` **7/7 pass** (2 min 42 s) |
 | godot-e2e, full lane | `... -a tests/e2e -c` (three runs) | **exit 100 all three times**; 13 cases. Runs 1–2: 3 errors / 85 failures; run 3 (lower host load): 1 error / 21 failures. The failing set varies inside `gameplay_day_one_test` (`held_row`, `player_moves`, `travel_overlay`, `observe`); `app_launch` 3/3, `market_confirm` 1/1, `ui_navigation` 1/1 and `world_readability` 1/1 passed in every run. Every failure begins with `Command 'wait_seconds' timed out after 1300–1600 ms` followed by `E2E session is not open`; no map/decor assertion failed. Each affected suite passes alone. The suspected cause is host CPU/llvmpipe frame latency under unrelated load, but that is **not proven**: no profiler or frame-time trace was captured, and the failing subset changes between runs. |
 
@@ -109,10 +112,14 @@ Exact method:
    `docs/superpowers/validation/hpa-863-mcp-captures/run-d-native-actions.jsonl`.
 
 The driver is test-only and in `tests/native_tour/` (excluded from export). It
-does not teleport or touch the session: each walk uses AStar waypoints, real
-Input move actions and live collision; each `Action`/`Interact` sends the real
-`use_action`/`interact` action, and a successful interact goto establishes the
-final facing through one directional Input action.
+configures the app with dedicated ignored playtest files
+(`test_output/mcp_acceptance/playtest-save.json` and
+`playtest-settings.cfg`), so confirming sleep or changing settings cannot replace
+the developer's real save or preferences. It does not teleport or touch the
+session: each walk uses AStar waypoints, real Input move actions and live
+collision; each `Action`/`Interact` sends the real `use_action`/`interact`
+action, and a successful interact goto establishes the final facing through one
+directional Input action.
 
 Capture provenance by run:
 
@@ -170,8 +177,9 @@ Committed at `docs/superpowers/validation/hpa-863-mcp-captures/`:
 
 The earlier native-tour note (`2026-11-23-hpa-863-native-tour.md`) now covers
 the seeded wet/dry field view (`hpa863-04b`), both bamboo grove approaches
-(`hpa863-15/16`) and the unchanged crop/town/pier/Y-sort checks. None of the
-MCP captures is a screenshot-golden test.
+(`hpa863-15/16`), explicit top/bottom camera-limit captures (`hpa863-14/17`)
+and the unchanged crop/town/pier/Y-sort checks. None of the MCP captures is a
+screenshot-golden test.
 
 ## Export PCK gate
 
@@ -204,6 +212,14 @@ imported `farm-source.png`/`town-art-cutouts.png`/`town-truck-views.png`, and
 recursive `packed entry beneath provenance:` lines for every packed source and
 `.import` sidecar. This proves the positive gate is not vacuous.
 
+Post-ledger CI check on `b405be7`: [CI run
+45438164076](https://github.com/cwchanap/phoenix/actions/runs/45438164076)
+exported the unmodified checkout — no temporary S3TC/BPTC import override —
+and its `Verify exported PCK` step passed with
+`export_pack_smoke: 6 scenes and 19 textures load from the pack`. The local
+override recorded above was therefore host-specific evidence only, not a
+release-export requirement.
+
 ## Cleanup
 
 Removed after a live-reference search (historical notes under
@@ -229,12 +245,14 @@ promoted runtime art. Both provenance folders are export-excluded.
 
 ## Open blockers
 
-- **CI has not run** on the final SHA; the coordinator owns the push and PR
-  checks. No CI/`unit-tests`/`e2e-tests` lane is claimed green here.
+- **Post-`b405be7` review-fix SHAs need fresh CI.** `b405be7` itself passed
+  CI, GdUnit4 and godot-e2e on GitHub Actions.
 - **Approved-image comparison unavailable** (Linear OAuth pending, no Linear
   MCP tool in this session). Geometry matches `approved-layout.json`; the
   visual comparison to the blockouts/`world-mockup-vs-game.jpg` is still open.
-- **Full godot-e2e lane is red locally** (combined suite only) with the
-  timing/`wait_seconds` pattern above; each affected suite passes alone. Host
-  load/llvmpipe latency is the suspected cause, not a proven one.
+- **Full godot-e2e lane was red locally** (combined suite only) with the
+  timing/`wait_seconds` pattern above; each affected suite passes alone. CI run
+  [45438163880](https://github.com/cwchanap/phoenix/actions/runs/45438163880)
+  later passed all 13 cases on `b405be7`, so the remaining question is local
+  host latency, not a proven product regression.
 - The MCP bridge runs 4.7.2 Mono; all CLI gates above use pinned 4.7.1.

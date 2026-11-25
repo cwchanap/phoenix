@@ -1069,15 +1069,21 @@ func _run() -> void:
 
     # High-motion collision against the full-cell shipping bin: the real stop
     # lands outside the footprint rather than tunnelling through it.
-    _place_player(player, Vector2(22.5, 17.5))
+    _place_player(player, Vector2(25.5, 23.0))
     await physics_frame
-    player.velocity = Vector2(0.0, 12000.0)
+    player.velocity = Vector2(0.0, -12000.0)
     player.move_and_slide()
     var bin_stop := WorldMath.world_to_grid(player.global_position)
     if not _expect(
         _outside_footprint(bin_stop, WorldContract.SHIPPING_FOOTPRINT)
         and player.get_slide_collision_count() > 0,
         "high-motion shipping bin collision",
+    ):
+        return
+    var bin_shape := player.get_slide_collision(0).get_collider_shape() as Node
+    if not _expect(
+        bin_shape != null and bin_shape.name == &"ShippingCollision",
+        "high-motion shipping bin collision hits ShippingCollision first",
     ):
         return
     player.velocity = Vector2.ZERO

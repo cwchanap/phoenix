@@ -11,6 +11,8 @@ extends Node
 const APP_SCENE := preload("res://scenes/app/app.tscn")
 const DEFAULT_LOG_PATH := "res://test_output/mcp_acceptance/actions.jsonl"
 const LOG_DIR := "res://test_output/mcp_acceptance"
+const PLAYTEST_SAVE_PATH := "res://test_output/mcp_acceptance/playtest-save.json"
+const PLAYTEST_SETTINGS_PATH := "res://test_output/mcp_acceptance/playtest-settings.cfg"
 const STANDOFF_PX := 8.0
 const ARRIVE_PX := 2.5
 const WALK_TIMEOUT_MS := 45000
@@ -41,6 +43,10 @@ func _ready() -> void:
 	_build_ui()
 	app = APP_SCENE.instantiate()
 	app.name = "App"
+	app.configure(
+		SaveRepository.new(PLAYTEST_SAVE_PATH),
+		UiSettings.load(PLAYTEST_SETTINGS_PATH),
+	)
 	add_child(app)
 	_set_state("Idle")
 	_log("boot", {"log_path": log_path})
@@ -188,7 +194,9 @@ func _facing_for_screen(direction: Vector2) -> int:
 
 
 func _goto_interact(goal: Dictionary) -> void:
+	_begin_operation()
 	if not await _walk_to(goal["position"], goal["label"]):
+		_end_operation()
 		return
 	if not await _face_via_input(goal["facing"]):
 		_log("walk_error", {
@@ -198,6 +206,7 @@ func _goto_interact(goal: Dictionary) -> void:
 			"actual": player().facing,
 		})
 		_set_state("Error")
+		_end_operation()
 		return
 	_log("goto", {
 		"goal": goal["label"],
@@ -206,29 +215,39 @@ func _goto_interact(goal: Dictionary) -> void:
 		"target": player().current_target_cell(),
 	})
 	_set_state("At_%s" % goal["label"])
+	_end_operation()
 
 
 func _goto_cell(cell: Vector2i, label: String) -> void:
+	_begin_operation()
+	await _goto_cell_body(cell, label)
+	_end_operation()
+
+
+func _goto_cell_body(cell: Vector2i, label: String) -> bool:
 	var position := WorldMath.grid_to_world(Vector2(cell) + Vector2(0.5, 0.5))
 	if not await _walk_to(position, label):
-		return
+		return false
 	_log("goto", {"goal": label, "cell": cell})
 	_set_state("At_%s" % label)
+	return true
 
 
 # Two real-input walks across a fence gap. The retained walk route lists the
 # exact cells, including the gate cell(s), so evidence does not rely on a
 # teleported pose.
 func _cross_gate(inside: Vector2i, outside: Vector2i, label: String) -> void:
-	await _goto_cell(inside, "%s_inside" % label)
-	if state.get_node_or_null("Error") != null:
+	_begin_operation()
+	if not await _goto_cell_body(inside, "%s_inside" % label):
 		_log("gate_error", {"goal": label, "leg": "inside"})
+		_end_operation()
 		return
-	await _goto_cell(outside, "%s_outside" % label)
-	if state.get_node_or_null("Error") != null:
+	if not await _goto_cell_body(outside, "%s_outside" % label):
 		_log("gate_error", {"goal": label, "leg": "outside"})
+		_end_operation()
 		return
 	_log("gate_crossing", {"goal": label, "from": inside, "to": outside})
+	_end_operation()
 
 
 # One direction action held for one physics tick establishes facing through the
@@ -243,13 +262,21 @@ func _face_via_input(facing: int) -> bool:
 	return player().facing == facing
 
 
-func _walk_to(target: Vector2, label: String, timeout_ms := WALK_TIMEOUT_MS) -> bool:
+func _begin_operation() -> void:
 	_busy = true
 	_set_state("Busy")
+
+
+func _end_operation() -> void:
+	_busy = false
+	if status != null and state.get_child_count() > 0:
+		status.text = "MCP acceptance: %s" % state.get_child(0).name
+
+
+func _walk_to(target: Vector2, label: String, timeout_ms := WALK_TIMEOUT_MS) -> bool:
 	var world := _world()
 	if world == null:
 		_log("walk_error", {"goal": label, "error": "no world"})
-		_busy = false
 		_set_state("Error")
 		return false
 	var start_cell: Vector2i = WorldMath.world_to_grid(player().global_position)
@@ -258,7 +285,6 @@ func _walk_to(target: Vector2, label: String, timeout_ms := WALK_TIMEOUT_MS) -> 
 	if path.is_empty():
 		_log("walk_error", {"goal": label, "error": "no path", "from": start_cell, "to": target_cell})
 		_release_moves()
-		_busy = false
 		_set_state("Error")
 		return false
 	for cell in path:
@@ -267,11 +293,9 @@ func _walk_to(target: Vector2, label: String, timeout_ms := WALK_TIMEOUT_MS) -> 
 			label,
 			timeout_ms,
 		):
-			_busy = false
 			_set_state("Error")
 			return false
 	if not await _seek(target, label, timeout_ms):
-		_busy = false
 		_set_state("Error")
 		return false
 	_release_moves()
@@ -283,7 +307,6 @@ func _walk_to(target: Vector2, label: String, timeout_ms := WALK_TIMEOUT_MS) -> 
 		"route_cells": path.size(),
 		"route": path,
 	})
-	_busy = false
 	return true
 
 
