@@ -20,10 +20,12 @@ const TRUCK_FOOTPRINT := Rect2(33.0, 12.0, 1.0, 1.0)
 const CAMERA_ZOOM := 3.0
 const CAMERA_TOP_PADDING := 96.0
 
+const FARM_PATCH := Rect2i(15, 19, 6, 5)
+
 # HPA-863 v2 terrain: the one ordered, last-writer-wins material table the
 # ground stamper and the collision derivation both read.
 const TERRAIN_RECTS := [
-    {"material": "grass", "rect": Rect2i(0, 0, 48, 40)},
+    {"material": "grass", "rect": Rect2i(0, 0, MAP_SIZE.x, MAP_SIZE.y)},
     {"material": "forest", "rect": Rect2i(0, 0, 48, 3)},
     {"material": "forest", "rect": Rect2i(0, 3, 17, 1)},
     {"material": "forest", "rect": Rect2i(31, 3, 11, 2)},
@@ -46,15 +48,13 @@ const TERRAIN_RECTS := [
     {"material": "path", "rect": Rect2i(22, 20, 1, 2)},
     {"material": "gravel", "rect": Rect2i(25, 15, 17, 2)},
     {"material": "gravel", "rect": Rect2i(31, 11, 5, 5)},
-    {"material": "field", "rect": Rect2i(15, 19, 6, 5)},
+    {"material": "field", "rect": FARM_PATCH},
     {"material": "fallow", "rect": Rect2i(8, 19, 6, 5)},
     {"material": "fallow", "rect": Rect2i(8, 25, 6, 5)},
     {"material": "fallow", "rect": Rect2i(15, 25, 6, 5)},
     {"material": "pier", "rect": Rect2i(23, 33, 2, 3)},
 ]
 const TERRAIN_BLOCKING_MATERIALS: Array[String] = ["bamboo", "forest", "paddy", "reeds", "water"]
-
-const FARM_PATCH := Rect2i(15, 19, 6, 5)
 
 const PERIMETER_BAND_WIDTH := 1.0
 

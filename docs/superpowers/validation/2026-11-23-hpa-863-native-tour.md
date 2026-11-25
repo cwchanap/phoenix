@@ -16,12 +16,12 @@ capture's dimensions before writing it.
   3-kind x stages 2-4 crop grid; the three first-column planted cells are `watered_today` so the
   field carries both wet frame 1 and dry frame 0 soil) and a windowed/English settings fixture
   with tutorial cards disabled.
-- The farm poses teleport the live player; walking is transport only, not a reachability proof.
-  Interaction/reachability stays pinned by the headless, GUT and godot-e2e suites, and the
-  separate MCP Run D log records real-input fence-gate crossings.
-- This set supersedes the Task 4 set: it adds the wet/dry field view and the two dressed bamboo
-  groves. The earlier shadow/pier corrections remain (building contact shadows at their ground
-  root; pier planks in the below-actor `PierDeck`).
+- The farm poses teleport the live player and reset camera smoothing before settling; walking is
+  transport only, not a reachability proof. Interaction/reachability stays pinned by the headless,
+  GUT and godot-e2e suites, and the separate MCP Run D log records real-input fence-gate crossings.
+- This set supersedes the Task 4 set: it adds the wet/dry field view, the two dressed bamboo
+  groves and explicit top/bottom camera-limit captures. The earlier shadow/pier corrections remain
+  (building contact shadows at their ground root; pier planks in the below-actor `PierDeck`).
 - One real E at the reachable farm-truck west-face contact (`32.78,12.72` facing RIGHT) drives to
   town through the real travel overlay and map swap; the town captures are the arrived map.
 - The house root is the derived footprint anchor `(1248,560)`; its art base/doorway aligns with
@@ -35,7 +35,7 @@ capture's dimensions before writing it.
     godot --path . --script res://tests/native_tour/hpa_863_tour.gd
   ```
 
-  Result: exit 0, `TOUR|DONE clean tour=hpa-863`, 16 captures.
+  Result: exit 0, `TOUR|DONE clean tour=hpa-863`, 18 captures.
 
 ## Captures
 
@@ -57,8 +57,10 @@ Committed at `docs/superpowers/validation/hpa-863-tour-captures/`.
 | `hpa863-11-town-centre.png` | town centre | continuous paving, props, villagers, truck |
 | `hpa863-12-town-camera-northeast.png` | town NE edge | paved/grass edge, no tile rim or void |
 | `hpa863-13-town-camera-southwest.png` | town SW edge | paved/grass edge, no tile rim or void |
+| `hpa863-14-farm-camera-top.png` | farm camera top limit | continuous forest/river/lot backdrop to the top edge, no grey void |
 | `hpa863-15-farm-bamboo-west.png` | west grove approach `(4.5,7.5)`, facing UP | three bamboo clumps dress the approved `(3,4,3,3)` blocking footprint; no invisible blockage |
 | `hpa863-16-farm-bamboo-east.png` | east grove approach `(10.5,7.5)`, facing UP | three bamboo clumps dress the approved `(9,4,3,3)` blocking footprint; no invisible blockage |
+| `hpa863-17-farm-camera-bottom.png` | farm camera bottom limit | continuous grass/road/paddy backdrop to the bottom edge, no grey void |
 
 ## Not performed
 

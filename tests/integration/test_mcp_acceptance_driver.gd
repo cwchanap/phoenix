@@ -1,9 +1,9 @@
 extends GutTest
 
-# Focused regression for the HPA-863 MCP evidence driver: a failed walk must
-# stop at the first failed seek, release movement input and leave an Error
-# marker, and a successful interact goto must establish facing through the
-# live Input sampler rather than a direct `player.facing` write.
+# Focused regressions for the HPA-863 MCP evidence driver: playtest storage is
+# isolated, a failed walk stops at the first failed seek, movement input is
+# released, an interact goto holds its busy lock through its final marker, and
+# facing is established through the live Input sampler.
 
 const DriverScene := preload("res://tests/native_tour/mcp_acceptance_driver.tscn")
 const MOVE_ACTIONS: Array[StringName] = [
@@ -17,6 +17,8 @@ func after_each() -> void:
     for action in MOVE_ACTIONS:
         Input.action_release(action)
     OS.unset_environment("PHOENIX_MCP_LOG")
+    OS.unset_environment("PHOENIX_SAVE_PATH")
+    OS.unset_environment("PHOENIX_SETTINGS_PATH")
     driver = null
 
 
@@ -51,6 +53,67 @@ func _start_driver() -> Node:
         return null
     driver._world().clock_running = false
     return driver
+
+
+func test_driver_configures_isolated_playtest_storage() -> void:
+    OS.set_environment("PHOENIX_SAVE_PATH", SaveRepository.DEFAULT_PATH)
+    OS.set_environment("PHOENIX_SETTINGS_PATH", UiSettings.DEFAULT_PATH)
+    OS.set_environment("PHOENIX_MCP_LOG", "user://mcp-driver-gut.jsonl")
+    driver = DriverScene.instantiate()
+    add_child_autoqfree(driver)
+    await _wait_frames(3)
+    assert_not_null(driver.app, "driver app must instantiate")
+    if driver.app == null:
+        return
+    var repository := driver.app._save_repository as SaveRepository
+    var settings := driver.app._settings as UiSettings
+    assert_not_null(repository, "the app must receive a save repository")
+    assert_not_null(settings, "the app must receive settings")
+    if repository == null or settings == null:
+        return
+    assert_eq(
+        repository._path,
+        "res://test_output/mcp_acceptance/playtest-save.json",
+        "the MCP playtest uses its own save file",
+    )
+    assert_eq(
+        settings._path,
+        "res://test_output/mcp_acceptance/playtest-settings.cfg",
+        "the MCP playtest uses its own settings file",
+    )
+    assert_ne(repository._path, SaveRepository.DEFAULT_PATH)
+    assert_ne(settings._path, UiSettings.DEFAULT_PATH)
+
+
+func test_interact_goto_holds_busy_until_marker() -> void:
+    var started := await _start_driver()
+    if started == null:
+        return
+    var goal: Dictionary = driver._farm_pose(
+        WorldContract.BED_CELL,
+        WorldContract.bed_contact_footprint(),
+        2,
+        "bed",
+    )
+    driver._goto_interact(goal)
+    var unlocked_before_marker := false
+    var frames := 0
+    while (
+        driver.state.get_node_or_null("At_bed") == null
+        and driver.state.get_node_or_null("Error") == null
+        and frames < 600
+    ):
+        if not driver._busy:
+            unlocked_before_marker = true
+            break
+        await get_tree().physics_frame
+        frames += 1
+    assert_false(
+        unlocked_before_marker,
+        "an interact goto must hold its busy lock through the final marker",
+    )
+    assert_not_null(driver.state.get_node_or_null("At_bed"))
+    assert_false(driver._busy, "a completed interact goto releases the busy lock")
 
 
 func test_failed_seek_propagates_and_releases_movement_input() -> void:
