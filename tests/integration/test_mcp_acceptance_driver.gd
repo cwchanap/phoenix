@@ -83,6 +83,10 @@ func test_driver_configures_isolated_playtest_storage() -> void:
     )
     assert_ne(repository._path, SaveRepository.DEFAULT_PATH)
     assert_ne(settings._path, UiSettings.DEFAULT_PATH)
+    assert_eq(repository.save({"probe": true}), OK, "the isolated save directory must be writable")
+    assert_eq(settings.set_tutorial_cards(false), OK, "the isolated settings directory must be writable")
+    assert_true(FileAccess.file_exists(repository._path))
+    assert_true(FileAccess.file_exists(settings._path))
 
 
 func test_interact_goto_holds_busy_until_marker() -> void:
