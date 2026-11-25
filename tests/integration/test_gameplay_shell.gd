@@ -6893,13 +6893,16 @@ func _test_sprite_bounds(sprite: Sprite2D) -> Rect2:
     bounds = bounds.expand(transform * (rect.position + Vector2(0.0, rect.size.y)))
     return bounds
 
-## Godot draws Y-sorted siblings in ascending Y order, so equal-parent sort
-## keys pin the actual draw order — not just coordinates.
+## Godot draws Y-sorted siblings in ascending Y order at equal Z, so
+## equal-parent sort keys at equal Z pin the actual draw order — not just
+## coordinates.
 func _assert_y_sorted_with_player(world: WorldShell, sort_node: Node2D, label: String) -> void:
     var entities := world._map.get_node("Entities") as Node2D
     assert_true(entities.y_sort_enabled, "Entities draws its children Y-sorted")
     assert_same(sort_node.get_parent(), entities, "%s sorts as an Entities child" % label)
     assert_same(world.player.get_parent(), entities, "the player sorts as an Entities child")
+    assert_eq(sort_node.z_index, world.player.z_index, "%s shares the player Z layer so Y decides" % label)
+    assert_eq(sort_node.z_as_relative, world.player.z_as_relative, "%s shares the player Z relativity" % label)
 
 func _assert_pose_overlaps(world: WorldShell, prop_name: String) -> void:
     var prop_sprite := _occluder_sprite(world, prop_name)
