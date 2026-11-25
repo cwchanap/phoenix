@@ -39,6 +39,8 @@ func _ready() -> void:
 	var absolute := ProjectSettings.globalize_path(log_path)
 	var directory := absolute.get_base_dir()
 	DirAccess.make_dir_recursive_absolute(directory)
+	var playtest_directory := ProjectSettings.globalize_path(PLAYTEST_SAVE_PATH).get_base_dir()
+	DirAccess.make_dir_recursive_absolute(playtest_directory)
 	log_file = FileAccess.open(log_path, FileAccess.WRITE)
 	_build_ui()
 	app = APP_SCENE.instantiate()
