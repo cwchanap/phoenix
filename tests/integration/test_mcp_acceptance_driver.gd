@@ -208,6 +208,30 @@ func test_unreachable_goto_keeps_error_marker() -> void:
         assert_false(Input.is_action_pressed(action), "%s must be released" % action)
 
 
+func test_yard_west_and_east_gate_routes_cross_their_gate_cells() -> void:
+    var started := await _start_driver()
+    if started == null:
+        return
+    var west_path: Array[Vector2i] = driver._path(Vector2i(19, 10), Vector2i(17, 10))
+    assert_true(
+        west_path.has(Vector2i(18, 10)),
+        "the west-yard route must cross the approved (18,10) gate",
+    )
+    var east_path: Array[Vector2i] = driver._path(Vector2i(29, 11), Vector2i(31, 11))
+    assert_true(
+        east_path.has(Vector2i(30, 11)),
+        "the east-yard route must cross the approved (30,11) gate",
+    )
+    assert_false(
+        WorldContract.fence_cells().has(Vector2i(18, 10)),
+        "the west-yard gate cell must not carry a fence",
+    )
+    assert_false(
+        WorldContract.fence_cells().has(Vector2i(30, 11)),
+        "the east-yard gate cell must not carry a fence",
+    )
+
+
 func test_interact_goto_establishes_facing_through_input() -> void:
     var started := await _start_driver()
     if started == null:

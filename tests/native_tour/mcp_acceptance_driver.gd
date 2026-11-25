@@ -89,7 +89,8 @@ func _build_ui() -> void:
 		"WalkShop", "WalkInert", "WalkTownTruck", "WalkSouthWest",
 		"WalkNorthEast", "WalkTownWest", "WalkTownEast", "WalkTownCentre",
 		"WalkBambooA", "WalkBambooB",
-		"WalkUnreachable", "CrossYardSouthGate", "CrossFieldEastGate",
+		"WalkUnreachable", "CrossYardWestGate", "CrossYardEastGate",
+		"CrossYardSouthGate", "CrossFieldEastGate",
 	]:
 		var button := Button.new()
 		button.name = action_name
@@ -165,6 +166,10 @@ func _on_button(action_name: String) -> void:
 			_goto_cell(Vector2i(10, 7), "bamboo_b")
 		"WalkUnreachable":
 			_goto_cell(Vector2i(999, 999), "unreachable")
+		"CrossYardWestGate":
+			_cross_gate(Vector2i(19, 10), Vector2i(17, 10), "yard_west_gate")
+		"CrossYardEastGate":
+			_cross_gate(Vector2i(29, 11), Vector2i(31, 11), "yard_east_gate")
 		"CrossYardSouthGate":
 			_cross_gate(Vector2i(23, 13), Vector2i(23, 16), "yard_south_gate")
 		"CrossFieldEastGate":
