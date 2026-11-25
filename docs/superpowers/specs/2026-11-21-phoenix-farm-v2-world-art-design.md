@@ -1,10 +1,10 @@
 # HPA-863 — Farm map v2 and refreshed world art: design specification
 
-**Status:** Proposed; documentation-only draft PR. No gameplay implementation or verification is claimed here.
+**Status:** Implemented on `plan/hpa-863-farm-map-v2-world-art`; implementation and acceptance evidence are recorded in the [validation ledger](../validation/2026-11-23-hpa-863-acceptance.md).
 **Issue:** https://linear.app/cwchanap/issue/HPA-863/build-the-bigger-farm-map-and-show-the-refreshed-world-art
 **Repository/base inspected:** cwchanap/phoenix, main b14a3756e54c9949ca437c9f9ecfe0598140dd35 (2026-11-21 local).
 **Dependency status:** HPA-861 (art) and HPA-743 (contact-first interaction/backdrop) are Done. There are no open Phoenix PRs at planning time.
-**Delivery:** One implementation PR for HPA-863: extend this draft PR, rather than opening another PR. All new art was scoped to HPA-861; HPA-863 only integrates its committed outputs.
+**Delivery:** One implementation PR for HPA-863: extend this PR, rather than opening another PR. All new art was scoped to HPA-861; HPA-863 only integrates its committed outputs.
 
 ## Outcome and visual source of truth
 

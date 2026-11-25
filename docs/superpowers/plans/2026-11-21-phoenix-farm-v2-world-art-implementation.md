@@ -1,10 +1,10 @@
 # HPA-863 — Farm map v2 and refreshed world art: implementation plan
 
-**Status:** Planning only; not implemented or verified. No acceptance gate is complete.
+**Status:** Implemented on `plan/hpa-863-farm-map-v2-world-art`; implementation and acceptance evidence are recorded in the [validation ledger](../validation/2026-11-23-hpa-863-acceptance.md). The GitHub verify, GdUnit4 and godot-e2e lanes are green; the local combined godot-e2e timing caveat is retained in the ledger.
 **Linear:** https://linear.app/cwchanap/issue/HPA-863/build-the-bigger-farm-map-and-show-the-refreshed-world-art
 **Design:** [HPA-863 design spec](../specs/2026-11-21-phoenix-farm-v2-world-art-design.md)
 **Baseline:** main b14a3756e54c9949ca437c9f9ecfe0598140dd35, checked 2026-11-22.
-**Delivery:** One ticket = one PR (#48). Implement on this **same** draft PR; do not open a separate implementation PR. All original art generation remains under completed HPA-861. Do not generate new art or SFX inside HPA-863.
+**Delivery:** One ticket = one PR (#48). Implement on this **same** PR; do not open a separate implementation PR. All original art generation remains under completed HPA-861. Do not generate new art or SFX inside HPA-863.
 
 ## Preflight and constraints
 
@@ -81,17 +81,17 @@ Read WorldContract, WorldMath, FarmMap, FarmView, FarmActionEffects, FarmMap.tsc
 
 ## End-to-end acceptance criteria
 
-- [ ] **Source and stamping:** ONE ordered manifest generates all 35 accepted farm TileSet atlas sources (1,542 tiles), static 48x40 Ground and camera Backdrop via the mandatory headless stamper. The drift smoke compares generated TileSet IDs and cells; last-writer materials, posmod phase/multi-junction selection, clamped edge continuation and no runtime JSON work correctly.
-- [ ] **Geometry/reach:** full 1x1 shipping-bin footprint at (22,19), same approved 30-cell plot, door/truck/arrival, 28 ordered terrains, 12 fence runs and 85 blocking fence sprites **all authored atomically** with their contract colliders; road/pier open, 1,129 coarse cells vs 1,127 excluding bin/truck, existing footprint-aware flood-fill proves reachability, and test-local iso-weighted AStarGrid2D pins bin ~3.28-3.35 s / truck ~3.24-3.28 s using accessible contact stances.
-- [ ] **Native MCP e2e:** app-driven walk through field/yard, Space farm action, E door/bin/truck, town round trip and inert E refusal all work via MCP, with recorded tool steps.
-- [ ] **1080p visual:** MCP screenshot comparisons to approved mockup/blockouts of door, field, storehouse, town and camera extremes show continuous grass/paths/paving/water, props grounded, distinct crops/wet soil, no grey void, correct depth/fade.
-- [ ] **Regression:** GUT, headless, GdUnit4, godot-e2e and CI green (Promising/Heart included); explicitly update all HPA-743 shipping west-face GUT/e2e fixtures to reachable faces, verify legal bin occlusion/anchor contacts, and fail rather than return early on unreachable preconditions. MCP scenario and literal suite runs recorded separately.
-- [ ] **Town and export:** TownMap Ground AND Backdrop use town_tileset.tres with four-phase grass/paving/road and no farm source-ID dependence; obsolete GameMap._fill_backdrop and WorldContract.BACKDROP_* removed. Accepted live textures stay outside the excluded review folder; a Linux headless CI probe reads them and the farm/town scenes **from the macOS .pck** extracted to an isolated temp directory. Provenance PNGs remain excluded/.gdignore-marked.
-- [ ] **Save policy:** v2 save Continue restores to new farm spawn; old saves reject without migration.
-- [ ] **Maintenance/evidence:** accepted art and sources organized, unused assets removed only after reference search, docs updated, one concise validation ledger with actual commit/test/export/screenshot evidence; no second PR, runtime framework or new art/SFX.
+- [x] **Source and stamping:** ONE ordered manifest generates all 35 accepted farm TileSet atlas sources (1,542 tiles), static 48x40 Ground and camera Backdrop via the mandatory headless stamper. The drift smoke compares generated TileSet IDs and cells; last-writer materials, posmod phase/multi-junction selection, clamped edge continuation and no runtime JSON work correctly.
+- [x] **Geometry/reach:** full 1x1 shipping-bin footprint at (22,19), same approved 30-cell plot, door/truck/arrival, 28 ordered terrains, 12 fence runs and 85 blocking fence sprites **all authored atomically** with their contract colliders; road/pier open, 1,129 coarse cells vs 1,127 excluding bin/truck, existing footprint-aware flood-fill proves reachability, and test-local iso-weighted AStarGrid2D pins bin ~3.28-3.35 s / truck ~3.24-3.28 s using accessible contact stances.
+- [x] **Native MCP e2e:** app-driven walk through field/yard, Space farm action, E door/bin/truck, town round trip and inert E refusal all work via MCP, with recorded tool steps. Run E additionally crosses the west, east, south yard and field gates through real movement input.
+- [x] **1080p visual:** MCP screenshot comparisons to approved mockup/blockouts of door, field, storehouse, town and camera extremes show continuous grass/paths/paving/water, props grounded, distinct crops/wet soil, no grey void, correct depth/fade.
+- [x] **Regression:** GUT, headless, GdUnit4, godot-e2e and CI green (Promising/Heart included); explicitly update all HPA-743 shipping west-face GUT/e2e fixtures to reachable faces, verify legal bin occlusion/anchor contacts, and fail rather than return early on unreachable preconditions. MCP scenario and literal suite runs recorded separately. The local combined godot-e2e lane timing caveat is recorded in the ledger.
+- [x] **Town and export:** TownMap Ground AND Backdrop use town_tileset.tres with four-phase grass/paving/road and no farm source-ID dependence; obsolete GameMap._fill_backdrop and WorldContract.BACKDROP_* removed. Accepted live textures stay outside the excluded review folder; a Linux headless CI probe reads them and the farm/town scenes **from the macOS .pck** extracted to an isolated temp directory. Provenance PNGs remain excluded/.gdignore-marked.
+- [x] **Save policy:** v2 save Continue restores to new farm spawn; old saves reject without migration.
+- [x] **Maintenance/evidence:** accepted art and sources organized, unused assets removed only after reference search, docs updated, one concise validation ledger with actual commit/test/export/screenshot evidence; no second PR, runtime framework or new art/SFX.
 
 ## Explicit non-goals
 
 No lot construction, storehouse inventory, farmable fallow plots, town re-layout, save migration, procedural world generation, runtime map import/render system, second-platform acceptance, human acceptance gate, screenshot-golden CI check or full MCP replay of unchanged season simulation.
 
-**This draft contains only the plan. No code, suite, native screenshot or export validation is being claimed as complete.**
+**This plan is implemented on this branch. Acceptance evidence, including the reference comparison and Run E gate crossings, is recorded in the validation ledger; the local combined godot-e2e timing caveat remains explicit there.**
