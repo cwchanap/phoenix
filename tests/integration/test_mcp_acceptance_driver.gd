@@ -6,6 +6,10 @@ extends GutTest
 # facing is established through the live Input sampler.
 
 const DriverScene := preload("res://tests/native_tour/mcp_acceptance_driver.tscn")
+const DriverScript := preload("res://tests/native_tour/mcp_acceptance_driver.gd")
+const TEST_STORAGE_DIR := "res://test_output/mcp_acceptance_driver_gut"
+const TEST_SAVE_PATH := TEST_STORAGE_DIR + "/playtest-save.json"
+const TEST_SETTINGS_PATH := TEST_STORAGE_DIR + "/playtest-settings.cfg"
 const MOVE_ACTIONS: Array[StringName] = [
     &"move_left", &"move_right", &"move_up", &"move_down",
 ]
@@ -20,6 +24,16 @@ func after_each() -> void:
     OS.unset_environment("PHOENIX_SAVE_PATH")
     OS.unset_environment("PHOENIX_SETTINGS_PATH")
     driver = null
+    _clean_test_storage()
+
+
+func _clean_test_storage() -> void:
+    for path in [TEST_SAVE_PATH, TEST_SETTINGS_PATH]:
+        if FileAccess.file_exists(path):
+            DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+    var directory := ProjectSettings.globalize_path(TEST_STORAGE_DIR)
+    if DirAccess.dir_exists_absolute(directory):
+        DirAccess.remove_absolute(directory)
 
 
 func _wait_frames(count: int) -> void:
@@ -56,10 +70,30 @@ func _start_driver() -> Node:
 
 
 func test_driver_configures_isolated_playtest_storage() -> void:
+    _clean_test_storage()
     OS.set_environment("PHOENIX_SAVE_PATH", SaveRepository.DEFAULT_PATH)
     OS.set_environment("PHOENIX_SETTINGS_PATH", UiSettings.DEFAULT_PATH)
     OS.set_environment("PHOENIX_MCP_LOG", "user://mcp-driver-gut.jsonl")
+    assert_eq(
+        DriverScript.PLAYTEST_SAVE_PATH,
+        "res://test_output/mcp_acceptance/playtest-save.json",
+        "the native MCP playtest keeps its checkout-local save file",
+    )
+    assert_eq(
+        DriverScript.PLAYTEST_SETTINGS_PATH,
+        "res://test_output/mcp_acceptance/playtest-settings.cfg",
+        "the native MCP playtest keeps its checkout-local settings file",
+    )
+    assert_ne(DriverScript.PLAYTEST_SAVE_PATH, SaveRepository.DEFAULT_PATH)
+    assert_ne(DriverScript.PLAYTEST_SETTINGS_PATH, UiSettings.DEFAULT_PATH)
     driver = DriverScene.instantiate()
+    assert_true(
+        driver.has_method("configure_storage_dir"),
+        "the driver must accept temporary storage before entering the tree",
+    )
+    if not driver.has_method("configure_storage_dir"):
+        return
+    driver.call("configure_storage_dir", TEST_STORAGE_DIR)
     add_child_autoqfree(driver)
     await _wait_frames(3)
     assert_not_null(driver.app, "driver app must instantiate")
@@ -71,22 +105,16 @@ func test_driver_configures_isolated_playtest_storage() -> void:
     assert_not_null(settings, "the app must receive settings")
     if repository == null or settings == null:
         return
-    assert_eq(
-        repository._path,
-        "res://test_output/mcp_acceptance/playtest-save.json",
-        "the MCP playtest uses its own save file",
-    )
-    assert_eq(
-        settings._path,
-        "res://test_output/mcp_acceptance/playtest-settings.cfg",
-        "the MCP playtest uses its own settings file",
-    )
+    assert_eq(repository._path, TEST_SAVE_PATH, "the test uses a temporary save file")
+    assert_eq(settings._path, TEST_SETTINGS_PATH, "the test uses a temporary settings file")
+    assert_ne(repository._path, DriverScript.PLAYTEST_SAVE_PATH)
+    assert_ne(settings._path, DriverScript.PLAYTEST_SETTINGS_PATH)
     assert_ne(repository._path, SaveRepository.DEFAULT_PATH)
     assert_ne(settings._path, UiSettings.DEFAULT_PATH)
-    assert_eq(repository.save({"probe": true}), OK, "the isolated save directory must be writable")
-    assert_eq(settings.set_tutorial_cards(false), OK, "the isolated settings directory must be writable")
-    assert_true(FileAccess.file_exists(repository._path))
-    assert_true(FileAccess.file_exists(settings._path))
+    assert_eq(repository.save({"probe": true}), OK, "the temporary save directory must be writable")
+    assert_eq(settings.set_tutorial_cards(false), OK, "the temporary settings directory must be writable")
+    assert_true(FileAccess.file_exists(TEST_SAVE_PATH))
+    assert_true(FileAccess.file_exists(TEST_SETTINGS_PATH))
 
 
 func test_interact_goto_holds_busy_until_marker() -> void:
