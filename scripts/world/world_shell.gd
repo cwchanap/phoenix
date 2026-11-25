@@ -203,9 +203,8 @@ func _process(delta: float) -> void:
 
 ## HPA-743 shared foreground fade: props the player can walk behind sink
 ## toward FADE_ALPHA while their drawn bounds overlap the player's and their
-## root sorts in front (Player is Entities child 0 for exact Y ties). The
-## group is queried per frame — no stored references survive map swaps — and
-## only each prop's own Sprite2D moves; the sibling Shadow stays untouched.
+## sort key is in front (Player is Entities child 0 for exact Y ties). The
+## group is queried per frame — no stored references survive map swaps.
 func _update_occluder_fade(delta: float) -> void:
     if _map == null:
         return
@@ -219,20 +218,20 @@ func _update_occluder_fade(delta: float) -> void:
         var sprite := prop.get_node_or_null("Sprite2D") as Sprite2D
         if sprite == null:
             continue
+        var fade_sort_y := prop.global_position.y
         if _multi_cell_occluders.has(prop.name):
             var info: Dictionary = _multi_cell_occluders[prop.name]
             var anchor: Vector2 = info["anchor"]
-            var sort_y := anchor.y
-            if WorldMath.is_in_front_of_footprint(player_grid, info["footprint"]):
-                sort_y = minf(anchor.y, player_y - 1.0)
-            var dy := anchor.y - sort_y
-            prop.position = Vector2(anchor.x, sort_y)
-            sprite.position.y = dy
-            var shadow := prop.get_node_or_null("Shadow") as Node2D
-            if shadow != null:
-                shadow.position.y = dy
+            var proxy := prop.get_parent() as Node2D
+            if proxy != null and String(proxy.name) == "%sSortProxy" % prop.name:
+                var sort_y := anchor.y
+                if WorldMath.is_in_front_of_footprint(player_grid, info["footprint"]):
+                    sort_y = minf(anchor.y, player_y - 1.0)
+                proxy.position = Vector2(anchor.x, sort_y)
+                prop.position = Vector2(0.0, anchor.y - sort_y)
+                fade_sort_y = sort_y
         var fades := (
-            prop.global_position.y >= player_y
+            fade_sort_y >= player_y
             and _sprite_global_bounds(sprite).intersects(player_bounds)
         )
         sprite.self_modulate.a = move_toward(

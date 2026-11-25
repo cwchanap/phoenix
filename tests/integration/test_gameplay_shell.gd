@@ -297,13 +297,19 @@ func test_entities_is_farm_view_and_only_y_sort_node() -> void:
     if enabled_y_sort_nodes.size() == 1:
         assert_eq(enabled_y_sort_nodes[0], entities)
 
-## Contract-driven authored order: the 47 blocking prop roots in
-## WorldContract.blocking_props() order, then all 85 fence roots, then the 30
-## FarmView crop roots. The Player is reparented to index 0 at map load.
+## Contract-driven runtime order: the 47 blocking-prop sort nodes in
+## WorldContract.blocking_props() order (multi-cell props use SortProxy parents),
+## then all 85 fence roots, then the 30 FarmView crop roots. The Player is
+## reparented to index 0 at map load.
 func _farm_static_entity_names() -> Array:
     var names: Array = ["Player"]
+    var multi_cell := WorldContract.multi_cell_occluders()
     for entry in WorldContract.blocking_props():
-        names.append(entry["node"])
+        var node_name: String = entry["node"]
+        if multi_cell.has(node_name):
+            names.append("%sSortProxy" % node_name)
+        else:
+            names.append(node_name)
     var materials := {}
     for run in WorldContract.fence_runs():
         for index in int(run["length"]):
@@ -6865,8 +6871,14 @@ const TOWN_NON_OCCLUDER_NAMES := [
     "VillagerResident",
 ]
 
+func _occluder_root(world: WorldShell, prop_name: String) -> Node2D:
+    return world._map.find_child(prop_name, true, false) as Node2D
+
 func _occluder_sprite(world: WorldShell, prop_name: String) -> Sprite2D:
-    return world._map.get_node("Entities/%s/Sprite2D" % prop_name) as Sprite2D
+    var root := _occluder_root(world, prop_name)
+    if root == null:
+        return null
+    return root.get_node("Sprite2D") as Sprite2D
 
 func _set_pose(world: WorldShell, position: Vector2, facing := WorldMath.Facing.DOWN) -> void:
     world.player.global_position = position
@@ -6896,7 +6908,7 @@ func test_foreground_occluders_opt_into_player_occluder_group_and_fx_stay_out() 
         return
     assert_false(world.player.is_in_group("player_occluder"), "the player stays out")
     for prop_name in FARM_OCCLUDER_NAMES:
-        var root := world._map.get_node("Entities/%s" % prop_name) as Node2D
+        var root := _occluder_root(world, prop_name)
         assert_not_null(root, prop_name)
         if root == null:
             continue
@@ -6923,7 +6935,7 @@ func test_foreground_occluders_opt_into_player_occluder_group_and_fx_stay_out() 
     )
     await _drive_to_town(world)
     for prop_name in TOWN_OCCLUDER_NAMES:
-        var town_root := world._map.get_node("Entities/%s" % prop_name) as Node2D
+        var town_root := _occluder_root(world, prop_name)
         assert_not_null(town_root, prop_name)
         if town_root == null:
             continue
@@ -6942,6 +6954,8 @@ func test_house_fades_behind_the_west_lawn_and_restores_south_of_the_tip() -> vo
         return
     var house_sprite := _occluder_sprite(world, "House")
     var house_root := house_sprite.get_parent() as Node2D
+    var house_sort := house_root.get_parent() as Node2D
+    assert_eq(String(house_sort.name), "HouseSortProxy")
     # The bed-cell spawn sits at the exact Y tie with the house tip, so settle
     # the fade fully opaque from a clear pose before measuring the ramp.
     _set_pose(world, WorldMath.grid_to_world(Vector2(0.5, 0.5)))
@@ -6962,7 +6976,7 @@ func test_house_fades_behind_the_west_lawn_and_restores_south_of_the_tip() -> vo
     # A distant grouped occluder stays fully opaque at the same pose.
     assert_almost_eq(_occluder_sprite(world, "Persimmon").self_modulate.a, 1.0, 0.001)
     assert_almost_eq(
-        (world._map.get_node("Entities/House/Shadow") as Sprite2D).self_modulate.a,
+        (_occluder_root(world, "House").get_node("Shadow") as Sprite2D).self_modulate.a,
         1.0, 0.001, "the sibling Shadow never fades",
     )
     # A real southern-face contact sorts the player in front of the house
@@ -6978,7 +6992,7 @@ func test_house_fades_behind_the_west_lawn_and_restores_south_of_the_tip() -> vo
     _assert_pose_overlaps(world, "House")
     world._process(1.0)
     assert_lt(
-        house_root.position.y,
+        house_sort.position.y,
         world.player.position.y,
         "front-door contact sorts the player in front of the farmhouse",
     )
@@ -6992,6 +7006,13 @@ func test_house_fades_behind_the_west_lawn_and_restores_south_of_the_tip() -> vo
         ),
         0.001,
         "front-edge sort override preserves the drawn sprite's ground anchor",
+    )
+    assert_lte(
+        house_root.global_position.distance_to(
+            WorldMath.footprint_ground_anchor(WorldContract.HOUSE_FOOTPRINT)
+        ),
+        0.001,
+        "front-edge sort override preserves the house root's ground contact",
     )
     # Physically south of the tip anchor the player still sorts in front and
     # the house restores its authored root anchor.
@@ -7008,6 +7029,8 @@ func test_multi_cell_props_sort_player_in_front_on_all_front_faces_and_fade_behi
         var footprint := WorldContract.prop_footprint(prop_name)
         var sprite := _occluder_sprite(world, prop_name)
         var root := sprite.get_parent() as Node2D
+        var sort_proxy := root.get_parent() as Node2D
+        assert_eq(String(sort_proxy.name), "%sSortProxy" % prop_name)
         var anchor := WorldMath.footprint_ground_anchor(footprint)
         var rows := _face_rows(footprint)
         # SW and SE front faces: player sorts in front and prop stays opaque.
@@ -7019,7 +7042,7 @@ func test_multi_cell_props_sort_player_in_front_on_all_front_faces_and_fade_behi
             _assert_pose_overlaps(world, prop_name)
             world._process(1.0)
             assert_lt(
-                root.position.y,
+                sort_proxy.position.y,
                 world.player.position.y,
                 "%s %s sorts player in front" % [prop_name, face_row["side"]],
             )
@@ -7031,6 +7054,10 @@ func test_multi_cell_props_sort_player_in_front_on_all_front_faces_and_fade_behi
                 sprite.global_position.distance_to(anchor), 0.001,
                 "%s %s preserves drawn ground anchor" % [prop_name, face_row["side"]],
             )
+            assert_lte(
+                root.global_position.distance_to(anchor), 0.001,
+                "%s %s preserves the root ground contact" % [prop_name, face_row["side"]],
+            )
         # Behind NW wall: prop restores its authored anchor, sorts in front, and fades.
         _set_pose(
             world,
@@ -7040,8 +7067,8 @@ func test_multi_cell_props_sort_player_in_front_on_all_front_faces_and_fade_behi
         )
         _assert_pose_overlaps(world, prop_name)
         world._process(1.0)
-        assert_lte(root.position.distance_to(anchor), 0.001, "%s behind restores anchor" % prop_name)
-        assert_gt(root.position.y, world.player.position.y, "%s behind sorts over player" % prop_name)
+        assert_lte(root.global_position.distance_to(anchor), 0.001, "%s behind restores anchor" % prop_name)
+        assert_gt(sort_proxy.position.y, world.player.position.y, "%s behind sorts over player" % prop_name)
         assert_almost_eq(sprite.self_modulate.a, 0.45, 0.001, "%s behind fades" % prop_name)
 
 func test_shipping_bin_fades_behind_and_stays_opaque_in_front() -> void:

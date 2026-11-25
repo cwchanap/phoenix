@@ -370,9 +370,10 @@ func _check_prompt(shot_name: String, expected_label: String) -> void:
 func _occluder_alpha(prop_name: String) -> float:
 	if _world == null or _world._map == null:
 		return -1.0
-	var sprite := _world._map.get_node_or_null(
-		"Entities/%s/Sprite2D" % prop_name
-	) as Sprite2D
+	var root := _world._map.find_child(prop_name, true, false) as Node2D
+	var sprite: Sprite2D = null
+	if root != null:
+		sprite = root.get_node_or_null("Sprite2D") as Sprite2D
 	if sprite == null:
 		_failures.append("%s: occluder sprite missing" % prop_name)
 		return -1.0
