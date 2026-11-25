@@ -6893,6 +6893,14 @@ func _test_sprite_bounds(sprite: Sprite2D) -> Rect2:
     bounds = bounds.expand(transform * (rect.position + Vector2(0.0, rect.size.y)))
     return bounds
 
+## Godot draws Y-sorted siblings in ascending Y order, so equal-parent sort
+## keys pin the actual draw order — not just coordinates.
+func _assert_y_sorted_with_player(world: WorldShell, sort_node: Node2D, label: String) -> void:
+    var entities := world._map.get_node("Entities") as Node2D
+    assert_true(entities.y_sort_enabled, "Entities draws its children Y-sorted")
+    assert_same(sort_node.get_parent(), entities, "%s sorts as an Entities child" % label)
+    assert_same(world.player.get_parent(), entities, "the player sorts as an Entities child")
+
 func _assert_pose_overlaps(world: WorldShell, prop_name: String) -> void:
     var prop_sprite := _occluder_sprite(world, prop_name)
     assert_true(
@@ -6956,6 +6964,7 @@ func test_house_fades_behind_the_west_lawn_and_restores_south_of_the_tip() -> vo
     var house_root := house_sprite.get_parent() as Node2D
     var house_sort := house_root.get_parent() as Node2D
     assert_eq(String(house_sort.name), "HouseSortProxy")
+    _assert_y_sorted_with_player(world, house_sort, "House")
     # The bed-cell spawn sits at the exact Y tie with the house tip, so settle
     # the fade fully opaque from a clear pose before measuring the ramp.
     _set_pose(world, WorldMath.grid_to_world(Vector2(0.5, 0.5)))
@@ -7031,6 +7040,7 @@ func test_multi_cell_props_sort_player_in_front_on_all_front_faces_and_fade_behi
         var root := sprite.get_parent() as Node2D
         var sort_proxy := root.get_parent() as Node2D
         assert_eq(String(sort_proxy.name), "%sSortProxy" % prop_name)
+        _assert_y_sorted_with_player(world, sort_proxy, prop_name)
         var anchor := WorldMath.footprint_ground_anchor(footprint)
         var rows := _face_rows(footprint)
         # SW and SE front faces: player sorts in front and prop stays opaque.
