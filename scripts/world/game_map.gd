@@ -10,6 +10,22 @@ func camera_bounds() -> Rect2:
 func map_size() -> Vector2i:
 	return Vector2i.ZERO
 
+func _install_sort_proxies(entities: Node2D, occluders: Dictionary) -> void:
+	for prop_name in occluders:
+		var prop := entities.get_node_or_null(prop_name) as Node2D
+		if prop == null or prop.get_parent() != entities:
+			continue
+		var proxy := Node2D.new()
+		proxy.name = "%sSortProxy" % prop_name
+		var child_index := prop.get_index()
+		var prop_position := prop.position
+		entities.remove_child(prop)
+		entities.add_child(proxy)
+		entities.move_child(proxy, child_index)
+		proxy.add_child(prop)
+		proxy.position = prop_position
+		prop.position = Vector2.ZERO
+
 func _fill_collision(
 	static_collision: StaticBody2D,
 	node_name: String,

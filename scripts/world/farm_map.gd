@@ -14,6 +14,7 @@ static var _cached_terrain_rects: Array[Rect2] = []
 @onready var effects: FarmActionEffects = $FarmActionEffects as FarmActionEffects
 
 func _ready() -> void:
+    _install_sort_proxies($Entities as Node2D, WorldContract.multi_cell_occluders())
     var static_collision := $StaticCollision as StaticBody2D
     _fill_collision(static_collision, "HouseCollision", WorldContract.HOUSE_FOOTPRINT)
     _fill_collision(static_collision, "ShippingCollision", WorldContract.SHIPPING_FOOTPRINT)

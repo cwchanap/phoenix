@@ -147,7 +147,9 @@ There is no JavaScript or Tauri runtime in the current checkout.
   crop sprites from session snapshots; it owns no gameplay state. House and
   player roots are bottom-center ground-contact positions
   with child sprites offset upward; they share a z-index and retain
-  scene-tree order for exact-Y ties.
+  scene-tree order for exact-Y ties. Multi-cell occluders sit beneath runtime
+  `<Name>SortProxy` nodes so the proxy can carry a temporary Y-sort key while
+  the logical root stays on its contracted ground contact.
 - `scripts/world/farm_action_effects.gd` (`FarmActionEffects`, a direct
   non-Y-sorted `FarmMap` child at z=5) renders transient farming success FX —
   tool overlays under the Player root, cell strips under itself, the harvest
@@ -476,7 +478,8 @@ mkdir -p build/pack-gate/home
 godot --headless --path . --export-release "macOS" build/Phoenix.zip
 unzip -l build/Phoenix.zip | grep -F "Phoenix.app/Contents/MacOS/Phoenix"
 unzip -p build/Phoenix.zip Phoenix.app/Contents/Resources/Phoenix.pck > build/pack-gate/Phoenix.pck
-HOME="$PWD/build/pack-gate/home" godot --headless --main-pack build/pack-gate/Phoenix.pck \
+cd build/pack-gate
+HOME="$PWD/home" godot --headless --main-pack Phoenix.pck \
   --script res://tools/export_pack_smoke.gd
 ```
 

@@ -159,6 +159,12 @@ func _expect_child_order(node: Node, expected: Array, label: String) -> bool:
             return false
     return true
 
+func _entity_root(entities: Node2D, node_name: String) -> Node2D:
+    var proxy := entities.get_node_or_null("%sSortProxy" % node_name) as Node2D
+    if proxy != null:
+        return proxy.get_node_or_null(node_name) as Node2D
+    return entities.get_node_or_null(node_name) as Node2D
+
 func _within_player_bounds(position: Vector2) -> bool:
     var minimum := WorldContract.PLAYER_HALF_EXTENT
     var maximum := Vector2(WorldContract.MAP_SIZE) - Vector2.ONE * minimum
@@ -587,7 +593,7 @@ func _run() -> void:
     var authored_farm := (load("res://scenes/world/farm_map.tscn") as PackedScene).instantiate()
     var authored_entities := authored_farm.get_node("Entities") as Node2D
     for entry in WorldContract.blocking_props():
-        var authored_prop := authored_entities.get_node_or_null(entry["node"]) as Node2D
+        var authored_prop := _entity_root(authored_entities, entry["node"])
         if not _expect(authored_prop != null, "%s authored blocking prop root" % entry["node"]):
             authored_farm.free()
             return
@@ -601,10 +607,16 @@ func _run() -> void:
     authored_farm.free()
 
     for entry in WorldContract.blocking_props():
-        var prop := entities.get_node_or_null(entry["node"]) as Node2D
+        var prop := _entity_root(entities, entry["node"])
         if not _expect(prop != null, "%s blocking prop root" % entry["node"]):
             return
         var footprint: Rect2 = entry["footprint"]
+        if not _expect_vec2(
+            prop.global_position,
+            WorldMath.footprint_ground_anchor(footprint),
+            "%s runtime root ground anchor" % entry["node"],
+        ):
+            return
         if not _expect_names(prop, ["Shadow", "Sprite2D"], "%s entity" % entry["node"]):
             return
         var shadow := prop.get_node("Shadow") as Sprite2D
@@ -776,7 +788,7 @@ func _run() -> void:
 
     # --- HPA-863 art polish: building shadows and the farmhouse art offset ---
     for node_name in BUILDING_SHADOWS:
-        var building := entities.get_node_or_null(node_name) as Node2D
+        var building := _entity_root(entities, node_name)
         if not _expect(building != null, "%s building root" % node_name):
             return
         var building_shadow := building.get_node("Shadow") as Sprite2D
@@ -788,7 +800,7 @@ func _run() -> void:
         ):
             return
         var effective_shadow := (
-            building.position
+            building.global_position
             + building_shadow.position
             + building_shadow.offset * building_shadow.scale
         )
@@ -799,7 +811,7 @@ func _run() -> void:
         ):
             return
 
-    var house := entities.get_node("House") as Node2D
+    var house := _entity_root(entities, "House")
     if not _expect_vec2(house.scale, Vector2.ONE, "the 224x192 farmhouse uses native scale 1"):
         return
     if not _expect(
@@ -808,13 +820,13 @@ func _run() -> void:
         "farmhouse cutout",
     ):
         return
-    var shipping := entities.get_node("Shipping") as Node2D
+    var shipping := _entity_root(entities, "Shipping")
     if not _expect(
         (shipping.get_node("Sprite2D") as Sprite2D).texture.resource_path == BIN_TEXTURE_PATH,
         "shipping bin cutout",
     ):
         return
-    var truck := entities.get_node("Truck") as Node2D
+    var truck := _entity_root(entities, "Truck")
     if not _expect_vec2(
         truck.position,
         WorldMath.footprint_ground_anchor(WorldContract.TRUCK_FOOTPRINT),
@@ -1413,10 +1425,10 @@ func _run() -> void:
         return
     var town_entity_names := [
         "Player",
-        "Station",
-        "SeedShop",
-        "Cafe",
-        "Market",
+        "StationSortProxy",
+        "SeedShopSortProxy",
+        "CafeSortProxy",
+        "MarketSortProxy",
         "Truck",
         "VillagerShopkeeper",
         "VillagerFarmer",
@@ -1434,11 +1446,11 @@ func _run() -> void:
         {"node": "Market", "texture": TOWN_PROP_TEXTURE_DIR + "market.png", "footprint": TownContract.MARKET_FOOTPRINT},
     ]
     for entry in town_props:
-        var prop := town_entities.get_node(entry.node) as Node2D
+        var prop := _entity_root(town_entities, entry.node)
         if not _expect(prop != null, "town %s entity" % entry.node):
             return
         if not _expect_vec2(
-            prop.position,
+            prop.global_position,
             WorldMath.footprint_ground_anchor(entry.footprint),
             "town %s anchor" % entry.node,
         ):
@@ -1464,7 +1476,7 @@ func _run() -> void:
         ):
             return
 
-    var town_truck := town_entities.get_node("Truck") as Node2D
+    var town_truck := _entity_root(town_entities, "Truck")
     if not _expect_vec2(
         town_truck.position,
         WorldMath.footprint_ground_anchor(TownContract.TRUCK_FOOTPRINT),
