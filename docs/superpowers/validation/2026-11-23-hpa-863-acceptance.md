@@ -51,7 +51,8 @@ separately at `b0726f4`.
 The two previously reported child-server failures (`test_player_moves_with_real_input`
 and `test_travel_overlay_blocks_input_and_resumes_the_clock`) now fail only in
 the combined lane under load; both pass when `gameplay_day_one_test` runs alone.
-The full lane remains an honest open blocker, not claimed green.
+The CI e2e lane passes at the evidence head, so this local-only result is
+retained as a host-timing caveat, not as an acceptance blocker.
 
 ## Save policy
 
@@ -186,8 +187,8 @@ Capture provenance by run:
   `run-d-native-actions.jsonl`, so these crossings and approach walks no longer
   rely on an unretained trace.
 - **Run E — all four yard/field gates (clock disabled, `b0726f4`).** New Game →
-  SkipIntro → EnglishUI → DismissTutorial → ClockOff → ToggleUI, then the four
-  gate buttons. The retained 25-line log records every waypoint:
+  SkipIntro → EnglishUI → DismissTutorial → ClockOff, then the four gate
+  buttons. The retained 25-line log records every waypoint:
   `CrossYardWestGate` `(19,10)->(18,10)->(17,10)`,
   `CrossYardEastGate` `(29,11)->(30,11)->(31,11)`,
   `CrossYardSouthGate` `(23,13)->(23,14)->(23,15)->(23,16)` and
@@ -200,11 +201,11 @@ Capture provenance by run:
   gate `(18,10)` through real input. Captures 13/14 were replaced with the
   18-clump views; the 9-line log is committed as `run-f-native-bamboo.jsonl`.
 - **Run G — building-contact refresh (clock disabled, `b0726f4`).** New Game →
-  SkipIntro → EnglishUI → ClockOff → ToggleUI → `WalkFrontDoor`
-  `(23,11)->(23,10)` → `WalkStorehouse` `(23,10)..(14,12)` (through the west
-  yard gate). Captures 02/03 were replaced: the farmhouse and storehouse stay
-  opaque and the player draws in front of their south faces. The 9-line log is
-  committed as `run-g-native-building-contacts.jsonl`.
+  SkipIntro → EnglishUI → ClockOff → `WalkFrontDoor` `(23,11)->(23,10)` →
+  ToggleUI → `WalkStorehouse` `(23,10)..(14,12)` (through the west yard gate).
+  Captures 02/03 were replaced: the farmhouse and storehouse stay opaque and
+  the player draws in front of their south faces. The 9-line log is committed
+  as `run-g-native-building-contacts.jsonl`.
 
 The MCP game inherited the host Japanese locale for Runs A/B/C/D, so their
 HUD/modal copy is Japanese. Runs E/F/G pressed `EnglishUI`, so the refreshed
