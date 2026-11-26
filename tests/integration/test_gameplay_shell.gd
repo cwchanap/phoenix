@@ -1938,9 +1938,28 @@ func test_bag_empty_bin_line_tracks_live_snapshots_without_closing() -> void:
     assert_true(bag.bin_slot_visible(GameRules.CropKind.TURNIP))
     assert_false(bag.bin_slot_visible(GameRules.CropKind.POTATO))
 
-    hud.render(empty.snapshot())
-    assert_true(bag.visible, "the emptied bin keeps the bag open")
-    assert_true(empty_line.visible, "the line returns once the bin settles")
+    # A real overnight settles the loaded bin. The morning summary owns modal
+    # priority, so acknowledge it before routing the result through the HUD.
+    assert_eq(
+        loaded.sleep(WorldContract.BED_CELL),
+        GameRules.CommandCode.DAY_ADVANCED,
+        "the loaded bin can advance a real day",
+    )
+    assert_eq(
+        loaded.acknowledge_morning_summary(),
+        GameRules.CommandCode.DAY_STARTED,
+        "the settled day needs no summary before the Bag refreshes",
+    )
+    var settled := loaded.snapshot()
+    assert_eq(int(settled["day"]), 2, "the overnight advanced the calendar")
+    assert_eq(
+        int(settled["pending_shipment"][GameRules.crop_key(GameRules.CropKind.TURNIP)]),
+        0,
+        "the overnight settlement ships the pending bin",
+    )
+    hud.render(settled)
+    assert_true(bag.visible, "the settled bin keeps the bag open")
+    assert_true(empty_line.visible, "the line returns once the crops ship overnight")
     assert_false(grid.visible)
     assert_false(bag.bin_payout_visible())
     hud.close_bag()
