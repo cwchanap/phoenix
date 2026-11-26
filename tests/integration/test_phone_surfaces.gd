@@ -919,7 +919,13 @@ func test_morning_diary_rides_a_warm_localized_card() -> void:
 	assert_null(card.find_child("Tile", true, false))
 	assert_null(card.find_child("Stamp", true, false))
 	assert_eq(heading.get_theme_font_size("font_size"), 13)
-	assert_eq(heading.get_theme_color("font_color"), UiStyle.INK_MUTED)
+	var heading_ink := heading.get_theme_color("font_color")
+	var heading_ratio := _contrast_ratio(heading_ink, box.bg_color)
+	assert_gte(
+		heading_ratio, 4.5,
+		"the diary heading meets WCAG AA contrast on its warm card (%.2f:1)"
+			% heading_ratio,
+	)
 	var heading_font := heading.get_theme_font("font") as FontVariation
 	assert_not_null(heading_font)
 	if heading_font != null:

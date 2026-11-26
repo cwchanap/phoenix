@@ -11,6 +11,7 @@ const SAVE_ICON := preload("res://assets/ui/icons/save.png")
 const GROWTH_ICON := preload("res://assets/ui/icons/growth.png")
 const COIN_STACK_ICON := preload("res://assets/ui/icons/coin-stack.png")
 const RAIN_TILE := Color("4d8dff")
+const DIARY_HEADING_INK := Color("806479")
 const SAVE_STATUS_MAX_SHOWN := 2
 const SAVE_STATUS_WIDTH := 420.0
 const SAVE_STATUS_SCROLL_STEP := 30
@@ -373,7 +374,7 @@ func _build() -> void:
 	var diary_column := UiStyle.vbox(2)
 	diary_column.name = "Column"
 	_diary_card.add_child(diary_column)
-	_diary_heading = UiStyle.label("", 13, UiStyle.INK_MUTED, 900)
+	_diary_heading = UiStyle.label("", 13, DIARY_HEADING_INK, 900)
 	_diary_heading.name = "DiaryHeading"
 	diary_column.add_child(_diary_heading)
 	_diary_line = UiStyle.label("", 16, UiStyle.INK, 600)
