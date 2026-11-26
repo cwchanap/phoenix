@@ -113,6 +113,23 @@ func _intro() -> OnboardingOverlay:
 	overlay.render(GameSession.new().snapshot())
 	return overlay
 
+## The prologue mounted inside a real GameHud, above GUT's own layer so the
+## pointer tests exercise the production sibling order instead of a bare canvas.
+func _hud_intro() -> OnboardingOverlay:
+	get_window().size = UiSettings.WINDOW_SIZE
+	var hud := (load("res://scenes/ui/game_hud.tscn") as PackedScene).instantiate() as GameHud
+	assert_not_null(hud)
+	if hud == null:
+		return null
+	hud.layer = 140
+	add_child_autoqfree(hud)
+	var overlay := hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
+	assert_not_null(overlay)
+	if overlay == null:
+		return null
+	overlay.render(GameSession.new().snapshot())
+	return overlay
+
 func _title() -> TitleScreen:
 	return _spawn_panel("res://scenes/ui/title_screen.tscn") as TitleScreen
 
@@ -570,7 +587,7 @@ func test_note_card_stays_through_the_next_page_and_clears_at_the_scene_change()
 	assert_false(card.visible, "the note clears at the scene change")
 
 func test_background_left_click_advances_exactly_one_page() -> void:
-	var overlay := _intro()
+	var overlay := _hud_intro()
 	if overlay == null:
 		return
 	await _settle()
@@ -599,7 +616,7 @@ func test_continue_hit_target_advances_a_dock_hidden_note_page() -> void:
 	assert_eq(overlay.current_page()["page_number"], _page_of(4, 4) + 1)
 
 func test_skip_hit_target_acknowledges_from_a_dock_hidden_page() -> void:
-	var overlay := _intro()
+	var overlay := _hud_intro()
 	if overlay == null:
 		return
 	await _settle()
@@ -607,6 +624,19 @@ func test_skip_hit_target_acknowledges_from_a_dock_hidden_page() -> void:
 	await _click(_opening(overlay).find_child("Skip", true, false) as Button)
 	assert_signal_emit_count(overlay, "intro_acknowledged", 1)
 	assert_eq(overlay.current_page()["page_number"], 1, "Skip does not also step the page")
+
+func test_hud_prologue_enter_advances_and_esc_acknowledges() -> void:
+	var overlay := _hud_intro()
+	if overlay == null:
+		return
+	await _settle()
+	watch_signals(overlay)
+	await _press(&"ui_accept")
+	assert_eq(overlay.current_page()["page_number"], 2)
+	assert_true(_opening(overlay).visible)
+	await _press(&"ui_cancel")
+	assert_signal_emit_count(overlay, "intro_acknowledged", 1)
+	assert_eq(overlay.current_page()["page_number"], 2, "Esc acknowledges without advancing")
 
 func test_clicking_continue_or_skip_never_also_advances_through_the_background() -> void:
 	var overlay := _intro()
