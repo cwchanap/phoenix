@@ -2604,13 +2604,19 @@ func test_morning_summary_save_status_shows_saved_error_and_clears() -> void:
     ) as MorningSummaryPanel
 
     world.hud.set_save_status(&"saved")
-    assert_eq(summary.save_status_text(), "Saved.")
+    assert_eq(summary.save_status_text(), "Progress saved")
+    assert_true(summary.summary_state()["save_badge_visible"])
 
     world.hud.set_save_status(&"error", "Save failed — this morning is not persisted.")
     assert_eq(summary.save_status_text(), "Save failed — this morning is not persisted.")
+    assert_true(summary.summary_state()["save_badge_visible"])
+
+    world.hud.set_save_status(&"saved")
+    assert_eq(summary.save_status_text(), "Progress saved", "error can recover to saved")
 
     world.hud.set_save_status(&"idle")
     assert_eq(summary.save_status_text(), "")
+    assert_false(summary.summary_state()["save_badge_visible"])
 
 func test_summary_snapshot_derives_morning_modal_visibility() -> void:
     var world := _world()
@@ -2672,7 +2678,7 @@ func test_task8_fixture_values_render_in_social_and_morning_panels() -> void:
     assert_eq(String(dialogue.call("gift_chip_value_text", 1)), "+5 ♥")
     assert_true((dialogue.call("gift_chip", 1) as Button).has_focus())
     assert_true((dialogue.call("gift_chip", 2) as Button).disabled)
-    assert_eq(String(dialogue.call("action_text")), "GIVE POTATO")
+    assert_eq(String(dialogue.call("action_text")), "Give Potato")
     hud.close_dialogue()
 
     var summary_snapshot := world._session.snapshot()

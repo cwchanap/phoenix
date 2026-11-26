@@ -544,12 +544,12 @@ func _primary_action_kind() -> StringName:
 func _render_action_caption() -> void:
 	match _primary_action_kind():
 		&"continue":
-			_action_text.text = "CONTINUE"
+			_action_text.text = "Continue"
 		&"gift":
 			var selected_name := tr(GameRules.crop_display_name(_primary_gift_kind()))
-			_action_text.text = tr("GIVE %s") % selected_name.to_upper()
+			_action_text.text = tr("Give %s") % selected_name
 		&"close":
-			_action_text.text = "CLOSE"
+			_action_text.text = "Close"
 
 func _on_action_pressed() -> void:
 	match _primary_action_kind():

@@ -173,11 +173,11 @@ func _build() -> void:
     actions.grow_horizontal = Control.GROW_DIRECTION_BOTH
     actions.grow_vertical = Control.GROW_DIRECTION_BEGIN
     add_child(actions)
-    var new_game := UiStyle.primary_action("Enter", "NEW GAME")
+    var new_game := UiStyle.primary_action("Enter", "New game")
     new_game.name = "NewGame"
     new_game.pressed.connect(func() -> void: new_game_requested.emit())
     actions.add_child(new_game)
-    var to_title := UiStyle.ghost_action("Esc", "TITLE")
+    var to_title := UiStyle.ghost_action("Esc", "Title")
     to_title.name = "ReturnToTitle"
     to_title.pressed.connect(func() -> void: return_to_title_requested.emit())
     actions.add_child(to_title)

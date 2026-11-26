@@ -32,11 +32,15 @@ var _compact_rows: Array[Dictionary] = []
 var _shipment_empty: Label
 var _money: Label
 var _diary_line: Label
+var _diary_heading: Label
+var _diary_card: PanelContainer
 var _action_text: Label
 var _save_status: Label
 var _save_status_card: PanelContainer
 var _save_status_scroll: ScrollContainer
 var _save_hint: Label
+var _save_head_row: HBoxContainer
+var _save_head_spacer: Control
 var _acknowledge: Button
 var _save_badge: PanelContainer
 var _save_caption: Label
@@ -106,8 +110,9 @@ func present(summary: Dictionary) -> void:
 			_render_shipment_row(row, shipments[index])
 
 	_money.text = "%dG" % int(summary.get("money_after_shipping", 0))
+	_diary_heading.text = tr("Diary · Day %d") % next_day
 	_diary_line.text = ContentRules.diary_line(next_day)
-	_action_text.text = tr("START DAY %d") % next_day
+	_action_text.text = tr("Start day %d") % next_day
 	visible = true
 
 func _render_shipment_row(row: Dictionary, shipment: Dictionary) -> void:
@@ -126,24 +131,40 @@ func set_save_status(status: StringName, message: String = "") -> void:
 	match status:
 		&"idle":
 			_save_status.text = ""
-			_save_status_card.visible = false
-			_save_badge.visible = false
-		&"saved":
-			_save_status.text = "Saved."
-			_save_status.add_theme_color_override("font_color", UiStyle.LEAF_DEEP)
-			_save_status_card.visible = true
-			_save_caption.text = "SAVED"
+			_save_status.add_theme_color_override("font_color", UiStyle.BAD)
+			_save_caption.text = ""
 			_save_caption.add_theme_color_override("font_color", UiStyle.LEAF)
 			_save_badge.add_theme_stylebox_override("panel", _badge_ok)
+			_save_status_card.visible = false
+			_save_badge.visible = false
+			_save_status_scroll.visible = false
+			_save_hint.visible = false
+			_save_head_spacer.visible = true
+			_save_head_row.alignment = BoxContainer.ALIGNMENT_BEGIN
+		&"saved":
+			_save_status.text = ""
+			_save_status.add_theme_color_override("font_color", UiStyle.BAD)
+			_save_caption.text = "Progress saved"
+			_save_caption.add_theme_color_override("font_color", UiStyle.LEAF)
+			_save_badge.add_theme_stylebox_override("panel", _badge_ok)
+			_save_status_card.visible = true
 			_save_badge.visible = true
+			_save_status_scroll.visible = false
+			_save_hint.visible = false
+			_save_head_spacer.visible = false
+			_save_head_row.alignment = BoxContainer.ALIGNMENT_CENTER
 		&"error":
 			_save_status.text = message
 			_save_status.add_theme_color_override("font_color", UiStyle.BAD)
-			_save_status_card.visible = true
 			_save_caption.text = "SAVE ERROR"
 			_save_caption.add_theme_color_override("font_color", UiStyle.BAD)
 			_save_badge.add_theme_stylebox_override("panel", _badge_error)
+			_save_status_card.visible = true
 			_save_badge.visible = true
+			_save_status_scroll.visible = true
+			_save_hint.visible = false
+			_save_head_spacer.visible = true
+			_save_head_row.alignment = BoxContainer.ALIGNMENT_BEGIN
 		_:
 			assert(false, "unknown save status")
 	if _save_status_scroll != null:
@@ -152,7 +173,10 @@ func set_save_status(status: StringName, message: String = "") -> void:
 		call_deferred(&"_sync_save_status_height")
 
 func _sync_save_status_height() -> void:
-	if _save_status == null or _save_status_scroll == null:
+	if (
+		_save_status == null or _save_status_scroll == null
+		or not _save_status_card.visible or not _save_status_scroll.visible
+	):
 		return
 	var lines := _save_status.get_line_count()
 	var line_height := _save_status.get_line_height()
@@ -165,7 +189,9 @@ func _sync_save_status_height() -> void:
 func _input(event: InputEvent) -> void:
 	if not visible or not event.is_pressed() or event.is_echo():
 		return
-	if _save_status_scroll == null or _save_status == null:
+	if _save_status_scroll == null or _save_status == null or _save_status_card == null:
+		return
+	if not _save_status_card.visible or not _save_status_scroll.visible:
 		return
 	if _save_status.get_line_count() <= SAVE_STATUS_MAX_SHOWN:
 		return
@@ -195,7 +221,11 @@ func status_time_text() -> String:
 	return _frame.status_time_text()
 
 func save_status_text() -> String:
-	return _save_status.text
+	if _save_status_card == null or not _save_status_card.visible:
+		return ""
+	if _save_status_scroll != null and _save_status_scroll.visible:
+		return _save_status.text
+	return _save_caption.text
 
 func summary_state() -> Dictionary:
 	var shipments: Array = []
@@ -263,11 +293,11 @@ func _build() -> void:
 	var layout := MarginContainer.new()
 	layout.name = "Layout"
 	layout.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for side in [["left", 20], ["top", 6], ["right", 20], ["bottom", 0]]:
+	for side in [["left", 20], ["top", 0], ["right", 20], ["bottom", 0]]:
 		layout.add_theme_constant_override("margin_" + side[0], side[1])
 	layout.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_frame.content_mount().add_child(layout)
-	var column := UiStyle.vbox(6)
+	var column := UiStyle.vbox(3)
 	column.name = "Column"
 	layout.add_child(column)
 
@@ -333,11 +363,24 @@ func _build() -> void:
 	balance.add_child(_money)
 	column.add_child(bank["card"])
 
-	_diary_line = UiStyle.shadowed_label("", 16, 600)
+	_diary_card = PanelContainer.new()
+	_diary_card.name = "DiaryCard"
+	_diary_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_diary_card.add_theme_stylebox_override(
+		"panel", UiStyle.card(UiStyle.SOFT, 16, [12, 8, 12, 8])
+	)
+	column.add_child(_diary_card)
+	var diary_column := UiStyle.vbox(2)
+	diary_column.name = "Column"
+	_diary_card.add_child(diary_column)
+	_diary_heading = UiStyle.label("", 13, UiStyle.INK_MUTED, 900)
+	_diary_heading.name = "DiaryHeading"
+	diary_column.add_child(_diary_heading)
+	_diary_line = UiStyle.label("", 16, UiStyle.INK, 600)
 	_diary_line.name = "DiaryLine"
 	_diary_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_diary_line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	column.add_child(_diary_line)
+	diary_column.add_child(_diary_line)
 
 	var spacer := Control.new()
 	spacer.name = "Spacer"
@@ -351,7 +394,7 @@ func _build() -> void:
 	lead.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	lead.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	footer.add_child(lead)
-	var actions := UiStyle.vbox(8)
+	var actions := UiStyle.vbox(6)
 	actions.name = "Actions"
 	footer.add_child(actions)
 	var trail := Control.new()
@@ -373,9 +416,9 @@ func _build() -> void:
 	save_column.name = "Column"
 	_save_status_card.add_child(save_column)
 
-	var head_row := UiStyle.hbox(8)
-	head_row.name = "HeadRow"
-	save_column.add_child(head_row)
+	_save_head_row = UiStyle.hbox(8)
+	_save_head_row.name = "HeadRow"
+	save_column.add_child(_save_head_row)
 
 	_save_badge = PanelContainer.new()
 	_save_badge.name = "SaveBadge"
@@ -383,27 +426,27 @@ func _build() -> void:
 	_save_badge.visible = false
 	_save_badge.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_save_badge.add_theme_stylebox_override("panel", _badge_ok)
-	head_row.add_child(_save_badge)
+	_save_head_row.add_child(_save_badge)
 	var badge_row := UiStyle.hbox(6)
 	badge_row.name = "Row"
 	_save_badge.add_child(badge_row)
 	var badge_icon := UiStyle.icon(SAVE_ICON, 16)
 	badge_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	badge_row.add_child(badge_icon)
-	_save_caption = UiStyle.label("SAVED", 15, UiStyle.LEAF, 800)
+	_save_caption = UiStyle.label("", 15, UiStyle.LEAF, 800)
 	_save_caption.name = "Caption"
 	badge_row.add_child(_save_caption)
 
-	var head_spacer := Control.new()
-	head_spacer.name = "Spacer"
-	head_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	head_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	head_row.add_child(head_spacer)
+	_save_head_spacer = Control.new()
+	_save_head_spacer.name = "Spacer"
+	_save_head_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_save_head_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_save_head_row.add_child(_save_head_spacer)
 	_save_hint = UiStyle.label("W/S more", 13, UiStyle.INK_MUTED, 700)
 	_save_hint.name = "ScrollHint"
 	_save_hint.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_save_hint.visible = false
-	head_row.add_child(_save_hint)
+	_save_head_row.add_child(_save_hint)
 
 	_save_status_scroll = ScrollContainer.new()
 	_save_status_scroll.name = "SaveStatusScroll"
@@ -426,7 +469,7 @@ func _build() -> void:
 	_action_text = _acknowledge.find_child("Text", true, false) as Label
 
 func _lock_header() -> VBoxContainer:
-	var header := UiStyle.vbox(2)
+	var header := UiStyle.vbox(0)
 	header.name = "DayHeader"
 	var day_row := UiStyle.hbox(8)
 	day_row.name = "DayRow"
@@ -453,7 +496,7 @@ func _notification_card(
 	card.name = "%sCard" % card_name
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_theme_stylebox_override(
-		"panel", UiStyle.card(UiStyle.HUD_CARD, 22, [14, 6, 14, 6])
+		"panel", UiStyle.card(UiStyle.HUD_CARD, 22, [14, 4, 14, 4])
 	)
 	var row := UiStyle.hbox(12)
 	card.add_child(row)

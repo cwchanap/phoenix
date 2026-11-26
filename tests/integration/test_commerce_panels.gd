@@ -312,7 +312,7 @@ func test_shop_header_is_a_large_gradient_band() -> void:
 	assert_not_null(title)
 	if title == null:
 		return
-	assert_eq(title.text, "SEED SHOP", "localized seed shop title stays truthful")
+	assert_eq(title.text, "Seed shop", "localized seed shop title stays truthful")
 	var sub := band.find_child("Sub", true, false) as Label
 	assert_not_null(sub, "a subtitle line rides under the title")
 	if sub != null:
@@ -328,7 +328,7 @@ func test_shop_header_is_a_large_gradient_band() -> void:
 
 func test_shop_title_and_subtitle_render_translated_in_each_locale() -> void:
 	var expected := {
-		"en": ["SEED SHOP", "Seeds and tools"],
+		"en": ["Seed shop", "Seeds and tools"],
 		"zh_TW": ["種子行", "種子與工具"],
 		"ja": ["種屋", "種と道具"],
 	}
@@ -370,7 +370,7 @@ func test_shop_title_and_subtitle_render_translated_in_each_locale() -> void:
 		await _settle()
 		assert_eq(
 			title.atr(title.text),
-			"SEED SHOP",
+			"Seed shop",
 			"%s title falls back to source text with translation disabled" % locale,
 		)
 		if locale == "en":
@@ -410,7 +410,7 @@ func test_shipping_header_is_a_large_gradient_band() -> void:
 	assert_not_null(title)
 	if title == null:
 		return
-	assert_eq(title.text, "SHIPPING BIN")
+	assert_eq(title.text, "Shipping bin")
 	var sub := band.find_child("Sub", true, false) as Label
 	assert_not_null(sub)
 	if sub != null:
@@ -422,6 +422,28 @@ func test_shipping_header_is_a_large_gradient_band() -> void:
 	assert_not_null(pending, "the in-bin pill lives in the header")
 	if pending != null:
 		assert_eq(pending.text, "140G", "4 turnips in the bin pend 140G")
+
+func test_shipping_title_translates_as_the_sentence_case_bin_label() -> void:
+	var expected := {"en": "Shipping bin", "zh_TW": "出貨箱", "ja": "出荷箱"}
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		var shipping := _spawn_panel(SHIPPING_SCENE) as ShippingPanel
+		if shipping == null:
+			continue
+		shipping.open_panel(
+			_shipping_snapshot({&"turnip": 7}, 1, {&"turnip": 4})
+		)
+		await _settle()
+		var title := _card(shipping).find_child("Title", true, false) as Label
+		assert_not_null(title)
+		if title == null:
+			continue
+		assert_eq(title.text, "Shipping bin")
+		assert_eq(
+			title.atr(title.text), expected[locale],
+			"%s displays the translated shipping bin title" % locale,
+		)
+		shipping.hide()
 
 func test_shipping_subtitle_is_truthful_on_day_fourteen() -> void:
 	var shipping := _spawn_panel(SHIPPING_SCENE) as ShippingPanel
