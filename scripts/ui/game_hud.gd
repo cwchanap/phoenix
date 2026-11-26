@@ -686,8 +686,6 @@ func _on_settings_changed(_error: int) -> void:
     # formatted with tr() is rebuilt from the last snapshot.
     if not _last_snapshot.is_empty():
         render(_last_snapshot)
-    # Applying settings can re-show the tutorial card while a blocking modal
-    # (e.g. Settings) is open; re-reconcile so the card stays hidden under it.
     _reconcile_modal_presentation()
 
 ## Clicking the seed card advances the seed like the `2` key does.

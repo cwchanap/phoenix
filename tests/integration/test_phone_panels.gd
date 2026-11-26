@@ -1820,13 +1820,23 @@ func test_calendar_legend_is_localized_and_legible_in_all_locales() -> void:
 					icon, "%s: %s carries its icon cue"
 						% [locale, chip_names[index]]
 				)
-				if icon != null and icon.texture != null:
-					assert_eq(
-						icon.texture.resource_path,
-						chip_icons[index],
-						"%s: %s keeps its icon cue"
+				if icon != null:
+					assert_true(
+						icon.is_visible_in_tree(),
+						"%s: %s icon renders" % [locale, chip_names[index]],
+					)
+					assert_not_null(
+						icon.texture,
+						"%s: %s carries its icon texture"
 							% [locale, chip_names[index]],
 					)
+					if icon.texture != null:
+						assert_eq(
+							icon.texture.resource_path,
+							chip_icons[index],
+							"%s: %s keeps its icon cue"
+								% [locale, chip_names[index]],
+						)
 			rows[int(round(chip.get_global_rect().position.y))] = true
 		assert_gt(rows.size(), 0, "%s: the chips lay out in flow rows" % locale)
 		if locale == "en":

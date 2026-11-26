@@ -86,6 +86,7 @@ func day_state(day: int) -> Dictionary:
 		return {}
 	var cell: Dictionary = _cells[day - 1]
 	var flags := (cell["flags"] as Control).visible
+	var weather_icon := cell["weather"] as TextureRect
 	var today := (cell["today_fill"] as TextureRect).visible
 	var market := (
 		(cell["market"] as TextureRect).visible
@@ -107,7 +108,9 @@ func day_state(day: int) -> Dictionary:
 		"market": market,
 		"combined": today and market,
 		"last_night": (cell["moon"] as TextureRect).visible and flags,
-		"weather_known": (cell["weather"] as TextureRect).visible,
+		"weather_known": (
+			flags and weather_icon.visible and weather_icon.texture != null
+		),
 		"readiness_kinds": readiness_kinds,
 		"readiness_icon_path": (
 			readiness_icon.texture.resource_path
