@@ -207,9 +207,10 @@ There is no JavaScript or Tauri runtime in the current checkout.
   background and holds its camera drift and effect positions in 1920x1080
   stage space; a line's `cue` (`&"windows"` on Gen-san's "Power's on" line)
   triggers a stage beat. `PrologueStage` (`scripts/ui/prologue_stage.gd`,
-  code-built under `OpeningPanel`) owns the painting, the eased camera drift,
-  and every scene effect (glow sprites, `CPUParticles2D`, beams, tints, the
-  `kei-truck.png` truck); the UI around it never moves with the camera.
+  code-built beside `OpeningPanel` and drawn beneath it) owns the painting,
+  the eased camera drift, and every scene effect (glow sprites,
+  `CPUParticles2D`, beams, tints, the `kei-truck.png` truck); the UI around it
+  never moves with the camera.
   `OnboardingOverlay` owns the UI motion: the fade through black, typing at
   30 characters a second (the first Enter finishes the line, the next
   advances), the portrait slide and breathing, the listener dim, the name and

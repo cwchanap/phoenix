@@ -907,6 +907,10 @@ func test_house_windows_light_on_gen_sans_power_line() -> void:
 	await _press(&"ui_accept")
 	assert_true(_stage(overlay).windows_lit(), "the windows stay lit for the rest of the scene")
 	assert_eq(windows.modulate.a, 1.0)
+	overlay.animate = false
+	var rebuilt := _stage(overlay).find_child("Windows", true, false) as Node2D
+	assert_true(_stage(overlay).windows_lit(), "settling the scene in place keeps the windows lit")
+	assert_eq(rebuilt.modulate.a if rebuilt != null else 0.0, 1.0)
 
 func test_house_windows_fade_up_over_their_cue_line() -> void:
 	var cue := _cue(&"windows")
@@ -963,6 +967,24 @@ func test_escape_mid_typing_acknowledges_once_and_settles_the_page() -> void:
 	assert_false(overlay.is_opening_visible())
 	assert_true(overlay.is_line_revealed(), "acknowledging stops the typing")
 	assert_eq(_fade(overlay).modulate.a, 0.0)
+
+func test_begin_day_one_finishes_the_last_line_before_starting_day_one() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	await _go_to_page(overlay, overlay.page_count() - 1)
+	overlay.animate = true
+	await _press(&"ui_accept")
+	assert_eq(int(overlay.current_page()["page_number"]), overlay.page_count(), "the last page")
+	assert_false(overlay.is_line_revealed(), "the last line is still typing")
+	var accept := _opening(overlay).find_child("Accept", true, false) as Button
+	watch_signals(overlay)
+	await _click(accept)
+	assert_true(overlay.is_line_revealed(), "the first click finishes the line")
+	assert_signal_emit_count(overlay, "intro_acknowledged", 0, "and does not start Day 1")
+	await _click(accept)
+	assert_signal_emit_count(overlay, "intro_acknowledged", 1, "the second click starts Day 1")
 
 func test_motion_off_shows_each_page_whole_and_still() -> void:
 	var overlay := _intro()
