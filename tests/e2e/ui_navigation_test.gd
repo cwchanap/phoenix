@@ -6,6 +6,7 @@ const WORLD := "/root/AppRoot/World"
 const GAME_HUD := WORLD + "/GameHud"
 const HUD := GAME_HUD + "/HudRoot"
 const ONBOARDING := HUD + "/OnboardingOverlay"
+const ONBOARDING_OPENING := ONBOARDING + "/OpeningPanel"
 const TUTORIAL := ONBOARDING + "/TutorialCard"
 const BAG := HUD + "/BagPanel"
 const PLAYER := WORLD + "/%Player"
@@ -43,9 +44,17 @@ func _launch_new_game() -> Variant:
 		return null
 
 	assert_bool(await game.click_node("/root/AppRoot/TitleScreen/Menu/NewGame")).is_true()
-	assert_bool(await game.input_action("ui_cancel", true)).is_true()
-	assert_bool(await game.input_action("ui_cancel", false)).is_true()
 	assert_bool(await game.wait_for_node(WORLD, 10.0)).is_true()
+	# Esc skips the visible prologue through a real key, not ui_cancel injection.
+	assert_bool(
+		await game.wait_for_property(ONBOARDING_OPENING, "visible", true, 5.0)
+	).is_true()
+	await _tap_key(game, KEY_ESCAPE, false)
+	assert_bool(
+		await game.wait_for_property(ONBOARDING_OPENING, "visible", false, 5.0)
+	).is_true()
+	# The clock test seam keeps snapshot comparisons free of passive ticks.
+	assert_bool(await game.set_property(WORLD, "clock_running", false)).is_true()
 	return game
 
 func test_real_keys_navigate_pause_and_settings() -> void:
@@ -53,10 +62,33 @@ func test_real_keys_navigate_pause_and_settings() -> void:
 	if game == null or is_failure():
 		return
 
-	# Physical Tab dismisses the visible contextual tip and nothing else.
+	# Physical Tab dismisses the visible contextual tip and nothing else: the
+	# world gate, focus, player, and the whole gameplay snapshot stay put.
 	assert_bool(await game.wait_for_property(TUTORIAL, "visible", true, 5.0)).is_true()
+	assert_str(await game.get_property(ONBOARDING, "_current_prompt_id")).is_equal(
+		"farm_basics"
+	)
+	assert_array(await game.get_property(ONBOARDING, "_dismissed")).is_empty()
+	assert_bool(await game.get_property(WORLD, "_world_input_enabled")).is_true()
+	var snapshot_before: Dictionary = await game.get_property(GAME_HUD, "_last_snapshot")
+	var focus_before := await _focus_owner_label(game)
+	var player_before: Vector2 = await game.get_property(PLAYER, "global_position")
+
 	await _tap_key(game, KEY_TAB)
+
 	assert_bool(await game.wait_for_property(TUTORIAL, "visible", false, 5.0)).is_true()
+	assert_str(await game.get_property(ONBOARDING, "_current_prompt_id")).is_equal("")
+	assert_array(await game.get_property(ONBOARDING, "_dismissed")).is_equal(
+		["farm_basics"]
+	)
+	assert_bool(await game.get_property(WORLD, "_world_input_enabled")).is_true()
+	assert_str(await _focus_owner_label(game)).is_equal(focus_before)
+	assert_dict(await game.get_property(GAME_HUD, "_last_snapshot")).is_equal(
+		snapshot_before
+	)
+	assert_vector(await game.get_property(PLAYER, "global_position")).is_equal_approx(
+		player_before, Vector2(0.01, 0.01)
+	)
 
 	await _tap_key(game, KEY_ESCAPE, false)
 	assert_bool(await game.wait_for_property(HUD + "/PausePanel", "visible", true, 5.0)).is_true()
@@ -78,9 +110,10 @@ func test_real_keys_navigate_pause_and_settings() -> void:
 	assert_bool(await game.wait_for_property(HUD + "/PausePanel", "visible", false, 5.0)).is_true()
 
 # A fresh eligible tip stays visible over an ordinary phone menu, and a real
-# physical Tab dismisses only the tip there: focus, the open menu, the world
-# gate, and the session snapshot are untouched, and closing/reopening the menu
-# never resurrects the dismissed prompt.
+# physical Tab dismisses only the tip there: the open menu, the world gate, the
+# player, and the session snapshot are untouched, and closing/reopening the menu
+# never resurrects the dismissed prompt. Bag has no focusable control, so the
+# focus-order proof that Tab is consumed lives in test_gameplay_shell.
 func test_real_keys_dismiss_a_fresh_tip_inside_bag_menu() -> void:
 	var game: Variant = await _launch_new_game()
 	if game == null or is_failure():

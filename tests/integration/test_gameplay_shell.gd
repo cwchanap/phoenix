@@ -390,18 +390,16 @@ func test_tab_requires_a_fresh_unmodified_press_on_a_visible_prompt() -> void:
     await _press_physical_key(KEY_TAB)
     assert_eq(overlay._dismissed, [&"farm_basics", &"plant"])
 
-func test_tab_without_a_prompt_leaves_focus_traversal_alone() -> void:
+func test_tab_takes_focus_only_while_a_tip_is_visible() -> void:
     var world := _world()
     if world == null:
         return
     var overlay := world.hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
     var card := overlay.get_node("TutorialCard") as Control
     assert_true(card.visible)
-    await _press_physical_key(KEY_TAB)
-    assert_false(card.visible)
-    assert_eq(overlay._dismissed, [&"farm_basics"])
-    assert_eq(overlay._current_prompt_id, &"")
 
+    # Known focus order while the tip is up: the tip must take Tab for itself
+    # (dismiss without traversal), and with no tip Tab keeps its normal order.
     var first := Button.new()
     first.name = "FocusFirst"
     first.focus_mode = Control.FOCUS_ALL
@@ -413,6 +411,17 @@ func test_tab_without_a_prompt_leaves_focus_traversal_alone() -> void:
     first.focus_next = first.get_path_to(second)
     first.grab_focus()
     assert_same(get_viewport().gui_get_focus_owner(), first)
+
+    await _press_physical_key(KEY_TAB)
+    assert_false(card.visible)
+    assert_eq(overlay._dismissed, [&"farm_basics"])
+    assert_eq(overlay._current_prompt_id, &"")
+    assert_same(
+        get_viewport().gui_get_focus_owner(),
+        first,
+        "a visible tip consumes Tab before focus traversal",
+    )
+
     await _press_physical_key(KEY_TAB)
     assert_same(
         get_viewport().gui_get_focus_owner(),
