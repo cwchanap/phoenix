@@ -1731,8 +1731,8 @@ func test_calendar_legend_is_localized_and_legible_in_all_locales() -> void:
 	]
 	var chip_copy := {
 		"en": ["Today", "Market", "Last night", "Earliest harvest"],
-		"zh_TW": ["今天", "市集", "昨晚", "最早收成"],
-		"ja": ["今日", "市", "昨夜", "最短収穫"],
+		"zh_TW": ["今天", "市集", "最後一晚", "最早收成"],
+		"ja": ["今日", "市", "最後の夜", "最短収穫"],
 	}
 	var chip_icons := [
 		"",
