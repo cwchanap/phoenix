@@ -107,10 +107,13 @@ func test_start_releases_gate_and_tutorial_card_guides_first_actions() -> void:
     assert_eq(_card_title(card).text, "Prepare the field")
     assert_true(world._world_input_enabled)
 
-    var dismiss := card.find_child("Dismiss", true, false) as Button
-    dismiss.pressed.emit()
+    await _press_physical_key(KEY_TAB)
     assert_false(card.visible)
-    assert_false(world._session.snapshot()["tutorial"][&"farm_basics"])
+    assert_eq(overlay._dismissed, [&"farm_basics"], "physical Tab dismisses the visible tip once")
+    assert_false(
+        world._session.snapshot()["tutorial"][&"farm_basics"],
+        "a dismissed tip never completes the session tutorial",
+    )
 
     var cell: Vector2i = WorldContract.farm_cells()[0]
     await _place_target(world, cell)
@@ -122,6 +125,18 @@ func test_start_releases_gate_and_tutorial_card_guides_first_actions() -> void:
     assert_eq(world.hud.prompt_icon(), world.hud.action_icon(GameRules.FarmingAction.SEEDS))
     assert_true(card.visible)
     assert_eq(_card_title(card).text, "Plant a seed")
+
+    var dismiss := card.find_child("Dismiss", true, false) as Button
+    var runner_gui := _hide_runner_gui()
+    await _click_control(dismiss)
+    if runner_gui != null:
+        runner_gui.visible = true
+    assert_false(card.visible)
+    assert_eq(
+        overlay._dismissed,
+        [&"farm_basics", &"plant"],
+        "the dismiss row records the same prompt the key did",
+    )
 
 func test_every_seed_cycle_press_advances_selected_seed() -> void:
     var world := _world()
@@ -144,29 +159,393 @@ func test_every_seed_cycle_press_advances_selected_seed() -> void:
     assert_eq(world._session.snapshot()["selected_seed"], &"potato")
     assert_eq(badge.text, "×0")
 
-func test_settings_change_keeps_tutorial_card_hidden_under_open_modal() -> void:
+func test_tip_follows_allowed_phone_menus_and_tab_dismisses_inside_settings() -> void:
+    var world := _settings_world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var overlay := hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
+    var card := overlay.get_node("TutorialCard") as Control
+    assert_true(card.visible, "the undismissed tip is visible in the world")
+
+    for entry in [
+        {
+            "name": "PausePanel",
+            "open": Callable(hud, "open_pause"),
+            "close": Callable(hud, "close_pause"),
+        },
+        {
+            "name": "BagPanel",
+            "open": Callable(hud, "open_bag"),
+            "close": Callable(hud, "close_bag"),
+        },
+        {
+            "name": "AlmanacPanel",
+            "open": Callable(hud, "open_almanac"),
+            "close": Callable(hud, "close_almanac"),
+        },
+        {
+            "name": "CalendarPanel",
+            "open": Callable(hud, "open_calendar"),
+            "close": Callable(hud, "close_calendar"),
+        },
+    ]:
+        (entry["open"] as Callable).call()
+        var panel := _panel(hud, entry["name"])
+        assert_true(panel.visible, entry["name"])
+        assert_true(card.visible, "%s keeps the tip visible" % entry["name"])
+        assert_false(world._world_input_enabled, "%s still gates the world" % entry["name"])
+        assert_false(_chrome(hud).visible, "%s still hides HUD chrome" % entry["name"])
+        var elapsed := world._clock_elapsed_seconds
+        var minutes := int(world._session.snapshot()["time_minutes"])
+        world._advance_passive_clock(3.0)
+        assert_eq(world._clock_elapsed_seconds, elapsed, entry["name"])
+        assert_eq(int(world._session.snapshot()["time_minutes"]), minutes, entry["name"])
+        (entry["close"] as Callable).call()
+        assert_false(panel.visible, entry["name"])
+        assert_true(card.visible, "%s close restores the tip" % entry["name"])
+
+    hud.open_pause()
+    hud.open_settings()
+    var settings := hud._settings_panel
+    assert_true(settings.visible)
+    assert_true(card.visible, "Settings keeps the tip visible")
+    # Adjusting a setting re-runs apply_settings -> set_tutorial_cards_enabled;
+    # the allowed menu must keep the card visible across that refresh.
+    settings._adjust(1)
+    assert_true(settings.visible)
+    assert_true(card.visible, "a settings refresh does not hide the tip")
+
+    var state_before := world._session.snapshot()
+    var music_before := hud._settings.music
+    await _press_physical_key(KEY_TAB)
+    assert_true(settings.visible, "Tab does not close the menu")
+    assert_false(card.visible)
+    assert_eq(overlay._dismissed, [&"farm_basics"])
+    assert_eq(world._session.snapshot(), state_before, "Tab changes nothing but the tip")
+    assert_eq(hud._settings.music, music_before, "Tab never adjusts a setting")
+
+    hud.close_settings()
+    hud.close_pause()
+    assert_false(hud.has_blocking_modal())
+    assert_false(card.visible, "the dismissed tip does not resurrect after close")
+
+func test_tutorial_cards_preference_off_hides_the_tip_and_on_recomputes_it() -> void:
+    var settings := UiSettings.load(SETTINGS_PATH)
+    var world := _spawn_world(true, settings)
+    if world == null:
+        return
+    var overlay := world.hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
+    var card := overlay.get_node("TutorialCard") as Control
+    assert_true(card.visible)
+    settings.tutorial_cards = false
+    world.hud.apply_settings()
+    assert_false(card.visible)
+    await _press_physical_key(KEY_TAB)
+    assert_eq(overlay._dismissed.size(), 0, "a disabled tip cannot be dismissed")
+    settings.tutorial_cards = true
+    world.hud.apply_settings()
+    assert_true(card.visible, "turning tips on recomputes the eligible prompt")
+    assert_eq(_card_title(card).text, "Prepare the field")
+
+func test_tab_ignores_the_prologue_and_masked_modals() -> void:
+    var locked := _locked_world()
+    if locked == null:
+        return
+    var locked_overlay := locked.hud.get_node(
+        "HudRoot/OnboardingOverlay"
+    ) as OnboardingOverlay
+    var opening := locked_overlay.get_node("OpeningPanel") as Control
+    var page: int = int(locked_overlay.current_page()["page_number"])
+    assert_true(opening.visible)
+    watch_signals(locked_overlay)
+    await _press_physical_key(KEY_TAB)
+    assert_eq(locked_overlay.current_page()["page_number"], page, "Tab never advances the prologue")
+    assert_true(opening.visible, "Tab never dismisses the prologue")
+    assert_signal_not_emitted(locked_overlay, "intro_acknowledged")
+    assert_eq(locked_overlay._dismissed.size(), 0)
+
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var overlay := hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
+    var card := overlay.get_node("TutorialCard") as Control
+    assert_true(card.visible)
+    for entry in [
+        {
+            "name": "ShopPanel",
+            "open": Callable(hud, "open_shop"),
+            "close": Callable(hud, "close_shop"),
+        },
+        {
+            "name": "ShippingPanel",
+            "open": Callable(hud, "open_shipping"),
+            "close": Callable(hud, "close_shipping"),
+        },
+        {
+            "name": "SleepPanel",
+            "open": Callable(hud, "open_sleep_confirmation"),
+            "close": Callable(hud, "close_sleep_confirmation"),
+        },
+        {
+            "name": "MarketConfirmPanel",
+            "open": Callable(hud, "open_market_confirmation"),
+            "close": Callable(hud, "close_market_confirmation"),
+        },
+        {
+            "name": "DialoguePanel",
+            "open": Callable(hud, "open_dialogue").bind(
+                VillagerRules.VillagerId.RESIDENT,
+                {"code": GameRules.CommandCode.VILLAGER_TALKED, "lines": ["Hello"]},
+                world._session.snapshot(),
+            ),
+            "close": Callable(hud, "close_dialogue"),
+        },
+    ]:
+        (entry["open"] as Callable).call()
+        var panel := _panel(hud, entry["name"])
+        assert_true(panel.visible, entry["name"])
+        assert_false(card.visible, "%s masks the tip" % entry["name"])
+        await _press_physical_key(KEY_TAB)
+        assert_eq(overlay._dismissed.size(), 0, "%s keeps Tab for itself" % entry["name"])
+        assert_true(panel.visible, "%s stays open on Tab" % entry["name"])
+        assert_false(card.visible)
+        (entry["close"] as Callable).call()
+        assert_false(panel.visible, entry["name"])
+        assert_true(card.visible, "%s close restores the undismissed tip" % entry["name"])
+
+func test_tab_requires_a_fresh_unmodified_press_on_a_visible_prompt() -> void:
     var world := _world()
     if world == null:
         return
     var overlay := world.hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
     var card := overlay.get_node("TutorialCard") as Control
-    assert_true(card.visible, "tutorial card visible before opening modal")
-    world.hud.open_pause()
-    world.hud.open_settings()
-    var settings := world.hud._settings_panel
-    assert_true(settings.visible)
-    assert_false(card.visible, "modal hides tutorial card")
-    # Adjusting a setting re-runs apply_settings -> set_tutorial_cards_enabled,
-    # which would re-show the card over the open settings panel unless the
-    # settings-change path re-reconciles modal presentation.
-    settings._adjust(1)
-    assert_true(settings.visible)
-    assert_false(card.visible, "tutorial card must stay hidden under open settings")
-    # Closing the modal restores normal tutorial visibility.
-    world.hud.close_settings()
-    world.hud.close_pause()
-    assert_false(world.hud.has_blocking_modal())
-    assert_true(card.visible, "tutorial card restored after modal closes")
+    assert_true(card.visible)
+
+    await _press_physical_key(KEY_TAB, false, false, true)
+    assert_eq(overlay._dismissed.size(), 0, "Shift+Tab never dismisses")
+    assert_true(card.visible)
+
+    var echo := InputEventKey.new()
+    echo.keycode = KEY_TAB
+    echo.physical_keycode = KEY_TAB
+    echo.pressed = true
+    echo.echo = true
+    get_viewport().push_input(echo)
+    await get_tree().process_frame
+    assert_eq(overlay._dismissed.size(), 0, "an echoed repeat never dismisses")
+    assert_true(card.visible)
+
+    await _press_physical_key(KEY_TAB)
+    assert_eq(overlay._dismissed, [&"farm_basics"])
+
+    var cell: Vector2i = WorldContract.farm_cells()[0]
+    await _place_target(world, cell)
+    world._process(0.0)
+    world.use_target_action()
+    world._process(0.0)
+    assert_true(card.visible)
+    assert_eq(_card_title(card).text, "Plant a seed")
+
+    var repeat := InputEventKey.new()
+    repeat.keycode = KEY_TAB
+    repeat.physical_keycode = KEY_TAB
+    repeat.pressed = true
+    repeat.echo = true
+    get_viewport().push_input(repeat)
+    await get_tree().process_frame
+    assert_eq(overlay._dismissed.size(), 1, "a held Tab cannot dismiss the next tip")
+    assert_true(card.visible)
+    await _press_physical_key(KEY_TAB)
+    assert_eq(overlay._dismissed, [&"farm_basics", &"plant"])
+
+func test_tab_without_a_prompt_leaves_focus_traversal_alone() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var overlay := world.hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
+    var card := overlay.get_node("TutorialCard") as Control
+    var snapshot := world._session.snapshot()
+    var complete := {}
+    for tutorial_id in ContentRules.tutorial_keys():
+        complete[tutorial_id] = true
+    snapshot["tutorial"] = complete
+    world.hud.render(snapshot)
+    assert_false(card.visible)
+    assert_eq(overlay._current_prompt_id, &"")
+
+    var first := Button.new()
+    first.name = "FocusFirst"
+    first.focus_mode = Control.FOCUS_ALL
+    add_child_autoqfree(first)
+    var second := Button.new()
+    second.name = "FocusSecond"
+    second.focus_mode = Control.FOCUS_ALL
+    add_child_autoqfree(second)
+    first.focus_next = first.get_path_to(second)
+    first.grab_focus()
+    assert_same(get_viewport().gui_get_focus_owner(), first)
+    await _press_physical_key(KEY_TAB)
+    assert_same(
+        get_viewport().gui_get_focus_owner(),
+        second,
+        "with no tip, Tab keeps its normal focus traversal",
+    )
+    assert_eq(overlay._dismissed.size(), 0)
+
+func test_mouse_dismisses_the_tip_over_an_allowed_menu_without_blocking_it() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var overlay := hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
+    var card := overlay.get_node("TutorialCard") as Control
+    hud.open_pause()
+    assert_true(_panel(hud, "PausePanel").visible)
+    assert_true(card.visible)
+    var runner_gui := _hide_runner_gui()
+    await _click_control(card)
+    assert_true(card.visible, "the notification body is nonblocking paint")
+    assert_true(_panel(hud, "PausePanel").visible, "a click on the tip body never closes the menu")
+    var dismiss := card.find_child("Dismiss", true, false) as Button
+    await _click_control(dismiss)
+    if runner_gui != null:
+        runner_gui.visible = true
+    assert_false(card.visible)
+    assert_true(_panel(hud, "PausePanel").visible, "dismissing the tip leaves the menu open")
+    assert_eq(overlay._dismissed, [&"farm_basics"])
+
+func test_dismiss_tutorial_action_is_unmodified_physical_tab() -> void:
+    assert_true(InputMap.has_action(&"dismiss_tutorial"))
+    var events := InputMap.action_get_events(&"dismiss_tutorial")
+    assert_eq(events.size(), 1)
+    var key := events[0] as InputEventKey
+    assert_not_null(key)
+    if key == null:
+        return
+    assert_eq(key.physical_keycode, KEY_TAB)
+    assert_eq(key.keycode, 0)
+    assert_false(
+        key.shift_pressed or key.ctrl_pressed or key.alt_pressed or key.meta_pressed,
+        "the action is the unmodified Tab press",
+    )
+
+func test_tip_layer_sits_above_phone_menus_below_travel_and_toast() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var root := hud.get_node("HudRoot") as Control
+    var overlay := root.get_node("OnboardingOverlay") as Control
+    var travel := root.get_node("TravelOverlay") as Control
+    var toast := root.get_node("Toast") as Control
+    assert_lt(overlay.get_index(), travel.get_index(), "the tip sits below travel")
+    assert_lt(travel.get_index(), toast.get_index(), "travel sits below the toast")
+    var card := overlay.get_node("TutorialCard") as Control
+    var menus := [
+        {
+            "name": "PausePanel",
+            "open": Callable(hud, "open_pause"),
+            "close": Callable(hud, "close_pause"),
+        },
+        {
+            "name": "BagPanel",
+            "open": Callable(hud, "open_bag"),
+            "close": Callable(hud, "close_bag"),
+        },
+        {
+            "name": "AlmanacPanel",
+            "open": Callable(hud, "open_almanac"),
+            "close": Callable(hud, "close_almanac"),
+        },
+        {
+            "name": "CalendarPanel",
+            "open": Callable(hud, "open_calendar"),
+            "close": Callable(hud, "close_calendar"),
+        },
+    ]
+    for entry in menus:
+        assert_gt(
+            overlay.get_index(),
+            _panel(hud, entry["name"]).get_index(),
+            "%s draws below the tip overlay" % entry["name"],
+        )
+    assert_gt(
+        overlay.get_index(),
+        _panel(hud, "SettingsPanel").get_index(),
+        "SettingsPanel draws below the tip overlay",
+    )
+    for locale in UiSettings.LANGUAGES:
+        TranslationServer.set_locale(locale)
+        await get_tree().process_frame
+        await get_tree().process_frame
+        for entry in menus:
+            (entry["open"] as Callable).call()
+            await get_tree().process_frame
+            assert_true(card.visible, "%s %s keeps the tip visible" % [locale, entry["name"]])
+            var phone := _panel(hud, entry["name"]).find_child(
+                "PhoneFrame", true, false
+            ) as Control
+            assert_not_null(phone, "%s has a phone frame" % entry["name"])
+            if phone != null:
+                var tip_rect := card.get_global_rect()
+                var phone_rect := phone.get_global_rect()
+                assert_false(
+                    tip_rect.intersects(phone_rect),
+                    "%s %s: tip %s must not overlap phone %s" % [
+                        locale, entry["name"], tip_rect, phone_rect
+                    ],
+                )
+            (entry["close"] as Callable).call()
+        hud.open_pause()
+        hud.open_settings()
+        await get_tree().process_frame
+        assert_true(card.visible, "%s Settings keeps the tip visible" % locale)
+        var settings_phone := _panel(hud, "SettingsPanel").find_child(
+            "PhoneFrame", true, false
+        ) as Control
+        assert_not_null(settings_phone, "SettingsPanel has a phone frame")
+        if settings_phone != null:
+            assert_false(
+                card.get_global_rect().intersects(settings_phone.get_global_rect()),
+                "%s SettingsPanel: the tip must not overlap the phone" % locale,
+            )
+        hud.close_settings()
+        hud.close_pause()
+    TranslationServer.set_locale("en")
+
+func test_morning_summary_close_recomputes_the_tip_without_another_render() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var overlay := hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
+    var card := overlay.get_node("TutorialCard") as Control
+    assert_true(card.visible)
+    var snapshot := world._session.snapshot()
+    snapshot["pending_morning_summary"] = {"completed_day": 1, "next_day": 2}
+    hud.render(snapshot)
+    var summary := _panel(hud, "MorningSummaryPanel")
+    assert_true(summary.visible)
+    assert_false(card.visible)
+    # The acknowledged path can reconcile after the close without a new render;
+    # clearing suppression alone must recompute the last snapshot's prompt.
+    hud._set_morning_summary_visible(false)
+    assert_false(summary.visible)
+    assert_true(card.visible, "closing the summary restores the undismissed tip")
+    assert_eq(_card_title(card).text, "Prepare the field")
+    assert_eq(overlay._current_prompt_id, &"farm_basics")
 
 func test_market_pill_counts_down_and_bin_pill_shows_tomorrows_payout() -> void:
     var world := _world()
@@ -1832,6 +2211,16 @@ func _click_control(control: Control) -> void:
     var center := control.get_global_rect().get_center()
     await _mouse_left(center, true)
     await _mouse_left(center, false)
+
+## The GUT runner window covers the top-right tip at 1920x1080 and would eat a
+## real pointer event; hide its presentation and return it for restoration.
+func _hide_runner_gui() -> Control:
+    var gui := get_tree().root.get_node_or_null(
+        "GutRunner/GutLayer/GutScene/Normal"
+    ) as Control
+    if gui != null:
+        gui.visible = false
+    return gui
 
 func _press_and_release_outside(control: Control) -> void:
     var center := control.get_global_rect().get_center()
