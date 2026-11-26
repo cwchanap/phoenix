@@ -31,7 +31,7 @@ func _push_action(node: Node, action: StringName) -> void:
     released.pressed = false
     node.get_viewport().push_input(released)
 
-func test_settings_panel_shows_canonical_save_path_under_save_override() -> void:
+func test_settings_panel_hides_save_paths_under_save_override() -> void:
     OS.set_environment("PHOENIX_SAVE_PATH", SAVE_OVERRIDE_PATH)
     OS.set_environment("PHOENIX_SETTINGS_PATH", SETTINGS_PATH)
     var packed := load("res://scenes/app/app.tscn") as PackedScene
@@ -48,12 +48,42 @@ func test_settings_panel_shows_canonical_save_path_under_save_override() -> void
     await get_tree().process_frame
 
     var world := _stop_world_clock(app)
-    world.hud.open_pause()
-    world.hud.open_settings()
+    var hud := world.hud
     assert_eq(
-        (world.hud.get_node("HudRoot/SettingsPanel") as SettingsPanel).save_path_text(),
-        "Save file: %s" % SaveRepository.DEFAULT_PATH,
+        (world._save_repository as SaveRepository)._path,
+        SAVE_OVERRIDE_PATH,
+        "the save override is active while Settings is inspected",
     )
+    assert_eq(
+        hud._settings._path,
+        SETTINGS_PATH,
+        "the settings override is active while Settings is inspected",
+    )
+    # The prologue owns input until acknowledged; Esc acknowledges anywhere.
+    _push_action(hud, &"ui_cancel")
+    await get_tree().process_frame
+    assert_false(
+        (hud.get_node("HudRoot/OnboardingOverlay/OpeningPanel") as Control).visible
+    )
+    hud.open_pause()
+    hud.open_settings()
+    await get_tree().process_frame
+    await get_tree().process_frame
+    var panel := hud.get_node("HudRoot/SettingsPanel") as SettingsPanel
+    assert_true(panel.visible, "Settings opens under the save override")
+    assert_null(panel.find_child("SavePath", true, false), "no developer save-path node")
+    for node in panel.find_children("*", "Label", true, false):
+        var label := node as Label
+        if not label.is_visible_in_tree():
+            continue
+        assert_false(
+            label.text.contains(SaveRepository.DEFAULT_PATH),
+            "Settings must not render the canonical save path: %s" % label.text,
+        )
+        assert_false(
+            label.text.contains(SAVE_OVERRIDE_PATH),
+            "Settings must not render the overridden save path: %s" % label.text,
+        )
 
 func _spawn_app(
     repository: SaveRepository,

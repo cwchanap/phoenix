@@ -138,7 +138,7 @@ func coming_up_day_texts() -> Array[String]:
 
 func _build() -> void:
 	_frame = UiStyle.phone_mount(self)
-	_frame.set_app_header("Season", "カレンダー")
+	_frame.set_app_header("Calendar", "カレンダー")
 	var tag := SlantTag.new("", [UiStyle.SUN], UiStyle.SUN_INK, 15)
 	tag.name = "MarketTag"
 	_frame.app_header_accessory().add_child(tag)

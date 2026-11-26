@@ -275,7 +275,6 @@ ON,開,オン
 OFF,關,オフ
 Language,語言,言語
 DONE,完成,完了
-Save file: %s,存檔位置：%s,セーブファイル：%s
 Could not save settings.,無法儲存設定。,設定を保存できませんでした。
 Display,顯示,表示
 row,切換列,行を移動
