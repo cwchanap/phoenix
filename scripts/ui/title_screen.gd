@@ -117,13 +117,13 @@ func _build() -> void:
     menu.size = Vector2(520, 420)
     add_child(menu)
 
-    var new_row := _action_row("NewGame", GROWTH_ICON, "NEW GAME")
+    var new_row := _action_row("NewGame", GROWTH_ICON, "New game")
     _new_game_button = new_row["button"]
     _new_game_gradient = new_row["gradient"]
     _new_game_label = new_row["label"]
     _new_game_keycap = new_row["keycap"]
     menu.add_child(_new_game_button)
-    var continue_row := _action_row("Continue", SAVE_ICON, "CONTINUE")
+    var continue_row := _action_row("Continue", SAVE_ICON, "Continue")
     _continue_button = continue_row["button"]
     _continue_gradient = continue_row["gradient"]
     _continue_label = continue_row["label"]

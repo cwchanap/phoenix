@@ -233,7 +233,7 @@ func test_day_one_town_trip_farming_loop_and_sleep() -> void:
 	# The overnight save landed (status resets once the summary is dismissed).
 	assert_str(
 		await game.call_method(HUD + "/MorningSummaryPanel", "save_status_text")
-	).is_equal("Saved.")
+	).is_equal("Progress saved")
 	# Pin the save-isolation seam: the child must have written the file at the
 	# PHOENIX_SAVE_PATH we set, not the developer's real user://phoenix-save.json.
 	# Parent and child share the same user:// root (same project), so this sees

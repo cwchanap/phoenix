@@ -327,7 +327,7 @@ func test_dialogue_footer_has_choose_hint_esc_and_primary_pill() -> void:
 			card.get_global_rect().encloses(pill.get_global_rect()),
 			"action pill sits inside the card",
 		)
-	assert_eq(panel.action_text(), "GIVE POTATO")
+	assert_eq(panel.action_text(), "Give Potato")
 
 func test_dialogue_scrim_is_the_light_mockup_veil() -> void:
 	var panel := _dialogue()
@@ -1060,6 +1060,11 @@ func test_title_menu_rows_match_the_mockup_measurements() -> void:
 	if label != null:
 		assert_true(label.get_theme_font_size("font_size") >= 28, "menu text is 30px")
 		assert_eq(label.get_theme_color("font_color"), UiStyle.CARD)
+		assert_eq(label.text, "New game", "title action reads sentence case")
+	var continue_label := title.get_node("Menu/Continue/Label") as Label
+	assert_not_null(continue_label)
+	if continue_label != null:
+		assert_eq(continue_label.text, "Continue")
 
 func test_title_rows_stay_transparent_until_selected() -> void:
 	var title := _title()
@@ -1187,6 +1192,56 @@ func test_title_disabled_continue_click_does_not_emit() -> void:
 	await _click(continue_button)
 	assert_signal_not_emitted(title, "continue_requested")
 
+func test_sentence_case_title_result_and_dialogue_copy_translates() -> void:
+	var expected := {
+		"New game": {"zh_TW": "新遊戲", "ja": "ニューゲーム"},
+		"Continue": {"zh_TW": "繼續", "ja": "つづける"},
+		"Title": {"zh_TW": "標題畫面", "ja": "タイトル"},
+		"Close": {"zh_TW": "關閉", "ja": "閉じる"},
+	}
+	for locale in ["zh_TW", "ja"]:
+		TranslationServer.set_locale(locale)
+		for key in expected:
+			assert_eq(
+				tr(key), expected[key][locale], "%s translates %s" % [locale, key]
+			)
+		var title := _title()
+		var result := _result()
+		var panel := _dialogue()
+		if title == null or result == null or panel == null:
+			continue
+		await _settle()
+		var title_new := title.get_node("Menu/NewGame/Label") as Label
+		var title_continue := title.get_node("Menu/Continue/Label") as Label
+		var result_new := result.get_node(
+			"Actions/NewGame/Pill/Row/Text"
+		) as Label
+		var result_title := result.get_node(
+			"Actions/ReturnToTitle/Pill/Row/Text"
+		) as Label
+		assert_eq(title_new.text, "New game")
+		assert_eq(title_new.atr(title_new.text), expected["New game"][locale])
+		assert_eq(title_continue.text, "Continue")
+		assert_eq(title_continue.atr(title_continue.text), expected["Continue"][locale])
+		assert_eq(result_new.text, "New game")
+		assert_eq(result_new.atr(result_new.text), expected["New game"][locale])
+		assert_eq(result_title.text, "Title")
+		assert_eq(result_title.atr(result_title.text), expected["Title"][locale])
+		assert_eq(
+			panel.action_text(),
+			tr("Give %s") % tr("Potato"),
+			"%s names the gift in sentence case without uppercasing the crop"
+				% locale,
+		)
+		assert_eq(
+			panel.action_text(),
+			"送出馬鈴薯" if locale == "zh_TW" else "ジャガイモを贈る",
+			"%s renders the explicit localized gift caption" % locale,
+		)
+		title.hide()
+		result.hide()
+		panel.hide()
+
 func test_result_header_stats_and_cards_match_the_mockup() -> void:
 	var result := _result()
 	if result == null:
@@ -1289,11 +1344,19 @@ func test_result_action_pills_are_native_buttons() -> void:
 		new_game.find_child("Pill", true, false),
 		"New game is the gradient primary pill",
 	)
+	var new_game_text := new_game.find_child("Text", true, false) as Label
+	assert_not_null(new_game_text)
+	if new_game_text != null:
+		assert_eq(new_game_text.text, "New game")
 	var ghost := to_title.find_child("Pill", true, false) as PanelContainer
 	assert_not_null(ghost, "Title is the white ghost pill")
 	if ghost != null:
 		var box := _stylebox(ghost)
 		assert_eq(box.bg_color, UiStyle.CARD)
+		var title_text := ghost.find_child("Text", true, false) as Label
+		assert_not_null(title_text)
+		if title_text != null:
+			assert_eq(title_text.text, "Title")
 	watch_signals(result)
 	await _press_and_release_outside(new_game)
 	assert_signal_not_emitted(result, "new_game_requested")
@@ -1516,14 +1579,14 @@ func test_dialogue_action_pill_continues_lines_then_gifts() -> void:
 	if panel == null:
 		return
 	await _settle()
-	assert_eq(panel.action_text(), "CONTINUE", "multi-line Enter caption is continue")
+	assert_eq(panel.action_text(), "Continue", "multi-line Enter caption is continue")
 	var pill := panel.find_child("ActionPill", true, false) as Control
 	watch_signals(panel)
 	await _click(pill)
 	assert_eq(panel._line_index, 1, "click advances the line like Enter")
 	assert_signal_not_emitted(panel, "gift_requested")
 	assert_signal_not_emitted(panel, "close_requested")
-	assert_eq(panel.action_text(), "GIVE POTATO", "last line caption becomes the gift")
+	assert_eq(panel.action_text(), "Give Potato", "last line caption becomes the gift")
 	await _click(pill)
 	assert_signal_emitted(panel, "gift_requested")
 
@@ -1547,7 +1610,7 @@ func test_dialogue_focused_chip_caption_and_enter_agree_mid_lines() -> void:
 	await _settle()
 	assert_eq(
 		panel.action_text(),
-		"GIVE TURNIP",
+		"Give Turnip",
 		"the caption names the focused chip even with lines remaining",
 	)
 	watch_signals(panel)
@@ -1575,7 +1638,7 @@ func test_dialogue_action_pill_continues_locked_sequence_while_escape_gated() ->
 	if panel == null:
 		return
 	await _settle()
-	assert_eq(panel.action_text(), "CONTINUE")
+	assert_eq(panel.action_text(), "Continue")
 	var pill := panel.find_child("ActionPill", true, false) as Control
 	watch_signals(panel)
 	await _press(&"ui_cancel")
@@ -1605,7 +1668,7 @@ func test_dialogue_action_pill_closes_when_gift_already_given() -> void:
 	if panel == null:
 		return
 	await _settle()
-	assert_eq(panel.action_text(), "CLOSE", "already-gifted Enter closes")
+	assert_eq(panel.action_text(), "Close", "already-gifted Enter closes")
 	var pill := panel.find_child("ActionPill", true, false) as Control
 	watch_signals(panel)
 	await _click(pill)
@@ -1628,7 +1691,7 @@ func test_dialogue_action_pill_closes_with_zero_inventory() -> void:
 	if panel == null:
 		return
 	await _settle()
-	assert_eq(panel.action_text(), "CLOSE", "no eligible crop means Enter closes")
+	assert_eq(panel.action_text(), "Close", "no eligible crop means Enter closes")
 	var pill := panel.find_child("ActionPill", true, false) as Control
 	watch_signals(panel)
 	await _click(pill)
@@ -1707,7 +1770,7 @@ func test_dialogue_final_close_friend_line_repaints_focused_chip() -> void:
 	assert_eq(panel._selected_gift_kind, GameRules.CropKind.TURNIP)
 	assert_eq(
 		panel.action_text(),
-		"GIVE TURNIP",
+		"Give Turnip",
 		"caption follows the focused chip on the final line",
 	)
 	var turnip_box := turnip.get_theme_stylebox("normal") as StyleBoxFlat
@@ -1728,14 +1791,14 @@ func test_dialogue_final_close_friend_line_repaints_focused_chip() -> void:
 	assert_signal_emit_count(panel, "gift_requested", 1)
 	potato.grab_focus()
 	await _settle()
-	assert_eq(panel.action_text(), "GIVE POTATO")
+	assert_eq(panel.action_text(), "Give Potato")
 
 func test_dialogue_caption_and_click_follow_the_focused_action() -> void:
 	var panel := _dialogue()
 	if panel == null:
 		return
 	await _settle()
-	assert_eq(panel.action_text(), "GIVE POTATO")
+	assert_eq(panel.action_text(), "Give Potato")
 	var pill := panel.find_child("ActionPill", true, false) as Control
 	for step in range(4):
 		if get_viewport().gui_get_focus_owner() == panel.close_control():
@@ -1748,7 +1811,7 @@ func test_dialogue_caption_and_click_follow_the_focused_action() -> void:
 	)
 	assert_eq(
 		panel.action_text(),
-		"CLOSE",
+		"Close",
 		"caption tracks the anchored action once it owns focus",
 	)
 	watch_signals(panel)
@@ -1770,7 +1833,7 @@ func test_dialogue_caption_and_click_follow_the_focused_action() -> void:
 		panel.gift_chip(GameRules.CropKind.TURNIP),
 		"Tab wraps back to the first chip",
 	)
-	assert_eq(panel.action_text(), "GIVE TURNIP")
+	assert_eq(panel.action_text(), "Give Turnip")
 	assert_eq(panel._selected_gift_kind, GameRules.CropKind.TURNIP)
 
 func test_dialogue_disabled_chips_never_take_focus() -> void:
@@ -1816,7 +1879,7 @@ func test_dialogue_enter_click_and_caption_agree_at_each_tab_stop() -> void:
 			await _press_keycode(KEY_ENTER)
 			if owner == panel.close_control():
 				assert_eq(
-					panel.action_text(), "CLOSE",
+					panel.action_text(), "Close",
 					"%s caption matches the anchored action" % where,
 				)
 				assert_eq(
@@ -1831,8 +1894,8 @@ func test_dialogue_enter_click_and_caption_agree_at_each_tab_stop() -> void:
 				)
 			elif chip_index >= 0:
 				var expected := (
-					tr("GIVE %s")
-					% tr(GameRules.crop_display_name(chip_index)).to_upper()
+					tr("Give %s")
+					% tr(GameRules.crop_display_name(chip_index))
 				)
 				assert_eq(
 					panel.action_text(), expected,
@@ -1895,7 +1958,7 @@ func test_dialogue_stock_change_releases_focus_from_a_disabled_chip() -> void:
 		panel.gift_chip(GameRules.CropKind.POTATO),
 		"focus lands on the next live gift",
 	)
-	assert_eq(panel.action_text(), "GIVE POTATO")
+	assert_eq(panel.action_text(), "Give Potato")
 	watch_signals(panel)
 	await _press_keycode(KEY_ENTER)
 	assert_signal_emitted_with_parameters(
@@ -1925,7 +1988,7 @@ func test_dialogue_zero_inventory_enter_closes_from_the_anchor() -> void:
 		panel.close_control(),
 		"empty bag focuses the close anchor",
 	)
-	assert_eq(panel.action_text(), "CLOSE")
+	assert_eq(panel.action_text(), "Close")
 	for step in range(4):
 		await _press_keycode(KEY_TAB)
 		var owner := get_viewport().gui_get_focus_owner()
@@ -1957,7 +2020,7 @@ func test_dialogue_released_close_intent_keeps_pill_click_congruent() -> void:
 			anchor,
 			"%s Tab reaches the Close anchor" % locale,
 		)
-		assert_eq(panel.action_text(), "CLOSE")
+		assert_eq(panel.action_text(), "Close")
 		anchor.release_focus()
 		await _settle()
 		assert_ne(
@@ -1967,7 +2030,7 @@ func test_dialogue_released_close_intent_keeps_pill_click_congruent() -> void:
 		)
 		assert_eq(
 			panel.action_text(),
-			"CLOSE",
+			"Close",
 			"%s the painted caption keeps the chosen intent" % locale,
 		)
 		watch_signals(panel)
@@ -1991,7 +2054,7 @@ func test_dialogue_released_focus_enter_dispatches_the_painted_action() -> void:
 	await _settle()
 	panel.close_control().grab_focus()
 	await _settle()
-	assert_eq(panel.action_text(), "CLOSE")
+	assert_eq(panel.action_text(), "Close")
 	panel.close_control().release_focus()
 	await _settle()
 	watch_signals(panel)
@@ -2018,12 +2081,12 @@ func test_dialogue_released_gift_choice_keeps_pill_click_congruent() -> void:
 	var turnip := panel.gift_chip(GameRules.CropKind.TURNIP)
 	turnip.grab_focus()
 	await _settle()
-	assert_eq(panel.action_text(), "GIVE TURNIP")
+	assert_eq(panel.action_text(), "Give Turnip")
 	turnip.release_focus()
 	await _settle()
 	assert_eq(
 		panel.action_text(),
-		"GIVE TURNIP",
+		"Give Turnip",
 		"the newest chosen action survives focus release",
 	)
 	watch_signals(panel)
@@ -2042,12 +2105,12 @@ func test_dialogue_window_focus_out_keeps_caption_click_and_enter_congruent() ->
 	await _settle()
 	panel.close_control().grab_focus()
 	await _settle()
-	assert_eq(panel.action_text(), "CLOSE")
+	assert_eq(panel.action_text(), "Close")
 	get_window().propagate_notification(NOTIFICATION_WM_WINDOW_FOCUS_OUT)
 	await _settle()
 	assert_eq(
 		panel.action_text(),
-		"CLOSE",
+		"Close",
 		"the caption survives a window focus transition",
 	)
 	watch_signals(panel)
@@ -2076,12 +2139,12 @@ func test_dialogue_close_friend_locked_line_released_enter_continues() -> void:
 	if panel == null:
 		return
 	await _settle()
-	assert_eq(panel.action_text(), "CONTINUE")
+	assert_eq(panel.action_text(), "Continue")
 	panel.continue_control().release_focus()
 	await _settle()
 	assert_eq(
 		panel.action_text(),
-		"CONTINUE",
+		"Continue",
 		"released focus keeps the locked-line continue intent",
 	)
 	watch_signals(panel)
@@ -2113,7 +2176,7 @@ func test_dialogue_external_focus_enter_dispatches_remembered_close() -> void:
 		await _settle()
 		panel.close_control().grab_focus()
 		await _settle()
-		assert_eq(panel.action_text(), "CLOSE")
+		assert_eq(panel.action_text(), "Close")
 		var external := _external_button()
 		external.grab_focus()
 		await _settle()
@@ -2147,7 +2210,7 @@ func test_dialogue_external_focus_enter_dispatches_remembered_gift() -> void:
 	var turnip := panel.gift_chip(GameRules.CropKind.TURNIP)
 	turnip.grab_focus()
 	await _settle()
-	assert_eq(panel.action_text(), "GIVE TURNIP")
+	assert_eq(panel.action_text(), "Give Turnip")
 	var external := _external_button()
 	external.grab_focus()
 	await _settle()
@@ -2186,7 +2249,7 @@ func test_dialogue_external_focus_enter_continues_locked_line() -> void:
 	if panel == null:
 		return
 	await _settle()
-	assert_eq(panel.action_text(), "CONTINUE")
+	assert_eq(panel.action_text(), "Continue")
 	assert_eq(
 		get_viewport().gui_get_focus_owner(),
 		panel.continue_control(),

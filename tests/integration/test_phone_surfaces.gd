@@ -858,10 +858,117 @@ func test_morning_acknowledge_pill_sits_inside_the_phone_and_emits() -> void:
 		"acknowledge anchors the bottom of the lock screen",
 	)
 	var state := summary.summary_state()
-	assert_eq(state["action_text"], "START DAY 4")
+	assert_eq(state["action_text"], "Start day 4")
 	watch_signals(summary)
 	await _click(acknowledge)
 	assert_signal_emitted(summary, "acknowledged")
+
+func test_morning_diary_rides_a_warm_localized_card() -> void:
+	var full := _morning_summary()
+	full["completed_day"] = 1
+	full["next_day"] = 2
+	var summary := _morning_panel(full)
+	if summary == null:
+		return
+	await _settle()
+	var card := summary.find_child("DiaryCard", true, false) as PanelContainer
+	var heading := summary.find_child("DiaryHeading", true, false) as Label
+	var diary := summary.find_child("DiaryLine", true, false) as Label
+	assert_not_null(card, "the diary sits on its own warm card")
+	assert_not_null(heading, "the diary card carries its day heading")
+	assert_not_null(diary)
+	if card == null or heading == null or diary == null:
+		return
+	var box := _stylebox(card)
+	assert_eq(box.bg_color, UiStyle.SOFT, "the diary card is warm cream")
+	assert_eq(
+		[
+			box.content_margin_left, box.content_margin_top,
+			box.content_margin_right, box.content_margin_bottom,
+		],
+		[12.0, 8.0, 12.0, 8.0],
+		"the diary card keeps its compact padding",
+	)
+	assert_gt(box.corner_radius_top_left, 0, "the diary card is rounded")
+	var column := card.get_node_or_null("Column") as VBoxContainer
+	assert_not_null(column)
+	if column != null:
+		assert_eq(column.get_theme_constant("separation"), 2)
+		assert_eq(column.get_child_count(), 2, "one heading and one body")
+		assert_eq(column.get_child(0), heading)
+		assert_eq(column.get_child(1), diary)
+	assert_eq(card.find_children("*", "TextureRect", true, false).size(), 0,
+		"the diary card has no icon tile")
+	assert_null(card.find_child("Tile", true, false))
+	assert_null(card.find_child("Stamp", true, false))
+	assert_eq(heading.get_theme_font_size("font_size"), 13)
+	assert_eq(heading.get_theme_color("font_color"), UiStyle.INK_MUTED)
+	var heading_font := heading.get_theme_font("font") as FontVariation
+	assert_not_null(heading_font)
+	if heading_font != null:
+		var weight_tag := TextServerManager.get_primary_interface().name_to_tag("wght")
+		assert_almost_eq(
+			float(heading_font.variation_opentype.get(weight_tag, 0.0)), 900.0, 0.01,
+			"the diary heading uses the 900-weight notification typography",
+		)
+	var expected := {
+		"en": "Diary · Day 2",
+		"zh_TW": "日記 · 第 2 天",
+		"ja": "日記 · 2日目",
+	}
+	var expected_action := {
+		"en": "Start day 2",
+		"zh_TW": "開始第 2 天",
+		"ja": "2 日目を始める",
+	}
+	var acknowledge := summary.find_child("Acknowledge", true, false) as Button
+	assert_not_null(acknowledge)
+	if acknowledge == null:
+		return
+	var action_text := acknowledge.find_child("Text", true, false) as Label
+	assert_not_null(action_text)
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		summary.present(full)
+		summary.set_save_status(&"saved")
+		await _settle()
+		var where := "%s first morning" % locale
+		assert_eq(heading.text, expected[locale], "%s diary heading" % where)
+		if action_text != null:
+			assert_eq(action_text.text, expected_action[locale], "%s action" % where)
+		assert_eq(
+			diary.text, ContentRules.diary_line(2),
+			"%s keeps the stable English diary source key" % where,
+		)
+		assert_eq(
+			diary.atr(diary.text), tr(ContentRules.diary_line(2)),
+			"%s displays the translated diary" % where,
+		)
+		assert_eq(diary.get_theme_font_size("font_size"), 16)
+		assert_eq(diary.get_theme_color("font_color"), UiStyle.INK)
+		assert_false(
+			diary.has_theme_color_override("font_shadow_color"),
+			"%s diary is ink on the card, not white shadowed wallpaper text" % where,
+		)
+		assert_ne(diary.autowrap_mode, TextServer.AUTOWRAP_OFF)
+		assert_eq(
+			diary.get_visible_line_count(), diary.get_line_count(),
+			"%s displays every wrapped diary line" % where,
+		)
+		var screen_rect := _screen_rect(summary)
+		assert_true(
+			screen_rect.encloses(card.get_global_rect()),
+			"%s diary card stays inside the phone screen" % where,
+		)
+		assert_true(
+			card.get_global_rect().encloses(diary.get_global_rect()),
+			"%s diary body stays inside its card" % where,
+		)
+		assert_true(
+			heading.get_global_rect().end.y <= diary.get_global_rect().position.y,
+			"%s heading sits above the diary body" % where,
+		)
+		assert_true(heading.is_visible_in_tree(), "%s heading is visible" % where)
 
 func test_morning_save_chip_and_error_stay_inside_the_phone() -> void:
 	var summary := _morning_panel()
@@ -870,24 +977,73 @@ func test_morning_save_chip_and_error_stay_inside_the_phone() -> void:
 	summary.set_save_status(&"saved")
 	await _settle()
 	var badge := summary.find_child("SaveBadge", true, false) as Control
+	var card := summary.find_child("SaveStatusCard", true, false) as Control
+	var caption := summary.find_child("Caption", true, false) as Label
+	var status := summary.find_child("SaveStatus", true, false) as Label
+	var scroll := summary.find_child("SaveStatusScroll", true, false) as ScrollContainer
+	var hint := summary.find_child("ScrollHint", true, false) as Label
 	assert_not_null(badge)
-	if badge == null:
+	assert_not_null(card)
+	assert_not_null(caption)
+	assert_not_null(status)
+	assert_not_null(scroll)
+	assert_not_null(hint)
+	if (
+		badge == null or card == null or caption == null or status == null
+		or scroll == null or hint == null
+	):
 		return
 	assert_true(badge.visible)
+	assert_true(card.visible)
 	assert_true(
 		_screen_rect(summary).encloses(badge.get_global_rect()),
 		"save chip sits inside the phone",
 	)
-	assert_eq(summary.save_status_text(), "Saved.")
+	assert_eq(summary.save_status_text(), "Progress saved")
+	assert_eq(caption.text, "Progress saved")
+	assert_eq(caption.get_theme_color("font_color"), UiStyle.LEAF)
+	assert_eq(status.text, "", "saved has no separate body line")
+	assert_false(status.is_visible_in_tree(), "the body line stays hidden")
+	assert_false(scroll.visible, "the saved state hides the scroll body")
+	assert_false(hint.visible, "the saved state hides the scroll hint")
+	assert_almost_eq(
+		badge.get_global_rect().get_center().x,
+		card.get_global_rect().get_center().x,
+		1.0,
+		"the single saved line is centered",
+	)
+	var visible_copies: Array[Label] = []
+	for label in summary.find_children("*", "Label", true, false) as Array[Label]:
+		if label.is_visible_in_tree() and label.atr(label.text) == "Progress saved":
+			visible_copies.append(label)
+	assert_eq(
+		visible_copies.size(), 1,
+		"exactly one visible success line, with no duplicate",
+	)
+	# A stale deferred height sync from an error must not restore the hint.
+	summary.set_save_status(
+		&"error",
+		(
+			"Save failed — this morning is not persisted. The storage card is "
+			+ "full after the long festival season and the ledger could not be "
+			+ "written; keep playing and try again."
+		),
+	)
+	summary.set_save_status(&"saved")
+	await _settle()
+	assert_false(hint.visible, "a stale deferred sync never restores the hint")
+	assert_eq(summary.save_status_text(), "Progress saved")
 	summary.set_save_status(&"error", "Save failed — this morning is not persisted.")
 	await _settle()
-	var status := summary.find_child("SaveStatus", true, false) as Label
-	assert_not_null(status)
-	if status == null:
-		return
 	assert_eq(status.text, "Save failed — this morning is not persisted.")
 	assert_eq(status.get_theme_color("font_color"), UiStyle.BAD, "errors read red")
-	var card := summary.find_child("SaveStatusCard", true, false) as Control
+	assert_eq(caption.text, "SAVE ERROR")
+	assert_eq(caption.get_theme_color("font_color"), UiStyle.BAD)
+	assert_true(status.is_visible_in_tree())
+	assert_true(scroll.visible, "the error shows its scroll body")
+	assert_eq(
+		summary.save_status_text(), "Save failed — this morning is not persisted.",
+	)
 	assert_not_null(card, "error rides a backed card")
 	if card != null:
 		assert_true(
@@ -895,6 +1051,38 @@ func test_morning_save_chip_and_error_stay_inside_the_phone() -> void:
 			"backed error surface stays inside the phone",
 		)
 	_assert_controls_inside(summary, "morning save error")
+	summary.set_save_status(&"idle")
+	await _settle()
+	assert_false(card.visible, "idle hides the status card")
+	assert_false(badge.visible, "idle hides the save badge")
+	assert_false(scroll.visible, "idle hides the scroll body")
+	assert_false(hint.visible, "idle hides the scroll hint")
+	assert_eq(status.text, "", "idle clears the body")
+	assert_eq(summary.save_status_text(), "")
+	assert_false(summary.summary_state()["save_badge_visible"])
+
+func test_morning_progress_saved_caption_translates() -> void:
+	var summary := _morning_panel()
+	if summary == null:
+		return
+	var caption := summary.find_child("Caption", true, false) as Label
+	assert_not_null(caption)
+	if caption == null:
+		return
+	summary.set_save_status(&"saved")
+	await _settle()
+	assert_eq(caption.text, "Progress saved")
+	var expected := {
+		"en": "Progress saved",
+		"zh_TW": "進度已儲存",
+		"ja": "セーブしました",
+	}
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		assert_eq(
+			caption.atr(caption.text), expected[locale],
+			"%s displays the translated single saved line" % locale,
+		)
 
 func test_morning_long_save_error_wraps_bounded_inside_the_phone() -> void:
 	var summary := _morning_panel()
@@ -1031,6 +1219,8 @@ func test_morning_full_content_long_error_keeps_acknowledge_reachable() -> void:
 	)
 	var acknowledge := summary.find_child("Acknowledge", true, false) as Button
 	var diary := summary.find_child("DiaryLine", true, false) as Label
+	var diary_card := summary.find_child("DiaryCard", true, false) as Control
+	var diary_heading := summary.find_child("DiaryHeading", true, false) as Label
 	var frame := summary.find_child("PhoneFrame", true, false) as PhoneFrame
 	var save_status := summary.find_child("SaveStatus", true, false) as Label
 	var save_card := summary.find_child("SaveStatusCard", true, false) as Control
@@ -1042,6 +1232,8 @@ func test_morning_full_content_long_error_keeps_acknowledge_reachable() -> void:
 		)
 	assert_not_null(acknowledge)
 	assert_not_null(diary, "the morning summary carries the new day's diary")
+	assert_not_null(diary_card, "the diary rides its own card")
+	assert_not_null(diary_heading, "the diary card carries its day heading")
 	assert_not_null(frame, "the morning summary keeps the shared phone chrome")
 	assert_not_null(save_status)
 	assert_not_null(save_card)
@@ -1049,7 +1241,8 @@ func test_morning_full_content_long_error_keeps_acknowledge_reachable() -> void:
 	for row in shipment_rows:
 		assert_not_null(row, "every compact shipment row exists")
 	if (
-		acknowledge == null or diary == null or frame == null
+		acknowledge == null or diary == null or diary_card == null
+		or diary_heading == null or frame == null
 		or save_status == null or save_card == null or save_hint == null
 		or shipment_rows.has(null)
 	):
@@ -1129,6 +1322,24 @@ func test_morning_full_content_long_error_keeps_acknowledge_reachable() -> void:
 				ContentRules.diary_line(day),
 				"%s: the diary shows that day's stable English source key" % where,
 			)
+			assert_eq(
+				diary_heading.text,
+				tr("Diary · Day %d") % day,
+				"%s: the diary heading binds the new day" % where,
+			)
+			assert_eq(
+				summary.summary_state()["action_text"],
+				tr("Start day %d") % day,
+				"%s: the action caption reads sentence case" % where,
+			)
+			assert_true(
+				screen_rect.encloses(diary_card.get_global_rect()),
+				"%s: the diary card stays inside the phone" % where,
+			)
+			assert_true(
+				diary_card.get_global_rect().encloses(diary.get_global_rect()),
+				"%s: the diary body stays inside its card" % where,
+			)
 			assert_gte(
 				diary.get_line_count(), 1,
 				"%s: the diary is displayed" % where,
@@ -1188,6 +1399,16 @@ func test_morning_full_content_long_error_keeps_acknowledge_reachable() -> void:
 		summary.summary_state()["diary_line"],
 		ContentRules.diary_line(GameRules.MAX_DAY),
 		"960x540 keeps the Day 14 diary source key",
+	)
+	assert_eq(
+		diary_heading.text,
+		tr("Diary · Day %d") % GameRules.MAX_DAY,
+		"960x540 keeps the Day 14 diary heading",
+	)
+	assert_eq(
+		summary.summary_state()["action_text"],
+		tr("Start day %d") % GameRules.MAX_DAY,
+		"960x540 keeps the sentence-case Start day caption",
 	)
 	assert_eq(diary.get_theme_font_size("font_size"), 16)
 	assert_eq(
@@ -1318,7 +1539,7 @@ func test_morning_day14_summary_stays_inside_the_phone() -> void:
 	await _settle()
 	_assert_controls_inside(summary, "morning day 14")
 	var state := summary.summary_state()
-	assert_eq(state["action_text"], "START DAY 14")
+	assert_eq(state["action_text"], "Start day 14")
 
 func _primary_pill(button: Button) -> Control:
 	assert_not_null(button)

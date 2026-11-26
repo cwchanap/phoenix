@@ -97,8 +97,7 @@ You made the road out of town feel lived-in again.,你讓出鎮的那條路又�
 "You are one of us now, whatever the next season brings.",不管下一季會怎樣，你現在都是我們的一份子了。,次の季節がどうなっても、あなたはもう私たちの仲間だよ。
 Save is incompatible; start a New Game.,存檔不相容，請開始新遊戲。,セーブデータに互換性がありません。新しいゲームを始めてください。
 Save unavailable; start a New Game.,無法讀取存檔，請開始新遊戲。,セーブデータを読み込めません。新しいゲームを始めてください。
-NEW GAME,新遊戲,ニューゲーム
-CONTINUE,繼續,つづきから
+New game,新遊戲,ニューゲーム
 choose,選擇,選択
 BAG,背包,かばん
 SEEDS,種子,種
@@ -168,7 +167,7 @@ GIVE A GIFT  ·  ONE PER DAY,送禮  ·  每天一次,贈り物  ·  1日1回
 GIVE A GIFT · ONE PER DAY,送禮 · 每天一次,贈り物 · 1日1回
 GIVE,送出,贈る
 none,沒有,なし
-GIVE %s,送出%s,%sを贈る
+Give %s,送出%s,%sを贈る
 %s is %s's favourite — worth %d instead of %d.,%s是%s的最愛——好感度 %d，而非 %d。,%sは%sの好物——好感度は %d（通常は %d）。
 “%s”,「%s」,「%s」
 Continue,繼續,つづける
@@ -228,9 +227,9 @@ No shipping payout,沒有出貨收入,出荷の支払いなし
 Balance,餘額,残高
 %d CROP WITHERED,%d 株作物枯萎了,作物が %d 株枯れた
 %d CROPS WITHERED,%d 株作物枯萎了,作物が %d 株枯れた
-START DAY %d,開始第 %d 天,%d 日目を始める
-Saved.,已存檔。,セーブした。
-SAVED,已存檔,セーブ済み
+Start day %d,開始第 %d 天,%d 日目を始める
+Diary · Day %d,日記 · 第 %d 天,日記 · %d日目
+Progress saved,進度已儲存,セーブしました
 SAVE ERROR,存檔錯誤,セーブエラー
 No crops shipped.,沒有出貨任何作物。,出荷した作物はない。
 KENJI,健司,ケンジ
@@ -262,7 +261,7 @@ SEASON COMPLETE,本季結束,シーズン終了
 CROPS SHIPPED,出貨作物,出荷した作物
 SHIPPED VALUE,出貨總額,出荷額
 FINAL MONEY,最終金錢,最終所持金
-TITLE,標題畫面,タイトル
+Title,標題畫面,タイトル
 Shipped: %d crops · %dG,出貨：%d 個作物 · %dG,出荷：作物 %d 個 · %dG
 Final money: %dG,最終金錢：%dG,最終所持金：%dG
 Closest villager: %s,最親近的村民：%s,一番親しい村人：%s
@@ -284,7 +283,7 @@ Display,顯示,表示
 row,切換列,行を移動
 change,調整,変更
 done,完成,完了
-SHIPPING BIN,出貨箱,出荷箱
+Shipping bin,出貨箱,出荷箱
 Day 14 — only crops deposited here count toward the finale. Anything still in the bag scores nothing.,第 14 天——只有放進這裡的作物才會計入結局。還留在背包裡的不算分。,14日目——ここに入れた作物だけがフィナーレに数えられる。かばんに残ったものは点にならない。
 %d in bag · %dG each,背包內 %d 個 · 每個 %dG,所持 %d 個 · 1個 %dG
 M ALL,M 全部,M 全部
@@ -292,7 +291,7 @@ VALUE,價值,金額
 choose crop,選擇作物,作物を選ぶ
 choose gift,選擇禮物,贈り物を選ぶ
 Ship %d · %dG,出貨 %d · %dG,出荷 %d · %dG
-SEED SHOP,種子行,種屋
+Seed shop,種子行,種屋
 Seeds and tools,種子與工具,種と道具
 %dG each · %d nights · %d held,每個 %dG · %d 晚 · 持有 %d,1個 %dG · %d 晩 · 所持 %d
 EACH,每個,1個
