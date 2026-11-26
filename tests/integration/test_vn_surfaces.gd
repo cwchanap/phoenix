@@ -104,12 +104,21 @@ func _dialogue() -> DialoguePanel:
 		_dialogue_snapshot(),
 	)
 
+## The prologue with its HPA-1250 motion off: each Enter shows the next whole page at once.
 func _intro() -> OnboardingOverlay:
+	return _prologue(false)
+
+## The prologue as players see it: lines type out and scenes fade through black.
+func _animated_intro() -> OnboardingOverlay:
+	return _prologue(true)
+
+func _prologue(animate: bool) -> OnboardingOverlay:
 	var overlay := _spawn_panel(
 		"res://scenes/ui/onboarding_overlay.tscn"
 	) as OnboardingOverlay
 	if overlay == null:
 		return null
+	overlay.animate = animate
 	overlay.render(GameSession.new().snapshot())
 	return overlay
 
@@ -372,6 +381,9 @@ func test_dialogue_everything_stays_inside_at_min_window_in_all_locales() -> voi
 func _opening(overlay: OnboardingOverlay) -> Control:
 	return overlay.get_node("OpeningPanel") as Control
 
+func _background(overlay: OnboardingOverlay) -> TextureRect:
+	return overlay.find_child("IntroBackground", true, false) as TextureRect
+
 func _dock_body(overlay: OnboardingOverlay) -> Label:
 	return _opening(overlay).find_child("Content", true, false).get_node("Body") as Label
 
@@ -523,24 +535,26 @@ func test_truck_appears_only_in_the_country_road_scene() -> void:
 	if overlay == null:
 		return
 	await _settle()
-	var truck := _opening(overlay).find_child("Truck", true, false) as TextureRect
 	for scene_index in ContentRules.PROLOGUE_SCENES.size():
 		await _go_to_page(overlay, _scene_start_page(scene_index))
-		assert_eq(truck.visible, scene_index == 2, "truck visibility in scene %d" % (scene_index + 1))
-	var frame := truck.texture as AtlasTexture
-	assert_eq(frame.region, Rect2(0, 0, 96, 96), "the first frame of the kei truck sheet")
+		var truck := overlay.find_child("Truck", true, false) as Node2D
+		assert_eq(truck != null, scene_index == 2, "truck in scene %d" % (scene_index + 1))
+		if truck != null:
+			var frame := (truck.find_child("Sprite", true, false) as Sprite2D).texture as AtlasTexture
+			assert_eq(frame.region, Rect2(96, 0, 96, 96), "the rear-view frame of the kei truck sheet")
+			assert_false(_opening(overlay).is_ancestor_of(truck), "the truck drives in the painting, under the UI")
 
 func test_night_grade_tints_only_the_farm_and_house_paintings() -> void:
 	var overlay := _intro()
 	if overlay == null:
 		return
 	await _settle()
-	var background := overlay.get_node("IntroBackground") as TextureRect
+	var background := _background(overlay)
 	var opening := _opening(overlay)
 	for scene_index in ContentRules.PROLOGUE_SCENES.size():
 		await _go_to_page(overlay, _scene_start_page(scene_index))
 		var night := scene_index == 3 or scene_index == 4
-		assert_eq(background.modulate, OnboardingOverlay.NIGHT_GRADE if night else Color.WHITE, "grade in scene %d" % (scene_index + 1))
+		assert_eq(background.modulate, PrologueStage.NIGHT_GRADE if night else Color.WHITE, "grade in scene %d" % (scene_index + 1))
 		assert_eq((opening.find_child("LetterboxTop", true, false) as ColorRect).modulate, Color.WHITE)
 		assert_eq((opening.find_child("Dock", true, false) as Control).modulate, Color.WHITE)
 
@@ -717,7 +731,7 @@ func test_each_of_the_six_scenes_paints_its_own_background() -> void:
 	if overlay == null:
 		return
 	await _settle()
-	var background := overlay.get_node("IntroBackground") as TextureRect
+	var background := _background(overlay)
 	for scene_index in ContentRules.PROLOGUE_SCENES.size():
 		await _go_to_page(overlay, _scene_start_page(scene_index))
 		assert_eq(background.texture.resource_path, ContentRules.PROLOGUE_SCENES[scene_index]["background"], "background of scene %d" % (scene_index + 1))
@@ -808,7 +822,8 @@ func test_acknowledged_render_keeps_prologue_textures_unloaded() -> void:
 	var overlay := _spawn_panel("res://scenes/ui/onboarding_overlay.tscn") as OnboardingOverlay
 	if overlay == null:
 		return
-	var background := overlay.get_node("IntroBackground") as TextureRect
+	overlay.animate = false
+	var background := _background(overlay)
 	var portrait := _opening(overlay).find_child("Portrait", true, false) as TextureRect
 	assert_null(background.texture, "ready does not pre-load scene 1 before render")
 	overlay.render(_acknowledged_snapshot())
@@ -822,13 +837,152 @@ func test_acknowledged_render_keeps_prologue_textures_unloaded() -> void:
 	assert_null(background.texture, "acknowledging releases prologue background art")
 	assert_null(portrait.texture, "acknowledging releases prologue portrait art")
 
+# === HPA-1250 prologue motion ===
+
+func _stage(overlay: OnboardingOverlay) -> PrologueStage:
+	return overlay.find_child("Stage", true, false) as PrologueStage
+
+func _fade(overlay: OnboardingOverlay) -> ColorRect:
+	return _opening(overlay).find_child("Fade", true, false) as ColorRect
+
+## The page carrying the scene cue, as [page number, scene index, line index].
+func _cue(cue: StringName) -> Array:
+	for scene_index in ContentRules.PROLOGUE_SCENES.size():
+		var lines: Array = ContentRules.PROLOGUE_SCENES[scene_index]["lines"]
+		for line_index in lines.size():
+			if (lines[line_index] as Dictionary).get("cue", &"") == cue:
+				return [_page_of(scene_index, line_index), scene_index, line_index]
+	return []
+
+func test_enter_finishes_a_typing_line_before_advancing() -> void:
+	var overlay := _animated_intro()
+	if overlay == null:
+		return
+	await _settle()
+	var narration := _opening(overlay).find_child("Narration", true, false) as Label
+	assert_false(overlay.is_line_revealed(), "page 1 is still typing")
+	assert_lt(narration.visible_ratio, 1.0)
+	await _press(&"ui_accept")
+	assert_eq(int(overlay.current_page()["page_number"]), 1, "the first Enter only finishes the line")
+	assert_true(overlay.is_line_revealed())
+	assert_eq(narration.visible_ratio, 1.0)
+	await _press(&"ui_accept")
+	assert_eq(int(overlay.current_page()["page_number"]), 2, "the second Enter advances")
+	assert_false(overlay.is_line_revealed(), "the next line types out in turn")
+	assert_lt(_dock_body(overlay).visible_ratio, 1.0)
+
+func test_a_line_types_at_about_thirty_characters_a_second() -> void:
+	var overlay := _animated_intro()
+	if overlay == null:
+		return
+	await _go_to_page(overlay, 2)
+	var body := _dock_body(overlay)
+	var characters := body.get_total_character_count()
+	assert_gt(characters, 30, "page 2 is long enough to time")
+	await get_tree().create_timer(0.5).timeout
+	var shown := body.visible_ratio * characters
+	assert_between(shown, 8.0, 22.0, "about 15 characters show after half a second")
+	assert_false(overlay.is_line_revealed())
+
+func test_house_windows_light_on_gen_sans_power_line() -> void:
+	var cue := _cue(&"windows")
+	assert_eq(cue.size(), 3, "one line cues the house windows")
+	if cue.size() != 3:
+		return
+	assert_string_contains(String(ContentRules.PROLOGUE_SCENES[cue[1]]["lines"][cue[2]]["text"]), "Power's on")
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	await _go_to_page(overlay, cue[0] - 1)
+	var windows := _stage(overlay).find_child("Windows", true, false) as Node2D
+	assert_not_null(windows, "the farm scene builds its house windows")
+	if windows == null:
+		return
+	assert_false(_stage(overlay).windows_lit(), "the windows are dark before Gen-san's line")
+	assert_eq(windows.modulate.a, 0.0)
+	await _press(&"ui_accept")
+	assert_true(_stage(overlay).windows_lit(), "the windows light on Gen-san's line")
+	assert_eq(windows.modulate.a, 1.0)
+	await _press(&"ui_accept")
+	assert_true(_stage(overlay).windows_lit(), "the windows stay lit for the rest of the scene")
+	assert_eq(windows.modulate.a, 1.0)
+
+func test_house_windows_fade_up_over_their_cue_line() -> void:
+	var cue := _cue(&"windows")
+	if cue.size() != 3:
+		fail_test("no windows cue")
+		return
+	var stage := PrologueStage.new()
+	add_child_autofree(stage)
+	var scene: Dictionary = ContentRules.PROLOGUE_SCENES[cue[1]]
+	stage.show_scene(scene)
+	stage.show_line(scene["lines"][0])
+	var windows := stage.find_child("Windows", true, false) as Node2D
+	assert_false(stage.windows_lit())
+	stage.show_line(scene["lines"][cue[2]])
+	assert_true(stage.windows_lit())
+	assert_lt(windows.modulate.a, 1.0, "the windows fade up rather than snap on")
+	await get_tree().create_timer(PrologueStage.WINDOW_FADE_SECONDS + 0.2).timeout
+	assert_eq(windows.modulate.a, 1.0)
+
+func test_escape_during_a_scene_fade_acknowledges_once_and_stays_closed() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	await _go_to_page(overlay, _page_of(1, 0) - 1)
+	overlay.animate = true
+	await _press(&"ui_accept")
+	await _settle()
+	assert_true(overlay.is_changing_scene(), "Enter on a scene's last line fades through black")
+	assert_gt(_fade(overlay).modulate.a, 0.0)
+	watch_signals(overlay)
+	await _press(&"ui_cancel")
+	assert_signal_emit_count(overlay, "intro_acknowledged", 1, "Esc mid-fade acknowledges once")
+	_dismiss_intro(overlay)
+	assert_false(overlay.is_opening_visible())
+	assert_false(overlay.is_changing_scene(), "acknowledging stops the fade")
+	assert_eq(_fade(overlay).modulate.a, 0.0, "no black veil is left behind")
+	await get_tree().create_timer(OnboardingOverlay.FADE_OUT_SECONDS + 0.3).timeout
+	assert_false(overlay.is_opening_visible(), "the stopped fade never brings the next scene up")
+	assert_null(_background(overlay).texture)
+	assert_eq(_stage(overlay).find_child("Effects", true, false).get_child_count(), 0, "the stage is emptied")
+	assert_signal_emit_count(overlay, "intro_acknowledged", 1)
+
+func test_escape_mid_typing_acknowledges_once_and_settles_the_page() -> void:
+	var overlay := _animated_intro()
+	if overlay == null:
+		return
+	await _settle()
+	assert_false(overlay.is_line_revealed())
+	watch_signals(overlay)
+	await _press(&"ui_cancel")
+	assert_signal_emit_count(overlay, "intro_acknowledged", 1, "Esc mid-typing acknowledges once")
+	_dismiss_intro(overlay)
+	assert_false(overlay.is_opening_visible())
+	assert_true(overlay.is_line_revealed(), "acknowledging stops the typing")
+	assert_eq(_fade(overlay).modulate.a, 0.0)
+
+func test_motion_off_shows_each_page_whole_and_still() -> void:
+	var overlay := _intro()
+	if overlay == null:
+		return
+	await _settle()
+	assert_true(overlay.is_line_revealed())
+	assert_eq((_opening(overlay).find_child("Narration", true, false) as Label).visible_ratio, 1.0)
+	for particles in _stage(overlay).find_children("*", "CPUParticles2D", true, false):
+		assert_false((particles as CPUParticles2D).emitting, "%s stays still" % particles.name)
+	await _press(&"ui_accept")
+	assert_eq(int(overlay.current_page()["page_number"]), 2, "one Enter, one page")
+
 func test_enter_plays_all_58_pages_in_order_and_acknowledges_once_on_the_last() -> void:
 	var overlay := _intro()
 	if overlay == null:
 		return
 	await _settle()
 	var opening := _opening(overlay)
-	var background := overlay.get_node("IntroBackground") as TextureRect
+	var background := _background(overlay)
 	var tag_text := opening.find_child("SceneTag", true, false).get_node("Text") as Label
 	var dots := opening.find_child("ProgressDots", true, false) as HBoxContainer
 	var dock := opening.find_child("Dock", true, false) as Control
@@ -837,7 +991,6 @@ func test_enter_plays_all_58_pages_in_order_and_acknowledges_once_on_the_last() 
 	var note_card := opening.find_child("NoteCard", true, false) as Control
 	var note_label := note_card.find_child("NoteText", true, false) as Label
 	var portrait := opening.find_child("Portrait", true, false) as TextureRect
-	var truck := opening.find_child("Truck", true, false) as TextureRect
 	var continue_button := opening.find_child("Continue", true, false) as Control
 	var accept := opening.find_child("Accept", true, false) as Control
 	var name_tag := opening.find_child("NameTag", true, false) as SlantTag
@@ -867,8 +1020,8 @@ func test_enter_plays_all_58_pages_in_order_and_acknowledges_once_on_the_last() 
 				tag_changes.append(page_number)
 			assert_eq(tag_text.text, scene["tag"], where + " scene tag")
 			assert_eq(background.texture.resource_path, scene["background"], where + " background")
-			assert_eq(background.modulate, OnboardingOverlay.NIGHT_GRADE if bool(scene["night"]) else Color.WHITE, where + " night grade")
-			assert_eq(truck.visible, bool(scene["truck"]), where + " truck")
+			assert_eq(background.modulate, PrologueStage.NIGHT_GRADE if bool(scene["night"]) else Color.WHITE, where + " night grade")
+			assert_eq(overlay.find_child("Truck", true, false) != null, (scene["motion"] as Dictionary).has("truck"), where + " truck")
 			assert_eq(_active_dot_indices(dots), [scene_index], where + " progress dot")
 			assert_eq(continue_button.visible, page_number < page_count, where + " Continue")
 			assert_eq(accept.visible, page_number == page_count, where + " Begin Day 1")

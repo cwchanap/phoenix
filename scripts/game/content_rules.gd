@@ -11,13 +11,38 @@ const OPENING_ROLE := "Former software engineer"
 
 const INNER_VOICE_LABEL := "Inner voice"
 
+## The six prologue scenes. Each scene's "motion" is presentation data for
+## PrologueStage (HPA-1250), tuned by eye in 1920x1080 stage space over the
+## 1.5x painting: "camera" zooms about a pivot (and optionally pans) as it
+## settles; "lights" are [look, centre, radius, optional phase] glows from
+## PrologueStage.LIGHT_LOOKS; the other keys place one effect each. A line's
+## "cue" fires a stage cue when that line shows.
 const PROLOGUE_SCENES: Array[Dictionary] = [
     {
         "tag": "Station · 19:00",
         "background": "res://assets/ui/backgrounds/prologue-platform.png",
         "portrait": -1,
         "night": false,
-        "truck": false,
+        "motion": {
+            "camera": {"pivot": Vector2(1080, 420), "zoom": Vector2(1.03, 1.12)},
+            "lights": [
+                [&"halo", Vector2(1122, 318), 280.0],
+                [&"flame", Vector2(1122, 312), 60.0],
+                [&"spill", Vector2(1122, 600), 260.0],
+                [&"window", Vector2(520, 500), 90.0],
+                [&"window", Vector2(630, 500), 90.0],
+                [&"window", Vector2(740, 500), 90.0],
+                [&"window", Vector2(850, 500), 90.0],
+                [&"window", Vector2(960, 500), 90.0],
+                [&"window", Vector2(1070, 500), 90.0],
+                [&"glow", Vector2(1530, 455), 150.0],
+                [&"flame", Vector2(1422, 393), 40.0],
+                [&"bulb", Vector2(279, 442), 34.0],
+                [&"bulb", Vector2(375, 442), 34.0],
+            ],
+            "moths": Vector2(1122, 312),
+            "fireflies": [Rect2(80, 700, 1760, 200), 14],
+        },
         "lines": [
             {
                 "kind": LineKind.NARRATION,
@@ -54,7 +79,29 @@ const PROLOGUE_SCENES: Array[Dictionary] = [
         "background": "res://assets/ui/backgrounds/prologue-station.png",
         "portrait": VillagerRules.VillagerId.RESIDENT,
         "night": false,
-        "truck": false,
+        "motion": {
+            "camera": {
+                "pivot": Vector2(1200, 460),
+                "zoom": Vector2(1.07, 1.07),
+                "pan": [Vector2(44, 0), Vector2(-44, 0)],
+            },
+            "lights": [
+                [&"glow", Vector2(1560, 460), 300.0],
+                [&"halo", Vector2(1617, 435), 110.0],
+                [&"flame", Vector2(1617, 435), 24.0],
+                [&"halo", Vector2(1735, 428), 110.0],
+                [&"flame", Vector2(1735, 428), 24.0],
+                [&"halo", Vector2(810, 425), 110.0],
+                [&"flame", Vector2(810, 425), 24.0],
+                [&"halo", Vector2(1038, 425), 110.0],
+                [&"flame", Vector2(1038, 425), 24.0],
+                [&"glow", Vector2(1205, 450), 120.0],
+                [&"neon", Vector2(1340, 495), 70.0],
+                [&"signal", Vector2(655, 337), 22.0, 0.0],
+                [&"signal", Vector2(655, 362), 22.0, 1.0],
+            ],
+            "fireflies": [Rect2(560, 600, 1300, 160), 12],
+        },
         "lines": [
             {
                 "kind": LineKind.DIALOGUE,
@@ -111,7 +158,24 @@ const PROLOGUE_SCENES: Array[Dictionary] = [
         "background": "res://assets/ui/backgrounds/prologue-road.png",
         "portrait": VillagerRules.VillagerId.FARMER,
         "night": false,
-        "truck": true,
+        "motion": {
+            "camera": {"pivot": Vector2(1060, 560), "zoom": Vector2(1.02, 1.09)},
+            "lights": [
+                [&"village", Vector2(742, 392), 14.0],
+                [&"village", Vector2(760, 378), 14.0],
+                [&"village", Vector2(790, 372), 14.0],
+                [&"village", Vector2(826, 384), 14.0],
+                [&"village", Vector2(858, 376), 14.0],
+                [&"village", Vector2(880, 392), 14.0],
+            ],
+            "stars": Rect2(0, 95, 1400, 120),
+            "truck": {
+                "from": Vector2(932, 702),
+                "to": Vector2(1161, 631),
+                "scale": Vector2(0.8, 0.56),
+                "beam_to": Vector2(1450, 400),
+            },
+        },
         "lines": [
             {
                 "kind": LineKind.DIALOGUE,
@@ -218,7 +282,15 @@ const PROLOGUE_SCENES: Array[Dictionary] = [
         "background": "res://assets/ui/backgrounds/intro.png",
         "portrait": VillagerRules.VillagerId.FARMER,
         "night": true,
-        "truck": false,
+        "motion": {
+            "camera": {"pivot": Vector2(960, 520), "zoom": Vector2(1.13, 1.03)},
+            "headlights": Vector2(1180, 470),
+            "windows": [
+                [Vector2(1325, 232), Vector2(1365, 215), Vector2(1367, 262), Vector2(1327, 280)],
+                [Vector2(1285, 325), Vector2(1347, 305), Vector2(1347, 380), Vector2(1287, 402)],
+            ],
+            "fireflies": [Rect2(260, 390, 1300, 300), 26],
+        },
         "lines": [
             {
                 "kind": LineKind.NARRATION,
@@ -233,6 +305,7 @@ const PROLOGUE_SCENES: Array[Dictionary] = [
                 "kind": LineKind.DIALOGUE,
                 "villager": VillagerRules.VillagerId.FARMER,
                 "text": "Power's on, water's on. I aired out the futons yesterday.",
+                "cue": &"windows",
             },
             {
                 "kind": LineKind.DIALOGUE,
@@ -284,7 +357,11 @@ const PROLOGUE_SCENES: Array[Dictionary] = [
         "background": "res://assets/ui/backgrounds/interior-night.png",
         "portrait": -1,
         "night": true,
-        "truck": false,
+        "motion": {
+            "camera": {"pivot": Vector2(1068, 420), "zoom": Vector2(1.03, 1.1)},
+            "room_lamp": Vector2(1068, 345),
+            "moonlight": [Vector2(300, 210), Vector2(490, 195), Vector2(1160, 900), Vector2(820, 985)],
+        },
         "lines": [
             {
                 "kind": LineKind.NARRATION,
@@ -317,7 +394,17 @@ const PROLOGUE_SCENES: Array[Dictionary] = [
         "background": "res://assets/ui/backgrounds/intro.png",
         "portrait": -1,
         "night": false,
-        "truck": false,
+        "motion": {
+            "camera": {
+                "pivot": Vector2(640, 420),
+                "zoom": Vector2(1.09, 1.025),
+                "pan": [Vector2.ZERO, Vector2(-10, 0)],
+            },
+            "dawn": true,
+            "sun": Vector2(305, 128),
+            "mist": [590.0, 645.0, 700.0],
+            "birds": [Vector2(0.6, 175), Vector2(1.1, 205), Vector2(1.5, 160), Vector2(5.5, 230)],
+        },
         "lines": [
             {
                 "kind": LineKind.NARRATION,

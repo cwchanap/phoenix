@@ -17,7 +17,9 @@ func _clean_settings() -> void:
         if FileAccess.file_exists(path):
             DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
-func _spawn_world(acknowledge_intro: bool, settings: UiSettings = null) -> WorldShell:
+func _spawn_world(
+    acknowledge_intro: bool, settings: UiSettings = null, prologue_motion := false
+) -> WorldShell:
     var packed := load("res://scenes/world/world.tscn") as PackedScene
     assert_not_null(packed)
     if packed == null:
@@ -30,6 +32,8 @@ func _spawn_world(acknowledge_intro: bool, settings: UiSettings = null) -> World
         world.configure(null, null, settings)
     world.clock_running = false
     add_child_autoqfree(world)
+    # Like clock_running: fixtures page the prologue one whole page per Enter.
+    (world.hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay).animate = prologue_motion
     if acknowledge_intro:
         var accepted := InputEventAction.new()
         accepted.action = &"ui_cancel"
@@ -3229,6 +3233,43 @@ func test_esc_partial_and_full_prologue_leave_the_same_day_one_snapshot() -> voi
     assert_eq(snapshots[1], snapshots[2], "Esc mid-prologue leaves the same session as a full playthrough")
     await _press_panel_action(&"ui_accept")
     assert_eq(full_world._session.snapshot(), snapshots[2], "an extra Enter after completion changes nothing")
+
+
+func test_esc_mid_typing_and_mid_fade_leave_the_same_day_one_snapshot() -> void:
+    var full_world := _locked_world()
+    var full_overlay := full_world.hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
+    for _press_index in full_overlay.page_count():
+        await _press_panel_action(&"ui_accept")
+    var expected: Dictionary = full_world._session.snapshot()
+
+    var typing_world := _spawn_world(false, null, true)
+    var typing_overlay := typing_world.hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
+    await get_tree().process_frame
+    assert_false(typing_overlay.is_line_revealed(), "page 1 is still typing")
+    await _press_escape()
+
+    var fade_world := _locked_world()
+    var fade_overlay := fade_world.hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
+    var first_scene_lines := (ContentRules.PROLOGUE_SCENES[0]["lines"] as Array).size()
+    for _press_index in first_scene_lines - 1:
+        await _press_panel_action(&"ui_accept")
+    fade_overlay.animate = true
+    await _press_panel_action(&"ui_accept")
+    assert_true(fade_overlay.is_changing_scene(), "the scene is fading through black")
+    await _press_escape()
+
+    for world in [typing_world, fade_world]:
+        var hud := _hud(world)
+        var overlay := hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
+        assert_false(overlay.is_opening_visible())
+        assert_false(overlay.is_changing_scene())
+        assert_false(_panel(hud, "PausePanel").visible)
+        assert_true(world._world_input_enabled)
+        assert_false(hud.has_blocking_modal())
+        assert_eq(world._session.snapshot(), expected, "Esc mid-motion leaves the same session as a full playthrough")
+    await get_tree().create_timer(OnboardingOverlay.FADE_OUT_SECONDS + 0.3).timeout
+    assert_false(fade_overlay.is_opening_visible(), "the stopped fade never reopens the prologue")
+    assert_eq(fade_world._session.snapshot(), expected)
 
 
 func test_escape_on_the_final_prologue_page_starts_day_one_without_opening_pause() -> void:

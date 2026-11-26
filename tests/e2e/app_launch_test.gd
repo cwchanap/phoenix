@@ -81,7 +81,7 @@ func test_unfinished_save_enter_resumes_seeded_day() -> void:
 # HPA-1137: real keys through the live app. One Enter advances exactly one
 # page (the prologue stays up), then Esc skips straight to a normal Day 1
 # without opening Pause, and the world input gate is open again.
-func test_new_game_enter_advances_one_page_then_escape_skips_to_day_one() -> void:
+func test_new_game_enter_finishes_then_advances_a_page_and_escape_skips_to_day_one() -> void:
 	var hud := "/root/AppRoot/World/GameHud/HudRoot"
 	var overlay := hud + "/OnboardingOverlay"
 	var chrome := hud + "/Chrome"
@@ -108,6 +108,13 @@ func test_new_game_enter_advances_one_page_then_escape_skips_to_day_one() -> voi
 	).is_true()
 	assert_int(int(await game.get_property(overlay, "_line_index"))).is_equal(0)
 
+	# HPA-1250: while page 1 still types, Enter finishes it first; the next Enter
+	# advances. (A slow harness may find the line already typed out.)
+	if not bool(await game.call_method(overlay, "is_line_revealed")):
+		assert_bool(await game.input_key(KEY_ENTER, true)).is_true()
+		assert_bool(await game.input_key(KEY_ENTER, false)).is_true()
+		assert_bool(await game.call_method(overlay, "is_line_revealed")).is_true()
+		assert_int(int(await game.get_property(overlay, "_line_index"))).is_equal(0)
 	assert_bool(await game.input_key(KEY_ENTER, true)).is_true()
 	assert_bool(await game.input_key(KEY_ENTER, false)).is_true()
 	assert_bool(await game.wait_for_property(overlay, "_line_index", 1, 10.0)).is_true()

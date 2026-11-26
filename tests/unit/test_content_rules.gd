@@ -442,7 +442,7 @@ func test_prologue_scene_flags_and_backgrounds_exist() -> void:
     var trucks: Array[bool] = []
     for scene in ContentRules.PROLOGUE_SCENES:
         nights.append(scene["night"])
-        trucks.append(scene["truck"])
+        trucks.append((scene["motion"] as Dictionary).has("truck"))
         assert_true(ResourceLoader.exists(scene["background"]), scene["background"])
     var expected_nights: Array[bool] = [false, false, false, true, true, false]
     var expected_trucks: Array[bool] = [false, false, true, false, false, false]
