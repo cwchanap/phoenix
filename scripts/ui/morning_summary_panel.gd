@@ -45,7 +45,7 @@ var _acknowledge: Button
 var _save_badge: PanelContainer
 var _save_caption: Label
 var _badge_ok := UiStyle.card(
-	Color(UiStyle.LEAF, 0.15), UiStyle.PILL_RADIUS, [12, 4, 12, 4], false
+	UiStyle.MINT, UiStyle.PILL_RADIUS, [12, 4, 12, 4], false
 )
 var _badge_error := UiStyle.card(
 	Color(UiStyle.BAD, 0.14), UiStyle.PILL_RADIUS, [12, 4, 12, 4], false
@@ -133,7 +133,7 @@ func set_save_status(status: StringName, message: String = "") -> void:
 			_save_status.text = ""
 			_save_status.add_theme_color_override("font_color", UiStyle.BAD)
 			_save_caption.text = ""
-			_save_caption.add_theme_color_override("font_color", UiStyle.LEAF)
+			_save_caption.add_theme_color_override("font_color", UiStyle.LEAF_DEEP)
 			_save_badge.add_theme_stylebox_override("panel", _badge_ok)
 			_save_status_card.visible = false
 			_save_badge.visible = false
@@ -145,7 +145,7 @@ func set_save_status(status: StringName, message: String = "") -> void:
 			_save_status.text = ""
 			_save_status.add_theme_color_override("font_color", UiStyle.BAD)
 			_save_caption.text = "Progress saved"
-			_save_caption.add_theme_color_override("font_color", UiStyle.LEAF)
+			_save_caption.add_theme_color_override("font_color", UiStyle.LEAF_DEEP)
 			_save_badge.add_theme_stylebox_override("panel", _badge_ok)
 			_save_status_card.visible = true
 			_save_badge.visible = true
@@ -433,7 +433,7 @@ func _build() -> void:
 	var badge_icon := UiStyle.icon(SAVE_ICON, 16)
 	badge_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	badge_row.add_child(badge_icon)
-	_save_caption = UiStyle.label("", 15, UiStyle.LEAF, 800)
+	_save_caption = UiStyle.label("", 15, UiStyle.LEAF_DEEP, 800)
 	_save_caption.name = "Caption"
 	badge_row.add_child(_save_caption)
 
