@@ -318,6 +318,40 @@ func test_phone_frame_status_time_can_hide_on_lock_surfaces() -> void:
 	frame.call("set_status_time_visible", true)
 	assert_true(time.visible)
 
+func test_unheaded_phone_frame_keeps_hidden_header_and_status_row_across_locales() -> void:
+	var frame := PhoneFrame.new()
+	add_child_autoqfree(frame)
+	frame.set_status_time("06:00")
+	await _settle()
+	var app_bar := frame.find_child("AppBar", true, false) as Control
+	var jp := frame.find_child("JpSubtitle", true, false) as Control
+	var gradient := frame.find_child("Gradient", true, false) as Control
+	var time := _status_time_label(frame)
+	assert_not_null(app_bar)
+	assert_not_null(jp)
+	assert_not_null(gradient)
+	assert_not_null(time)
+	if app_bar == null or jp == null or gradient == null or time == null:
+		return
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		await _settle()
+		assert_false(
+			app_bar.visible,
+			"%s: a wallpaper-only surface never grows an app header" % locale,
+		)
+		assert_false(
+			jp.visible,
+			"%s: no decorative JP kicker without an app header" % locale,
+		)
+		assert_false(gradient.visible, "%s: no header gradient without a header" % locale)
+		assert_eq(time.text, "06:00", "%s: the status clock is untouched" % locale)
+		assert_eq(
+			time.get_theme_color("font_color"),
+			UiStyle.INK,
+			"%s: the light status ink is untouched" % locale,
+		)
+
 func test_pause_wallpaper_runs_behind_status_row_and_home_indicator() -> void:
 	var pause := _pause_panel()
 	if pause == null:

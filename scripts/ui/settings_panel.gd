@@ -35,7 +35,6 @@ var _window_chips: Array[Dictionary] = []
 var _language_chips: Array[Dictionary] = []
 var _tips_on: TextureRect
 var _tips_knob: Panel
-var _save_path: Label
 var _status: Label
 
 func _ready() -> void:
@@ -64,9 +63,6 @@ func set_status_time(time_text: String) -> void:
 
 func status_time_text() -> String:
 	return _frame.status_time_text()
-
-func save_path_text() -> String:
-	return _save_path.text
 
 func _input(event: InputEvent) -> void:
 	if not visible or not event.is_pressed() or event.is_echo():
@@ -170,7 +166,6 @@ func _refresh() -> void:
 		_row_names[index].add_theme_color_override(
 			"font_color", UiStyle.ACCENT_DEEP if selected else UiStyle.INK
 		)
-	_save_path.text = tr("Save file: %s") % SaveRepository.DEFAULT_PATH
 	_update_slider(_music_slider, _settings.music)
 	_update_slider(_sound_slider, _settings.sound)
 	_update_chips(_window_chips, WINDOW_VALUES.find(_settings.fullscreen))
@@ -390,7 +385,7 @@ func _seg(
 		chip.name = "Option_%d" % index
 		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		chip.add_theme_stylebox_override(
-			"panel", UiStyle.card(Color(1.0, 1.0, 1.0, 0.0), 9, [11, 5, 11, 5], false)
+			"panel", UiStyle.card(Color(1.0, 1.0, 1.0, 0.0), 9, [0, 0, 0, 0], false)
 		)
 		var on := TextureRect.new()
 		on.name = "On"
@@ -402,12 +397,20 @@ func _seg(
 		on.stretch_mode = TextureRect.STRETCH_SCALE
 		on.visible = false
 		chip.add_child(on)
+		# Zero-inset chip lets the On gradient fill it; only the label is padded.
+		var pad := MarginContainer.new()
+		pad.name = "Padding"
+		pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		for side in [["left", 11], ["top", 5], ["right", 11], ["bottom", 5]]:
+			pad.add_theme_constant_override("margin_" + side[0], side[1])
+		chip.add_child(pad)
 		var label := UiStyle.label(texts[index], 13, UiStyle.INK_MUTED, 800)
 		label.name = "Label"
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		if not translate:
 			label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-		chip.add_child(label)
+		pad.add_child(label)
 		var chip_hit := UiStyle.hit_button(chip)
 		chip_hit.name = "OptionHit_%d" % index
 		chip_hit.pressed.connect(_choose_option.bind(row_index, index))
@@ -455,9 +458,6 @@ func _tips_switch() -> Control:
 func _note() -> VBoxContainer:
 	var info := UiStyle.vbox(2)
 	info.name = "NoteRow"
-	_save_path = UiStyle.label("", 13, UiStyle.INK_MUTED, 700)
-	_save_path.name = "SavePath"
-	info.add_child(_save_path)
 	_status = UiStyle.label("", 13, UiStyle.BAD, 700)
 	_status.name = "Status"
 	info.add_child(_status)

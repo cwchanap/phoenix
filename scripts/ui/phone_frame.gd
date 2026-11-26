@@ -236,6 +236,7 @@ func _app_header_row() -> MarginContainer:
 	_jp = UiStyle.label("", 15, Color(1.0, 1.0, 1.0, 0.85), 700)
 	_jp.name = "JpSubtitle"
 	_jp.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_jp.visible = false
 	titles.add_child(_jp)
 	_title = UiStyle.label("", 36, UiStyle.CARD, 900)
 	_title.name = "AppTitle"
@@ -274,6 +275,7 @@ func set_app_header(
 	_title_key = title_text
 	_title.text = tr(title_text)
 	_jp.text = jp_text
+	_refresh_jp_subtitle()
 	_band_gradient.texture = UiStyle.rounded_gradient_texture(
 		gradient,
 		Vector2i(int(PHONE_SIZE.x) - 28, 160),
@@ -284,9 +286,14 @@ func set_app_header(
 	_app_bar.visible = true
 	set_status_tint(UiStyle.CARD)
 
+## The kicker is deliberately untranslated, so it only belongs on English.
+func _refresh_jp_subtitle() -> void:
+	_jp.visible = _jp.text != "" and TranslationServer.get_locale().begins_with("en")
+
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_TRANSLATION_CHANGED and _title_key != "":
 		_title.text = tr(_title_key)
+		_refresh_jp_subtitle()
 
 func set_status_time(time_text: String) -> void:
 	_status_time.text = time_text

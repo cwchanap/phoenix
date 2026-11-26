@@ -367,6 +367,7 @@ func test_app_header_band_shows_gradient_jp_subtitle_and_light_status() -> void:
 	assert_not_null(jp, "Japanese app subtitle")
 	if jp != null:
 		assert_eq(jp.text, "かばん")
+		assert_true(jp.visible, "English shows the Japanese kicker over the gradient band")
 	var title := frame.find_child("AppTitle", true, false) as Label
 	assert_not_null(title, "app title")
 	if title != null:
@@ -871,50 +872,80 @@ func test_almanac_page_dots_page_with_a_pointer() -> void:
 	assert_eq(almanac.crop_name_text(), "Turnip")
 
 func test_phone_apps_keep_localized_titles_and_fixed_jp_subtitles() -> void:
-	for locale in LOCALES:
-		TranslationServer.set_locale(locale)
-		var bag := _spawn_panel("res://scenes/ui/bag_panel.tscn") as BagPanel
-		assert_not_null(bag)
-		if bag == null:
-			continue
-		bag.open_panel(_snapshot())
-		await _settle()
-		var frame := _frame(bag)
-		var title := frame.find_child("AppTitle", true, false) as Label
-		var jp := frame.find_child("JpSubtitle", true, false) as Label
-		assert_not_null(title)
-		assert_not_null(jp)
-		if title != null:
-			match locale:
-				"en":
-					assert_eq(title.text, "Bag")
-				"zh_TW":
-					assert_eq(title.text, "背包")
-				"ja":
-					assert_eq(title.text, "かばん")
-		if jp != null:
-			assert_eq(jp.text, "かばん", "%s keeps the decorative JP subtitle" % locale)
-		var almanac := _spawn_panel("res://scenes/ui/almanac_panel.tscn") as AlmanacPanel
-		assert_not_null(almanac)
-		if almanac == null:
-			continue
-		almanac.open_panel(_snapshot())
-		await _settle()
-		var a_frame := _frame(almanac)
-		var a_title := a_frame.find_child("AppTitle", true, false) as Label
-		var a_jp := a_frame.find_child("JpSubtitle", true, false) as Label
-		assert_not_null(a_title)
-		assert_not_null(a_jp)
-		if a_title != null:
-			match locale:
-				"en":
-					assert_eq(a_title.text, "Almanac")
-				"zh_TW":
-					assert_eq(a_title.text, "圖鑑")
-				"ja":
-					assert_eq(a_title.text, "図鑑")
-		if a_jp != null:
-			assert_eq(a_jp.text, "作物図鑑", "%s keeps the decorative JP subtitle" % locale)
+	TranslationServer.set_locale("en")
+	var bag := _spawn_panel("res://scenes/ui/bag_panel.tscn") as BagPanel
+	var almanac := _spawn_panel("res://scenes/ui/almanac_panel.tscn") as AlmanacPanel
+	assert_not_null(bag)
+	assert_not_null(almanac)
+	if bag == null or almanac == null:
+		return
+	bag.open_panel(_snapshot())
+	almanac.open_panel(_snapshot())
+	await _settle()
+	var bag_frame := _frame(bag)
+	var a_frame := _frame(almanac)
+	var title := bag_frame.find_child("AppTitle", true, false) as Label
+	var jp := bag_frame.find_child("JpSubtitle", true, false) as Label
+	var a_title := a_frame.find_child("AppTitle", true, false) as Label
+	var a_jp := a_frame.find_child("JpSubtitle", true, false) as Label
+	assert_not_null(title)
+	assert_not_null(jp)
+	assert_not_null(a_title)
+	assert_not_null(a_jp)
+	if title == null or jp == null or a_title == null or a_jp == null:
+		return
+	assert_eq(title.text, "Bag")
+	assert_eq(jp.text, "かばん")
+	assert_true(jp.visible, "English keeps the decorative JP subtitle")
+	assert_true(a_jp.visible, "every headed app keeps the kicker in English")
+	var titles := title.get_parent() as Control
+	assert_not_null(titles)
+
+	# Live switch on the frames already open: no rebuild, no stale kicker.
+	TranslationServer.set_locale("ja")
+	await _settle()
+	assert_eq(title.text, "かばん")
+	assert_eq(a_title.text, "図鑑")
+	assert_false(jp.visible, "ja hides the untranslated JP subtitle")
+	assert_false(a_jp.visible)
+	assert_eq(jp.text, "かばん", "the hidden subtitle keeps its fixed source text")
+	assert_almost_eq(
+		titles.get_combined_minimum_size().y,
+		title.get_combined_minimum_size().y,
+		0.5,
+		"a hidden JP subtitle must not reserve a blank line",
+	)
+
+	TranslationServer.set_locale("zh_TW")
+	await _settle()
+	assert_eq(title.text, "背包")
+	assert_eq(a_title.text, "圖鑑")
+	assert_false(jp.visible, "zh_TW hides the untranslated JP subtitle")
+	assert_false(a_jp.visible)
+
+	TranslationServer.set_locale("en")
+	await _settle()
+	assert_eq(title.text, "Bag")
+	assert_true(jp.visible, "returning to English restores the existing frame's kicker")
+	assert_eq(jp.text, "かばん")
+	assert_true(
+		titles.get_combined_minimum_size().y > title.get_combined_minimum_size().y,
+		"the restored kicker reoccupies its own line",
+	)
+
+	# A frame first built outside English never paints the kicker at all.
+	TranslationServer.set_locale("ja")
+	var rebuilt := _spawn_panel("res://scenes/ui/bag_panel.tscn") as BagPanel
+	assert_not_null(rebuilt)
+	if rebuilt == null:
+		return
+	rebuilt.open_panel(_snapshot())
+	await _settle()
+	var rebuilt_jp := _frame(rebuilt).find_child("JpSubtitle", true, false) as Label
+	assert_not_null(rebuilt_jp)
+	if rebuilt_jp != null:
+		assert_eq(rebuilt_jp.text, "かばん")
+		assert_false(rebuilt_jp.visible, "reopening in ja keeps the kicker hidden")
 
 func test_localized_phone_layouts_stay_inside_the_screen() -> void:
 	for locale in LOCALES:
@@ -988,12 +1019,13 @@ func test_calendar_integrated_header_and_market_tag() -> void:
 	var title := frame.find_child("AppTitle", true, false) as Label
 	assert_not_null(title, "calendar uses the shared app header")
 	if title != null:
-		assert_eq(title.text, "Season")
+		assert_eq(title.text, "Calendar", "the title matches the Pause tile and C key")
 		assert_true(title.get_theme_font_size("font_size") >= 34)
 	var jp := frame.find_child("JpSubtitle", true, false) as Label
 	assert_not_null(jp, "Japanese app subtitle")
 	if jp != null:
 		assert_eq(jp.text, "カレンダー")
+		assert_true(jp.visible, "English keeps the Calendar kicker")
 	var gradient := frame.find_child("Gradient", true, false) as TextureRect
 	assert_not_null(gradient, "header band gradient")
 	if gradient != null:
@@ -1855,6 +1887,7 @@ func test_settings_window_tips_language_controls() -> void:
 	if window_seg != null:
 		var chips := window_seg.find_children("Option_*", "PanelContainer", true, false)
 		assert_eq(chips.size(), 2, "1080p / Full options")
+		_assert_segment_chip_structure(chips)
 		var captions: Array[String] = []
 		for chip in chips:
 			var caption := (chip as Control).find_child("Label", true, false) as Label
@@ -1875,11 +1908,157 @@ func test_settings_window_tips_language_controls() -> void:
 	if language != null:
 		var chips := language.find_children("Option_*", "PanelContainer", true, false)
 		assert_eq(chips.size(), 3)
+		_assert_segment_chip_structure(chips)
 		var captions: Array[String] = []
 		for chip in chips:
 			var caption := (chip as Control).find_child("Label", true, false) as Label
 			captions.append(caption.text)
 		assert_eq(captions, ["English", "繁體中文", "日本語"])
+
+func _assert_segment_chip_structure(chips: Array) -> void:
+	for chip_variant in chips:
+		var chip := chip_variant as Control
+		assert_eq(
+			chip.get_child(0).name,
+			"On",
+			"%s keeps the On gradient as its first background child" % chip.name,
+		)
+		var box := chip.get_theme_stylebox("panel") as StyleBoxFlat
+		assert_not_null(box, "%s keeps its chip stylebox" % chip.name)
+		if box != null:
+			assert_eq(box.content_margin_left, 0.0, "%s no longer insets its On fill" % chip.name)
+			assert_eq(box.content_margin_top, 0.0)
+			assert_eq(box.content_margin_right, 0.0)
+			assert_eq(box.content_margin_bottom, 0.0)
+		var pad := chip.find_child("Padding", true, false) as MarginContainer
+		assert_not_null(pad, "%s pads its label in a MarginContainer" % chip.name)
+		if pad != null:
+			assert_eq(pad.get_theme_constant("margin_left"), 11)
+			assert_eq(pad.get_theme_constant("margin_right"), 11)
+			assert_eq(pad.get_theme_constant("margin_top"), 5)
+			assert_eq(pad.get_theme_constant("margin_bottom"), 5)
+
+func test_settings_selected_segment_fills_the_hit_cell_and_keeps_natural_widths() -> void:
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		var settings := _settings_panel()
+		assert_not_null(settings)
+		if settings == null:
+			continue
+		var ui_settings := UiSettings.new(SETTINGS_TEST_PATH)
+		ui_settings.language = locale
+		ui_settings.fullscreen = false
+		settings.open_panel(ui_settings)
+		await _settle()
+		var context := "segments %s" % locale
+		var screen_rect := (_frame(settings).get_node("Screen") as Control).get_global_rect()
+		for entry in [
+			["WindowSeg", 0],
+			["LanguageSeg", UiSettings.LANGUAGES.find(locale)],
+		]:
+			var seg_name: String = entry[0]
+			var selected: int = entry[1]
+			var seg := settings.find_child(seg_name, true, false) as Control
+			assert_not_null(seg, "%s: %s" % [context, seg_name])
+			if seg == null:
+				continue
+			var chips := seg.find_children("Option_*", "PanelContainer", true, false)
+			var hits := seg.find_children("OptionHit_*", "Button", true, false)
+			assert_eq(chips.size(), hits.size(), "%s: every option owns a hit cell" % context)
+			for index in chips.size():
+				var chip := chips[index] as Control
+				var hit := hits[index] as Control
+				var label := chip.find_child("Label", true, false) as Label
+				var on := chip.find_child("On", true, false) as TextureRect
+				assert_not_null(label, "%s: %s option %d label" % [context, seg_name, index])
+				assert_not_null(on, "%s: %s option %d gradient" % [context, seg_name, index])
+				if label == null or on == null:
+					continue
+				var chip_rect := chip.get_global_rect()
+				var hit_rect := hit.get_global_rect()
+				var label_rect := label.get_global_rect()
+				assert_true(
+					screen_rect.encloses(hit_rect),
+					"%s: %s option %d hit cell stays inside the phone"
+						% [context, seg_name, index],
+				)
+				assert_almost_eq(
+					chip_rect.position.x, hit_rect.position.x, 0.5,
+					"%s: the chip fills its hit cell" % context,
+				)
+				assert_almost_eq(chip_rect.size.x, hit_rect.size.x, 0.5)
+				assert_almost_eq(chip_rect.size.y, hit_rect.size.y, 0.5)
+				assert_almost_eq(
+					label_rect.get_center().x, hit_rect.get_center().x, 1.0,
+					"%s: the label centers horizontally in the hit cell" % context,
+				)
+				assert_almost_eq(
+					label_rect.get_center().y, hit_rect.get_center().y, 1.0,
+					"%s: the label centers vertically in the hit cell" % context,
+				)
+				assert_true(
+					label_rect.size.x + 0.5 >= label.get_minimum_size().x,
+					"%s: %s option %d text is not clipped horizontally"
+						% [context, seg_name, index],
+				)
+				assert_true(
+					label_rect.size.y + 0.5 >= label.get_minimum_size().y,
+					"%s: %s option %d text is not clipped vertically"
+						% [context, seg_name, index],
+				)
+				assert_almost_eq(
+					chip_rect.size.x, label.get_minimum_size().x + 22.0, 1.0,
+					"%s: %s option %d keeps its natural width, not an equal-width rule"
+						% [context, seg_name, index],
+				)
+				assert_eq(
+					on.visible, index == selected,
+					"%s: %s option %d paints the gradient only when selected"
+						% [context, seg_name, index],
+				)
+				if on.visible:
+					var on_rect := on.get_global_rect()
+					assert_almost_eq(
+						on_rect.position.x, hit_rect.position.x, 0.5,
+						"%s: the selected background starts at the hit cell edge" % context,
+					)
+					assert_almost_eq(
+						on_rect.size.x, hit_rect.size.x, 0.5,
+						"%s: the selected background spans the hit cell" % context,
+					)
+					assert_almost_eq(
+						on_rect.size.y, hit_rect.size.y, 0.5,
+						"%s: the selected background fills the hit cell height" % context,
+					)
+			for first in hits.size():
+				for second in range(first + 1, hits.size()):
+					assert_false(
+						(hits[first] as Control).get_global_rect().intersects(
+							(hits[second] as Control).get_global_rect()
+						),
+						"%s: %s hit cells never overlap" % [context, seg_name],
+					)
+		var full_hit := _seg_chip_hit(settings, "WindowSeg", 1)
+		var windowed_hit := _seg_chip_hit(settings, "WindowSeg", 0)
+		if full_hit != null and windowed_hit != null:
+			await _click_at(
+				full_hit.get_global_rect().position
+					+ Vector2(2.0, full_hit.get_global_rect().size.y * 0.5)
+			)
+			assert_true(
+				ui_settings.fullscreen,
+				"%s: the FULL chip's far edge is inside the click target" % context,
+			)
+			await _click_at(
+				windowed_hit.get_global_rect().end
+					- Vector2(2.0, windowed_hit.get_global_rect().size.y * 0.5)
+			)
+			assert_false(
+				ui_settings.fullscreen,
+				"%s: the 1080p chip's far edge is inside the click target" % context,
+			)
+		settings.queue_free()
+		await _settle()
 
 func test_settings_tips_switch_flips_with_the_setting() -> void:
 	var settings := _spawn_panel("res://scenes/ui/settings_panel.tscn") as SettingsPanel
@@ -1952,12 +2131,40 @@ func test_settings_stays_inside_the_screen_in_all_locales() -> void:
 		settings.open_panel(UiSettings.new(SETTINGS_TEST_PATH))
 		await _settle()
 		_assert_descendants_inside_screen(settings, "settings %s" % locale)
-		assert_eq(
-			settings.save_path_text(),
-			tr("Save file: %s") % SaveRepository.DEFAULT_PATH,
+		assert_null(
+			settings.find_child("SavePath", true, false),
+			"%s: Settings never renders the developer save path" % locale,
+		)
+		assert_not_null(
+			settings.find_child("Status", true, false),
+			"%s: the settings-write status row remains" % locale,
 		)
 		settings.queue_free()
 		await _settle()
+
+func test_settings_write_failure_still_shows_the_status_error() -> void:
+	var directory := "user://phoenix-phone-panels-unwritable"
+	var absolute := ProjectSettings.globalize_path(directory)
+	DirAccess.make_dir_absolute(absolute)
+	var settings := _settings_panel()
+	assert_not_null(settings)
+	if settings == null:
+		return
+	var ui_settings := UiSettings.new(directory)
+	settings.open_panel(ui_settings)
+	await _settle()
+	await _press("move_right")
+	assert_ne(ui_settings.music, UiSettings.DEFAULT_MUSIC, "the value still changes in memory")
+	var status := settings.find_child("Status", true, false) as Label
+	assert_not_null(status)
+	if status != null:
+		assert_eq(status.text, tr("Could not save settings."))
+		assert_true(status.is_visible_in_tree(), "the write failure stays visible")
+		assert_true(
+			(_frame(settings).get_node("Screen") as Control).get_global_rect().encloses(status.get_global_rect()),
+			"the write failure stays inside the phone screen",
+		)
+	DirAccess.remove_absolute(absolute)
 
 func _settings_panel() -> SettingsPanel:
 	var panel := _spawn_panel("res://scenes/ui/settings_panel.tscn") as SettingsPanel
@@ -2010,6 +2217,15 @@ func _seg_chip_rect(settings: Control, seg_name: String, index: int) -> Rect2:
 	if chip == null:
 		return Rect2()
 	return chip.get_global_rect()
+
+func _seg_chip_hit(settings: Control, seg_name: String, index: int) -> Control:
+	var seg := settings.find_child(seg_name, true, false) as Control
+	assert_not_null(seg, "%s exists" % seg_name)
+	if seg == null:
+		return null
+	var hit := seg.find_child("OptionHit_%d" % index, true, false) as Control
+	assert_not_null(hit, "%s option %d hit cell exists" % [seg_name, index])
+	return hit
 
 func test_settings_music_slider_click_sets_numeric_level() -> void:
 	var settings := _settings_panel()
