@@ -9,8 +9,8 @@ automatically tills, plants, waters, or harvests the faced farm cell, and E
 interacts — physical near-contact first, exact raw cell only as the
 fixture/legacy fallback — with the bed, shipping bin, farm/town trucks, town
 Seed Shop, Harvest Market, or faced villager. A new run opens on the
-skippable six-scene prologue: Enter, Space or a click advances one line, and
-Esc or Skip acknowledges from any page.
+skippable six-scene prologue: Enter, Space or a click finishes a line still
+typing, then advances one line, and Esc or Skip acknowledges at any moment.
 There is no JavaScript or Tauri runtime in the current checkout.
 
 - I/B/C open and close Bag, Almanac, and Calendar while the world is available;
@@ -202,6 +202,23 @@ There is no JavaScript or Tauri runtime in the current checkout.
   line, the last page's Begin Day 1 acknowledges once, and Esc or Skip
   acknowledges from any page without opening Pause. Narration pages draw a
   bottom `Scrim` gradient behind the text.
+- HPA-1250 animates the prologue with stock nodes only (no shaders, no new
+  art). Each scene's `motion` dictionary in `PROLOGUE_SCENES` sits beside its
+  background and holds its camera drift and effect positions in 1920x1080
+  stage space; a line's `cue` (`&"windows"` on Gen-san's "Power's on" line)
+  triggers a stage beat. `PrologueStage` (`scripts/ui/prologue_stage.gd`,
+  code-built under `OpeningPanel`) owns the painting, the eased camera drift,
+  and every scene effect (glow sprites, `CPUParticles2D`, beams, tints, the
+  `kei-truck.png` truck); the UI around it never moves with the camera.
+  `OnboardingOverlay` owns the UI motion: the fade through black, typing at
+  30 characters a second (the first Enter finishes the line, the next
+  advances), the portrait slide and breathing, the listener dim, the name and
+  scene tag entrances, the note drop, the Continue bob and the Begin Day 1
+  pulse. Its keyed tweens are transient; acknowledging kills them all and
+  empties the stage, so Esc mid-fade or mid-typing ends in the same state as
+  finishing. `OnboardingOverlay.animate` is the fixture opt-out, like
+  `WorldShell.clock_running`: false shows every page whole and still, one
+  page per Enter.
 - GameHud.has_blocking_modal() remains the single world-input gate.
 - `scripts/world/world_shell.gd` is the only production session holder and
   coordinator: it owns the `GameSession` instance, wires HUD signals to
