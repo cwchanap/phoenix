@@ -81,7 +81,7 @@ func test_unfinished_save_enter_resumes_seeded_day() -> void:
 # HPA-1137: real keys through the live app. One Enter advances exactly one
 # page (the prologue stays up), then Esc skips straight to a normal Day 1
 # without opening Pause, and the world input gate is open again.
-func test_new_game_enter_finishes_then_advances_a_page_and_escape_skips_to_day_one() -> void:
+func test_new_game_enter_advances_a_typed_page_and_escape_skips_to_day_one() -> void:
 	var hud := "/root/AppRoot/World/GameHud/HudRoot"
 	var overlay := hud + "/OnboardingOverlay"
 	var chrome := hud + "/Chrome"
@@ -108,13 +108,10 @@ func test_new_game_enter_finishes_then_advances_a_page_and_escape_skips_to_day_o
 	).is_true()
 	assert_int(int(await game.get_property(overlay, "_line_index"))).is_equal(0)
 
-	# HPA-1250: while page 1 still types, Enter finishes it first; the next Enter
-	# advances. (A slow harness may find the line already typed out.)
-	if not bool(await game.call_method(overlay, "is_line_revealed")):
-		assert_bool(await game.input_key(KEY_ENTER, true)).is_true()
-		assert_bool(await game.input_key(KEY_ENTER, false)).is_true()
-		assert_bool(await game.call_method(overlay, "is_line_revealed")).is_true()
-		assert_int(int(await game.get_property(overlay, "_line_index"))).is_equal(0)
+	# HPA-1250: page 1 types itself out, then one Enter advances. The
+	# finish-first Enter is timing-sensitive over the bridge, so
+	# test_vn_surfaces.gd covers it deterministically instead.
+	assert_bool(await _wait_for_call_value(game, overlay, "is_line_revealed", true, 10.0)).is_true()
 	assert_bool(await game.input_key(KEY_ENTER, true)).is_true()
 	assert_bool(await game.input_key(KEY_ENTER, false)).is_true()
 	assert_bool(await game.wait_for_property(overlay, "_line_index", 1, 10.0)).is_true()
@@ -143,3 +140,12 @@ func test_new_game_enter_finishes_then_advances_a_page_and_escape_skips_to_day_o
 	assert_bool(
 		await game.wait_for_property("/root/AppRoot/World", "_world_input_enabled", true, 5.0)
 	).is_true()
+
+
+func _wait_for_call_value(game, path: String, method: String, expected: Variant, timeout := 5.0) -> Variant:
+	var deadline_msec := Time.get_ticks_msec() + int(timeout * 1000.0)
+	var value: Variant = await game.call_method(path, method)
+	while value != expected and Time.get_ticks_msec() < deadline_msec:
+		await game.wait_seconds(0.1)
+		value = await game.call_method(path, method)
+	return value
