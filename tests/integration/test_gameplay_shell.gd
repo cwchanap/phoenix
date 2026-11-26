@@ -2156,13 +2156,30 @@ func test_calendar_day_state_observes_the_rendered_cell_controls() -> void:
     assert_eq(calendar.day_state(6)["readiness_kinds"], [GameRules.CropKind.TURNIP])
 
     var day_four_cell: Dictionary = calendar._cells[3]
+    var future_weather := day_four_cell["weather"] as TextureRect
     assert_false(calendar.day_state(4)["weather_known"])
-    (day_four_cell["weather"] as TextureRect).visible = true
-    assert_true(calendar.day_state(4)["weather_known"])
+    future_weather.visible = true
+    assert_false(
+        calendar.day_state(4)["weather_known"],
+        "a visible but never-textured weather icon is not rendered weather",
+    )
+    future_weather.visible = false
     var day_three_cell: Dictionary = calendar._cells[2]
+    var known_weather := day_three_cell["weather"] as TextureRect
+    var known_flags := day_three_cell["flags"] as Control
+    assert_not_null(known_weather.texture, "Day 3 weather icon has its texture")
     assert_true(calendar.day_state(3)["weather_known"])
-    (day_three_cell["weather"] as TextureRect).visible = false
+    known_weather.visible = false
     assert_false(calendar.day_state(3)["weather_known"])
+    known_weather.visible = true
+    assert_true(calendar.day_state(3)["weather_known"])
+    known_flags.visible = false
+    assert_false(
+        calendar.day_state(3)["weather_known"],
+        "weather under a hidden flags row is not rendered",
+    )
+    known_flags.visible = true
+    assert_true(calendar.day_state(3)["weather_known"])
 
     var season_end_state := world._session.state()
     season_end_state["day"] = GameRules.MAX_DAY
