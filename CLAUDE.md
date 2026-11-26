@@ -18,7 +18,8 @@ There is no JavaScript or Tauri runtime in the current checkout.
   also open that app while Pause is up.
 - Every `2` press advances the selected seed; M
   chooses the maximum quantity in the Seed Shop or Shipping; O opens Settings
-  from Pause only.
+  from Pause only; Tab dismisses the visible contextual tip (it stays visible
+  over Pause/Settings/Bag/Almanac/Calendar and is masked by the other modals).
 
 ## Architecture
 

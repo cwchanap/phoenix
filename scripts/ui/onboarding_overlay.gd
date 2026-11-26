@@ -80,6 +80,7 @@ var _tutorial_body: Label
 var _last_snapshot: Dictionary = {}
 var _current_prompt_id: StringName = &""
 var _tutorial_cards_enabled := true
+var _suppressed := false
 var _scene_index := 0
 var _line_index := 0
 # The page whose motion last played, so a re-render never restarts it.
@@ -327,6 +328,7 @@ func _build_tutorial_card() -> void:
         dismiss.add_theme_stylebox_override(state, StyleBoxEmpty.new())
     text.add_child(dismiss)
     var hint := UiStyle.hbox(8)
+    hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
     hint.add_child(UiStyle.keycap("Tab", true))
     var hint_label := UiStyle.label("dismiss", 14, UiStyle.INK_MUTED, 800)
     hint_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -335,7 +337,7 @@ func _build_tutorial_card() -> void:
     hint.reset_size()
     hint.position = Vector2(0, 8)
     dismiss.custom_minimum_size = hint.size + Vector2(0, 8)
-    dismiss.pressed.connect(_on_dismiss_pressed)
+    dismiss.pressed.connect(_dismiss_current_prompt)
     _tutorial_card = card
     _tutorial_card.visible = false
 
@@ -345,16 +347,12 @@ func render(snapshot: Dictionary) -> void:
     _opening_panel.visible = not bool(snapshot["intro_acknowledged"])
     _stage.visible = _opening_panel.visible
     if _opening_panel.visible:
-        _tutorial_card.visible = false
         _show_page()
     else:
         _stop_motion()
         _stage.clear()
         _portrait.texture = null
-        if not _tutorial_cards_enabled:
-            _tutorial_card.visible = false
-        else:
-            _render_tutorial(ContentRules.next_tutorial_prompt(snapshot, _dismissed))
+    _refresh_tutorial_card()
     if was_blocking != _opening_panel.visible:
         blocking_state_changed.emit()
 
@@ -380,6 +378,20 @@ func current_page() -> Dictionary:
         "text": String(line["text"]),
         "page_number": before + _line_index + 1,
     }
+
+## Runs before GUI focus traversal so a visible tip takes Tab for itself.
+func _input(event: InputEvent) -> void:
+    if (
+        not _tutorial_card.is_visible_in_tree()
+        or not _tutorial_cards_enabled
+        or _opening_panel.visible
+        or _current_prompt_id == &""
+    ):
+        return
+    if not event.is_action_pressed(&"dismiss_tutorial", false, true):
+        return
+    get_viewport().set_input_as_handled()
+    _dismiss_current_prompt()
 
 func _unhandled_input(event: InputEvent) -> void:
     if not _opening_panel.visible:
@@ -750,10 +762,27 @@ func _pad_tag(tag: SlantTag, horizontal: int, vertical: int) -> void:
 
 func set_tutorial_cards_enabled(enabled: bool) -> void:
     _tutorial_cards_enabled = enabled
-    if not enabled or _opening_panel.visible:
+    _refresh_tutorial_card()
+
+## The modal owner suppresses tips behind full-screen/transactional surfaces;
+## clearing it recomputes the eligible prompt from the last rendered snapshot.
+func set_suppressed(suppressed: bool) -> void:
+    if _suppressed == suppressed:
+        return
+    _suppressed = suppressed
+    _refresh_tutorial_card()
+
+func _refresh_tutorial_card() -> void:
+    if (
+        _suppressed
+        or not _tutorial_cards_enabled
+        or _opening_panel.visible
+        or _last_snapshot.is_empty()
+    ):
+        _current_prompt_id = &""
         _tutorial_card.visible = false
-    elif not _last_snapshot.is_empty():
-        _render_tutorial(ContentRules.next_tutorial_prompt(_last_snapshot, _dismissed))
+        return
+    _render_tutorial(ContentRules.next_tutorial_prompt(_last_snapshot, _dismissed))
 
 func _render_tutorial(prompt: Dictionary) -> void:
     _current_prompt_id = prompt.get("id", &"")
@@ -764,7 +793,8 @@ func _render_tutorial(prompt: Dictionary) -> void:
     _tutorial_body.text = String(prompt["body"])
     _tutorial_card.visible = true
 
-func _on_dismiss_pressed() -> void:
+## One dismissal path for the row and the action, keyed by the shown prompt.
+func _dismiss_current_prompt() -> void:
     if _current_prompt_id != &"":
         _dismissed.append(_current_prompt_id)
-    render(_last_snapshot)
+    _refresh_tutorial_card()

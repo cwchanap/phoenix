@@ -57,6 +57,7 @@ no post-game or free play.
 | Space | Automatically till, plant, water, or harvest the faced farm cell |
 | E | Interact from near contact with the faced bed, shipping, truck, shop, market, or villager |
 | Esc | Close the open modal |
+| Tab | Dismiss the visible contextual tip |
 | `I` / `B` / `C` | Open or close Bag / Almanac / Calendar when the world is available |
 | `M` | Select the maximum quantity in Seed Shop or Shipping |
 | `O` | Open Settings from Pause |
@@ -64,6 +65,10 @@ no post-game or free play.
 Every `2` press advances the selected seed, including the first press.
 Bag, Almanac, and Calendar each gate movement and close with the same key;
 pressed while Pause is up, the same keys open that app in the modal slot.
+Tab dismisses the visible contextual tip, including while Pause, Settings,
+Bag, Almanac, or Calendar is open; story, travel, dialogue, shop, shipping,
+sleep, market confirmation, and the morning summary mask the tip and keep Tab
+for their own focus.
 Settings edits Music and Sound from `0..10`, Window at `1080p` or `FULL`,
 Tutorial Cards `ON` or `OFF`, and Language (English, 繁體中文,
 日本語); `O` is handled only by Pause.

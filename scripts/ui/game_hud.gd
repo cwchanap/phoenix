@@ -90,6 +90,9 @@ var _settings: UiSettings
 var _last_snapshot: Dictionary = {}
 var _finale_in_progress := false
 var _primary_modals: Array[Control] = []
+## Ordinary phone menus that keep the contextual tip visible; every other
+## visible primary modal masks tips by default.
+var _tip_visible_modals: Array[Control] = []
 var _esc_close_order: Array[Dictionary] = []
 
 func _ready() -> void:
@@ -113,6 +116,14 @@ func _ready() -> void:
         _travel_overlay,
         _settings_panel,
         _pause_panel,
+    ]
+    # The one tip allow-list: ordinary phone menus keep the notification up.
+    _tip_visible_modals = [
+        _pause_panel,
+        _settings_panel,
+        _bag_panel,
+        _almanac_panel,
+        _calendar_panel,
     ]
     _esc_close_order = [
         {"control": _dialogue_panel, "close": close_dialogue},
@@ -663,6 +674,8 @@ func _build_modals() -> void:
     _morning_summary_panel.visible = false
     _pause_panel.visible = false
     _settings_panel.visible = false
+    # Overlay above the phone menus, then travel and the later toast above it.
+    _root.move_child(_onboarding_overlay, _root.get_child_count() - 1)
     _travel_overlay = TRAVEL_OVERLAY_SCENE.instantiate() as TravelOverlay
     _root.add_child(_travel_overlay)
     _travel_overlay.finished.connect(_finish_modal_transition)
@@ -698,14 +711,17 @@ func _set_morning_summary_visible(is_visible: bool) -> void:
         modal_state_changed.emit()
 
 func _reconcile_modal_presentation() -> void:
+    var any_visible := false
+    var tips_masked := false
     for panel in _primary_modals:
         if not panel.visible:
             continue
-        if not _onboarding_overlay.is_opening_visible():
-            (_onboarding_overlay.get_node("TutorialCard") as Control).visible = false
-        _set_hud_chrome_visible(false)
-        return
-    _set_hud_chrome_visible(true)
+        any_visible = true
+        if not _tip_visible_modals.has(panel):
+            tips_masked = true
+            break
+    _onboarding_overlay.set_suppressed(tips_masked)
+    _set_hud_chrome_visible(not any_visible)
 
 func _open_modal(panel: Control) -> bool:
     if (
@@ -713,8 +729,6 @@ func _open_modal(panel: Control) -> bool:
         or (_travel_overlay.visible and panel != _travel_overlay)
     ):
         return false
-    if not _onboarding_overlay.is_opening_visible():
-        (_onboarding_overlay.get_node("TutorialCard") as Control).visible = false
     _set_hud_chrome_visible(false)
     for registered in _primary_modals:
         if registered == panel:
@@ -722,6 +736,7 @@ func _open_modal(panel: Control) -> bool:
             continue
         if registered.visible:
             _hide_modal_panel(registered)
+    _reconcile_modal_presentation()
     modal_state_changed.emit()
     return true
 

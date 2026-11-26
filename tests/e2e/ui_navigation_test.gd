@@ -3,6 +3,7 @@ extends GdUnitE2ETestSuite
 
 const WORLD := "/root/AppRoot/World"
 const HUD := WORLD + "/GameHud/HudRoot"
+const TUTORIAL := HUD + "/OnboardingOverlay/TutorialCard"
 
 func _tap_key(game: Variant, keycode: Key, physical := true) -> void:
 	assert_bool(await game.input_key(keycode, true, physical)).is_true()
@@ -28,6 +29,11 @@ func test_real_keys_navigate_pause_and_settings() -> void:
 	assert_bool(await game.input_action("ui_cancel", true)).is_true()
 	assert_bool(await game.input_action("ui_cancel", false)).is_true()
 	assert_bool(await game.wait_for_node(WORLD, 10.0)).is_true()
+
+	# Physical Tab dismisses the visible contextual tip and nothing else.
+	assert_bool(await game.wait_for_property(TUTORIAL, "visible", true, 5.0)).is_true()
+	await _tap_key(game, KEY_TAB)
+	assert_bool(await game.wait_for_property(TUTORIAL, "visible", false, 5.0)).is_true()
 
 	await _tap_key(game, KEY_ESCAPE, false)
 	assert_bool(await game.wait_for_property(HUD + "/PausePanel", "visible", true, 5.0)).is_true()
