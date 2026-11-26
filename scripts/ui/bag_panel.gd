@@ -29,6 +29,8 @@ var _shelf_titles: Array[Label] = []
 var _shelf_boxes: Array[StyleBoxFlat] = []
 var _shelf_slots: Array[Array] = []
 var _bin_payout: Control
+var _bin_empty: Label
+var _bin_grid: GridContainer
 var _bin_count: Label
 var _bin_payout_note: Label
 var _bin_payout_value: Label
@@ -218,6 +220,11 @@ func _shelf_card(shelf: int) -> PanelContainer:
 	title.name = "Title"
 	_shelf_titles.append(title)
 	column.add_child(title)
+	if shelf == 2:
+		_bin_empty = UiStyle.label("The bin is empty", 16, UiStyle.INK_MUTED, 700)
+		_bin_empty.name = "BinEmpty"
+		_bin_empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		column.add_child(_bin_empty)
 	var grid := GridContainer.new()
 	grid.name = "Grid"
 	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -225,6 +232,8 @@ func _shelf_card(shelf: int) -> PanelContainer:
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
 	column.add_child(grid)
+	if shelf == 2:
+		_bin_grid = grid
 	var slot_row: Array = []
 	for kind in range(GameRules.CropKind.size()):
 		var slot := _slot(kind)
@@ -449,6 +458,8 @@ func _update_bin_payout() -> void:
 		payout_total += amount * GameRules.sale_value(kind)
 		pending += amount
 	_bin_payout.visible = pending > 0
+	_bin_empty.visible = pending == 0
+	_bin_grid.visible = pending > 0
 	_bin_count.text = tr("%d crops in the bin") % pending
 	_bin_payout_note.text = (
 		"Paid at season end"

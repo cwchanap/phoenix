@@ -35,6 +35,13 @@ func _snapshot() -> Dictionary:
 	assert_true(session.restore_state(state))
 	return session.snapshot()
 
+func _empty_bin_snapshot() -> Dictionary:
+	var session := GameSession.new()
+	var state := session.state()
+	state["pending_shipment"] = {&"turnip": 0, &"potato": 0, &"pumpkin": 0}
+	assert_true(session.restore_state(state))
+	return session.snapshot()
+
 func _crop(kind: StringName, growth: int) -> Dictionary:
 	return {
 		"kind": kind,
@@ -500,6 +507,66 @@ func test_bag_bin_payout_row_uses_reference_copy() -> void:
 	assert_true(bag.bin_slot_visible(GameRules.CropKind.TURNIP))
 	assert_true(bag.bin_slot_visible(GameRules.CropKind.POTATO))
 	assert_true(bag.bin_slot_visible(GameRules.CropKind.PUMPKIN))
+
+func test_bag_empty_shipping_shelf_shows_one_localized_line_without_a_grid() -> void:
+	var bag := _spawn_panel("res://scenes/ui/bag_panel.tscn") as BagPanel
+	if bag == null:
+		return
+	bag.open_panel(_empty_bin_snapshot())
+	await _press("move_down")
+	await _press("move_down")
+	await _settle()
+	var empty_line := bag.find_child("BinEmpty", true, false) as Label
+	assert_not_null(empty_line, "the bin shelf carries its own empty line")
+	if empty_line == null:
+		return
+	var grid := _bag_grid(bag, 2)
+	assert_not_null(grid)
+	if grid == null:
+		return
+	assert_true(empty_line.is_visible_in_tree())
+	assert_eq(empty_line.text, "The bin is empty")
+	assert_ne(
+		empty_line.auto_translate_mode,
+		Node.AUTO_TRANSLATE_MODE_DISABLED,
+		"the empty line is auto-translated, not baked English",
+	)
+	assert_false(grid.visible, "an empty bin reserves no grid strip")
+	assert_false(bag.bin_payout_visible())
+	assert_false(bag.bin_slot_visible(GameRules.CropKind.TURNIP))
+	var expected_copy := {
+		"en": "The bin is empty",
+		"zh_TW": "出貨箱是空的",
+		"ja": "出荷箱は空です",
+	}
+	for locale in LOCALES:
+		TranslationServer.set_locale(locale)
+		await _settle()
+		assert_eq(
+			empty_line.atr(empty_line.text),
+			expected_copy[locale],
+			"%s: the empty line is exactly localized" % locale,
+		)
+		assert_true(empty_line.is_visible_in_tree(), "%s: the line stays visible" % locale)
+	TranslationServer.set_locale("en")
+
+	bag.present(_snapshot())
+	await _settle()
+	assert_false(empty_line.visible, "stocked crops hide the empty line")
+	assert_true(grid.visible, "stocked crops restore the bin grid")
+	assert_true(bag.bin_payout_visible())
+	assert_eq(bag.bin_payout_value_text(), "+325G")
+	assert_true(bag.bin_slot_visible(GameRules.CropKind.TURNIP))
+	assert_true(bag.bin_slot_visible(GameRules.CropKind.POTATO))
+	assert_true(bag.bin_slot_visible(GameRules.CropKind.PUMPKIN))
+
+	bag.present(_empty_bin_snapshot())
+	await _settle()
+	assert_true(empty_line.visible, "an emptied bin shows the line again")
+	assert_false(grid.visible)
+	assert_false(bag.bin_payout_visible())
+	assert_true(bag.visible, "present once more never closes the panel")
+	assert_eq(bag.selected_shelf(), 2)
 
 func test_bag_detail_preserves_rules_content() -> void:
 	var bag := _spawn_panel("res://scenes/ui/bag_panel.tscn") as BagPanel
@@ -1084,15 +1151,62 @@ func test_calendar_grid_cells_match_reference_with_legible_markers() -> void:
 			)
 		var day_label := cell.find_child("Day", true, false) as Label
 		assert_not_null(day_label)
-		if day_label != null:
-			assert_true(
-				day_label.get_theme_font_size("font_size") >= 18,
-				"day number is the reference 20px weight",
-			)
+		if day_label == null:
+			continue
+		assert_true(
+			day_label.get_theme_font_size("font_size") >= 18,
+			"day number is the reference 20px weight",
+		)
+		assert_almost_eq(
+			day_label.get_global_rect().get_center().x,
+			cell.get_global_rect().get_center().x,
+			1.5,
+			"day %d centres over its marker row" % (index + 1),
+		)
+		var top := cell.find_child("Top", true, false) as Control
+		var flags := cell.find_child("Flags", true, false) as Control
 		var weather := cell.find_child("Weather", true, false) as TextureRect
+		assert_not_null(top)
+		assert_not_null(flags)
 		assert_not_null(weather)
-		if weather != null:
-			assert_true(weather.custom_minimum_size.x >= 20.0, "weather icon is legible")
+		if top == null or flags == null or weather == null:
+			continue
+		assert_eq(top.get_child_count(), 1, "Top carries only the day number")
+		assert_eq(top.alignment, BoxContainer.ALIGNMENT_CENTER)
+		assert_same(
+			weather.get_parent(),
+			flags,
+			"the weather icon joins the centered Flags row",
+		)
+		assert_same(flags.get_child(0), weather, "weather leads the Flags row")
+		assert_eq(flags.alignment, BoxContainer.ALIGNMENT_CENTER)
+		assert_true(
+			flags.get_global_rect().position.y
+				> day_label.get_global_rect().position.y,
+			"the marker row sits below the day number",
+		)
+		assert_true(weather.custom_minimum_size.x >= 20.0, "weather icon is legible")
+		if index < 3:
+			assert_true(
+				weather.visible,
+				"day %d keeps its factual weather icon" % (index + 1),
+			)
+		else:
+			assert_false(
+				weather.visible,
+				"day %d reserves no invented future weather" % (index + 1),
+			)
+
+func _calendar_marker_controls(cell: Control) -> Array:
+	var markers: Array = []
+	for marker_name in ["Day", "Weather", "Market", "Moon", "ReadinessIcon"]:
+		var node := cell.find_child(marker_name, true, false) as Control
+		if node != null and node.is_visible_in_tree():
+			markers.append(node)
+	for node in cell.find_children("ReadinessMultiIcon_*", "TextureRect", true, false):
+		if node.is_visible_in_tree():
+			markers.append(node)
+	return markers
 
 func test_calendar_cell_markers_never_overlap_neighbor_cells() -> void:
 	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
@@ -1128,7 +1242,72 @@ func test_calendar_cell_markers_never_overlap_neighbor_cells() -> void:
 					cell_rect.encloses(child.get_global_rect()),
 					"%s overlaps its day cell at day %d" % [child.get_path(), int(snapshot["day"])],
 				)
+			var markers := _calendar_marker_controls(cell)
+			for first in range(markers.size()):
+				for second in range(first + 1, markers.size()):
+					assert_false(
+						(markers[first] as Control).get_global_rect().intersects(
+							(markers[second] as Control).get_global_rect()
+						),
+						"%s overlaps %s at day %d"
+							% [
+								(markers[first] as Control).name,
+								(markers[second] as Control).name,
+								int(snapshot["day"]),
+							],
+					)
 	assert_gt(checked, 0, "the overlap walk must inspect rendered descendants")
+
+	# Worst case: a known weather icon and the market tag share one row while
+	# the readiness icons fill the row below it.
+	calendar.present(_season_end_snapshot())
+	await _settle()
+	var grid := calendar.find_child("Days", true, false) as GridContainer
+	assert_not_null(grid)
+	if grid == null:
+		return
+	var cell := grid.get_child(GameRules.MAX_DAY - 1) as Control
+	var cell_rect := cell.get_global_rect()
+	var day_label := cell.find_child("Day", true, false) as Control
+	var weather := cell.find_child("Weather", true, false) as Control
+	var market := cell.find_child("Market", true, false) as Control
+	var readiness_row := cell.find_child("ReadinessIcons", true, false) as Control
+	for marker in [day_label, weather, market, readiness_row]:
+		assert_not_null(marker)
+		if marker == null:
+			return
+		assert_true(marker.is_visible_in_tree(), "the worst case paints every marker")
+		assert_true(cell_rect.encloses(marker.get_global_rect()))
+	assert_true(weather.custom_minimum_size.x >= 24.0)
+	assert_true(market.custom_minimum_size.x >= 24.0)
+	assert_true(
+		weather.get_global_rect().end.x <= market.get_global_rect().position.x,
+		"the worst-case weather/market pair sits side by side",
+	)
+	assert_true(
+		weather.get_global_rect().position.y
+			>= day_label.get_global_rect().end.y,
+		"the day number clears the weather/market row",
+	)
+	assert_true(
+		market.get_global_rect().end.y
+			<= readiness_row.get_global_rect().position.y,
+		"the readiness row clears the weather/market row",
+	)
+	var worst_case_markers := _calendar_marker_controls(cell)
+	assert_gte(worst_case_markers.size(), 4, "the worst case renders real markers")
+	for first in range(worst_case_markers.size()):
+		for second in range(first + 1, worst_case_markers.size()):
+			assert_false(
+				(worst_case_markers[first] as Control).get_global_rect().intersects(
+					(worst_case_markers[second] as Control).get_global_rect()
+				),
+				"%s overlaps %s in the worst-case Day 14 cell"
+					% [
+						(worst_case_markers[first] as Control).name,
+						(worst_case_markers[second] as Control).name,
+					],
+			)
 
 func test_calendar_coming_up_wraps_three_crop_names_inside_the_frame() -> void:
 	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
@@ -1443,7 +1622,25 @@ func test_calendar_coming_up_labels_are_sized_for_960x540() -> void:
 	if caption != null:
 		assert_true(
 			caption.get_theme_font_size("font_size") >= 14,
-			"the marker legend must stay readable at 960x540",
+			"the weather caption must stay readable at 960x540",
+		)
+	var legend := calendar.find_child("Legend", true, false) as HFlowContainer
+	assert_not_null(legend)
+	if legend != null:
+		for chip in legend.get_children():
+			var chip_label := (chip as Control).find_child("Label", true, false) as Label
+			assert_not_null(chip_label)
+			if chip_label != null:
+				assert_true(
+					chip_label.get_theme_font_size("font_size") >= 15,
+					"every legend chip must stay readable at 960x540",
+				)
+	var note := calendar.find_child("LegendNote", true, false) as Label
+	assert_not_null(note)
+	if note != null and note.visible:
+		assert_true(
+			note.get_theme_font_size("font_size") >= 14,
+			"the watering note must stay readable at 960x540",
 		)
 
 func test_calendar_cells_render_no_hidden_marker_labels() -> void:
@@ -1529,62 +1726,148 @@ func test_calendar_legend_is_localized_and_legible_in_all_locales() -> void:
 	var calendar := _spawn_panel("res://scenes/ui/calendar_panel.tscn") as CalendarPanel
 	if calendar == null:
 		return
-	var sun_words := {"en": "Sun", "zh_TW": "太陽", "ja": "太陽"}
-	var market_words := {"en": "market", "zh_TW": "市集", "ja": "市"}
-	for locale in ["en", "zh_TW", "ja"]:
+	var chip_names := [
+		"Chip_Today", "Chip_Market", "Chip_LastNight", "Chip_Earliest"
+	]
+	var chip_copy := {
+		"en": ["Today", "Market", "Last night", "Earliest harvest"],
+		"zh_TW": ["今天", "市集", "昨晚", "最早收成"],
+		"ja": ["今日", "市", "昨夜", "最短収穫"],
+	}
+	var chip_icons := [
+		"",
+		"res://assets/ui/icons/market.png",
+		"res://assets/ui/icons/moon.png",
+		"res://assets/ui/crops/turnip.png",
+	]
+	for locale in LOCALES:
 		TranslationServer.set_locale(locale)
-		calendar.present(_calendar_snapshot())
+		calendar.open_panel(_calendar_snapshot())
 		await _settle()
-		var grid := calendar.find_child("Days", true, false) as GridContainer
-		assert_not_null(grid)
-		if grid == null:
-			continue
-		var weather := (
-			(grid.get_child(0) as Control).find_child("Weather", true, false)
-			as TextureRect
+		var screen_rect := (
+			(_frame(calendar).get_node("Screen") as Control).get_global_rect()
 		)
-		assert_not_null(weather)
-		if weather != null:
-			assert_true(
-				weather.visible,
-				"%s cell 1 renders a real sun weather icon during this check"
-					% locale,
-			)
-		var legend := calendar.find_child("Legend", true, false) as Label
-		assert_not_null(legend, "a compact legend line exists")
+		var legend := calendar.find_child("Legend", true, false) as HFlowContainer
+		assert_not_null(legend, "the legend is one wrapping flow container")
 		if legend == null:
 			continue
-		assert_false(
-			legend.text.contains(sun_words[locale]),
-			(
-				"%s legend must not call the rendered weather sun a market marker"
-				% locale
-			),
-		)
-		assert_true(
-			legend.text.contains(market_words[locale]),
-			"%s legend still names the market event unambiguously" % locale,
-		)
-		if locale != "en":
-			assert_false(
-				legend.text.contains("Pink")
-					or legend.text.contains("Gold")
-					or legend.text.contains("Sun")
-					or legend.text.contains("Moon")
-					or legend.text.contains("Crops")
-					or legend.text.contains("market"),
-				"%s legend must translate, not render English" % locale,
+		assert_eq(legend.get_child_count(), 4, "%s: four legend chips" % locale)
+		var rows := {}
+		for index in chip_names.size():
+			var chip := legend.find_child(chip_names[index], false, false) as Control
+			assert_not_null(chip, "%s: %s exists" % [locale, chip_names[index]])
+			if chip == null:
+				continue
+			assert_true(chip.is_visible_in_tree())
+			assert_true(
+				legend.get_global_rect().encloses(chip.get_global_rect()),
+				"%s: %s stays inside the flow" % [locale, chip_names[index]],
 			)
-		assert_true(
-			legend.get_theme_font_size("font_size") >= 15,
-			"legend readable at 960x540",
+			assert_true(
+				screen_rect.encloses(chip.get_global_rect()),
+				"%s: %s stays inside the phone screen"
+					% [locale, chip_names[index]],
+			)
+			var label := chip.find_child("Label", true, false) as Label
+			assert_not_null(
+				label, "%s: %s owns a translated Label" % [locale, chip_names[index]]
+			)
+			if label == null:
+				continue
+			assert_eq(
+				label.text,
+				chip_copy["en"][index],
+				"%s: chips keep English source copy" % chip_names[index],
+			)
+			assert_ne(
+				label.auto_translate_mode,
+				Node.AUTO_TRANSLATE_MODE_DISABLED,
+				"%s: the chip label stays auto-translated" % chip_names[index],
+			)
+			assert_eq(
+				label.atr(label.text),
+				chip_copy[locale][index],
+				"%s: %s translates" % [locale, chip_names[index]],
+			)
+			if locale != "en":
+				assert_ne(
+					label.text,
+					chip_copy[locale][index],
+					"%s: %s renders translated copy, not English"
+						% [locale, chip_names[index]],
+				)
+			assert_true(
+				label.get_theme_font_size("font_size") >= 15,
+				"%s: %s reads at 960x540" % [locale, chip_names[index]],
+			)
+			assert_true(
+				label.size.x + 0.5 >= label.get_minimum_size().x,
+				"%s: %s never clips its label"
+					% [locale, chip_names[index]],
+			)
+			if index == 0:
+				var dot := chip.find_child("Dot", true, false) as Panel
+				assert_not_null(dot, "Today carries the pink colour cue")
+				if dot != null:
+					assert_eq(
+						(dot.get_theme_stylebox("panel") as StyleBoxFlat).bg_color,
+						UiStyle.ACCENT,
+						"Today stays pink, not a weather sun",
+					)
+			else:
+				var icon := chip.find_child("Icon", true, false) as TextureRect
+				assert_not_null(
+					icon, "%s: %s carries its icon cue"
+						% [locale, chip_names[index]]
+				)
+				if icon != null and icon.texture != null:
+					assert_eq(
+						icon.texture.resource_path,
+						chip_icons[index],
+						"%s: %s keeps its icon cue"
+							% [locale, chip_names[index]],
+					)
+			rows[int(round(chip.get_global_rect().position.y))] = true
+		assert_gt(rows.size(), 0, "%s: the chips lay out in flow rows" % locale)
+		if locale == "en":
+			assert_gt(
+				rows.size(),
+				1,
+				"the long English chips wrap onto more than one row",
+			)
+		var note := calendar.find_child("LegendNote", true, false) as Label
+		assert_not_null(note, "the watering note is its own line")
+		if note != null:
+			assert_true(
+				note.visible, "%s: readiness shows the watering note" % locale
+			)
+			assert_eq(note.text, "Earliest days need nightly watering.")
+			assert_ne(
+				note.autowrap_mode,
+				TextServer.AUTOWRAP_OFF,
+				"the watering note wraps",
+			)
+			assert_true(screen_rect.encloses(note.get_global_rect()))
+	calendar.present(_short_history_snapshot(0))
+	await _settle()
+	var empty_note := calendar.find_child("LegendNote", true, false) as Label
+	assert_not_null(empty_note)
+	if empty_note != null:
+		assert_false(
+			empty_note.visible,
+			"the watering note hides when no crop has readiness",
 		)
 	var caption := calendar.find_child("Caption", true, false) as Label
 	assert_not_null(caption)
 	if caption != null:
+		assert_true(caption.visible, "the weather caption stays its own line")
 		assert_true(
 			caption.get_theme_font_size("font_size") >= 16,
 			"weather caption readable at 960x540",
+		)
+		assert_false(
+			caption.text.contains("Earliest days need nightly watering."),
+			"the weather caption never folds in the readiness note",
 		)
 	TranslationServer.set_locale("en")
 

@@ -21,7 +21,7 @@ const CROP_TEXTURES: Array[String] = [
 const MARKET_ICON := preload("res://assets/ui/icons/market.png")
 const MOON_ICON := preload("res://assets/ui/icons/moon.png")
 const COMING_UP_CROP_LIMIT := 3
-const COMING_UP_VIEW_HEIGHT := 232.0
+const COMING_UP_VIEW_HEIGHT := 176.0
 const COMING_UP_SCROLL_STEP := 44
 
 var _snapshot: Dictionary = {}
@@ -32,7 +32,8 @@ var _coming_rows: VBoxContainer
 var _coming_scroll: ScrollContainer
 var _coming_hint: Label
 var _caption: Label
-var _legend: Label
+var _legend: HFlowContainer
+var _legend_note: Label
 var _today_texture: Texture2D
 var _coming_signature := ""
 
@@ -164,11 +165,62 @@ func _build() -> void:
 	_caption.name = "Caption"
 	_caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_caption)
-	_legend = UiStyle.label("", 15, UiStyle.INK_MUTED, 700)
+	_legend = HFlowContainer.new()
 	_legend.name = "Legend"
-	_legend.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_legend.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_legend.add_theme_constant_override("h_separation", 8)
+	_legend.add_theme_constant_override("v_separation", 6)
 	column.add_child(_legend)
+	_legend.add_child(_legend_chip("Chip_Today", "Today", null, UiStyle.ACCENT))
+	_legend.add_child(_legend_chip("Chip_Market", "Market", MARKET_ICON, UiStyle.SUN))
+	_legend.add_child(_legend_chip("Chip_LastNight", "Last night", MOON_ICON, UiStyle.VIOLET))
+	_legend.add_child(
+		_legend_chip(
+			"Chip_Earliest",
+			"Earliest harvest",
+			load(CROP_TEXTURES[0]) as Texture2D,
+			UiStyle.LEAF,
+		)
+	)
+	_legend_note = UiStyle.label("Earliest days need nightly watering.", 15, UiStyle.INK_MUTED, 700)
+	_legend_note.name = "LegendNote"
+	_legend_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(_legend_note)
 	_build_footer()
+
+## One pill chip: a colour/icon cue beside its independently translated Label.
+func _legend_chip(
+	chip_name: String, text_key: String, marker: Texture2D, tint: Color
+) -> PanelContainer:
+	var chip := PanelContainer.new()
+	chip.name = chip_name
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var box := UiStyle.card(UiStyle.CARD, UiStyle.PILL_RADIUS, [12, 5, 14, 5], false)
+	box.border_color = tint
+	box.set_border_width_all(1)
+	chip.add_theme_stylebox_override("panel", box)
+	var row := UiStyle.hbox(6)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	chip.add_child(row)
+	if marker == null:
+		var dot := Panel.new()
+		dot.name = "Dot"
+		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		dot.custom_minimum_size = Vector2(10, 10)
+		dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		dot.add_theme_stylebox_override(
+			"panel", UiStyle.card(tint, UiStyle.PILL_RADIUS, [0, 0, 0, 0], false)
+		)
+		row.add_child(dot)
+	else:
+		var icon := UiStyle.icon(marker, 18)
+		icon.name = "Icon"
+		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(icon)
+	var label := UiStyle.label(text_key, 16, UiStyle.INK, 800)
+	label.name = "Label"
+	row.add_child(label)
+	return chip
 
 func _grid_card() -> PanelContainer:
 	var card := PanelContainer.new()
@@ -219,17 +271,17 @@ func _day_cell(day: int) -> Dictionary:
 	var day_label := UiStyle.label("%d" % day, 20, UiStyle.INK, 900)
 	day_label.name = "Day"
 	top.add_child(day_label)
-	var weather := UiStyle.icon(null, 24)
-	weather.name = "Weather"
-	weather.visible = false
-	weather.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	top.add_child(weather)
 
 	var flags := UiStyle.hbox(4)
 	flags.name = "Flags"
 	flags.alignment = BoxContainer.ALIGNMENT_CENTER
 	flags.custom_minimum_size = Vector2(0, 24)
 	column.add_child(flags)
+	var weather := UiStyle.icon(null, 24)
+	weather.name = "Weather"
+	weather.visible = false
+	weather.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	flags.add_child(weather)
 	var market := UiStyle.icon(MARKET_ICON, 24)
 	market.name = "Market"
 	market.visible = false
@@ -484,10 +536,7 @@ func _update_coming_up(current_day: int, readiness: Dictionary) -> void:
 		_caption.text = tr("Weather is not recorded yet.")
 	else:
 		_caption.text = tr("Weather is known through Day %d.") % history.size()
-	_legend.text = (
-		tr("Pink: today · Gold: market · Moon: last night · Crops: earliest days")
-		+ (" " + tr("Earliest days need nightly watering.") if not readiness.is_empty() else "")
-	)
+	_legend_note.visible = not readiness.is_empty()
 	_coming_scroll.custom_minimum_size = Vector2(0, COMING_UP_VIEW_HEIGHT)
 	_coming_hint.text = tr("W/S more")
 	_fit_coming_scroll()
