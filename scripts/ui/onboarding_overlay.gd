@@ -231,7 +231,7 @@ func _build_opening() -> void:
     _accept = UiStyle.primary_action("Enter", "BEGIN DAY 1")
     _accept.name = "Accept"
     _accept.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-    _accept.pressed.connect(_acknowledge)
+    _accept.pressed.connect(_accept_page)
     footer.add_child(_accept)
     # A glow drawn under the pill; its shadow pulses while Begin Day 1 waits.
     var glow := Panel.new()
@@ -389,10 +389,7 @@ func _unhandled_input(event: InputEvent) -> void:
         _acknowledge()
     elif event.is_action_pressed("ui_accept"):
         get_viewport().set_input_as_handled()
-        if _is_last_page() and is_line_revealed():
-            _acknowledge()
-        else:
-            _advance_page()
+        _accept_page()
 
 func _on_opening_gui_input(event: InputEvent) -> void:
     var click := event as InputEventMouseButton
@@ -400,6 +397,14 @@ func _on_opening_gui_input(event: InputEvent) -> void:
         return
     _opening_panel.accept_event()
     _advance_page()
+
+## Enter and Begin Day 1 share one rule: the last line finishes typing before
+## Day 1 begins. Skip and Esc acknowledge at once.
+func _accept_page() -> void:
+    if _is_last_page() and is_line_revealed():
+        _acknowledge()
+    else:
+        _advance_page()
 
 func _acknowledge() -> void:
     intro_acknowledged.emit()
@@ -452,6 +457,12 @@ func _show_page() -> void:
     if scene_changed:
         _stage.animate = animate
         _stage.show_scene(scene)
+        # A scene rebuilt in place (motion turned off mid-scene) keeps the
+        # beats of the lines already passed, so lit windows stay lit.
+        _stage.animate = false
+        for earlier in _line_index:
+            _stage.show_line(_lines()[earlier])
+        _stage.animate = animate
     _scene_tag.set_tag(String(scene["tag"]), [UiStyle.ACCENT_2])
     _render_dots()
     _render_portrait(int(scene["portrait"]), kind, speaker)
