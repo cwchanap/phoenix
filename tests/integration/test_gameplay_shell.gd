@@ -216,6 +216,16 @@ func test_tip_follows_allowed_phone_menus_and_tab_dismisses_inside_settings() ->
     var settings := hud._settings_panel
     assert_true(settings.visible)
     assert_true(card.visible, "Settings keeps the tip visible")
+    assert_false(world._world_input_enabled, "Settings still gates the world")
+    var settings_elapsed := world._clock_elapsed_seconds
+    var settings_minutes := int(world._session.snapshot()["time_minutes"])
+    world._advance_passive_clock(3.0)
+    assert_eq(world._clock_elapsed_seconds, settings_elapsed, "Settings pauses the clock")
+    assert_eq(
+        int(world._session.snapshot()["time_minutes"]),
+        settings_minutes,
+        "Settings pauses the clock",
+    )
     # Adjusting a setting re-runs apply_settings -> set_tutorial_cards_enabled;
     # the allowed menu must keep the card visible across that refresh.
     settings._adjust(1)
@@ -323,6 +333,18 @@ func test_tab_ignores_the_prologue_and_masked_modals() -> void:
         assert_false(panel.visible, entry["name"])
         assert_true(card.visible, "%s close restores the undismissed tip" % entry["name"])
 
+    hud.play_travel(GameRules.MapId.TOWN, 360, 390, func() -> void: pass)
+    var travel := _travel_overlay(hud)
+    assert_true(travel.visible)
+    assert_false(card.visible, "travel masks the tip")
+    await _press_physical_key(KEY_TAB)
+    assert_eq(overlay._dismissed.size(), 0, "travel keeps Tab for itself")
+    assert_true(travel.visible, "travel stays up on Tab")
+    assert_false(card.visible)
+    _finish_travel(hud)
+    assert_false(travel.visible)
+    assert_true(card.visible, "travel close restores the undismissed tip")
+
 func test_tab_requires_a_fresh_unmodified_press_on_a_visible_prompt() -> void:
     var world := _world()
     if world == null:
@@ -374,13 +396,10 @@ func test_tab_without_a_prompt_leaves_focus_traversal_alone() -> void:
         return
     var overlay := world.hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
     var card := overlay.get_node("TutorialCard") as Control
-    var snapshot := world._session.snapshot()
-    var complete := {}
-    for tutorial_id in ContentRules.tutorial_keys():
-        complete[tutorial_id] = true
-    snapshot["tutorial"] = complete
-    world.hud.render(snapshot)
+    assert_true(card.visible)
+    await _press_physical_key(KEY_TAB)
     assert_false(card.visible)
+    assert_eq(overlay._dismissed, [&"farm_basics"])
     assert_eq(overlay._current_prompt_id, &"")
 
     var first := Button.new()
@@ -400,7 +419,50 @@ func test_tab_without_a_prompt_leaves_focus_traversal_alone() -> void:
         second,
         "with no tip, Tab keeps its normal focus traversal",
     )
-    assert_eq(overlay._dismissed.size(), 0)
+    assert_eq(overlay._dismissed, [&"farm_basics"], "Tab adds no second dismissal")
+
+func test_dismiss_hitbox_covers_the_translated_caption_after_a_language_switch() -> void:
+    TranslationServer.set_locale("ja")
+    var settings := UiSettings.new()
+    settings.language = "ja"
+    var world := _spawn_world(true, settings)
+    if world == null:
+        TranslationServer.set_locale("en")
+        return
+    var overlay := world.hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
+    var card := overlay.get_node("TutorialCard") as Control
+    var dismiss := card.find_child("Dismiss", true, false) as Button
+    assert_not_null(dismiss)
+    if dismiss == null:
+        TranslationServer.set_locale("en")
+        return
+    var hint := dismiss.get_child(0) as Control
+    assert_not_null(hint)
+    if hint == null:
+        TranslationServer.set_locale("en")
+        return
+    await get_tree().process_frame
+    await get_tree().process_frame
+    var japanese_width := hint.get_combined_minimum_size().x
+
+    settings.language = "en"
+    world.hud.apply_settings()
+    await get_tree().process_frame
+    await get_tree().process_frame
+    var english_width := hint.get_combined_minimum_size().x
+    assert_gt(english_width, japanese_width, "the English caption is wider than Japanese")
+    var caption_edge := Vector2(
+        hint.get_global_rect().end.x - 4.0,
+        hint.get_global_rect().get_center().y,
+    )
+    var runner_gui := _hide_runner_gui()
+    await _mouse_left(caption_edge, true)
+    await _mouse_left(caption_edge, false)
+    if runner_gui != null:
+        runner_gui.visible = true
+    TranslationServer.set_locale("en")
+    assert_false(card.visible, "the translated caption edge is inside the dismiss hitbox")
+    assert_eq(overlay._dismissed, [&"farm_basics"])
 
 func test_mouse_dismisses_the_tip_over_an_allowed_menu_without_blocking_it() -> void:
     var world := _world()
@@ -543,6 +605,9 @@ func test_morning_summary_close_recomputes_the_tip_without_another_render() -> v
     var summary := _panel(hud, "MorningSummaryPanel")
     assert_true(summary.visible)
     assert_false(card.visible)
+    await _press_physical_key(KEY_TAB)
+    assert_eq(overlay._dismissed.size(), 0, "the morning summary keeps Tab")
+    assert_true(summary.visible)
     # The acknowledged path can reconcile after the close without a new render;
     # clearing suppression alone must recompute the last snapshot's prompt.
     hud._set_morning_summary_visible(false)

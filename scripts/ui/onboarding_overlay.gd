@@ -336,7 +336,17 @@ func _build_tutorial_card() -> void:
     dismiss.add_child(hint)
     hint.reset_size()
     hint.position = Vector2(0, 8)
-    dismiss.custom_minimum_size = hint.size + Vector2(0, 8)
+    var dismiss_ref: WeakRef = weakref(dismiss)
+    var hint_ref: WeakRef = weakref(hint)
+    var sync_hitbox := func() -> void:
+        var button := dismiss_ref.get_ref() as Button
+        var hint_row := hint_ref.get_ref() as Control
+        if button == null or hint_row == null:
+            return
+        button.custom_minimum_size = hint_row.get_combined_minimum_size() + Vector2(0, 8)
+    hint.minimum_size_changed.connect(sync_hitbox)
+    sync_hitbox.call()
+    sync_hitbox.call_deferred()
     dismiss.pressed.connect(_dismiss_current_prompt)
     _tutorial_card = card
     _tutorial_card.visible = false
