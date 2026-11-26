@@ -114,6 +114,7 @@ Payout is collected tomorrow morning.,貨款在明天早上入帳。,代金は�
 Paid at season end,季末入帳,シーズン終了時に入金
 Pays out tomorrow morning,明早入帳,明朝に入金
 %d crops in the bin,出貨箱內 %d 個作物,出荷箱に %d 個の作物
+The bin is empty,出貨箱是空的,出荷箱は空です
 %d seeds · %d crops,種子 %d · 作物 %d,種 %d · 作物 %d
 %d of %d,%d / %d,%d / %d
 %d nights,%d 晚,%d 晩
@@ -149,7 +150,10 @@ Town harvest market,鎮上豐收市集,町の収穫市
 Weather is known through today.,天氣到今天為止已知。,天気は今日まで分かる。
 Weather is known through Day %d.,天氣到第 %d 天為止已知。,天気は %d 日目まで分かる。
 Weather is not recorded yet.,尚無天氣記錄。,天気の記録はまだない。
-Pink: today · Gold: market · Moon: last night · Crops: earliest days,粉紅：今天 · 金色：市集 · 月亮：最後一晚 · 作物：最早收成日,ピンク：今日・金色：市・月：最後の夜・作物：最短収穫日
+Today,今天,今日
+Market,市集,市
+Last night,昨晚,昨夜
+Earliest harvest,最早收成,最短収穫
 Earliest days need nightly watering.,最早收成日需要每晚澆水。,最短の収穫日には毎晩の水やりが必要。
 W/S more,W/S 還有更多,W/S さらに表示
 +%d relationship point,好感度 +%d,好感度 +%d

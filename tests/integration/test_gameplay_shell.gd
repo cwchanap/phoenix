@@ -1891,6 +1891,56 @@ func test_bag_all_pending_crops_show_bin_slots_and_one_payout_summary() -> void:
     assert_eq(bag.bin_payout_value_text(), "+325G")
     assert_eq(bag.bin_payout_note_text(), "Pays out tomorrow morning")
 
+func test_bag_empty_bin_line_tracks_live_snapshots_without_closing() -> void:
+    var world := _world()
+    if world == null:
+        return
+    var hud := _hud(world)
+    if hud == null:
+        return
+    var empty_state := world._session.state()
+    empty_state["pending_shipment"] = {&"turnip": 0, &"potato": 0, &"pumpkin": 0}
+    var empty := GameSession.new()
+    assert_true(empty.restore_state(empty_state))
+    hud.render(empty.snapshot())
+    hud.open_bag()
+    var bag := _panel(hud, "BagPanel") as BagPanel
+    await _press_panel_action("move_down")
+    await _press_panel_action("move_down")
+    var shelf := bag.find_child("Shelf_2", true, false) as Control
+    assert_not_null(shelf, "the shipping-bin shelf exists")
+    if shelf == null:
+        return
+    var empty_line := shelf.find_child("BinEmpty", true, false) as Label
+    var grid := shelf.find_child("Grid", true, false) as GridContainer
+    assert_not_null(empty_line, "the empty bin line exists")
+    assert_not_null(grid, "the bin grid exists")
+    if empty_line == null or grid == null:
+        return
+    assert_true(empty_line.visible, "an empty bin states it is empty")
+    assert_false(grid.visible, "an empty bin leaves no blank slot strip")
+    assert_false(bag.bin_payout_visible())
+
+    var loaded_state := empty_state.duplicate(true)
+    loaded_state["pending_shipment"] = {&"turnip": 2, &"potato": 0, &"pumpkin": 0}
+    var loaded := GameSession.new()
+    assert_true(loaded.restore_state(loaded_state))
+    hud.render(loaded.snapshot())
+    assert_true(bag.visible, "a snapshot refresh keeps the bag open")
+    assert_false(empty_line.visible, "stocked crops replace the empty line")
+    assert_true(grid.visible, "stocked crops restore the bin grid")
+    assert_true(bag.bin_payout_visible())
+    assert_eq(bag.bin_payout_value_text(), "+70G")
+    assert_true(bag.bin_slot_visible(GameRules.CropKind.TURNIP))
+    assert_false(bag.bin_slot_visible(GameRules.CropKind.POTATO))
+
+    hud.render(empty.snapshot())
+    assert_true(bag.visible, "the emptied bin keeps the bag open")
+    assert_true(empty_line.visible, "the line returns once the bin settles")
+    assert_false(grid.visible)
+    assert_false(bag.bin_payout_visible())
+    hud.close_bag()
+
 func test_calendar_readiness_preserves_mixed_crop_kinds_per_day() -> void:
     var world := _world()
     if world == null:
