@@ -127,6 +127,9 @@ func _hud_intro() -> OnboardingOverlay:
 	assert_not_null(overlay)
 	if overlay == null:
 		return null
+	# Match the standalone intro fixture when prologue animation is available.
+	if "animate" in overlay:
+		overlay.set("animate", false)
 	overlay.render(GameSession.new().snapshot())
 	return overlay
 
