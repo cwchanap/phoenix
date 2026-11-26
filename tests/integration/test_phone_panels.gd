@@ -1938,127 +1938,11 @@ func _assert_segment_chip_structure(chips: Array) -> void:
 			assert_eq(pad.get_theme_constant("margin_top"), 5)
 			assert_eq(pad.get_theme_constant("margin_bottom"), 5)
 
-func test_settings_selected_segment_fills_the_hit_cell_and_keeps_natural_widths() -> void:
-	for locale in LOCALES:
-		TranslationServer.set_locale(locale)
-		var settings := _settings_panel()
-		assert_not_null(settings)
-		if settings == null:
-			continue
-		var ui_settings := UiSettings.new(SETTINGS_TEST_PATH)
-		ui_settings.language = locale
-		ui_settings.fullscreen = false
-		settings.open_panel(ui_settings)
-		await _settle()
-		var context := "segments %s" % locale
-		var screen_rect := (_frame(settings).get_node("Screen") as Control).get_global_rect()
-		for entry in [
-			["WindowSeg", 0],
-			["LanguageSeg", UiSettings.LANGUAGES.find(locale)],
-		]:
-			var seg_name: String = entry[0]
-			var selected: int = entry[1]
-			var seg := settings.find_child(seg_name, true, false) as Control
-			assert_not_null(seg, "%s: %s" % [context, seg_name])
-			if seg == null:
-				continue
-			var chips := seg.find_children("Option_*", "PanelContainer", true, false)
-			var hits := seg.find_children("OptionHit_*", "Button", true, false)
-			assert_eq(chips.size(), hits.size(), "%s: every option owns a hit cell" % context)
-			for index in chips.size():
-				var chip := chips[index] as Control
-				var hit := hits[index] as Control
-				var label := chip.find_child("Label", true, false) as Label
-				var on := chip.find_child("On", true, false) as TextureRect
-				assert_not_null(label, "%s: %s option %d label" % [context, seg_name, index])
-				assert_not_null(on, "%s: %s option %d gradient" % [context, seg_name, index])
-				if label == null or on == null:
-					continue
-				var chip_rect := chip.get_global_rect()
-				var hit_rect := hit.get_global_rect()
-				var label_rect := label.get_global_rect()
-				assert_true(
-					screen_rect.encloses(hit_rect),
-					"%s: %s option %d hit cell stays inside the phone"
-						% [context, seg_name, index],
-				)
-				assert_almost_eq(
-					chip_rect.position.x, hit_rect.position.x, 0.5,
-					"%s: the chip fills its hit cell" % context,
-				)
-				assert_almost_eq(chip_rect.size.x, hit_rect.size.x, 0.5)
-				assert_almost_eq(chip_rect.size.y, hit_rect.size.y, 0.5)
-				assert_almost_eq(
-					label_rect.get_center().x, hit_rect.get_center().x, 1.0,
-					"%s: the label centers horizontally in the hit cell" % context,
-				)
-				assert_almost_eq(
-					label_rect.get_center().y, hit_rect.get_center().y, 1.0,
-					"%s: the label centers vertically in the hit cell" % context,
-				)
-				assert_true(
-					label_rect.size.x + 0.5 >= label.get_minimum_size().x,
-					"%s: %s option %d text is not clipped horizontally"
-						% [context, seg_name, index],
-				)
-				assert_true(
-					label_rect.size.y + 0.5 >= label.get_minimum_size().y,
-					"%s: %s option %d text is not clipped vertically"
-						% [context, seg_name, index],
-				)
-				assert_almost_eq(
-					chip_rect.size.x, label.get_minimum_size().x + 22.0, 1.0,
-					"%s: %s option %d keeps its natural width, not an equal-width rule"
-						% [context, seg_name, index],
-				)
-				assert_eq(
-					on.visible, index == selected,
-					"%s: %s option %d paints the gradient only when selected"
-						% [context, seg_name, index],
-				)
-				if on.visible:
-					var on_rect := on.get_global_rect()
-					assert_almost_eq(
-						on_rect.position.x, hit_rect.position.x, 0.5,
-						"%s: the selected background starts at the hit cell edge" % context,
-					)
-					assert_almost_eq(
-						on_rect.size.x, hit_rect.size.x, 0.5,
-						"%s: the selected background spans the hit cell" % context,
-					)
-					assert_almost_eq(
-						on_rect.size.y, hit_rect.size.y, 0.5,
-						"%s: the selected background fills the hit cell height" % context,
-					)
-			for first in hits.size():
-				for second in range(first + 1, hits.size()):
-					assert_false(
-						(hits[first] as Control).get_global_rect().intersects(
-							(hits[second] as Control).get_global_rect()
-						),
-						"%s: %s hit cells never overlap" % [context, seg_name],
-					)
-		var full_hit := _seg_chip_hit(settings, "WindowSeg", 1)
-		var windowed_hit := _seg_chip_hit(settings, "WindowSeg", 0)
-		if full_hit != null and windowed_hit != null:
-			await _click_at(
-				full_hit.get_global_rect().position
-					+ Vector2(2.0, full_hit.get_global_rect().size.y * 0.5)
-			)
-			assert_true(
-				ui_settings.fullscreen,
-				"%s: the FULL chip's far edge is inside the click target" % context,
-			)
-			await _click_at(
-				windowed_hit.get_global_rect().end
-					- Vector2(2.0, windowed_hit.get_global_rect().size.y * 0.5)
-			)
-			assert_false(
-				ui_settings.fullscreen,
-				"%s: the 1080p chip's far edge is inside the click target" % context,
-			)
-		settings.queue_free()
-		await _settle()
+func _assert_rect_almost_eq(actual: Rect2, expected: Rect2, context: String) -> void:
+	assert_almost_eq(actual.position.x, expected.position.x, 0.5, "%s: x origin" % context)
+	assert_almost_eq(actual.position.y, expected.position.y, 0.5, "%s: y origin" % context)
+	assert_almost_eq(actual.size.x, expected.size.x, 0.5, "%s: width" % context)
+	assert_almost_eq(actual.size.y, expected.size.y, 0.5, "%s: height" % context)
 
 func test_settings_tips_switch_flips_with_the_setting() -> void:
 	var settings := _spawn_panel("res://scenes/ui/settings_panel.tscn") as SettingsPanel
@@ -2128,9 +2012,13 @@ func test_settings_stays_inside_the_screen_in_all_locales() -> void:
 		assert_not_null(settings)
 		if settings == null:
 			continue
-		settings.open_panel(UiSettings.new(SETTINGS_TEST_PATH))
+		var ui_settings := UiSettings.new(SETTINGS_TEST_PATH)
+		ui_settings.language = locale
+		ui_settings.fullscreen = false
+		settings.open_panel(ui_settings)
 		await _settle()
-		_assert_descendants_inside_screen(settings, "settings %s" % locale)
+		var context := "settings %s" % locale
+		_assert_descendants_inside_screen(settings, context)
 		assert_null(
 			settings.find_child("SavePath", true, false),
 			"%s: Settings never renders the developer save path" % locale,
@@ -2139,6 +2027,77 @@ func test_settings_stays_inside_the_screen_in_all_locales() -> void:
 			settings.find_child("Status", true, false),
 			"%s: the settings-write status row remains" % locale,
 		)
+		for entry in [
+			["WindowSeg", 0],
+			["LanguageSeg", UiSettings.LANGUAGES.find(locale)],
+		]:
+			var seg_name: String = entry[0]
+			var selected: int = entry[1]
+			var seg := settings.find_child(seg_name, true, false) as Control
+			assert_not_null(seg, "%s: %s" % [context, seg_name])
+			if seg == null:
+				continue
+			var chips := seg.find_children("Option_*", "PanelContainer", true, false)
+			var hits := seg.find_children("OptionHit_*", "Button", true, false)
+			assert_eq(chips.size(), hits.size(), "%s: every option owns a hit cell" % context)
+			for index in chips.size():
+				var chip := chips[index] as Control
+				var hit := hits[index] as Control
+				var label := chip.find_child("Label", true, false) as Label
+				var on := chip.find_child("On", true, false) as TextureRect
+				assert_not_null(label, "%s: %s option %d label" % [context, seg_name, index])
+				assert_not_null(on, "%s: %s option %d gradient" % [context, seg_name, index])
+				if label == null or on == null:
+					continue
+				var chip_rect := chip.get_global_rect()
+				var hit_rect := hit.get_global_rect()
+				var label_rect := label.get_global_rect()
+				_assert_rect_almost_eq(
+					chip_rect, hit_rect,
+					"%s: %s option %d chip fills its hit cell"
+						% [context, seg_name, index],
+				)
+				assert_almost_eq(
+					label_rect.get_center().x, hit_rect.get_center().x, 1.0,
+					"%s: the label centers horizontally in the hit cell" % context,
+				)
+				assert_almost_eq(
+					label_rect.get_center().y, hit_rect.get_center().y, 1.0,
+					"%s: the label centers vertically in the hit cell" % context,
+				)
+				assert_true(
+					label_rect.size.x + 0.5 >= label.get_minimum_size().x,
+					"%s: %s option %d text is not clipped horizontally"
+						% [context, seg_name, index],
+				)
+				assert_true(
+					label_rect.size.y + 0.5 >= label.get_minimum_size().y,
+					"%s: %s option %d text is not clipped vertically"
+						% [context, seg_name, index],
+				)
+				assert_almost_eq(
+					chip_rect.size.x, label.get_minimum_size().x + 22.0, 1.0,
+					"%s: %s option %d keeps its natural width, not an equal-width rule"
+						% [context, seg_name, index],
+				)
+				assert_eq(
+					on.visible, index == selected,
+					"%s: %s option %d paints the gradient only when selected"
+						% [context, seg_name, index],
+				)
+				if on.visible:
+					_assert_rect_almost_eq(
+						on.get_global_rect(), hit_rect,
+						"%s: the selected background spans the whole hit cell" % context,
+					)
+			for first in hits.size():
+				for second in range(first + 1, hits.size()):
+					assert_false(
+						(hits[first] as Control).get_global_rect().intersects(
+							(hits[second] as Control).get_global_rect()
+						),
+						"%s: %s hit cells never overlap" % [context, seg_name],
+					)
 		settings.queue_free()
 		await _settle()
 
@@ -2336,6 +2295,38 @@ func test_settings_window_chip_click_switches_mode() -> void:
 	if ons.size() == 2:
 		assert_false(ons[0].visible, "1080p chip reads unselected")
 		assert_true(ons[1].visible, "FULL chip reads selected")
+	var full_hit := _seg_chip_hit(settings, "WindowSeg", 1)
+	var windowed_hit := _seg_chip_hit(settings, "WindowSeg", 0)
+	# Keyboard parity: A/D adjusts the same segmented preference the click
+	# selected, and the selected gradient follows on the next layout.
+	await _press("move_left")
+	assert_false(
+		ui_settings.fullscreen,
+		"A/D adjusts the fullscreen row the click selected",
+	)
+	assert_eq(settings.selected_setting_name(), &"fullscreen")
+	await _settle()
+	if ons.size() == 2:
+		assert_true(ons[0].visible, "1080p gradient follows the keyboard change")
+		assert_false(ons[1].visible, "FULL gradient clears with the keyboard change")
+		if windowed_hit != null:
+			_assert_rect_almost_eq(
+				(ons[0] as Control).get_global_rect(),
+				windowed_hit.get_global_rect(),
+				"keyboard-selected 1080p gradient",
+			)
+	await _press("move_right")
+	assert_true(ui_settings.fullscreen, "A/D steps the same row back to FULL")
+	await _settle()
+	if ons.size() == 2:
+		assert_true(ons[1].visible)
+		assert_false(ons[0].visible)
+		if full_hit != null:
+			_assert_rect_almost_eq(
+				(ons[1] as Control).get_global_rect(),
+				full_hit.get_global_rect(),
+				"keyboard-selected FULL gradient",
+			)
 	await _click_at(windowed_rect.get_center())
 	assert_false(ui_settings.fullscreen)
 	reloaded = UiSettings.load(SETTINGS_TEST_PATH)
@@ -2537,16 +2528,25 @@ func test_settings_clicks_work_in_all_locales_at_both_sizes() -> void:
 				reloaded.sound, 2, "%s: the sound click persists" % context
 			)
 			var full_rect := _seg_chip_rect(settings, "WindowSeg", 1)
-			await _click_at(_window_point(full_rect.get_center()))
+			await _click_at(
+				_window_point(
+					full_rect.end - Vector2(2.0, full_rect.size.y * 0.5)
+				)
+			)
 			assert_true(
 				ui_settings.fullscreen,
-				"%s: the FULL chip applies" % context,
+				"%s: the FULL chip's far edge applies" % context,
 			)
 			var windowed_rect := _seg_chip_rect(settings, "WindowSeg", 0)
-			await _click_at(_window_point(windowed_rect.get_center()))
+			await _click_at(
+				_window_point(
+					windowed_rect.position
+						+ Vector2(2.0, windowed_rect.size.y * 0.5)
+				)
+			)
 			assert_false(
 				ui_settings.fullscreen,
-				"%s: the 1080p chip applies" % context,
+				"%s: the 1080p chip's far edge applies" % context,
 			)
 			assert_eq(
 				TranslationServer.get_locale(), locale,
@@ -2568,10 +2568,14 @@ func test_settings_clicks_work_in_all_locales_at_both_sizes() -> void:
 			var languages: Array = UiSettings.LANGUAGES
 			for chip in range(languages.size()):
 				var lang_rect := _seg_chip_rect(settings, "LanguageSeg", chip)
-				await _click_at(_window_point(lang_rect.get_center()))
+				await _click_at(
+					_window_point(
+						lang_rect.end - Vector2(2.0, lang_rect.size.y * 0.5)
+					)
+				)
 				assert_eq(
 					ui_settings.language, languages[chip],
-					"%s: language chip %d applies" % [context, chip],
+					"%s: language chip %d's far edge applies" % [context, chip],
 				)
 				assert_eq(
 					TranslationServer.get_locale(), languages[chip],
