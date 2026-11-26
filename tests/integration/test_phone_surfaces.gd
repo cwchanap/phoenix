@@ -29,6 +29,23 @@ func _settle() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 
+func _relative_luminance(color: Color) -> float:
+	var linear: Array[float] = []
+	for channel in [color.r, color.g, color.b]:
+		linear.append(
+			channel / 12.92 if channel <= 0.04045
+			else pow((channel + 0.055) / 1.055, 2.4)
+		)
+	return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+func _contrast_ratio(first: Color, second: Color) -> float:
+	var first_luminance := _relative_luminance(first)
+	var second_luminance := _relative_luminance(second)
+	return (
+		(maxf(first_luminance, second_luminance) + 0.05)
+		/ (minf(first_luminance, second_luminance) + 0.05)
+	)
+
 func _frame(panel: Control) -> PhoneFrame:
 	if panel is PhoneFrame:
 		return panel as PhoneFrame
@@ -1001,7 +1018,7 @@ func test_morning_save_chip_and_error_stay_inside_the_phone() -> void:
 	)
 	assert_eq(summary.save_status_text(), "Progress saved")
 	assert_eq(caption.text, "Progress saved")
-	assert_eq(caption.get_theme_color("font_color"), UiStyle.LEAF)
+	assert_eq(caption.get_theme_color("font_color"), UiStyle.LEAF_DEEP)
 	assert_eq(status.text, "", "saved has no separate body line")
 	assert_false(status.is_visible_in_tree(), "the body line stays hidden")
 	assert_false(scroll.visible, "the saved state hides the scroll body")
@@ -1083,6 +1100,46 @@ func test_morning_progress_saved_caption_translates() -> void:
 			caption.atr(caption.text), expected[locale],
 			"%s displays the translated single saved line" % locale,
 		)
+
+func test_morning_progress_saved_line_meets_wcag_contrast() -> void:
+	var summary := _morning_panel()
+	if summary == null:
+		return
+	summary.set_save_status(&"saved")
+	await _settle()
+	var caption := summary.find_child("Caption", true, false) as Label
+	var badge := summary.find_child("SaveBadge", true, false) as PanelContainer
+	var card := summary.find_child("SaveStatusCard", true, false) as PanelContainer
+	assert_not_null(caption)
+	assert_not_null(badge)
+	assert_not_null(card)
+	if caption == null or badge == null or card == null:
+		return
+	var badge_box := badge.get_theme_stylebox("panel") as StyleBoxFlat
+	var card_box := card.get_theme_stylebox("panel") as StyleBoxFlat
+	assert_not_null(badge_box)
+	assert_not_null(card_box)
+	if badge_box == null or card_box == null:
+		return
+	var badge_tint := badge_box.bg_color
+	var background := Color(
+		card_box.bg_color.r * (1.0 - badge_tint.a) + badge_tint.r * badge_tint.a,
+		card_box.bg_color.g * (1.0 - badge_tint.a) + badge_tint.g * badge_tint.a,
+		card_box.bg_color.b * (1.0 - badge_tint.a) + badge_tint.b * badge_tint.a,
+		1.0,
+	)
+	var ink := caption.get_theme_color("font_color")
+	var ratio := _contrast_ratio(ink, background)
+	assert_gte(
+		ratio, 4.5,
+		"Progress saved needs WCAG AA contrast over its rendered badge (%.2f:1)"
+			% ratio,
+	)
+	assert_eq(ink, UiStyle.LEAF_DEEP, "success ink is the dark system green")
+	assert_eq(badge_box.bg_color, UiStyle.MINT, "the badge keeps a green tint")
+	assert_eq(caption.get_theme_font_size("font_size"), 15)
+	assert_gt(background.g, background.r, "badge tint reads green")
+	assert_gt(background.g, background.b, "badge tint reads green")
 
 func test_morning_long_save_error_wraps_bounded_inside_the_phone() -> void:
 	var summary := _morning_panel()
