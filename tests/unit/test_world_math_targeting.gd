@@ -2,9 +2,10 @@ extends GutTest
 ## The target tile is the cell under a probe half a cell ahead of the feet:
 ## always directly in front, never more than one tile ahead, and a turn or a
 ## step moves it to an edge-adjacent tile. The exact cell-centre lines are the
-## deliberate exception: there both probe coordinates sit on a cell edge, so a
-## centred player keeps the facing's corner neighbour (spawn and fixtures) and
-## a walk along a centre line steps straight to the next tile ahead.
+## deliberate exception: there the probe sits on a cell edge and resolves
+## toward the facing, so a centred player keeps the facing's corner neighbour
+## (spawn and fixtures) and a walk along a centre line steps straight to the
+## next tile ahead.
 
 const CELL := Vector2i(20, 20)
 const FACINGS := [
@@ -55,6 +56,28 @@ func test_target_sits_directly_in_front_and_at_most_one_tile_ahead() -> void:
 
 func test_a_quarter_turn_moves_the_target_to_an_edge_adjacent_tile() -> void:
     for feet in _feet_positions():
+        for index in FACINGS.size():
+            var from := _target(feet, FACINGS[index])
+            var to := _target(feet, FACINGS[(index + 1) % FACINGS.size()])
+            var step := (to - from).abs()
+            assert_eq(
+                step.x + step.y, 1,
+                "turning %d->%d from %s moved %s -> %s" % [
+                    FACINGS[index], FACINGS[(index + 1) % FACINGS.size()], feet, from, to,
+                ],
+            )
+
+func test_a_quarter_turn_a_hair_off_a_centre_line_stays_edge_adjacent() -> void:
+    # Only the exact centre lines hold the corner-neighbour exception: a hair
+    # to either side, every quarter turn is still one edge step.
+    var centre := Vector2(CELL) + Vector2(0.5, 0.5)
+    var poses: Array[Vector2] = [Vector2(CELL) + Vector2(0.5005, 0.25)]
+    for nudge: float in [-0.0005, -0.0001, 0.0001, 0.0005]:
+        poses.append(centre + Vector2(nudge, -0.25))
+        poses.append(centre + Vector2(-0.25, nudge))
+        poses.append(centre + Vector2(nudge, -nudge))
+        poses.append(centre + Vector2(nudge, nudge))
+    for feet in poses:
         for index in FACINGS.size():
             var from := _target(feet, FACINGS[index])
             var to := _target(feet, FACINGS[(index + 1) % FACINGS.size()])
