@@ -18,6 +18,9 @@ const CLOCK_DELTA_CLAMP := 0.1
 # HPA-743 foreground occluders sink to this alpha while the player stands
 # behind them; each prop's own Sprite2D tracks it, nothing is shared.
 const FADE_ALPHA := 0.45
+# World pixels above the feet a farming prompt's anchor may sit at most: with
+# HudChrome.PROMPT_LIFT the pointer tip then clears the hat (36 px tall).
+const PROMPT_PLAYER_CLEARANCE := 16.0
 
 var _session: GameSession
 var _initial_state: Variant = null
@@ -191,11 +194,11 @@ func _process(delta: float) -> void:
         return
     if FARM_ACTION_SUCCESS_CODES.has(preview["code"]):
         player.set_target_tint(PlayerController.TargetTint.VALID)
-        hud.show_farming_prompt(_prompt_anchor(target), preview)
+        hud.show_farming_prompt(_farming_prompt_anchor(target), preview)
         return
     if preview["code"] != GameRules.CommandCode.NO_TARGET and preview["code"] != GameRules.CommandCode.NOT_FARM_CELL:
         player.set_target_tint(PlayerController.TargetTint.INVALID)
-        hud.show_blocked_prompt(_prompt_anchor(target), preview)
+        hud.show_blocked_prompt(_farming_prompt_anchor(target), preview)
         return
 
     player.set_target_tint(PlayerController.TargetTint.NEUTRAL)
@@ -338,6 +341,17 @@ func _submit_target_cell() -> Variant:
 ## The target cell's centre in HUD (screen) coordinates.
 func _prompt_anchor(cell: Vector2i) -> Vector2:
     return get_viewport().get_canvas_transform() * WorldMath.grid_to_world(Vector2(cell) + Vector2(0.5, 0.5))
+
+## A farming prompt's anchor: the target cell's centre, raised to no lower than
+## PROMPT_PLAYER_CLEARANCE above the feet. The farming target sits right in
+## front of the feet, so the bubble clears the farmer's hat instead of
+## covering him.
+func _farming_prompt_anchor(cell: Vector2i) -> Vector2:
+    var anchor := _prompt_anchor(cell)
+    var clear := get_viewport().get_canvas_transform() * (
+        player.global_position - Vector2(0.0, PROMPT_PLAYER_CLEARANCE)
+    )
+    return Vector2(anchor.x, minf(anchor.y, clear.y))
 
 func _advance_passive_clock(delta: float) -> void:
     if not _world_input_enabled or delta <= 0.0:

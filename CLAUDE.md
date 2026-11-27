@@ -264,6 +264,20 @@ There is no JavaScript or Tauri runtime in the current checkout.
   idle, and repaints the bound `target_highlight` immediately.
   `move_and_slide()` supplies Godot-native response against projected
   logical collision polygons; do not port the old grid-axis resolver.
+  `WorldMath.target_cell()` returns the cell under a probe
+  `TARGET_REACH` (0.501) of the facing's `TARGET_OFFSETS` ahead of the
+  feet (32 px sideways, 16 px up/down): the target is always the tile
+  directly in front, at most one tile ahead, and a quarter turn or a step
+  moves it to an edge-adjacent tile; a player on a cell centre still
+  targets the facing's corner neighbour. Farming prompts anchor on that
+  cell but never sit lower than `WorldShell.PROMPT_PLAYER_CLEARANCE`
+  above the feet, so the bubble clears the farmer's hat.
+  Physics interpolation is on project-wide but scoped to the player:
+  `AppRoot` opts out, `Player` opts in (its `Camera2D` runs on the
+  physics callback), so the player moves every rendered frame on
+  high-refresh displays while UI and FX tweens stay uninterpolated;
+  `enter_map()` resets interpolation around `reset_smoothing()` so a map
+  entry snaps, and idle-tweened children of the Player (`ToolFx`) opt out.
 - scripts/app/app_root.gd owns title/load/launch lifecycle and one concrete SaveRepository.
 - Completed-run Continue routes straight to `ResultScreen`; the AppRoot
   result teardown removes the live World with `remove_child()` then
@@ -515,7 +529,9 @@ updating both routes and their exact-value assertions in the same commit.
 Sprite-isometric art contract
 - Ground diamonds are 64×32.
 - Entity roots are bottom-center ground contacts.
-- Visible sprites offset upward from the root.
+- Visible sprites offset upward from the root. The 32x48 player and
+  villager frames carry 4 px of transparent padding under the boots, so
+  their `Sprite2D.offset` is `(0, -20)` and the soles touch the root.
 - Shadows are child sprites on the ground plane, never Y-sort roots.
 - Entities remains the sole Y-sort owner for foreground/occluding world objects;
   the three pier planks are a below-actor `PierDeck` child.

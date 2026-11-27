@@ -5,6 +5,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/result_screen.tscn" id="3_result"]
 
 [node name="AppRoot" type="Node"]
+physics_interpolation_mode = 2
 script = ExtResource("1_app")
 
 [node name="TitleScreen" parent="." instance=ExtResource("2_title")]

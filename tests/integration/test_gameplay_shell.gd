@@ -72,6 +72,39 @@ func _players_with_stream(parent: Node, stream_path: String) -> Array:
             )
     )
 
+## The farmer's hat top sits this many world pixels above the feet.
+const PLAYER_HAT_TOP := 36.0
+
+func test_farming_prompt_never_covers_the_farmer() -> void:
+    var world := _world()
+    var prompt := _chrome(_hud(world)).get_node("Prompt") as Control
+    var cell: Vector2i = WorldContract.farm_cells()[7]
+    for facing in [
+        WorldMath.Facing.UP,
+        WorldMath.Facing.RIGHT,
+        WorldMath.Facing.DOWN,
+        WorldMath.Facing.LEFT,
+    ]:
+        await _place_target(world, cell, facing)
+        # Let the camera apply its zoom so canvas pixels are screen pixels.
+        await get_tree().process_frame
+        await get_tree().process_frame
+        assert_almost_eq(
+            world.get_viewport().get_canvas_transform().get_scale(),
+            world.player.camera.zoom,
+            Vector2(0.001, 0.001),
+        )
+        world._process(0.0)
+        assert_eq(world.player.current_target_cell(), cell)
+        assert_true(prompt.visible)
+        var hat := world.get_viewport().get_canvas_transform() * (
+            world.player.global_position - Vector2(0, PLAYER_HAT_TOP)
+        )
+        assert_lt(
+            prompt.position.y, hat.y,
+            "facing %d: the prompt's pointer tip must sit above the hat" % facing,
+        )
+
 func test_fresh_opening_blocks_world_input() -> void:
     var world := _locked_world()
     var opening := world.hud.get_node(
@@ -93,8 +126,15 @@ func test_hud_draws_natively_with_the_prompt_above_the_target_cell() -> void:
     world._process(0.0)
     var prompt := _chrome(hud).get_node("Prompt") as Control
     assert_true(prompt.visible)
-    var centre := world.get_viewport().get_canvas_transform() * _cell_center(cell)
-    assert_eq(prompt.position, centre - Vector2(0, HudChrome.PROMPT_LIFT))
+    var canvas := world.get_viewport().get_canvas_transform()
+    var centre := canvas * _cell_center(cell)
+    var above_hat := canvas * (
+        world.player.global_position - Vector2(0, WorldShell.PROMPT_PLAYER_CLEARANCE)
+    )
+    assert_eq(
+        prompt.position,
+        Vector2(centre.x, minf(centre.y, above_hat.y)) - Vector2(0, HudChrome.PROMPT_LIFT),
+    )
     assert_eq(hud.prompt_icon(), hud.action_icon(GameRules.FarmingAction.HOE))
     var bubble := prompt.get_node("Bubble") as Control
     assert_almost_eq(bubble.position.x + bubble.size.x / 2.0, 0.0, 0.5, "bubble centres on the cell")
@@ -4391,6 +4431,9 @@ func test_render_without_camera_keeps_rain_state() -> void:
     rain.render(rainy)
     assert_true(rain.is_rain_falling())
     var camera := Camera2D.new()
+    # Physics interpolation is on project-wide; a physics-callback camera
+    # avoids the editor's IDLE-override warning, as player.tscn does.
+    camera.process_callback = Camera2D.CAMERA2D_PROCESS_PHYSICS
     add_child_autofree(camera)
     rain.render(rainy)
     assert_true(rain.is_rain_falling())
@@ -6822,19 +6865,17 @@ func test_regions_stay_out_of_each_others_near_contact_reach() -> void:
                 )
 
 func test_shop_east_contact_facing_down_never_resolves_sato_san() -> void:
-    # The pinned anti-through-wall case: pressed against the Seed Shop's east
-    # face (~5px), facing DOWN, the raw grid target is Sato-san's cell across
-    # the path — but Sato-san sits roughly 26px away, outside near-contact
-    # reach, and DOWN is not an inward facing for the shop's east face, so E
-    # must refuse instead of talking through the wall.
+    # The pinned anti-through-wall case: beside the Seed Shop's east face
+    # (~12px, inside near-contact reach), facing DOWN, the raw grid target is
+    # Sato-san's cell across the path — but Sato-san sits roughly 22px away,
+    # outside near-contact reach, and DOWN is not an inward facing for the
+    # shop's east face, so E must refuse instead of talking through the wall.
     var world := _world()
     var hud := world.hud
     await _drive_to_town(world)
-    var start := WorldMath.grid_to_world(Vector2(8.5, 3.5))
-    assert_false(_probe_collides(GameRules.MapId.TOWN, start), "probe start must be a free standing spot")
-    world.player.global_position = start
-    await _push_until_stopped(world, Vector2(-0.447, -0.894))
-    var stop: Vector2 = world.player.global_position
+    var stop := WorldMath.grid_to_world(Vector2(8.5, 3.5))
+    assert_false(_probe_collides(GameRules.MapId.TOWN, stop), "probe start must be a free standing spot")
+    world.player.global_position = stop
     world.player.facing = WorldMath.Facing.DOWN
     world.player.velocity = Vector2.ZERO
     world.player.refresh_target()
@@ -7775,12 +7816,12 @@ func test_bin_fade_advances_on_farming_preview_frames() -> void:
     if world == null:
         return
     var bin := _occluder_sprite(world, "Shipping")
-    # Stand inside the east edge of FARM_PATCH facing left onto (19, 20):
-    # Shipping overlaps the player and sorts in front while _process hits the
-    # farming-prompt early return.
+    # Stand inside the east edge of FARM_PATCH facing left onto the tile in
+    # front of the feet, (20, 19): Shipping overlaps the player and sorts in
+    # front while _process hits the farming-prompt early return.
     _set_pose(world, WorldMath.grid_to_world(Vector2(20.8, 19.2)), WorldMath.Facing.LEFT)
     _assert_pose_overlaps(world, "Shipping")
-    assert_eq(world.player.current_target_cell(), Vector2i(19, 20))
+    assert_eq(world.player.current_target_cell(), Vector2i(20, 19))
     world._process(0.2)
     assert_eq(world.hud.prompt_text(), "[Space] Till soil · 3 stamina")
     assert_eq(world.player.target_highlight.default_color, PlayerController.TARGET_VALID)
