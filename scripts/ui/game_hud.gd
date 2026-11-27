@@ -93,6 +93,9 @@ var _music_player: AudioStreamPlayer
 var _prologue_music_player: AudioStreamPlayer
 var _music_fade: Tween
 var _prologue_ending := false
+## The Music-setting level both players were last settled at. NAN until the first
+## apply, so only a real Music change settles a fade in flight.
+var _music_level_db := NAN
 var _river_ambience_player: AudioStreamPlayer
 var _rain_ambience_player: AudioStreamPlayer
 var _settings: UiSettings
@@ -146,13 +149,16 @@ func configure(settings: UiSettings = null) -> void:
 func apply_settings() -> void:
     if _settings == null or _music_player == null or _sfx_player == null:
         return
-    # A volume change settles any fade in flight at the new level.
-    _kill_music_fade()
-    if _prologue_ending:
-        _prologue_music_player.stop()
+    # Only a Music change settles a fade in flight at the new level; Sound,
+    # Window, Tips and Language updates leave the transition running.
     var music_db := _settings.db_for_level(_settings.music)
-    _music_player.volume_db = music_db
-    _prologue_music_player.volume_db = music_db
+    if is_nan(_music_level_db) or not is_equal_approx(music_db, _music_level_db):
+        _music_level_db = music_db
+        _kill_music_fade()
+        if _prologue_ending:
+            _prologue_music_player.stop()
+        _music_player.volume_db = music_db
+        _prologue_music_player.volume_db = music_db
     var sound_db := _settings.db_for_level(_settings.sound)
     _sfx_player.volume_db = sound_db
     var ambience_db := maxf(sound_db + AMBIENCE_HEADROOM_DB, -80.0)
