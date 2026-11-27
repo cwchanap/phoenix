@@ -45,6 +45,7 @@ var _save_head_spacer: Control
 var _acknowledge: Button
 var _save_badge: PanelContainer
 var _save_caption: Label
+var _save_state: StringName = &"idle"
 var _badge_ok := UiStyle.card(
 	UiStyle.MINT, UiStyle.PILL_RADIUS, [12, 4, 12, 4], false
 )
@@ -129,8 +130,11 @@ func _render_shipment_row(row: Dictionary, shipment: Dictionary) -> void:
 	) as Texture2D
 
 func set_save_status(status: StringName, message: String = "") -> void:
+	if status == &"idle" and _save_state == &"idle":
+		return
 	match status:
 		&"idle":
+			_save_state = &"idle"
 			_save_status.text = ""
 			_save_status.add_theme_color_override("font_color", UiStyle.BAD)
 			_save_caption.text = ""
@@ -143,6 +147,7 @@ func set_save_status(status: StringName, message: String = "") -> void:
 			_save_head_spacer.visible = true
 			_save_head_row.alignment = BoxContainer.ALIGNMENT_BEGIN
 		&"saved":
+			_save_state = &"saved"
 			_save_status.text = ""
 			_save_status.add_theme_color_override("font_color", UiStyle.BAD)
 			_save_caption.text = "Progress saved"
@@ -155,6 +160,7 @@ func set_save_status(status: StringName, message: String = "") -> void:
 			_save_head_spacer.visible = false
 			_save_head_row.alignment = BoxContainer.ALIGNMENT_CENTER
 		&"error":
+			_save_state = &"error"
 			_save_status.text = message
 			_save_status.add_theme_color_override("font_color", UiStyle.BAD)
 			_save_caption.text = "SAVE ERROR"

@@ -2,11 +2,15 @@ extends GutTest
 
 const LOCALES := ["en", "zh_TW", "ja"]
 const SETTINGS_TEST_PATH := "user://phoenix-phone-panels-settings.cfg"
+const UNWRITABLE_SETTINGS_DIR := "user://phoenix-phone-panels-unwritable"
 
 func after_each() -> void:
 	TranslationServer.set_locale("en")
 	if FileAccess.file_exists(SETTINGS_TEST_PATH):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SETTINGS_TEST_PATH))
+	var unwritable := ProjectSettings.globalize_path(UNWRITABLE_SETTINGS_DIR)
+	if DirAccess.dir_exists_absolute(unwritable):
+		DirAccess.remove_absolute(unwritable)
 
 func _spawn_panel(scene: String) -> Control:
 	return _spawn_panel_at(scene, UiSettings.WINDOW_SIZE)
@@ -2395,7 +2399,7 @@ func test_settings_stays_inside_the_screen_in_all_locales() -> void:
 		await _settle()
 
 func test_settings_write_failure_still_shows_the_status_error() -> void:
-	var directory := "user://phoenix-phone-panels-unwritable"
+	var directory := UNWRITABLE_SETTINGS_DIR
 	var absolute := ProjectSettings.globalize_path(directory)
 	DirAccess.make_dir_absolute(absolute)
 	var settings := _settings_panel()
@@ -2416,7 +2420,6 @@ func test_settings_write_failure_still_shows_the_status_error() -> void:
 			(_frame(settings).get_node("Screen") as Control).get_global_rect().encloses(status.get_global_rect()),
 			"the write failure stays inside the phone screen",
 		)
-	DirAccess.remove_absolute(absolute)
 
 func _settings_panel() -> SettingsPanel:
 	var panel := _spawn_panel("res://scenes/ui/settings_panel.tscn") as SettingsPanel

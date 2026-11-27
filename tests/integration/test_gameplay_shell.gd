@@ -480,19 +480,49 @@ func test_mouse_dismisses_the_tip_over_an_allowed_menu_without_blocking_it() -> 
     var hud := _hud(world)
     if hud == null:
         return
-    var overlay := hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
+    var hud_root := hud.get_node("HudRoot") as Control
+    var overlay := hud_root.get_node("OnboardingOverlay") as OnboardingOverlay
     var card := overlay.get_node("TutorialCard") as Control
+    var dismiss := card.find_child("Dismiss", true, false) as Button
+    assert_not_null(dismiss)
+    if dismiss == null:
+        return
+    for node in card.find_children("*", "Control", true, false):
+        var child := node as Control
+        if child != dismiss:
+            assert_eq(
+                child.mouse_filter,
+                Control.MOUSE_FILTER_IGNORE,
+                "%s under TutorialCard must ignore pointer events" % child.name,
+            )
+    assert_eq(card.mouse_filter, Control.MOUSE_FILTER_IGNORE)
     hud.open_pause()
     assert_true(_panel(hud, "PausePanel").visible)
     assert_true(card.visible)
+    await get_tree().process_frame
+    var card_rect := card.get_global_rect()
+    var probe := Button.new()
+    probe.name = "ClickThroughProbe"
+    probe.focus_mode = Control.FOCUS_NONE
+    probe.position = card_rect.position
+    probe.size = card_rect.size
+    var probe_clicks := [0]
+    probe.pressed.connect(func() -> void: probe_clicks[0] += 1)
+    hud_root.add_child(probe)
+    hud_root.move_child(probe, overlay.get_index())
     var runner_gui := _hide_runner_gui()
+    assert_false(
+        dismiss.get_global_rect().has_point(card_rect.get_center()),
+        "the card center hits the body, not Dismiss",
+    )
     await _click_control(card)
+    assert_eq(probe_clicks[0], 1, "a click on the tip body passes through to a control below")
     assert_true(card.visible, "the notification body is nonblocking paint")
     assert_true(_panel(hud, "PausePanel").visible, "a click on the tip body never closes the menu")
-    var dismiss := card.find_child("Dismiss", true, false) as Button
     await _click_control(dismiss)
     if runner_gui != null:
         runner_gui.visible = true
+    probe.queue_free()
     assert_false(card.visible)
     assert_true(_panel(hud, "PausePanel").visible, "dismissing the tip leaves the menu open")
     assert_eq(overlay._dismissed, [&"farm_basics"])
