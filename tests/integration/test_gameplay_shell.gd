@@ -3843,6 +3843,96 @@ func test_music_follows_map_and_evening() -> void:
     await _drive_home(world)
     assert_eq(music.stream, GameHud.MUSIC_FARM_DAY)
 
+func test_prologue_loop_fades_in_then_crossfades_into_the_farm_loop_on_esc() -> void:
+    var settings := UiSettings.load(SETTINGS_PATH)
+    assert_eq(settings.set_music(5), OK)
+    var world := _spawn_world(false, settings)
+    var hud := _hud(world)
+    var music := hud.get_node("MusicPlayer") as AudioStreamPlayer
+    var prologue := hud.get_node("PrologueMusic") as AudioStreamPlayer
+    var level := settings.db_for_level(5)
+
+    assert_eq(prologue.stream, GameHud.MUSIC_PROLOGUE)
+    assert_true(prologue.playing)
+    assert_false(music.playing, "the in-game loop waits for Day 1")
+    assert_eq(music.volume_db, level, "the in-game player holds the Music level while silent")
+    assert_eq(prologue.volume_db, GameHud.MUSIC_SILENT_DB, "the prologue fades in from silence")
+    hud._music_fade.custom_step(GameHud.PROLOGUE_MUSIC_FADE_IN_SECONDS)
+    assert_eq(prologue.volume_db, level, "the prologue settles at the Music setting")
+
+    await _press_escape()
+
+    assert_true(world._session.snapshot()["intro_acknowledged"])
+    assert_eq(music.stream, GameHud.MUSIC_FARM_DAY)
+    assert_true(music.playing)
+    assert_true(prologue.playing, "the prologue loop is still fading out")
+    assert_lt(music.volume_db, level, "the farm loop fades in from silence")
+    hud._music_fade.custom_step(GameHud.PROLOGUE_MUSIC_FADE_OUT_SECONDS / 2.0)
+    assert_true(prologue.volume_db < level and prologue.volume_db > GameHud.MUSIC_SILENT_DB)
+    assert_true(music.volume_db > GameHud.MUSIC_SILENT_DB and music.volume_db < level)
+    hud._music_fade.custom_step(GameHud.PROLOGUE_MUSIC_FADE_OUT_SECONDS)
+    assert_false(prologue.playing, "the prologue loop ends once it has faded out")
+    assert_eq(music.volume_db, level)
+    assert_true(music.playing)
+
+    # A later render never restarts the prologue or the hand-over.
+    hud.render(world._session.snapshot())
+    assert_false(prologue.playing)
+    assert_eq(music.volume_db, level)
+
+func test_prologue_loop_also_hands_over_after_the_last_page() -> void:
+    var world := _locked_world()
+    var hud := _hud(world)
+    var overlay := hud.get_node("HudRoot/OnboardingOverlay") as OnboardingOverlay
+    var music := hud.get_node("MusicPlayer") as AudioStreamPlayer
+    var prologue := hud.get_node("PrologueMusic") as AudioStreamPlayer
+    assert_true(prologue.playing)
+    for _press_index in overlay.page_count():
+        await _press_panel_action(&"ui_accept")
+    assert_false(overlay.is_opening_visible())
+    assert_eq(music.stream, GameHud.MUSIC_FARM_DAY)
+    assert_true(music.playing)
+    hud._music_fade.custom_step(GameHud.PROLOGUE_MUSIC_FADE_OUT_SECONDS)
+    assert_false(prologue.playing)
+
+func test_music_setting_applies_to_the_prologue_loop_and_settles_a_fade() -> void:
+    var settings := UiSettings.load(SETTINGS_PATH)
+    assert_eq(settings.set_music(3), OK)
+    var world := _spawn_world(false, settings)
+    var hud := _hud(world)
+    var music := hud.get_node("MusicPlayer") as AudioStreamPlayer
+    var prologue := hud.get_node("PrologueMusic") as AudioStreamPlayer
+
+    assert_eq(settings.set_music(7), OK)
+    hud.apply_settings()
+    assert_eq(prologue.volume_db, settings.db_for_level(7), "Music applies to the prologue loop")
+    assert_eq(music.volume_db, settings.db_for_level(7))
+    assert_true(prologue.playing)
+
+    await _press_escape()
+    assert_true(prologue.playing, "the hand-over fade is running")
+    assert_eq(settings.set_music(2), OK)
+    hud.apply_settings()
+    assert_false(prologue.playing, "a volume change settles the hand-over at once")
+    assert_eq(music.volume_db, settings.db_for_level(2))
+    assert_true(music.playing)
+
+func test_acknowledged_intro_starts_the_farm_loop_without_the_prologue_loop() -> void:
+    var seeded := GameSession.new()
+    seeded.acknowledge_intro()
+    var packed := load("res://scenes/world/world.tscn") as PackedScene
+    var world := packed.instantiate() as WorldShell
+    world.configure(seeded.state(), null, UiSettings.load(SETTINGS_PATH))
+    world.clock_running = false
+    add_child_autoqfree(world)
+    var hud := _hud(world)
+    var music := hud.get_node("MusicPlayer") as AudioStreamPlayer
+    var prologue := hud.get_node("PrologueMusic") as AudioStreamPlayer
+    assert_eq(music.stream, GameHud.MUSIC_FARM_DAY)
+    assert_true(music.playing)
+    assert_eq(music.volume_db, hud._settings.db_for_level(hud._settings.music), "no fade-in on Continue")
+    assert_false(prologue.playing)
+
 func test_hud_audio_players_and_representative_feedback_streams() -> void:
     var world := _world()
     var sfx := world.hud.get_node("SfxPlayer") as AudioStreamPlayer
@@ -3851,7 +3941,8 @@ func test_hud_audio_players_and_representative_feedback_streams() -> void:
     assert_not_null(music)
     assert_eq(music.stream.resource_path, "res://assets/audio/music-farm-day.wav")
     for stream: AudioStreamWAV in [
-        GameHud.MUSIC_FARM_DAY, GameHud.MUSIC_FARM_NIGHT, GameHud.MUSIC_TOWN, AppRoot.MUSIC_TITLE,
+        GameHud.MUSIC_FARM_DAY, GameHud.MUSIC_FARM_NIGHT, GameHud.MUSIC_TOWN,
+        GameHud.MUSIC_PROLOGUE, AppRoot.MUSIC_TITLE,
     ]:
         assert_eq(stream.loop_mode, AudioStreamWAV.LOOP_FORWARD, stream.resource_path)
         assert_eq(stream.loop_begin, 0, stream.resource_path)
