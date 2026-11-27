@@ -223,6 +223,14 @@ There is no JavaScript or Tauri runtime in the current checkout.
   finishing. `OnboardingOverlay.animate` is the fixture opt-out, like
   `WorldShell.clock_running`: false shows every page whole and still, one
   page per Enter.
+- The prologue's music is `GameHud`'s, not the overlay's: `music-prologue.wav`
+  plays on its own `PrologueMusic` player while the snapshot's
+  `intro_acknowledged` is false (2 s fade-in from silence; the in-game
+  `MusicPlayer` stays stopped but holds the Music-setting level). The first
+  render after Day 1 begins — Begin Day 1, Skip or Esc alike — crossfades it
+  into the in-game loop over 2.5 s. `apply_settings()` kills any fade in flight
+  and settles both players at the new level; a Continue into an already
+  acknowledged run never starts the prologue loop.
 - GameHud.has_blocking_modal() remains the single world-input gate.
 - `scripts/world/world_shell.gd` is the only production session holder and
   coordinator: it owns the `GameSession` instance, wires HUD signals to
@@ -562,12 +570,13 @@ Sprite-isometric art contract
 Audio generation convention
 - New Phoenix audio assets are generated through the ElevenLabs MCP
   sound-effects tool `eleven_text_to_sound_v2`, not hand-written synthesis
-  scripts. Background music is the exception: the four `music-*.wav` loops
+  scripts. Background music is the exception: the five `music-*.wav` loops
   come from Eleven Music (`POST /v1/music`, `music_v2_5`), which has no loop
   option, so each take is cut on a whole bar at 30 s with the next bar
   crossfaded into the opening (recipe in `assets/audio/README.md`).
   `GameHud.music_for()` picks farm day/night (18:00) or town from the
-  snapshot; `AppRoot` plays the title loop on the title and result screens.
+  snapshot; `AppRoot` plays the title loop on the title and result screens;
+  `GameHud` plays `music-prologue.wav` under the opening prologue.
   The committed WAV is the artifact of record; record the prompt,
   model id, plan tier/license terms, and any loop post-processing in
   `assets/audio/README.md`. Byte-identical regeneration gates do not apply to

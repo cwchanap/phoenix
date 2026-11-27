@@ -44,6 +44,12 @@ const FINALE_SFX := preload("res://assets/audio/finale.wav")
 const MUSIC_FARM_DAY := preload("res://assets/audio/music-farm-day.wav")
 const MUSIC_FARM_NIGHT := preload("res://assets/audio/music-farm-night.wav")
 const MUSIC_TOWN := preload("res://assets/audio/music-town.wav")
+const MUSIC_PROLOGUE := preload("res://assets/audio/music-prologue.wav")
+const MUSIC_SILENT_DB := -80.0
+## The prologue loop fades in under the opening, then hands over to the
+## in-game loop over this long once Day 1 begins (Esc or Begin Day 1).
+const PROLOGUE_MUSIC_FADE_IN_SECONDS := 2.0
+const PROLOGUE_MUSIC_FADE_OUT_SECONDS := 2.5
 ## The farm switches to its night loop from 18:00 until the next morning.
 const NIGHT_MUSIC_START_MINUTES := 18 * 60
 const RIVER_AMBIENCE := preload("res://assets/audio/river-ambience.wav")
@@ -84,6 +90,9 @@ var _settings_panel: SettingsPanel
 var _travel_overlay: TravelOverlay
 var _sfx_player: AudioStreamPlayer
 var _music_player: AudioStreamPlayer
+var _prologue_music_player: AudioStreamPlayer
+var _music_fade: Tween
+var _prologue_ending := false
 var _river_ambience_player: AudioStreamPlayer
 var _rain_ambience_player: AudioStreamPlayer
 var _settings: UiSettings
@@ -148,7 +157,13 @@ func configure(settings: UiSettings = null) -> void:
 func apply_settings() -> void:
     if _settings == null or _music_player == null or _sfx_player == null:
         return
-    _music_player.volume_db = _settings.db_for_level(_settings.music)
+    # A volume change settles any fade in flight at the new level.
+    _kill_music_fade()
+    if _prologue_ending:
+        _prologue_music_player.stop()
+    var music_db := _settings.db_for_level(_settings.music)
+    _music_player.volume_db = music_db
+    _prologue_music_player.volume_db = music_db
     var sound_db := _settings.db_for_level(_settings.sound)
     _sfx_player.volume_db = sound_db
     var ambience_db := maxf(sound_db + AMBIENCE_HEADROOM_DB, -80.0)
@@ -202,7 +217,7 @@ func render(snapshot: Dictionary) -> void:
             _rain_ambience_player.play()
     elif _rain_ambience_player.playing or _rain_ambience_player.stream_paused:
         _rain_ambience_player.stop()
-    _play_music(music_for(snapshot))
+    _update_music(snapshot)
     _chrome.render(snapshot)
     var day := int(snapshot["day"])
     var status_time := GameRules.format_time(int(snapshot["time_minutes"]))
@@ -511,7 +526,10 @@ func _sfx_for_code(code: GameRules.CommandCode) -> AudioStream:
 
 func _build_audio() -> void:
     _sfx_player = _add_audio_player(&"SfxPlayer", null, -8.0)
-    _music_player = _add_audio_player(&"MusicPlayer", MUSIC_FARM_DAY, -20.0, true)
+    # Neither loop starts here: render() starts the prologue loop or the
+    # in-game loop, so nothing plays for a frame before the right one.
+    _music_player = _add_audio_player(&"MusicPlayer", null, -20.0)
+    _prologue_music_player = _add_audio_player(&"PrologueMusic", MUSIC_PROLOGUE, -20.0)
     _river_ambience_player = _add_audio_player(&"RiverAmbience", RIVER_AMBIENCE, -80.0, true)
     _rain_ambience_player = _add_audio_player(&"RainAmbience", RAIN_AMBIENCE, -80.0)
 
@@ -522,6 +540,57 @@ static func music_for(snapshot: Dictionary) -> AudioStream:
     if int(snapshot["time_minutes"]) >= NIGHT_MUSIC_START_MINUTES:
         return MUSIC_FARM_NIGHT
     return MUSIC_FARM_DAY
+
+## The prologue loop plays under the opening; once Day 1 begins the in-game
+## loop for the live map and hour takes over.
+func _update_music(snapshot: Dictionary) -> void:
+    if not bool(snapshot["intro_acknowledged"]):
+        _start_prologue_music()
+        return
+    var stream := music_for(snapshot)
+    if _prologue_music_player.playing and not _prologue_ending:
+        _hand_over_to_game_music(stream)
+    else:
+        _play_music(stream)
+
+## `_music_player.volume_db` always holds the Music-setting level, even while
+## it is silent under the prologue, so every fade targets it.
+func _start_prologue_music() -> void:
+    _prologue_ending = false
+    if _prologue_music_player.playing or not is_inside_tree():
+        return
+    var level := _music_player.volume_db
+    _prologue_music_player.volume_db = MUSIC_SILENT_DB
+    _prologue_music_player.play()
+    _restart_music_fade().tween_property(
+        _prologue_music_player, "volume_db", level, PROLOGUE_MUSIC_FADE_IN_SECONDS
+    )
+
+## Crossfades the prologue loop into the in-game loop, once per prologue.
+func _hand_over_to_game_music(stream: AudioStream) -> void:
+    _prologue_ending = true
+    var level := _music_player.volume_db
+    _play_music(stream)
+    if not is_inside_tree():
+        _prologue_music_player.stop()
+        return
+    _music_player.volume_db = MUSIC_SILENT_DB
+    var fade := _restart_music_fade().set_parallel(true)
+    fade.tween_property(
+        _prologue_music_player, "volume_db", MUSIC_SILENT_DB, PROLOGUE_MUSIC_FADE_OUT_SECONDS
+    )
+    fade.tween_property(_music_player, "volume_db", level, PROLOGUE_MUSIC_FADE_OUT_SECONDS)
+    fade.chain().tween_callback(_prologue_music_player.stop)
+
+func _restart_music_fade() -> Tween:
+    _kill_music_fade()
+    _music_fade = create_tween()
+    return _music_fade
+
+func _kill_music_fade() -> void:
+    if _music_fade != null and _music_fade.is_valid():
+        _music_fade.kill()
+    _music_fade = null
 
 ## Swaps the loop only when the track changes, so clock ticks never restart it.
 func _play_music(stream: AudioStream) -> void:
