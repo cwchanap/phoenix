@@ -266,11 +266,13 @@ There is no JavaScript or Tauri runtime in the current checkout.
   `move_and_slide()` supplies Godot-native response against projected
   logical collision polygons; do not port the old grid-axis resolver.
   `WorldMath.target_cell()` returns the cell under a probe
-  `TARGET_REACH` (0.501) of the facing's `TARGET_OFFSETS` ahead of the
+  `TARGET_REACH` (0.5) of the facing's `TARGET_OFFSETS` ahead of the
   feet (32 px sideways, 16 px up/down): the target is always the tile
   directly in front, at most one tile ahead, and a quarter turn or a step
-  moves it to an edge-adjacent tile; a player on a cell centre still
-  targets the facing's corner neighbour. Farming prompts anchor on that
+  moves it to an edge-adjacent tile. A probe exactly on a cell edge
+  resolves toward the facing, so a player on a cell centre still targets
+  the facing's corner neighbour; only the exact centre lines let a turn
+  move corner to corner. Farming prompts anchor on that
   cell but never sit lower than `WorldShell.PROMPT_PLAYER_CLEARANCE`
   above the feet, so the bubble clears the farmer's hat.
   Physics interpolation is on project-wide but scoped to the player:
