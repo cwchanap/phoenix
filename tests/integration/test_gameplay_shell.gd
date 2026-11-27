@@ -6586,7 +6586,7 @@ func _contact_stop(world: WorldShell, map_id: GameRules.MapId, footprint: Rect2,
 ## (distance <= 14) whose inward dot is positive (contract order breaks
 ## ties); empty (null) when a region is within reach but none is faced;
 ## exact raw-target match is the compatibility fallback only when no region
-## is within reach.
+## is within reach and the raw target's own contact is faced.
 func _expected_resolution(
     world: WorldShell,
     position: Vector2,
@@ -6612,9 +6612,14 @@ func _expected_resolution(
     var raw: Variant = WorldMath.target_cell(
         WorldMath.world_to_grid(position), facing, world._map.map_size()
     )
-    if raw != null and not world._interactable(raw).is_empty():
-        return raw
-    return null
+    if raw == null or world._interactable(raw).is_empty():
+        return null
+    for region in regions:
+        if region["cell"] == raw:
+            var contact := _closest_contact_point(region["footprint"], position)
+            if _screen_direction(facing).dot(contact - position) <= 0.0:
+                return null
+    return raw
 
 func _resolver_cell(world: WorldShell) -> Variant:
     var resolved: Dictionary = world._resolve_interactable()
@@ -7179,6 +7184,40 @@ func test_resolver_reach_boundary_is_inclusive_without_raw_masking() -> void:
             assert_null(_resolver_cell(world), "just outside 14 projected px must refuse")
         else:
             assert_eq(_resolver_cell(world), WorldContract.BED_CELL, "inside/at the inclusive 14 px reach must resolve the bed")
+
+func test_raw_fallback_never_resolves_an_interactable_behind_the_player() -> void:
+    # The target can be the tile under the feet, and the bed's canonical cell
+    # is the walkable step in front of the door. Backing off the step just
+    # past contact reach while facing away must not open Sleep.
+    var world := _world()
+    var slice := _bed_door_slice()
+    assert_gt(slice.get_area(), 0.0, "precondition: the bed door slice region exists")
+    var retreat := WorldMath.grid_to_world(Vector2(23.025, 10.475))
+    assert_false(_probe_collides(GameRules.MapId.FARM, retreat), "precondition: the door step is free")
+    assert_gt(
+        retreat.distance_to(WorldMath.closest_contact(retreat, slice)), CONTACT_REACH_PX,
+        "precondition: the door is out of contact reach",
+    )
+    _set_pose_and_process(world, retreat, WorldMath.Facing.DOWN)
+    assert_eq(
+        world.player.current_target_cell(), WorldContract.BED_CELL,
+        "precondition: the raw target is the bed step under the feet",
+    )
+    assert_null(_resolver_cell(world), "the bed behind the player must not resolve")
+    var before := world._session.snapshot()
+    world.interact()
+    assert_eq(world._session.snapshot(), before)
+    assert_false(_panel(world.hud, "SleepPanel").visible, "facing away from the door must not open Sleep")
+    # Facing the door from the step, still out of contact reach, the raw
+    # fallback keeps resolving the bed.
+    var facing_door := WorldMath.grid_to_world(Vector2(23.7, 10.7))
+    _set_pose_and_process(world, facing_door, WorldMath.Facing.UP)
+    assert_gt(
+        facing_door.distance_to(WorldMath.closest_contact(facing_door, slice)), CONTACT_REACH_PX,
+        "precondition: the door is out of contact reach",
+    )
+    assert_eq(world.player.current_target_cell(), WorldContract.BED_CELL)
+    assert_eq(_resolver_cell(world), WorldContract.BED_CELL, "facing the door from the step resolves the bed")
 
 func test_resolver_rejects_coincident_contact_without_zero_distance_path() -> void:
     var world := _world()

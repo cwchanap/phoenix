@@ -53,7 +53,8 @@ static func facing_for_input(input: Vector2, previous: Facing) -> Facing:
 ## directly in front of the player, never more than one tile ahead, and a
 ## 90-degree turn moves it to an edge-adjacent tile. The probe sits a hair past
 ## half a cell so a player standing on a cell centre (spawn, fixtures) resolves
-## forward into the facing's corner neighbour instead of a shared vertex.
+## forward into the facing's corner neighbour instead of a shared vertex; that
+## centre-line case is the one place a turn or step moves corner to corner.
 static func target_cell(position: Vector2, facing: Facing, map_size: Vector2i) -> Variant:
     var probe := position + Vector2(TARGET_OFFSETS[facing]) * TARGET_REACH
     var target := Vector2i(floori(probe.x), floori(probe.y))

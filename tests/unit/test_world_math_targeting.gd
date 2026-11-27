@@ -1,7 +1,10 @@
 extends GutTest
 ## The target tile is the cell under a probe half a cell ahead of the feet:
 ## always directly in front, never more than one tile ahead, and a turn or a
-## step moves it to an edge-adjacent tile.
+## step moves it to an edge-adjacent tile. The exact cell-centre lines are the
+## deliberate exception: there both probe coordinates sit on a cell edge, so a
+## centred player keeps the facing's corner neighbour (spawn and fixtures) and
+## a walk along a centre line steps straight to the next tile ahead.
 
 const CELL := Vector2i(20, 20)
 const FACINGS := [
@@ -79,6 +82,31 @@ func test_walking_moves_the_target_one_edge_step_at_a_time() -> void:
                 "walking facing %d jumped %s -> %s" % [facing, previous, target],
             )
             previous = target
+
+func test_walking_a_centre_line_steps_the_target_straight_ahead() -> void:
+    # Both probe coordinates cross a cell edge on the same step, so the target
+    # jumps to the facing's corner neighbour: the next tile directly ahead,
+    # never back and never to a tile beside the path.
+    var start := Vector2(CELL) + Vector2(0.5, 0.5)
+    for facing in FACINGS:
+        var direction := _screen_direction(facing)
+        var forward: Vector2i = WorldMath.TARGET_OFFSETS[facing]
+        var feet_world := WorldMath.grid_to_world(start)
+        var previous := _target(start, facing)
+        var visited := [previous]
+        for step in 256:
+            feet_world += direction * 0.5
+            var target := _target(WorldMath.world_to_grid(feet_world), facing)
+            var moved := target - previous
+            assert_true(
+                moved.x in [0, forward.x] and moved.y in [0, forward.y],
+                "walking facing %d moved %s -> %s" % [facing, previous, target],
+            )
+            if target != previous:
+                visited.append(target)
+            previous = target
+        # Two tiles walked: the target passed the own tile and two tiles ahead.
+        assert_gte(visited.size(), 3, "facing %d visited %s" % [facing, visited])
 
 func test_a_centred_player_targets_the_facing_corner_neighbour() -> void:
     var centre := Vector2(CELL) + Vector2(0.5, 0.5)

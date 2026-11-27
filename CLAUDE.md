@@ -94,7 +94,9 @@ There is no JavaScript or Tauri runtime in the current checkout.
   `WorldContract.INTERACT_REACH_PIXELS` (14 px) with a strictly positive
   screen facing dot (contract order breaks ties), refuses when an in-reach
   region is unfaced, and only falls back to the exact raw target cell when
-  no region is nearby — Space/hold farming stays tile-exact. Static props
+  no region is nearby and that cell's own contact is faced (the target can
+  be the walkable bed step under the feet) — Space/hold farming stays
+  tile-exact. Static props
   opted into the `player_occluder` group fade their own
   `Sprite2D.self_modulate.a` toward `FADE_ALPHA` (0.45) through
   `WorldShell._update_occluder_fade()` at the top of `_process` before every

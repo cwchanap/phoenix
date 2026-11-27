@@ -295,7 +295,9 @@ func _interactable(target: Variant) -> Dictionary:
 ## reach and is positively faced (contract order breaks ties). When a region
 ## is within reach but none is faced, refuse instead of raw-falling back; the
 ## exact raw target cell remains the fixture/legacy input path only when no
-## region is nearby.
+## region is nearby, and only while that region's contact is faced too: the
+## target can be the tile under the feet, and the bed's cell is the walkable
+## door step, so backing off it must not open Sleep facing away.
 func _resolve_interactable() -> Dictionary:
     var player_position := player.global_position
     # The facing's screen direction, sign-equivalent without normalization:
@@ -303,23 +305,28 @@ func _resolve_interactable() -> Dictionary:
     var facing_direction := WorldMath.grid_delta_to_world(
         WorldMath.TARGET_OFFSETS[player.facing]
     )
+    var raw_target: Variant = player.current_target_cell()
+    var raw_target_behind := false
     var best_cell: Variant = null
     var best_distance := INF
     var any_within_reach := false
     for region in _interact_regions:
         var contact := WorldMath.closest_contact(player_position, region["footprint"])
         var distance := player_position.distance_to(contact)
+        var faced := facing_direction.dot(contact - player_position) > 0.0
+        if raw_target != null and region["cell"] == raw_target and not faced:
+            raw_target_behind = true
         if distance > WorldContract.INTERACT_REACH_PIXELS:
             continue
         any_within_reach = true
-        if facing_direction.dot(contact - player_position) > 0.0 and distance < best_distance:
+        if faced and distance < best_distance:
             best_cell = region["cell"]
             best_distance = distance
     if best_cell != null:
         return _resolved_interactable(best_cell)
-    if any_within_reach:
+    if any_within_reach or raw_target_behind:
         return {}
-    return _resolved_interactable(player.current_target_cell())
+    return _resolved_interactable(raw_target)
 
 ## `_interactable(cell)` plus the canonical cell it resolved, so hints,
 ## prompts and submit handlers share one dictionary ({cell, label, action}).
