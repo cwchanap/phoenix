@@ -555,7 +555,11 @@ func _start_prologue_music() -> void:
         _prologue_music_player, "volume_db", level, PROLOGUE_MUSIC_FADE_IN_SECONDS
     )
 
-## Crossfades the prologue loop into the in-game loop, once per prologue.
+## Crossfades the prologue loop into the in-game loop, once per prologue. One
+## progress value drives both players in equal-power gain, so the blend holds its
+## level through the middle; tweening each `volume_db` straight to -80 would dip
+## both loops about 28 dB at the halfway point. The outgoing loop starts from its
+## actual level, so a skip during the fade-in does not jump.
 func _hand_over_to_game_music(stream: AudioStream) -> void:
     _prologue_ending = true
     var level := _music_player.volume_db
@@ -563,13 +567,22 @@ func _hand_over_to_game_music(stream: AudioStream) -> void:
     if not is_inside_tree():
         _prologue_music_player.stop()
         return
+    var outgoing_db := _prologue_music_player.volume_db
     _music_player.volume_db = MUSIC_SILENT_DB
-    var fade := _restart_music_fade().set_parallel(true)
-    fade.tween_property(
-        _prologue_music_player, "volume_db", MUSIC_SILENT_DB, PROLOGUE_MUSIC_FADE_OUT_SECONDS
+    var fade := _restart_music_fade()
+    fade.tween_method(
+        _crossfade_music.bind(outgoing_db, level), 0.0, 1.0, PROLOGUE_MUSIC_FADE_OUT_SECONDS
     )
-    fade.tween_property(_music_player, "volume_db", level, PROLOGUE_MUSIC_FADE_OUT_SECONDS)
-    fade.chain().tween_callback(_prologue_music_player.stop)
+    fade.tween_callback(_prologue_music_player.stop)
+
+func _crossfade_music(progress: float, outgoing_db: float, level: float) -> void:
+    var angle := progress * PI / 2.0
+    _prologue_music_player.volume_db = _scaled_db(outgoing_db, cos(angle))
+    _music_player.volume_db = _scaled_db(level, sin(angle))
+
+## `base_db` scaled by a linear gain, floored at the silent level.
+static func _scaled_db(base_db: float, gain: float) -> float:
+    return maxf(base_db + linear_to_db(gain), MUSIC_SILENT_DB)
 
 func _restart_music_fade() -> Tween:
     _kill_music_fade()
