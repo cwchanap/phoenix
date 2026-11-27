@@ -4496,8 +4496,9 @@ func test_prologue_loop_fades_in_then_crossfades_into_the_farm_loop_on_esc() -> 
     assert_true(prologue.playing, "the prologue loop is still fading out")
     assert_lt(music.volume_db, level, "the farm loop fades in from silence")
     hud._music_fade.custom_step(GameHud.PROLOGUE_MUSIC_FADE_OUT_SECONDS / 2.0)
-    assert_true(prologue.volume_db < level and prologue.volume_db > GameHud.MUSIC_SILENT_DB)
-    assert_true(music.volume_db > GameHud.MUSIC_SILENT_DB and music.volume_db < level)
+    # Equal power: the two gains' squares add to 1, so the blend holds its level
+    # and neither loop dips toward silence (a dB-linear tween sat near -28 dB).
+    _assert_equal_power_blend(prologue.volume_db - level, music.volume_db - level)
     hud._music_fade.custom_step(GameHud.PROLOGUE_MUSIC_FADE_OUT_SECONDS)
     assert_false(prologue.playing, "the prologue loop ends once it has faded out")
     assert_eq(music.volume_db, level)
@@ -4505,6 +4506,35 @@ func test_prologue_loop_fades_in_then_crossfades_into_the_farm_loop_on_esc() -> 
 
     # A later render never restarts the prologue or the hand-over.
     hud.render(world._session.snapshot())
+    assert_false(prologue.playing)
+    assert_eq(music.volume_db, level)
+
+func _assert_equal_power_blend(outgoing_db: float, incoming_db: float) -> void:
+    var outgoing := db_to_linear(outgoing_db)
+    var incoming := db_to_linear(incoming_db)
+    assert_almost_eq(outgoing * outgoing + incoming * incoming, 1.0, 0.02, "the gains stay equal-power")
+    assert_gt(minf(outgoing_db, incoming_db), -6.0, "neither loop dips more than 6 dB mid-fade")
+
+func test_prologue_skipped_during_the_fade_in_crossfades_from_its_actual_level() -> void:
+    var settings := UiSettings.load(SETTINGS_PATH)
+    assert_eq(settings.set_music(5), OK)
+    var world := _spawn_world(false, settings)
+    var hud := _hud(world)
+    var music := hud.get_node("MusicPlayer") as AudioStreamPlayer
+    var prologue := hud.get_node("PrologueMusic") as AudioStreamPlayer
+    var level := settings.db_for_level(5)
+
+    hud._music_fade.custom_step(GameHud.PROLOGUE_MUSIC_FADE_IN_SECONDS / 2.0)
+    hud._music_fade.pause()  # frames elapse while Esc is pressed; keep the skip level fixed
+    var skipped_db := prologue.volume_db
+    assert_true(skipped_db > GameHud.MUSIC_SILENT_DB and skipped_db < level, "the fade-in is partway")
+
+    await _press_escape()
+
+    hud._music_fade.custom_step(GameHud.PROLOGUE_MUSIC_FADE_OUT_SECONDS / 2.0)
+    # The outgoing gain is measured from where the prologue was, the incoming from the Music level.
+    _assert_equal_power_blend(prologue.volume_db - skipped_db, music.volume_db - level)
+    hud._music_fade.custom_step(GameHud.PROLOGUE_MUSIC_FADE_OUT_SECONDS)
     assert_false(prologue.playing)
     assert_eq(music.volume_db, level)
 
