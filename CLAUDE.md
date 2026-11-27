@@ -282,6 +282,9 @@ There is no JavaScript or Tauri runtime in the current checkout.
   high-refresh displays while UI and FX tweens stay uninterpolated;
   `enter_map()` resets interpolation around `reset_smoothing()` so a map
   entry snaps, and idle-tweened children of the Player (`ToolFx`) opt out.
+  The renderer Y-sorts the interpolated, snapped player, so front-face sort
+  proxies sort `WorldShell.FRONT_SORT_MARGIN` (3 px) above the physics
+  pose, clearing a full physics tick of movement plus snap.
 - scripts/app/app_root.gd owns title/load/launch lifecycle and one concrete SaveRepository.
 - Completed-run Continue routes straight to `ResultScreen`; the AppRoot
   result teardown removes the live World with `remove_child()` then

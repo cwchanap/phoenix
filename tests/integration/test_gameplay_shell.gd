@@ -7610,6 +7610,22 @@ func _assert_y_sorted_with_player(world: WorldShell, sort_node: Node2D, label: S
     assert_eq(sort_node.z_index, world.player.z_index, "%s shares the player Z layer so Y decides" % label)
     assert_eq(sort_node.z_as_relative, world.player.z_as_relative, "%s shares the player Z relativity" % label)
 
+## The renderer Y-sorts the interpolated, pixel-snapped player, which trails
+## its physics pose by up to one physics tick of movement: a front-face proxy
+## must sort strictly behind even that lagging, snapped pose.
+func _assert_front_sort_clears_render_lag(world: WorldShell, sort_proxy: Node2D, label: String) -> void:
+    var tick_step := WorldContract.MOVE_SPEED / Engine.physics_ticks_per_second
+    var lagging_key := floorf(world.player.position.y - tick_step + 0.5)
+    var proxy_y := sort_proxy.position.y
+    assert_lt(
+        maxf(proxy_y, floorf(proxy_y + 0.5)), lagging_key,
+        "%s front sort must clear the interpolated player's one-tick lag" % label,
+    )
+
+func test_front_sort_margin_covers_a_physics_tick_plus_snap() -> void:
+    var tick_step := WorldContract.MOVE_SPEED / Engine.physics_ticks_per_second
+    assert_gt(WorldShell.FRONT_SORT_MARGIN, tick_step + 1.0)
+
 func _assert_pose_overlaps(world: WorldShell, prop_name: String) -> void:
     var prop_sprite := _occluder_sprite(world, prop_name)
     assert_true(
@@ -7714,6 +7730,7 @@ func test_house_fades_behind_the_west_lawn_and_restores_south_of_the_tip() -> vo
         world.player.position.y,
         "front-door contact sorts the player in front of the farmhouse",
     )
+    _assert_front_sort_clears_render_lag(world, house_sort, "House")
     assert_almost_eq(
         house_sprite.self_modulate.a, 1.0, 0.001,
         "front-door contact keeps the farmhouse opaque",
@@ -7764,6 +7781,9 @@ func test_multi_cell_props_sort_player_in_front_on_all_front_faces_and_fade_behi
                 sort_proxy.position.y,
                 world.player.position.y,
                 "%s %s sorts player in front" % [prop_name, face_row["side"]],
+            )
+            _assert_front_sort_clears_render_lag(
+                world, sort_proxy, "%s %s" % [prop_name, face_row["side"]]
             )
             assert_almost_eq(
                 sprite.self_modulate.a, 1.0, 0.001,

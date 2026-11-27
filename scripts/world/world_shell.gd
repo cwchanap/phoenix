@@ -21,6 +21,12 @@ const FADE_ALPHA := 0.45
 # World pixels above the feet a farming prompt's anchor may sit at most: with
 # HudChrome.PROMPT_LIFT the pointer tip then clears the hat (36 px tall).
 const PROMPT_PLAYER_CLEARANCE := 16.0
+# World pixels a front-face sort proxy sorts above the player's physics pose.
+# The renderer Y-sorts the interpolated, pixel-snapped player, which trails
+# the physics pose by up to one tick of movement (96 px/s at 60 Hz = 1.6 px)
+# plus half a pixel of snap on each side, so 1 px let a building briefly draw
+# over the farmer walking down past its front face.
+const FRONT_SORT_MARGIN := 3.0
 
 var _session: GameSession
 var _initial_state: Variant = null
@@ -229,7 +235,7 @@ func _update_occluder_fade(delta: float) -> void:
             if proxy != null and String(proxy.name) == "%sSortProxy" % prop.name:
                 var sort_y := anchor.y
                 if WorldMath.is_in_front_of_footprint(player_grid, info["footprint"]):
-                    sort_y = minf(anchor.y, player_y - 1.0)
+                    sort_y = minf(anchor.y, player_y - FRONT_SORT_MARGIN)
                 proxy.position = Vector2(anchor.x, sort_y)
                 prop.position = Vector2(0.0, anchor.y - sort_y)
                 fade_sort_y = sort_y
