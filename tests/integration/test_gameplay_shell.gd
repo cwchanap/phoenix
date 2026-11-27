@@ -4575,6 +4575,49 @@ func test_music_setting_applies_to_the_prologue_loop_and_settles_a_fade() -> voi
     assert_eq(music.volume_db, settings.db_for_level(2))
     assert_true(music.playing)
 
+func test_unrelated_settings_updates_leave_the_music_transition_running() -> void:
+    var settings := UiSettings.load(SETTINGS_PATH)
+    assert_eq(settings.set_music(5), OK)
+    assert_eq(settings.set_sound(5), OK)
+    var world := _spawn_world(false, settings)
+    var hud := _hud(world)
+    var music := hud.get_node("MusicPlayer") as AudioStreamPlayer
+    var prologue := hud.get_node("PrologueMusic") as AudioStreamPlayer
+    var level := settings.db_for_level(5)
+
+    # During the fade-in: Sound, Tips and a repeated Music value keep the fade.
+    hud._music_fade.custom_step(GameHud.PROLOGUE_MUSIC_FADE_IN_SECONDS / 2.0)
+    var fade_in := hud._music_fade
+    var fading_in_db := prologue.volume_db
+    assert_eq(settings.set_sound(2), OK)
+    assert_eq(settings.set_tutorial_cards(not settings.tutorial_cards), OK)
+    assert_eq(settings.set_music(5), OK)
+    hud.apply_settings()
+    assert_same(hud._music_fade, fade_in, "the fade-in tween is left alone")
+    assert_true(fade_in.is_valid())
+    assert_eq(prologue.volume_db, fading_in_db, "the prologue keeps its mid-fade gain")
+
+    # During the Day 1 hand-over: the same updates keep both gains and the tween.
+    hud._music_fade.custom_step(GameHud.PROLOGUE_MUSIC_FADE_IN_SECONDS)
+    await _press_escape()
+    hud._music_fade.custom_step(GameHud.PROLOGUE_MUSIC_FADE_OUT_SECONDS / 2.0)
+    var handover := hud._music_fade
+    var outgoing_db := prologue.volume_db
+    var incoming_db := music.volume_db
+    assert_eq(settings.set_sound(7), OK)
+    assert_eq(settings.set_tutorial_cards(not settings.tutorial_cards), OK)
+    assert_eq(settings.set_music(5), OK)
+    hud.apply_settings()
+    assert_same(hud._music_fade, handover, "the hand-over tween is left alone")
+    assert_true(handover.is_valid())
+    assert_true(prologue.playing, "the prologue is not cut off")
+    assert_eq(prologue.volume_db, outgoing_db)
+    assert_eq(music.volume_db, incoming_db, "the farm loop does not jump to full gain")
+
+    hud._music_fade.custom_step(GameHud.PROLOGUE_MUSIC_FADE_OUT_SECONDS)
+    assert_false(prologue.playing)
+    assert_eq(music.volume_db, level)
+
 func test_acknowledged_intro_starts_the_farm_loop_without_the_prologue_loop() -> void:
     var seeded := GameSession.new()
     seeded.acknowledge_intro()
