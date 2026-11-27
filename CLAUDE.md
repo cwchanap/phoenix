@@ -225,9 +225,11 @@ There is no JavaScript or Tauri runtime in the current checkout.
   `intro_acknowledged` is false (2 s fade-in from silence; the in-game
   `MusicPlayer` stays stopped but holds the Music-setting level). The first
   render after Day 1 begins — Begin Day 1, Skip or Esc alike — crossfades it
-  into the in-game loop over 2.5 s. `apply_settings()` kills any fade in flight
-  and settles both players at the new level; a Continue into an already
-  acknowledged run never starts the prologue loop.
+  into the in-game loop over 2.5 s, equal-power. `apply_settings()` caches the
+  configured Music level and, only when that level changes, kills any fade in
+  flight and settles both players at it; Sound, Window, Tips and Language
+  updates leave a running fade alone. A Continue into an already acknowledged
+  run never starts the prologue loop.
 - GameHud.has_blocking_modal() remains the single world-input gate.
 - `scripts/world/world_shell.gd` is the only production session holder and
   coordinator: it owns the `GameSession` instance, wires HUD signals to
