@@ -18,7 +18,7 @@ acceptance.**
 | Local GdUnit | `6c15ee5` | **pass**: 16/16 |
 | Local full godot-e2e | same local validation effort | **not a pass**: 10/14; four day-one cases hit `wait_seconds` transport timeouts. The real overnight-save case and both physical-Tab cases passed. The timeout signature matches the HPA-863 local-lane caveat, but the cause remains unconfirmed. |
 
-Main's HPA-1250 typewriter merge initially exposed two HUD-fixture assumptions. On the exact prior CI merge `ca06238`, the VN suite reproduced 102/104; using the existing animation opt-out in the HUD fixture passed 104/104. A full local GUT run of that patched merge timed out after 600 seconds and is not a full-suite pass. The current GitHub verify lane is the decisive clean result at `d4c3c80`.
+Main's HPA-1250 typewriter merge initially exposed two HUD-fixture assumptions. On the exact prior CI merge `ca06238`, the VN suite reproduced 102/104; using the existing animation opt-out in the HUD fixture passed 104/104. A full local GUT run of that patched merge timed out after 600 seconds and is not a full-suite pass. The recorded GitHub verify lane is the decisive clean result at `d4c3c80`.
 
 ## MCP visual/functional evidence
 
