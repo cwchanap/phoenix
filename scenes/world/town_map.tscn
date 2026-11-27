@@ -114,7 +114,7 @@ texture = ExtResource("5_shadow")
 
 [node name="Sprite2D" type="Sprite2D" parent="Entities/VillagerShopkeeper"]
 texture = ExtResource("6_villagers")
-offset = Vector2(0, -24)
+offset = Vector2(0, -20)
 hframes = 3
 
 [node name="VillagerFarmer" type="Node2D" parent="Entities"]
@@ -125,7 +125,7 @@ texture = ExtResource("5_shadow")
 
 [node name="Sprite2D" type="Sprite2D" parent="Entities/VillagerFarmer"]
 texture = ExtResource("6_villagers")
-offset = Vector2(0, -24)
+offset = Vector2(0, -20)
 hframes = 3
 frame = 1
 
@@ -137,6 +137,6 @@ texture = ExtResource("5_shadow")
 
 [node name="Sprite2D" type="Sprite2D" parent="Entities/VillagerResident"]
 texture = ExtResource("6_villagers")
-offset = Vector2(0, -24)
+offset = Vector2(0, -20)
 hframes = 3
 frame = 2

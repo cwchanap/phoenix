@@ -5,6 +5,7 @@
 [ext_resource type="Texture2D" path="res://assets/sprites/proof-shadow.png" id="3_shadow"]
 
 [node name="Player" type="CharacterBody2D"]
+physics_interpolation_mode = 1
 script = ExtResource("1_player")
 
 [node name="Shadow" type="Sprite2D" parent="."]
@@ -12,7 +13,7 @@ texture = ExtResource("3_shadow")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 texture = ExtResource("2_player")
-offset = Vector2(0, -24)
+offset = Vector2(0, -20)
 hframes = 4
 vframes = 4
 frame = 8
@@ -20,5 +21,6 @@ frame = 8
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="."]
 
 [node name="Camera2D" type="Camera2D" parent="."]
+process_callback = 0
 position_smoothing_enabled = true
 position_smoothing_speed = 5.0

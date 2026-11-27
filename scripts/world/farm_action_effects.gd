@@ -91,6 +91,9 @@ func _play_tool(texture: Texture2D, facing: int) -> void:
     tool.frame = entry["frame"]
     tool.flip_h = entry["flip"]
     tool.position = entry["anchor"]
+    # The Player subtree is physics-interpolated; this idle-tweened overlay
+    # opts out so its dip is not resampled per physics tick.
+    tool.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
     _player.add_child(tool)
     _external_nodes.append(tool)
     # Small Player-local dip around the HPA-458 anchor; never touches the

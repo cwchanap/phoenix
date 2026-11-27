@@ -41,7 +41,14 @@ func enter_map(spawn: Vector2, camera_bounds: Rect2, map_size: Vector2i) -> void
     camera.limit_top = int(camera_bounds.position.y)
     camera.limit_right = int(camera_bounds.position.x + camera_bounds.size.x)
     camera.limit_bottom = int(camera_bounds.position.y + camera_bounds.size.y)
+    # The Player subtree is physics-interpolated (player.tscn) so it moves every
+    # rendered frame on high-refresh displays; a map entry is a teleport, not a
+    # glide. An interpolated Camera2D only re-reads its target inside the
+    # interpolation reset, so reset, drop the smoothing lag, then reset again
+    # to snap both interpolation ends to the new position.
+    reset_physics_interpolation()
     camera.reset_smoothing()
+    reset_physics_interpolation()
     refresh_target()
 
 func set_input_enabled(enabled: bool) -> void:

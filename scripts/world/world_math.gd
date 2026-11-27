@@ -9,6 +9,8 @@ const TARGET_OFFSETS := {
     Facing.DOWN: Vector2i(1, 1),
     Facing.LEFT: Vector2i(-1, 1),
 }
+## Fraction of TARGET_OFFSETS the target probe reaches ahead of the feet.
+const TARGET_REACH := 0.501
 
 static func grid_delta_to_world(delta: Vector2) -> Vector2:
     return Vector2(
@@ -46,9 +48,15 @@ static func facing_for_input(input: Vector2, previous: Facing) -> Facing:
         return Facing.RIGHT if input.x > 0.0 else Facing.LEFT
     return Facing.DOWN if input.y > 0.0 else Facing.UP
 
+## The target is the cell under a probe half a cell ahead of the feet along
+## the facing (32 px sideways, 16 px up/down), so it is always the tile
+## directly in front of the player, never more than one tile ahead, and a
+## 90-degree turn moves it to an edge-adjacent tile. The probe sits a hair past
+## half a cell so a player standing on a cell centre (spawn, fixtures) resolves
+## forward into the facing's corner neighbour instead of a shared vertex.
 static func target_cell(position: Vector2, facing: Facing, map_size: Vector2i) -> Variant:
-    var offset: Vector2i = TARGET_OFFSETS[facing]
-    var target := Vector2i(floori(position.x), floori(position.y)) + offset
+    var probe := position + Vector2(TARGET_OFFSETS[facing]) * TARGET_REACH
+    var target := Vector2i(floori(probe.x), floori(probe.y))
     if (
         target.x < 0
         or target.x >= map_size.x

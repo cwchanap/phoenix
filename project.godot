@@ -88,6 +88,11 @@ open_settings={
 locale/translations=PackedStringArray("res://assets/i18n/strings.zh_TW.translation", "res://assets/i18n/strings.ja.translation")
 locale/include_text_server_data=true
 
+[physics]
+
+common/physics_jitter_fix=0.0
+common/physics_interpolation=true
+
 [rendering]
 
 2d/snap/snap_2d_transforms_to_pixel=true

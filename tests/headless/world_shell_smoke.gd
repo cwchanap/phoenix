@@ -913,7 +913,29 @@ func _run() -> void:
         "player walk texture",
     ):
         return
-    if not _expect_vec2(player_sprite.offset, Vector2(0.0, -24.0), "player bottom-center offset"):
+    # The walk frames carry 4 px of transparent padding under the boots, so a
+    # -20 offset lands the soles on the ground-contact root.
+    if not _expect_vec2(player_sprite.offset, Vector2(0.0, -20.0), "player bottom-center offset"):
+        return
+    # Only the Player subtree is physics-interpolated (the app root opts out),
+    # so it moves every rendered frame on high-refresh displays.
+    if not _expect(
+        ProjectSettings.get_setting("physics/common/physics_interpolation") == true,
+        "physics interpolation enabled",
+    ):
+        return
+    if not _expect(
+        player.physics_interpolation_mode == Node.PHYSICS_INTERPOLATION_MODE_ON,
+        "player opts into physics interpolation",
+    ):
+        return
+    var app := (load("res://scenes/app/app.tscn") as PackedScene).instantiate()
+    var app_mode := app.physics_interpolation_mode
+    app.free()
+    if not _expect(
+        app_mode == Node.PHYSICS_INTERPOLATION_MODE_OFF,
+        "app root opts out of physics interpolation",
+    ):
         return
 
     var player_shadow := player.get_node_or_null("Shadow") as Sprite2D

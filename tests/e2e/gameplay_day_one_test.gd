@@ -64,7 +64,7 @@ func _assert_stamina(game, expected: int) -> void:
 
 
 # Stand at a grid position with a facing so current_target_cell() resolves
-# to the cell we want (facing UP targets floor(pos) + (-1, -1)).
+# to the cell we want (from a cell centre, facing UP targets cell + (-1, -1)).
 func _stand(game, grid: Vector2, facing: int) -> void:
 	assert_bool(
 		await game.set_property(PLAYER, "global_position", WorldMath.grid_to_world(grid))
